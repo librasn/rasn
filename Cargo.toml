@@ -7,3 +7,7 @@ description = "Something someday."
 license = "MIT/Apache-2.0"
 
 [dependencies]
+nom = "5"
+num-bigint = "0.3.0"
+num-traits = "0.2.12"
+snafu = "0.6.8"
