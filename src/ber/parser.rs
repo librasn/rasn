@@ -5,7 +5,7 @@ use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
 use crate::tag::Class;
-use crate::identifier::Identifier;
+use super::identifier::Identifier;
 
 pub(crate) fn parse_value(input: &[u8]) -> IResult<&[u8], (Identifier, &[u8])> {
     let (input, identifier) = parse_identifier_octet(input)?;

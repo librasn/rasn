@@ -1,19 +1,22 @@
+mod identifier;
+mod parser;
+mod error;
+
 use num_bigint::BigInt;
 use snafu::OptionExt;
 
-use crate::{
-    error::{self, Error},
-    tag::Tag,
-    Decode, Decoder, Result,
-};
+use crate::{tag::Tag, Decode, Decoder};
+use self::error::Error;
+
+pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 pub fn decode<T: Decode>(slice: &[u8]) -> Result<T> {
     T::decode(Ber, slice)
 }
 
-pub fn encode<T, W>(writer: &mut W, value: &T) -> Result<T> {
-    todo!()
-}
+// pub fn encode<T, W>(writer: &mut W, value: &T) -> Result<T> {
+//     todo!()
+// }
 
 struct Ber;
 
@@ -34,8 +37,10 @@ fn assert_length(expected: usize, actual: usize) -> Result<()> {
 }
 
 impl Decoder for Ber {
+    type Error = Error;
+
     fn decode_bool(&self, slice: &[u8]) -> Result<bool> {
-        let (_, (identifier, contents)) = crate::parser::parse_value(slice)
+        let (_, (identifier, contents)) = self::parser::parse_value(slice)
             .ok()
             .context(error::Parser)?;
         assert_tag(Tag::BOOL, identifier.tag)?;
@@ -44,7 +49,7 @@ impl Decoder for Ber {
     }
 
     fn decode_integer(&self, slice: &[u8]) -> Result<BigInt> {
-        let (_, (identifier, contents)) = crate::parser::parse_value(slice)
+        let (_, (identifier, contents)) = self::parser::parse_value(slice)
             .ok()
             .context(error::Parser)?;
         assert_tag(Tag::INTEGER, identifier.tag)?;
