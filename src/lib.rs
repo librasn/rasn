@@ -2,17 +2,12 @@
 
 extern crate alloc;
 
-mod ber;
+pub mod ber;
 mod error;
 mod identifier;
 mod parser;
 mod types;
-
-use num_bigint::BigInt;
-use snafu::OptionExt;
-
-use error::Error;
-use identifier::Tag;
+mod tag;
 
 pub type Result<T, E = error::Error> = core::result::Result<T, E>;
 
@@ -28,5 +23,6 @@ pub trait Encode {
 
 pub trait Decoder {
     fn decode_bool(&self, slice: &[u8]) -> Result<bool>;
-    fn decode_integer(&self, slice: &[u8]) -> Result<BigInt>;
+    fn decode_integer(&self, slice: &[u8]) -> Result<num_bigint::BigInt>;
+    fn decode_octet_string(&self, slice: &[u8]) -> Result<bytes::Bytes>;
 }

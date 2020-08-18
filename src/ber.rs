@@ -3,7 +3,7 @@ use snafu::OptionExt;
 
 use crate::{
     error::{self, Error},
-    identifier::Tag,
+    tag::Tag,
     Decode, Decoder, Result,
 };
 
@@ -49,6 +49,10 @@ impl Decoder for Ber {
             .context(error::Parser)?;
         assert_tag(Tag::INTEGER, identifier.tag)?;
         Ok(BigInt::from_signed_bytes_be(contents))
+    }
+
+    fn decode_octet_string(&self, slice: &[u8]) -> Result<bytes::Bytes> {
+        todo!()
     }
 }
 

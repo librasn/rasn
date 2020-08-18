@@ -1,4 +1,4 @@
-use crate::identifier::Tag;
+use crate::tag::Tag;
 use snafu::Snafu;
 
 #[derive(Snafu)]
