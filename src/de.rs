@@ -1,3 +1,5 @@
+use crate::types;
+
 pub trait Decode: Sized {
     fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self,  D::Error>;
 }
@@ -6,10 +8,10 @@ pub trait Decoder {
     type Error: crate::error::Error;
 
     fn decode_bool(&self, slice: &[u8]) -> Result<bool, Self::Error>;
-    fn decode_integer(&self, slice: &[u8]) -> Result<num_bigint::BigInt, Self::Error>;
-    fn decode_octet_string(&self, slice: &[u8]) -> Result<bytes::Bytes, Self::Error>;
+    fn decode_integer(&self, slice: &[u8]) -> Result<types::Integer, Self::Error>;
+    fn decode_octet_string(&self, slice: &[u8]) -> Result<types::OctetString, Self::Error>;
     fn decode_null(&self, slice: &[u8]) -> Result<(), Self::Error>;
-    fn decode_object_identifier(&self, slice: &[u8]) -> Result<crate::oid::ObjectIdentifier, Self::Error>;
+    fn decode_object_identifier(&self, slice: &[u8]) -> Result<types::ObjectIdentifier, Self::Error>;
 }
 
 impl Decode for bool {
@@ -46,19 +48,19 @@ impl_integers! {
     usize,
 }
 
-impl Decode for num_bigint::BigInt {
+impl Decode for types::Integer {
     fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error> {
         decoder.decode_integer(slice)
     }
 }
 
-impl Decode for bytes::Bytes {
+impl Decode for types::OctetString {
     fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error> {
         decoder.decode_octet_string(slice)
     }
 }
 
-impl Decode for crate::oid::ObjectIdentifier {
+impl Decode for types::ObjectIdentifier {
     fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error> {
         decoder.decode_object_identifier(slice)
     }

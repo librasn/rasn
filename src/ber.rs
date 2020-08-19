@@ -2,10 +2,9 @@ mod identifier;
 mod parser;
 mod error;
 
-use num_bigint::BigInt;
 use snafu::OptionExt;
 
-use crate::{tag::Tag, Decode, Decoder};
+use crate::{Decode, Decoder, tag::Tag, types};
 use self::error::Error;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
@@ -48,21 +47,21 @@ impl Decoder for Ber {
         Ok(contents[0] != 0)
     }
 
-    fn decode_integer(&self, slice: &[u8]) -> Result<BigInt> {
+    fn decode_integer(&self, slice: &[u8]) -> Result<types::Integer> {
         let (_, (identifier, contents)) = self::parser::parse_value(slice)
             .ok()
             .context(error::Parser)?;
         assert_tag(Tag::INTEGER, identifier.tag)?;
-        Ok(BigInt::from_signed_bytes_be(contents))
+        Ok(types::Integer::from_signed_bytes_be(contents))
     }
 
-    fn decode_octet_string(&self, slice: &[u8]) -> Result<bytes::Bytes> {
+    fn decode_octet_string(&self, slice: &[u8]) -> Result<types::OctetString> {
         let (_, (identifier, contents)) = self::parser::parse_value(slice)
             .ok()
             .context(error::Parser)?;
         assert_tag(Tag::OCTET_STRING, identifier.tag)?;
 
-        Ok(bytes::Bytes::copy_from_slice(contents))
+        Ok(types::OctetString::copy_from_slice(contents))
     }
 
     fn decode_null(&self, slice: &[u8]) -> Result<()> {
@@ -73,7 +72,7 @@ impl Decoder for Ber {
         assert_length(0, contents.len())
     }
 
-    fn decode_object_identifier(&self, slice: &[u8]) -> Result<crate::oid::ObjectIdentifier> {
+    fn decode_object_identifier(&self, slice: &[u8]) -> Result<crate::types::ObjectIdentifier> {
         use num_traits::ToPrimitive;
         let (_, (identifier, contents)) = self::parser::parse_value(slice)
             .ok()
@@ -95,7 +94,7 @@ impl Decoder for Ber {
             buffer.push(number.to_u32().expect("sub component greater than `u32`"));
         }
 
-        Ok(crate::oid::ObjectIdentifier::new(buffer))
+        Ok(crate::types::ObjectIdentifier::new(buffer))
     }
 }
 
@@ -132,14 +131,14 @@ mod tests {
         data[2] = 0x01;
         data[3] = 0x01;
         data[4] = 0x01;
-        let mut bigint = BigInt::from(1);
+        let mut bigint = crate::types::Integer::from(1);
         bigint <<= 2048;
         assert_eq!(bigint, decode(&data).unwrap());
     }
 
     #[test]
     fn oid_from_bytes() {
-        let oid = crate::oid::ObjectIdentifier::new(alloc::vec![1, 2, 840, 113549]);
+        let oid = crate::types::ObjectIdentifier::new(alloc::vec![1, 2, 840, 113549]);
         let from_raw =
             decode(&[0x6, 0x6, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d][..]).unwrap();
 
