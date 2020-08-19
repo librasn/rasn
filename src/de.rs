@@ -8,6 +8,8 @@ pub trait Decoder {
     fn decode_bool(&self, slice: &[u8]) -> Result<bool, Self::Error>;
     fn decode_integer(&self, slice: &[u8]) -> Result<num_bigint::BigInt, Self::Error>;
     fn decode_octet_string(&self, slice: &[u8]) -> Result<bytes::Bytes, Self::Error>;
+    fn decode_null(&self, slice: &[u8]) -> Result<(), Self::Error>;
+    fn decode_object_identifier(&self, slice: &[u8]) -> Result<crate::oid::ObjectIdentifier, Self::Error>;
 }
 
 impl Decode for bool {
@@ -47,5 +49,17 @@ impl_integers! {
 impl Decode for num_bigint::BigInt {
     fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error> {
         decoder.decode_integer(slice)
+    }
+}
+
+impl Decode for bytes::Bytes {
+    fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error> {
+        decoder.decode_octet_string(slice)
+    }
+}
+
+impl Decode for crate::oid::ObjectIdentifier {
+    fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error> {
+        decoder.decode_object_identifier(slice)
     }
 }

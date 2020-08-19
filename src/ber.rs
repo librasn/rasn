@@ -57,7 +57,45 @@ impl Decoder for Ber {
     }
 
     fn decode_octet_string(&self, slice: &[u8]) -> Result<bytes::Bytes> {
-        todo!()
+        let (_, (identifier, contents)) = self::parser::parse_value(slice)
+            .ok()
+            .context(error::Parser)?;
+        assert_tag(Tag::OCTET_STRING, identifier.tag)?;
+
+        Ok(bytes::Bytes::copy_from_slice(contents))
+    }
+
+    fn decode_null(&self, slice: &[u8]) -> Result<()> {
+        let (_, (identifier, contents)) = self::parser::parse_value(slice)
+            .ok()
+            .context(error::Parser)?;
+        assert_tag(Tag::NULL, identifier.tag)?;
+        assert_length(0, contents.len())
+    }
+
+    fn decode_object_identifier(&self, slice: &[u8]) -> Result<crate::oid::ObjectIdentifier> {
+        use num_traits::ToPrimitive;
+        let (_, (identifier, contents)) = self::parser::parse_value(slice)
+            .ok()
+            .context(error::Parser)?;
+        assert_tag(Tag::OBJECT_IDENTIFIER, identifier.tag)?;
+        let (input, root_octets) = parser::parse_encoded_number(contents).ok().context(error::Parser)?;
+        let second = (&root_octets % 40u8)
+            .to_u32()
+            .expect("Second root component greater than `u32`");
+        let first = ((root_octets - second) / 40u8)
+            .to_u32()
+            .expect("first root component greater than `u32`");
+        let mut buffer = alloc::vec![first, second];
+
+        let mut input = input;
+        while !input.is_empty() {
+            let (new_input, number) = parser::parse_encoded_number(input).ok().context(error::Parser)?;
+            input = new_input;
+            buffer.push(number.to_u32().expect("sub component greater than `u32`"));
+        }
+
+        Ok(crate::oid::ObjectIdentifier::new(buffer))
     }
 }
 
@@ -97,5 +135,14 @@ mod tests {
         let mut bigint = BigInt::from(1);
         bigint <<= 2048;
         assert_eq!(bigint, decode(&data).unwrap());
+    }
+
+    #[test]
+    fn oid_from_bytes() {
+        let oid = crate::oid::ObjectIdentifier::new(alloc::vec![1, 2, 840, 113549]);
+        let from_raw =
+            decode(&[0x6, 0x6, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d][..]).unwrap();
+
+        assert_eq!(oid, from_raw);
     }
 }

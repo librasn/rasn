@@ -34,15 +34,3 @@ impl core::ops::Deref for Identifier {
         &self.tag
     }
 }
-
-impl From<Tag> for Identifier {
-    fn from(tag: Tag) -> Self {
-        Self {
-            tag,
-            is_constructed: match tag {
-                Tag::SEQUENCE | Tag::SET | Tag::EXTERNAL => true,
-                _ => false,
-            },
-        }
-    }
-}
