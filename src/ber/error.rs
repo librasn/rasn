@@ -1,11 +1,30 @@
 use crate::tag::Tag;
 use snafu::Snafu;
 
+pub(crate) fn assert_tag(expected: Tag, actual: Tag) -> super::Result<()> {
+    if expected != actual {
+        Err(Error::MismatchedTag { expected, actual })
+    } else {
+        Ok(())
+    }
+}
+
+pub(crate) fn assert_length(expected: usize, actual: usize) -> super::Result<()> {
+    if expected != actual {
+        Err(Error::MismatchedLength { expected, actual })
+    } else {
+        Ok(())
+    }
+}
+
 #[derive(Snafu)]
 #[snafu(visibility = "pub(crate)")]
 #[derive(Debug)]
 pub enum Error {
-    Parser,
+    #[snafu(display("Error in BER Parser:\n{}", backtrace))]
+    Parser {
+        backtrace: snafu::Backtrace,
+    },
     #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
     MismatchedTag {
         expected: Tag,
@@ -19,6 +38,10 @@ pub enum Error {
     #[snafu(display("Actual larger than expected {} bits", max_width))]
     IntegerOverflow {
         max_width: u32,
+    },
+    #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
+    InvalidBitString {
+        bits: u8,
     },
     #[snafu(display("{}", msg))]
     Custom {

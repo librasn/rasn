@@ -12,6 +12,7 @@ pub trait Decoder {
     fn decode_octet_string(&self, slice: &[u8]) -> Result<types::OctetString, Self::Error>;
     fn decode_null(&self, slice: &[u8]) -> Result<(), Self::Error>;
     fn decode_object_identifier(&self, slice: &[u8]) -> Result<types::ObjectIdentifier, Self::Error>;
+    fn decode_bit_string(&self, slice: &[u8]) -> Result<types::BitString, Self::Error>;
 }
 
 impl Decode for bool {
@@ -63,5 +64,11 @@ impl Decode for types::OctetString {
 impl Decode for types::ObjectIdentifier {
     fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error> {
         decoder.decode_object_identifier(slice)
+    }
+}
+
+impl Decode for types::BitString {
+    fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error> {
+        decoder.decode_bit_string(slice)
     }
 }

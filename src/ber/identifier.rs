@@ -6,7 +6,7 @@ pub struct Identifier {
     /// The ASN.1 tag.
     pub tag: Tag,
     /// Whether a type is using `constructed` or `primitive` encoding.
-    pub is_constructed: bool,
+    is_constructed: bool,
 }
 
 impl Identifier {
@@ -24,6 +24,14 @@ impl Identifier {
             tag: self.tag.set_value(tag),
             is_constructed: self.is_constructed,
         }
+    }
+
+    pub fn is_constructed(&self) -> bool {
+        self.is_constructed
+    }
+
+    pub fn is_primitive(&self) -> bool {
+        !self.is_constructed()
     }
 }
 
