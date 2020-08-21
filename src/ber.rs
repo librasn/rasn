@@ -40,9 +40,26 @@ impl Decoder for Ber {
         Ok(types::Integer::from_signed_bytes_be(contents))
     }
 
-    fn decode_octet_string(&self, slice: &[u8]) -> Result<types::OctetString> {
-        self::parser::parse_encoded_value(Tag::OCTET_STRING, slice, |input| Ok(alloc::vec::Vec::from(input)))
-            .map(|(_, vec)| types::OctetString::from(vec))
+    fn decode_octet_string(&self, tag: Tag, slice: &[u8]) -> Result<types::OctetString> {
+        let (_, (identifier, mut contents)) = self::parser::parse_value(slice)
+            .ok()
+            .context(error::Parser)?;
+        error::assert_tag(tag, identifier.tag)?;
+
+        if identifier.is_primitive() {
+            Ok(contents.to_vec().into())
+        } else {
+            let mut buffer = alloc::vec![];
+            while !contents.is_empty() {
+                let (c, mut vec) = self::parser::parse_encoded_value(Tag::OCTET_STRING, contents, |input| Ok(alloc::vec::Vec::from(input)))?;
+                contents = c;
+
+                buffer.append(&mut vec);
+            }
+
+            Ok(buffer.into())
+        }
+
     }
 
     fn decode_null(&self, slice: &[u8]) -> Result<()> {
@@ -102,14 +119,8 @@ impl Decoder for Ber {
     }
 
     fn decode_utf8_string(&self, slice: &[u8]) -> Result<types::Utf8String> {
-        let (_, (identifier, contents)) = self::parser::parse_value(slice)
-            .ok()
-            .context(error::Parser)?;
-        error::assert_tag(Tag::UTF8_STRING, identifier.tag)?;
-
-        Ok(types::Utf8String::from_utf8(contents.into())
-            .ok()
-            .context(error::InvalidUtf8)?)
+        self.decode_octet_string(Tag::UTF8_STRING, slice)
+            .and_then(|bytes| types::Utf8String::from_utf8(bytes.to_vec()).ok().context(error::InvalidUtf8))
     }
 }
 
@@ -192,11 +203,10 @@ mod tests {
 
         let constructed_encoded: types::BitString = decode(
             &[
-                // TAG + LENGTH
-                0x23, 0x80, // Part 1
-                0x03, 0x03, 0x00, 0x0A, 0x3B, // Part 2
-                0x3, 0x5, 0x04, 0x5F, 0x29, 0x1C, 0xD0, // EOC
-                0x0, 0x0,
+                0x23, 0x80, // TAG + LENGTH
+                0x03, 0x03, 0x00, 0x0A, 0x3B, // Part 1
+                0x03, 0x05, 0x04, 0x5F, 0x29, 0x1C, 0xD0, // Part 2
+                0x00, 0x00, // EOC
             ][..],
         )
         .map_err(|e| panic!("{}", e))
@@ -204,5 +214,34 @@ mod tests {
 
         assert_eq!(bitstring, primitive_encoded);
         assert_eq!(bitstring, constructed_encoded);
+    }
+
+    #[test]
+    fn utf8_string() {
+        use alloc::string::String;
+        let name = String::from("Jones");
+        let primitive = &[
+            0x0C, 0x05,
+            0x4A, 0x6F, 0x6E, 0x65, 0x73
+        ];
+        let definite_constructed = &[
+            0x2C, 0x09, // TAG + LENGTH
+                0x04, 0x03, // PART 1 TLV
+                0x4A, 0x6F, 0x6E,
+                0x04, 0x02, // PART 2 TLV
+                0x65, 0x73
+        ];
+        let indefinite_constructed = &[
+            0x2C, 0x80, // TAG + LENGTH
+                0x04, 0x03, // PART 1 TLV
+                0x4A, 0x6F, 0x6E,
+                0x04, 0x02, // PART 2 TLV
+                0x65, 0x73,
+            0x00, 0x00,
+        ];
+
+        assert_eq!(name, decode::<String>(primitive).unwrap());
+        assert_eq!(name, decode::<String>(definite_constructed).unwrap());
+        assert_eq!(name, decode::<String>(indefinite_constructed).unwrap());
     }
 }

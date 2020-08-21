@@ -6,7 +6,7 @@ use snafu::OptionExt;
 
 use super::{error, identifier::Identifier};
 use crate::tag::{Class, Tag};
-use crate::types::{BitString, Integer};
+use crate::types::Integer;
 
 pub(crate) fn parse_value(input: &[u8]) -> IResult<&[u8], (Identifier, &[u8])> {
     let (input, identifier) = parse_identifier_octet(input)?;
