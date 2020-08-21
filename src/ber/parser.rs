@@ -4,9 +4,9 @@ use nom::IResult;
 use num_traits::ToPrimitive;
 use snafu::OptionExt;
 
-use crate::types::{Integer, BitString};
-use crate::tag::{Class, Tag};
 use super::{error, identifier::Identifier};
+use crate::tag::{Class, Tag};
+use crate::types::{BitString, Integer};
 
 pub(crate) fn parse_value(input: &[u8]) -> IResult<&[u8], (Identifier, &[u8])> {
     let (input, identifier) = parse_identifier_octet(input)?;
@@ -14,6 +14,34 @@ pub(crate) fn parse_value(input: &[u8]) -> IResult<&[u8], (Identifier, &[u8])> {
 
     Ok((input, (identifier, contents)))
 }
+
+pub(crate) fn parse_encoded_value<RV>(
+    tag: Tag,
+    slice: &[u8],
+    primitive_callback: fn(&[u8]) -> super::Result<RV>,
+) -> super::Result<(&[u8], RV)>
+    where
+        RV: Appendable,
+{
+    let (input, (identifier, contents)) = parse_value(slice).ok().context(error::Parser)?;
+    error::assert_tag(tag, identifier.tag)?;
+
+    if identifier.is_primitive() {
+        Ok((input, (primitive_callback)(contents)?))
+    } else {
+        let mut container = RV::new();
+        let mut contents = contents;
+
+        while !contents.is_empty() {
+            let (c, mut embedded_container) = parse_encoded_value(tag, contents, primitive_callback)?;
+            contents = c;
+            container.append(&mut embedded_container)
+        }
+
+        Ok((input, container))
+    }
+}
+
 
 pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier> {
     let (input, identifier) = parse_initial_octet(input)?;
@@ -53,47 +81,28 @@ pub(crate) fn parse_contents(input: &[u8]) -> IResult<&[u8], &[u8]> {
     take_contents(input, length[0])
 }
 
-pub(crate) fn parse_bit_string(input: &[u8]) -> super::Result<(&[u8], BitString)> {
-    let (input, (identifier, contents)) = parse_value(input)
-        .ok()
-        .context(error::Parser)?;
-    error::assert_tag(Tag::BIT_STRING, identifier.tag)?;
+pub(crate) trait Appendable: Sized {
+    fn new() -> Self;
+    fn append(&mut self, other: &mut Self);
+}
 
-    if contents.is_empty() {
-        Ok((input, BitString::new()))
-    } else if identifier.is_primitive() {
-        Ok((input, parse_bit_string_value(contents)?))
-    } else {
-        let mut buffer = BitString::new();
-        let mut contents = contents;
+impl Appendable for Vec<u8> {
+    fn new() -> Self {
+        Self::new()
+    }
 
-        while !contents.is_empty() {
-            let (c, mut bs) = parse_bit_string(contents)?;
-            contents = c;
-            buffer.append(&mut bs);
-        }
-
-        Ok((input, buffer))
+    fn append(&mut self, other: &mut Self) {
+        self.append(other);
     }
 }
 
-/// Decodes a primitive encoded it string.
-fn parse_bit_string_value(input: &[u8]) -> super::Result<BitString> {
-    let unused_bits = input[0];
+impl Appendable for crate::types::BitString {
+    fn new() -> Self {
+        Self::new()
+    }
 
-    match unused_bits {
-        0..=7 => {
-            let mut buffer = BitString::from(&input[1..]);
-
-            for _ in 0..unused_bits {
-                buffer.pop();
-            }
-
-            Ok(buffer)
-        }
-        _ => {
-            return Err(error::Error::InvalidBitString { bits: unused_bits })
-        }
+    fn append(&mut self, other: &mut Self) {
+        self.append(other);
     }
 }
 

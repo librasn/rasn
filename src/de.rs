@@ -1,7 +1,7 @@
 use crate::types;
 
 pub trait Decode: Sized {
-    fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self,  D::Error>;
+    fn decode<D: Decoder>(decoder: D, slice: &[u8]) -> Result<Self, D::Error>;
 }
 
 pub trait Decoder {
@@ -11,8 +11,12 @@ pub trait Decoder {
     fn decode_integer(&self, slice: &[u8]) -> Result<types::Integer, Self::Error>;
     fn decode_octet_string(&self, slice: &[u8]) -> Result<types::OctetString, Self::Error>;
     fn decode_null(&self, slice: &[u8]) -> Result<(), Self::Error>;
-    fn decode_object_identifier(&self, slice: &[u8]) -> Result<types::ObjectIdentifier, Self::Error>;
+    fn decode_object_identifier(
+        &self,
+        slice: &[u8],
+    ) -> Result<types::ObjectIdentifier, Self::Error>;
     fn decode_bit_string(&self, slice: &[u8]) -> Result<types::BitString, Self::Error>;
+    fn decode_utf8_string(&self, slice: &[u8]) -> Result<types::Utf8String, Self::Error>;
 }
 
 impl Decode for bool {

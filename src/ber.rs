@@ -1,10 +1,10 @@
+mod error;
 mod identifier;
 mod parser;
-mod error;
 
-use snafu::OptionExt;
+use snafu::*;
 
-use crate::{Decode, Decoder, tag::Tag, types};
+use crate::{tag::Tag, types, Decode, Decoder};
 
 pub use self::error::Error;
 
@@ -41,12 +41,8 @@ impl Decoder for Ber {
     }
 
     fn decode_octet_string(&self, slice: &[u8]) -> Result<types::OctetString> {
-        let (_, (identifier, contents)) = self::parser::parse_value(slice)
-            .ok()
-            .context(error::Parser)?;
-        error::assert_tag(Tag::OCTET_STRING, identifier.tag)?;
-
-        Ok(types::OctetString::copy_from_slice(contents))
+        self::parser::parse_encoded_value(Tag::OCTET_STRING, slice, |input| Ok(alloc::vec::Vec::from(input)))
+            .map(|(_, vec)| types::OctetString::from(vec))
     }
 
     fn decode_null(&self, slice: &[u8]) -> Result<()> {
@@ -63,7 +59,9 @@ impl Decoder for Ber {
             .ok()
             .context(error::Parser)?;
         error::assert_tag(Tag::OBJECT_IDENTIFIER, identifier.tag)?;
-        let (input, root_octets) = parser::parse_encoded_number(contents).ok().context(error::Parser)?;
+        let (input, root_octets) = parser::parse_encoded_number(contents)
+            .ok()
+            .context(error::Parser)?;
         let second = (&root_octets % 40u8)
             .to_u32()
             .expect("Second root component greater than `u32`");
@@ -74,7 +72,9 @@ impl Decoder for Ber {
 
         let mut input = input;
         while !input.is_empty() {
-            let (new_input, number) = parser::parse_encoded_number(input).ok().context(error::Parser)?;
+            let (new_input, number) = parser::parse_encoded_number(input)
+                .ok()
+                .context(error::Parser)?;
             input = new_input;
             buffer.push(number.to_u32().expect("sub component greater than `u32`"));
         }
@@ -83,9 +83,34 @@ impl Decoder for Ber {
     }
 
     fn decode_bit_string(&self, slice: &[u8]) -> Result<types::BitString> {
-        parser::parse_bit_string(slice).map(|(_, bs)| bs)
+        self::parser::parse_encoded_value(Tag::BIT_STRING, slice, |input| {
+            let unused_bits = input[0];
+
+            match unused_bits {
+                0..=7 => {
+                    let mut buffer = types::BitString::from(&input[1..]);
+
+                    for _ in 0..unused_bits {
+                        buffer.pop();
+                    }
+
+                    Ok(buffer)
+                }
+                _ => return Err(Error::InvalidBitString { bits: unused_bits }),
+            }
+        }).map(|(_, bs)| bs)
     }
 
+    fn decode_utf8_string(&self, slice: &[u8]) -> Result<types::Utf8String> {
+        let (_, (identifier, contents)) = self::parser::parse_value(slice)
+            .ok()
+            .context(error::Parser)?;
+        error::assert_tag(Tag::UTF8_STRING, identifier.tag)?;
+
+        Ok(types::Utf8String::from_utf8(contents.into())
+            .ok()
+            .context(error::InvalidUtf8)?)
+    }
 }
 
 #[cfg(test)]
@@ -129,10 +154,25 @@ mod tests {
     #[test]
     fn oid_from_bytes() {
         let oid = types::ObjectIdentifier::new(alloc::vec![1, 2, 840, 113549]);
-        let from_raw =
-            decode(&[0x6, 0x6, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d][..]).unwrap();
+        let from_raw = decode(&[0x6, 0x6, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d][..]).unwrap();
 
         assert_eq!(oid, from_raw);
+    }
+
+    #[test]
+    fn octet_string() {
+        let octet_string = types::OctetString::from(alloc::vec![1, 2, 3, 4, 5, 6]);
+        let primitive_encoded = &[0x4, 0x6, 1, 2, 3, 4, 5, 6];
+        let constructed_encoded = &[0x24, 0x80, 0x4, 0x4, 1, 2, 3, 4, 0x4, 0x2, 5, 6, 0x0, 0x0];
+
+        assert_eq!(
+            octet_string,
+            decode::<types::OctetString>(primitive_encoded).unwrap()
+        );
+        assert_eq!(
+            octet_string,
+            decode::<types::OctetString>(constructed_encoded).unwrap()
+        );
     }
 
     #[test]
@@ -150,16 +190,17 @@ mod tests {
         let primitive_encoded: types::BitString =
             decode(&[0x03, 0x07, 0x04, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..]).unwrap();
 
-        let constructed_encoded: types::BitString =
-            decode(&[
+        let constructed_encoded: types::BitString = decode(
+            &[
                 // TAG + LENGTH
-                0x23, 0x80,
-                    // Part 1
-                    0x03, 0x03, 0x00, 0x0A, 0x3B,
-                    // Part 2
-                    0x3, 0x5, 0x04, 0x5F, 0x29, 0x1C, 0xD0,
-                // EOC
-                0x0, 0x0][..]).map_err(|e| panic!("{}", e)).unwrap();
+                0x23, 0x80, // Part 1
+                0x03, 0x03, 0x00, 0x0A, 0x3B, // Part 2
+                0x3, 0x5, 0x04, 0x5F, 0x29, 0x1C, 0xD0, // EOC
+                0x0, 0x0,
+            ][..],
+        )
+        .map_err(|e| panic!("{}", e))
+        .unwrap();
 
         assert_eq!(bitstring, primitive_encoded);
         assert_eq!(bitstring, constructed_encoded);

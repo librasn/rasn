@@ -101,4 +101,3 @@ impl Tag {
         BMP_STRING = 30
     }
 }
-

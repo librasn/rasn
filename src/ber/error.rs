@@ -21,32 +21,20 @@ pub(crate) fn assert_length(expected: usize, actual: usize) -> super::Result<()>
 #[snafu(visibility = "pub(crate)")]
 #[derive(Debug)]
 pub enum Error {
+    #[snafu(display("Invalid UTF-8 in UTF8String"))]
+    InvalidUtf8,
     #[snafu(display("Error in BER Parser:\n{}", backtrace))]
-    Parser {
-        backtrace: snafu::Backtrace,
-    },
+    Parser { backtrace: snafu::Backtrace },
     #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
-    MismatchedTag {
-        expected: Tag,
-        actual: Tag,
-    },
+    MismatchedTag { expected: Tag, actual: Tag },
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
-    MismatchedLength {
-        expected: usize,
-        actual: usize,
-    },
+    MismatchedLength { expected: usize, actual: usize },
     #[snafu(display("Actual larger than expected {} bits", max_width))]
-    IntegerOverflow {
-        max_width: u32,
-    },
+    IntegerOverflow { max_width: u32 },
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
-    InvalidBitString {
-        bits: u8,
-    },
+    InvalidBitString { bits: u8 },
     #[snafu(display("{}", msg))]
-    Custom {
-        msg: alloc::string::String,
-    }
+    Custom { msg: alloc::string::String },
 }
 
 impl crate::error::Error for Error {
