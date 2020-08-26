@@ -2,6 +2,8 @@ mod error;
 mod identifier;
 mod parser;
 
+use alloc::vec::Vec;
+
 use snafu::*;
 
 use crate::{tag::Tag, types, Decode, Decoder};
@@ -10,48 +12,54 @@ pub use self::error::Error;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
-pub fn decode<T: Decode>(slice: &[u8]) -> Result<T> {
-    T::decode(Ber, slice)
+pub fn decode<T: Decode>(input: &[u8]) -> Result<T> {
+    T::decode(&mut Parser { input })
 }
 
 // pub fn encode<T, W>(writer: &mut W, value: &T) -> Result<T> {
 //     todo!()
 // }
 
-struct Ber;
+struct Parser<'input> {
+    input: &'input [u8],
+}
 
-impl Decoder for Ber {
-    type Error = Error;
-
-    fn decode_bool(&self, slice: &[u8]) -> Result<bool> {
-        let (_, (identifier, contents)) = self::parser::parse_value(slice)
+impl<'input> Parser<'input> {
+    fn parse_value(&mut self, tag: Tag) -> Result<(self::identifier::Identifier, &'input [u8])> {
+        let (input, (identifier, contents)) = self::parser::parse_value(self.input, tag)
             .ok()
             .context(error::Parser)?;
-        error::assert_tag(Tag::BOOL, identifier.tag)?;
+        self.input = input;
+        Ok((identifier, contents))
+    }
+}
+
+impl<'input> Decoder for &mut Parser<'input> {
+    type Error = Error;
+
+    fn is_empty(&self) -> bool {
+        self.input.is_empty()
+    }
+
+    fn decode_bool(self, tag: Tag) -> Result<bool> {
+        let (_, contents) = self.parse_value(tag)?;
         error::assert_length(1, contents.len())?;
         Ok(contents[0] != 0)
     }
 
-    fn decode_integer(&self, slice: &[u8]) -> Result<types::Integer> {
-        let (_, (identifier, contents)) = self::parser::parse_value(slice)
-            .ok()
-            .context(error::Parser)?;
-        error::assert_tag(Tag::INTEGER, identifier.tag)?;
-        Ok(types::Integer::from_signed_bytes_be(contents))
+    fn decode_integer(self, tag: Tag) -> Result<types::Integer> {
+        Ok(types::Integer::from_signed_bytes_be(self.parse_value(tag)?.1))
     }
 
-    fn decode_octet_string(&self, tag: Tag, slice: &[u8]) -> Result<types::OctetString> {
-        let (_, (identifier, mut contents)) = self::parser::parse_value(slice)
-            .ok()
-            .context(error::Parser)?;
-        error::assert_tag(tag, identifier.tag)?;
+    fn decode_octet_string(self, tag: Tag) -> Result<types::OctetString> {
+        let (identifier, mut contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
             Ok(contents.to_vec().into())
         } else {
             let mut buffer = alloc::vec![];
             while !contents.is_empty() {
-                let (c, mut vec) = self::parser::parse_encoded_value(Tag::OCTET_STRING, contents, |input| Ok(alloc::vec::Vec::from(input)))?;
+                let (c, mut vec) = self::parser::parse_encoded_value(contents, Tag::OCTET_STRING, |input| Ok(alloc::vec::Vec::from(input)))?;
                 contents = c;
 
                 buffer.append(&mut vec);
@@ -62,21 +70,16 @@ impl Decoder for Ber {
 
     }
 
-    fn decode_null(&self, slice: &[u8]) -> Result<()> {
-        let (_, (identifier, contents)) = self::parser::parse_value(slice)
-            .ok()
-            .context(error::Parser)?;
-        error::assert_tag(Tag::NULL, identifier.tag)?;
-        error::assert_length(0, contents.len())
+    fn decode_null(self, tag: Tag) -> Result<()> {
+        let (_, contents) = self.parse_value(tag)?;
+        error::assert_length(0, contents.len())?;
+        Ok(())
     }
 
-    fn decode_object_identifier(&self, slice: &[u8]) -> Result<crate::types::ObjectIdentifier> {
+    fn decode_object_identifier(self, tag: Tag) -> Result<crate::types::ObjectIdentifier> {
         use num_traits::ToPrimitive;
-        let (_, (identifier, contents)) = self::parser::parse_value(slice)
-            .ok()
-            .context(error::Parser)?;
-        error::assert_tag(Tag::OBJECT_IDENTIFIER, identifier.tag)?;
-        let (input, root_octets) = parser::parse_encoded_number(contents)
+        let contents = self.parse_value(tag)?.1;
+        let (mut contents, root_octets) = parser::parse_encoded_number(contents)
             .ok()
             .context(error::Parser)?;
         let second = (&root_octets % 40u8)
@@ -87,20 +90,19 @@ impl Decoder for Ber {
             .expect("first root component greater than `u32`");
         let mut buffer = alloc::vec![first, second];
 
-        let mut input = input;
-        while !input.is_empty() {
-            let (new_input, number) = parser::parse_encoded_number(input)
+        while !contents.is_empty() {
+            let (c, number) = parser::parse_encoded_number(contents)
                 .ok()
                 .context(error::Parser)?;
-            input = new_input;
+            contents = c;
             buffer.push(number.to_u32().expect("sub component greater than `u32`"));
         }
 
         Ok(crate::types::ObjectIdentifier::new(buffer))
     }
 
-    fn decode_bit_string(&self, slice: &[u8]) -> Result<types::BitString> {
-        self::parser::parse_encoded_value(Tag::BIT_STRING, slice, |input| {
+    fn decode_bit_string(self, tag: Tag) -> Result<types::BitString> {
+        self::parser::parse_encoded_value(self.input, tag, |input| {
             let unused_bits = input[0];
 
             match unused_bits {
@@ -115,12 +117,27 @@ impl Decoder for Ber {
                 }
                 _ => return Err(Error::InvalidBitString { bits: unused_bits }),
             }
-        }).map(|(_, bs)| bs)
+        }).map(|(_, rv)| rv)
     }
 
-    fn decode_utf8_string(&self, slice: &[u8]) -> Result<types::Utf8String> {
-        self.decode_octet_string(Tag::UTF8_STRING, slice)
-            .and_then(|bytes| types::Utf8String::from_utf8(bytes.to_vec()).ok().context(error::InvalidUtf8))
+    fn decode_utf8_string(self, tag: Tag) -> Result<types::Utf8String> {
+        let vec = self.decode_octet_string(tag)?.to_vec();
+        types::Utf8String::from_utf8(vec).ok().context(error::InvalidUtf8)
+    }
+
+
+    fn decode_sequence_of<D: Decode>(self, tag: Tag) -> Result<Vec<D>> {
+        let contents = self.parse_value(tag)?.1;
+        let mut vec = Vec::new();
+
+        let mut sequence_parser = Parser { input: contents };
+
+        while !Decoder::is_empty(&&mut sequence_parser) {
+            let value = D::decode(&mut sequence_parser)?;
+            vec.push(value);
+        }
+
+        Ok(vec)
     }
 }
 
@@ -243,5 +260,17 @@ mod tests {
         assert_eq!(name, decode::<String>(primitive).unwrap());
         assert_eq!(name, decode::<String>(definite_constructed).unwrap());
         assert_eq!(name, decode::<String>(indefinite_constructed).unwrap());
+    }
+
+    #[test]
+    fn sequence_of() {
+        let vec = alloc::vec!["Jon", "es"];
+        let from_raw: Vec<alloc::string::String> = decode(&[
+            0x30, 0x9,
+            0x0C, 0x03, 0x4A, 0x6F, 0x6E,
+            0x0C, 0x02, 0x65, 0x73
+        ][..]).unwrap();
+
+        assert_eq!(vec, from_raw);
     }
 }

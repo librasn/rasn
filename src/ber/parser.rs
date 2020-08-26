@@ -8,23 +8,23 @@ use super::{error, identifier::Identifier};
 use crate::tag::{Class, Tag};
 use crate::types::Integer;
 
-pub(crate) fn parse_value(input: &[u8]) -> IResult<&[u8], (Identifier, &[u8])> {
-    let (input, identifier) = parse_identifier_octet(input)?;
-    let (input, contents) = parse_contents(input)?;
+pub(crate) fn parse_value(input: &[u8], tag: Tag) -> super::Result<(&[u8], (Identifier, &[u8]))> {
+    let (input, identifier) = parse_identifier_octet(input).ok().context(error::Parser)?;
+    error::assert_tag(tag, identifier.tag)?;
+    let (input, contents) = parse_contents(input).ok().context(error::Parser)?;
 
     Ok((input, (identifier, contents)))
 }
 
 pub(crate) fn parse_encoded_value<RV>(
-    tag: Tag,
     slice: &[u8],
+    tag: Tag,
     primitive_callback: fn(&[u8]) -> super::Result<RV>,
 ) -> super::Result<(&[u8], RV)>
     where
         RV: Appendable,
 {
-    let (input, (identifier, contents)) = parse_value(slice).ok().context(error::Parser)?;
-    error::assert_tag(tag, identifier.tag)?;
+    let (input, (identifier, contents)) = parse_value(slice, tag).ok().context(error::Parser)?;
 
     if identifier.is_primitive() {
         Ok((input, (primitive_callback)(contents)?))
@@ -33,7 +33,7 @@ pub(crate) fn parse_encoded_value<RV>(
         let mut contents = contents;
 
         while !contents.is_empty() {
-            let (c, mut embedded_container) = parse_encoded_value(tag, contents, primitive_callback)?;
+            let (c, mut embedded_container) = parse_encoded_value(contents, tag, primitive_callback)?;
             contents = c;
             container.append(&mut embedded_container)
         }
@@ -41,7 +41,6 @@ pub(crate) fn parse_encoded_value<RV>(
         Ok((input, container))
     }
 }
-
 
 pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier> {
     let (input, identifier) = parse_initial_octet(input)?;
@@ -160,7 +159,7 @@ mod tests {
 
     #[test]
     fn value_long_length_form() {
-        let (_, (_, contents)) = parse_value([0x1, 0x81, 0x2, 0xF0, 0xF0][..].into()).unwrap();
+        let (_, (_, contents)) = parse_value([0x1, 0x81, 0x2, 0xF0, 0xF0][..].into(), Tag::BOOL).unwrap();
 
         assert_eq!(contents, &[0xF0, 0xF0]);
     }
@@ -172,7 +171,7 @@ mod tests {
         let mut value = alloc::vec![0x1, 0x82, 0x1, 0x0];
         value.extend_from_slice(&full_buffer);
 
-        let (_, (_, contents)) = parse_value((&*value).into()).unwrap();
+        let (_, (_, contents)) = parse_value((&*value).into(), Tag::BOOL).unwrap();
 
         assert_eq!(contents, &full_buffer[..]);
     }
@@ -180,7 +179,7 @@ mod tests {
     #[test]
     fn value_indefinite_length_form() {
         let (_, (_, contents)) =
-            parse_value([0x1, 0x80, 0xf0, 0xf0, 0xf0, 0xf0, 0, 0][..].into()).unwrap();
+            parse_value([0x1, 0x80, 0xf0, 0xf0, 0xf0, 0xf0, 0, 0][..].into(), Tag::BOOL).unwrap();
 
         assert_eq!(contents, &[0xf0, 0xf0, 0xf0, 0xf0]);
     }
