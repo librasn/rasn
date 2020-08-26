@@ -1,4 +1,6 @@
 #![no_std]
+#![feature(const_generics)]
+#![allow(incomplete_features)]
 
 extern crate alloc;
 

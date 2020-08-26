@@ -17,14 +17,30 @@ pub(crate) fn assert_length(expected: usize, actual: usize) -> super::Result<()>
     }
 }
 
+pub(crate) fn map_nom_err(error: nom::Err<(&[u8], nom::error::ErrorKind)>) -> Error {
+    use nom::{Err, Needed};
+    let msg = match error {
+      Err::Incomplete(Needed::Size(u)) => alloc::format!("Parsing requires {} bytes/chars", u),
+      Err::Incomplete(Needed::Unknown) => alloc::format!("Parsing requires more data"),
+      Err::Failure(c) => alloc::format!("Parsing Failure: {:?}", c),
+      Err::Error(c) => alloc::format!("Parsing Error: {:?}", c),
+    };
+
+    Error::Parser {
+        msg,
+    }
+}
+
 #[derive(Snafu)]
 #[snafu(visibility = "pub(crate)")]
 #[derive(Debug)]
 pub enum Error {
     #[snafu(display("Invalid UTF-8 in UTF8String"))]
     InvalidUtf8,
-    #[snafu(display("Error in BER Parser:\n{}", backtrace))]
-    Parser { backtrace: snafu::Backtrace },
+    #[snafu(display("Error in Parser\n{}", msg))]
+    Parser {
+        msg: alloc::string::String
+    },
     #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
     MismatchedTag { expected: Tag, actual: Tag },
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
@@ -39,9 +55,8 @@ pub enum Error {
 
 impl crate::error::Error for Error {
     fn custom<D: core::fmt::Display>(msg: D) -> Self {
-        use alloc::string::ToString;
         Self::Custom {
-            msg: msg.to_string(),
+            msg: alloc::string::ToString::to_string(&msg),
         }
     }
 }

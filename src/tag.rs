@@ -1,3 +1,5 @@
+pub use self::consts::*;
+
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
     Universal = 0,
@@ -34,32 +36,6 @@ pub struct Tag {
     pub value: u32,
 }
 
-impl Tag {
-    pub const fn new(class: Class, value: u32) -> Self {
-        Self { class, value }
-    }
-
-    pub fn set_value(mut self, value: u32) -> Self {
-        self.value = value;
-        self
-    }
-
-    pub fn len(&self) -> usize {
-        if self.value > 0x1f {
-            let mut len = 1;
-            let mut value = self.value;
-            while value != 0 {
-                len += 1;
-                value >>= 7;
-            }
-
-            len
-        } else {
-            1
-        }
-    }
-}
-
 macro_rules! consts {
     ($($name:ident = $value:expr),+) => {
         impl Tag {
@@ -67,6 +43,26 @@ macro_rules! consts {
                 pub const $name: Tag = Tag::new(Class::Universal, $value);
             )+
         }
+
+        #[allow(non_camel_case_types)]
+        pub mod consts {
+            use super::*;
+
+            pub trait TagValue {
+                const TAG: Tag;
+            }
+
+            $(
+                #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+                pub struct $name;
+
+                impl TagValue for $name {
+                    const TAG: Tag = Tag::$name;
+                }
+
+            )+
+        }
+
     }
 }
 
@@ -101,3 +97,72 @@ consts! {
     CHARACTER_STRING = 29,
     BMP_STRING = 30
 }
+
+impl Tag {
+    pub const fn new(class: Class, value: u32) -> Self {
+        Self { class, value }
+    }
+
+    pub fn set_value(mut self, value: u32) -> Self {
+        self.value = value;
+        self
+    }
+
+    pub fn len(&self) -> usize {
+        if self.value > 0x1f {
+            let mut len = 1;
+            let mut value = self.value;
+            while value != 0 {
+                len += 1;
+                value >>= 7;
+            }
+
+            len
+        } else {
+            1
+        }
+    }
+}
+
+macro_rules! tag_kind {
+    ($($name:ident),+) => {
+        $(
+            #[derive(Debug, PartialEq, Eq)]
+            pub struct $name<T, V>{
+                _tag: core::marker::PhantomData<T>,
+                pub(crate) value: V,
+            }
+
+            impl<T, V> $name<T, V>{
+                pub fn new(value: V) -> Self {
+                    Self {
+                        value,
+                        _tag: core::marker::PhantomData,
+                    }
+                }
+            }
+
+            impl<T, V> From<V> for $name<T, V> {
+                fn from(value: V) -> Self {
+                    Self::new(value)
+                }
+            }
+
+            impl<T, V> core::ops::Deref for $name<T, V> {
+                type Target = V;
+
+                fn deref(&self) -> &Self::Target {
+                    &self.value
+                }
+            }
+
+            impl<T, V> core::ops::DerefMut for $name<T, V> {
+                fn deref_mut(&mut self) -> &mut Self::Target {
+                    &mut self.value
+                }
+            }
+        )+
+    }
+}
+
+tag_kind!(Implicit, Explicit);
