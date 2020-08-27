@@ -179,7 +179,7 @@ mod tests {
     fn tagged_boolean() {
         #[derive(Debug, PartialEq, Eq)]
         struct A2;
-        impl tag::TagValue for A2 {
+        impl types::AsnType for A2 {
             const TAG: Tag = Tag::new(tag::Class::Context, 2);
         }
 

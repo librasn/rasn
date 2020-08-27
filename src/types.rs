@@ -1,6 +1,6 @@
 mod oid;
 
-use crate::tag::{self, Implicit};
+use crate::tag::{self, Implicit, Tag};
 
 pub use alloc::string::String as Utf8String;
 pub use bytes::Bytes as OctetString;
@@ -21,3 +21,9 @@ pub type BmpString = Implicit<tag::BMP_STRING, Utf8String>;
 pub type NumericString = Implicit<tag::NUMERIC_STRING, Utf8String>;
 ///  `UniversalString` string alias that matches BER's encoding rules.
 pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
+
+/// A trait representing any type that can represented in ASN.1.
+pub trait AsnType {
+    /// The associated tag for the type.
+    const TAG: Tag;
+}

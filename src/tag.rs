@@ -48,15 +48,11 @@ macro_rules! consts {
         pub mod consts {
             use super::*;
 
-            pub trait TagValue {
-                const TAG: Tag;
-            }
-
             $(
                 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
                 pub struct $name;
 
-                impl TagValue for $name {
+                impl crate::types::AsnType for $name {
                     const TAG: Tag = Tag::$name;
                 }
 

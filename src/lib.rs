@@ -4,6 +4,7 @@
 
 extern crate alloc;
 
+pub mod enc;
 pub mod de;
 pub mod error;
 pub mod tag;

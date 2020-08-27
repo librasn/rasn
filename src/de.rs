@@ -1,7 +1,7 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 
-use crate::tag::{Tag, TagValue};
-use crate::types;
+use crate::tag::Tag;
+use crate::types::{self, AsnType};
 
 pub trait Decode: Sized {
     const TAG: Tag;
@@ -119,7 +119,7 @@ impl<T: Decode> Decode for alloc::vec::Vec<T> {
     }
 }
 
-impl<T: TagValue, V: Decode> Decode for crate::tag::Implicit<T, V> {
+impl<T: AsnType, V: Decode> Decode for crate::tag::Implicit<T, V> {
     const TAG: Tag = T::TAG;
 
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
@@ -127,7 +127,7 @@ impl<T: TagValue, V: Decode> Decode for crate::tag::Implicit<T, V> {
     }
 }
 
-impl<T: TagValue, V: Decode> Decode for crate::tag::Explicit<T, V> {
+impl<T: AsnType, V: Decode> Decode for crate::tag::Explicit<T, V> {
     const TAG: Tag = T::TAG;
 
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
