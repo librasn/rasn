@@ -3,9 +3,11 @@ use alloc::vec::Vec;
 use nom::IResult;
 use num_traits::ToPrimitive;
 
-use super::{error, identifier::Identifier};
-use crate::tag::{Class, Tag};
-use crate::types::Integer;
+use crate::{
+    ber::{error, identifier::Identifier},
+    tag::{Class, Tag},
+    types::Integer,
+};
 
 pub(crate) fn parse_value(input: &[u8], tag: Tag) -> super::Result<(&[u8], (Identifier, &[u8]))> {
     let (input, identifier) = parse_identifier_octet(input).map_err(error::map_nom_err)?;
