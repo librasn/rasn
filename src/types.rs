@@ -27,3 +27,46 @@ pub trait AsnType {
     /// The associated tag for the type.
     const TAG: Tag;
 }
+
+macro_rules! asn_type {
+    ($($name:ty: $value:ident),+) => {
+        $(
+            impl AsnType for $name {
+                const TAG: Tag = Tag::$value;
+            }
+        )+
+    }
+}
+
+asn_type! {
+    bool: BOOL,
+    i8: INTEGER,
+    i16: INTEGER,
+    i32: INTEGER,
+    i64: INTEGER,
+    i128: INTEGER,
+    isize: INTEGER,
+    u8: INTEGER,
+    u16: INTEGER,
+    u32: INTEGER,
+    u64: INTEGER,
+    u128: INTEGER,
+    usize: INTEGER,
+    Integer: INTEGER,
+    OctetString: OCTET_STRING,
+    ObjectIdentifier: OBJECT_IDENTIFIER,
+    BitString: BIT_STRING,
+    Utf8String: UTF8_STRING
+}
+
+impl<T> AsnType for alloc::vec::Vec<T> {
+    const TAG: Tag = Tag::SEQUENCE;
+}
+
+impl<T: AsnType, V> AsnType for crate::tag::Implicit<T, V> {
+    const TAG: Tag = T::TAG;
+}
+
+impl<T: AsnType, V> AsnType for crate::tag::Explicit<T, V> {
+    const TAG: Tag = T::TAG;
+}

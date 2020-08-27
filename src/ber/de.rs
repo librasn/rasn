@@ -316,9 +316,11 @@ mod tests {
             ok: bool,
         }
 
-        impl Decode for Foo {
+        impl types::AsnType for Foo {
             const TAG: Tag = Tag::SEQUENCE;
+        }
 
+        impl Decode for Foo {
             fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
                 let mut field_decoder = decoder.decode_sequence(tag)?;
 

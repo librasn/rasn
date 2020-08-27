@@ -3,8 +3,7 @@ use alloc::{collections::BTreeSet, vec::Vec};
 use crate::tag::Tag;
 use crate::types::{self, AsnType};
 
-pub trait Decode: Sized {
-    const TAG: Tag;
+pub trait Decode: Sized + AsnType {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
         Self::decode_with_tag(decoder, Self::TAG)
     }
@@ -35,7 +34,6 @@ pub trait Decoder: Sized {
 }
 
 impl Decode for bool {
-    const TAG: Tag = Tag::BOOL;
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_bool(tag)
     }
@@ -45,8 +43,6 @@ macro_rules! impl_integers {
     ($($int:ty),+ $(,)?) => {
         $(
         impl Decode for $int {
-            const TAG: Tag = Tag::INTEGER;
-
             fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
                 core::convert::TryInto::try_into(decoder.decode_integer(tag)?)
                     .map_err(crate::error::Error::custom)
@@ -72,64 +68,48 @@ impl_integers! {
 }
 
 impl Decode for types::Integer {
-    const TAG: Tag = Tag::INTEGER;
-
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_integer(tag)
     }
 }
 
 impl Decode for types::OctetString {
-    const TAG: Tag = Tag::OCTET_STRING;
-
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_octet_string(tag)
     }
 }
 
 impl Decode for types::ObjectIdentifier {
-    const TAG: Tag = Tag::OBJECT_IDENTIFIER;
-
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_object_identifier(tag)
     }
 }
 
 impl Decode for types::BitString {
-    const TAG: Tag = Tag::BIT_STRING;
-
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_bit_string(tag)
     }
 }
 
 impl Decode for types::Utf8String {
-    const TAG: Tag = Tag::UTF8_STRING;
-
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_utf8_string(tag)
     }
 }
 
 impl<T: Decode> Decode for alloc::vec::Vec<T> {
-    const TAG: Tag = Tag::SEQUENCE;
-
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_sequence_of(tag)
     }
 }
 
 impl<T: AsnType, V: Decode> Decode for crate::tag::Implicit<T, V> {
-    const TAG: Tag = T::TAG;
-
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(V::decode_with_tag(decoder, tag)?))
     }
 }
 
 impl<T: AsnType, V: Decode> Decode for crate::tag::Explicit<T, V> {
-    const TAG: Tag = T::TAG;
-
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(decoder.decode_explicit_prefix(tag)?))
     }
