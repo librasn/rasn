@@ -4,10 +4,11 @@ use nom::IResult;
 use num_traits::ToPrimitive;
 
 use crate::{
-    ber::{error, identifier::Identifier},
+    ber::identifier::Identifier,
     tag::{Class, Tag},
     types::Integer,
 };
+use super::error;
 
 pub(crate) fn parse_value(input: &[u8], tag: Tag) -> super::Result<(&[u8], (Identifier, &[u8]))> {
     let (input, identifier) = parse_identifier_octet(input).map_err(error::map_nom_err)?;

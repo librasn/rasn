@@ -1,12 +1,8 @@
-mod error;
 mod identifier;
 mod de;
+mod enc;
 
-pub use self::error::Error;
-
-pub type Result<T, E = Error> = core::result::Result<T, E>;
-
-pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T> {
+pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
     T::decode(&mut de::Parser::new(input))
 }
 

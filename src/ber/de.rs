@@ -1,11 +1,16 @@
 mod parser;
+mod error;
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use snafu::*;
 
 use crate::{tag::Tag, types, Decode, Decoder};
-use super::{identifier::Identifier, error::{self, Error}, Result};
+use super::identifier::Identifier;
+
+pub use self::error::Error;
+
+type Result<T, E = Error> = core::result::Result<T, E>;
 
 pub(crate) struct Parser<'input> {
     input: &'input [u8],
