@@ -103,12 +103,8 @@ impl<'input> Decoder for Parser<'input> {
 
             match unused_bits {
                 0..=7 => {
-                    let mut buffer = types::BitString::from(&input[1..]);
-
-                    for _ in 0..unused_bits {
-                        buffer.pop();
-                    }
-
+                    let mut buffer = types::BitString::from_slice(&input[1..]);
+                    buffer.truncate(buffer.len()-unused_bits as usize);
                     Ok(buffer)
                 }
                 _ => return Err(Error::InvalidBitString { bits: unused_bits }),
@@ -249,12 +245,10 @@ mod tests {
     #[test]
     fn bit_string() {
         let bitstring = {
-            let mut b = types::BitString::from_vec(alloc::vec![0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0]);
-
+            let mut b = types::BitString::from_slice(&[0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0]);
             for _ in 0..4 {
                 b.pop();
             }
-
             b
         };
 

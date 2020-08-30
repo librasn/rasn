@@ -33,6 +33,12 @@ pub trait Decoder: Sized {
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D, Self::Error>;
 }
 
+impl Decode for () {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        decoder.decode_null(tag)
+    }
+}
+
 impl Decode for bool {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_bool(tag)
