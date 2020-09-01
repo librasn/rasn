@@ -104,6 +104,10 @@ impl crate::Encoder for Encoder {
         Ok(self.encode_value(tag, &[if value { 0xff } else { 0x00 }]))
     }
 
+    fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error> {
+        self.encode_integer(tag, value.into())
+    }
+
     fn encode_integer(&mut self, tag: Tag, value: types::Integer) -> Result<Self::Ok, Self::Error> {
         Ok(self.encode_value(tag, &value.to_signed_bytes_be()))
     }
@@ -175,6 +179,17 @@ impl crate::Encoder for Encoder {
 
         Ok(self.encode_value(tag, &bytes))
     }
+
+    fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+        where F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>
+    {
+        let mut encoder = Self::default();
+
+        (encoder_scope)(&mut encoder)?;
+
+        Ok(self.encode_value(tag, &encoder.output))
+    }
+
 }
 
 #[cfg(test)]

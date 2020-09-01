@@ -113,7 +113,17 @@ dependencies = [
  "nom",
  "num-bigint",
  "num-traits",
+ "rasn-derive",
  "snafu",
+]
+
+[[package]]
+name = "rasn-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

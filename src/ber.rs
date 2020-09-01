@@ -16,9 +16,14 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::E
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::*;
-    use alloc::vec;
-    use crate::tag::{Class, Tag, Implicit, Explicit};
+    use alloc::{vec, vec::Vec};
+    use crate::{
+        AsnType,
+        Decode,
+        Encode,
+        types::*,
+        tag::{Class, Tag, Implicit, Explicit},
+    };
 
     #[test]
     fn null() {
@@ -144,10 +149,10 @@ mod tests {
         assert_eq!(new_int, decode(&encode(&new_int).unwrap()).unwrap());
     }
 
-    /*
     #[test]
     fn sequence() {
-        #[derive(Debug, Default, Deserialize, Serialize, PartialEq)]
+        #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
         struct Bools {
             a: bool,
             b: bool,
@@ -167,6 +172,7 @@ mod tests {
             b: false,
             c: true,
         };
+
         assert_eq!(default, decode(&raw).unwrap());
         assert_eq!(raw, &*encode(&default).unwrap());
 
@@ -178,25 +184,26 @@ mod tests {
     }
 
     #[test]
-    fn choice() {
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+    fn enumerated() {
+        #[derive(AsnType, Clone, Debug, Decode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[rasn(enumerated)]
         enum Foo {
             Ein,
             Zwei,
             Drei,
         }
 
-        impl Enumerable for Foo {}
+        let ein = Foo::Ein;
+        let zwei = Foo::Zwei;
+        let drei = Foo::Drei;
 
-        let ein = Enumerated::new(Foo::Ein);
-        let zwei = Enumerated::new(Foo::Zwei);
-        let drei = Enumerated::new(Foo::Drei);
-
-        assert_eq!(ein, decode(&encode(&ein).unwrap()).unwrap());
-        assert_eq!(zwei, decode(&encode(&zwei).unwrap()).unwrap());
-        assert_eq!(drei, decode(&encode(&drei).unwrap()).unwrap());
+        // assert_eq!(ein, decode(&encode(&ein).unwrap()).unwrap());
+        // assert_eq!(zwei, decode(&encode(&zwei).unwrap()).unwrap());
+        // assert_eq!(drei, decode(&encode(&drei).unwrap()).unwrap());
     }
 
+    /*
     #[test]
     fn choice_newtype_variant() {
         #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]

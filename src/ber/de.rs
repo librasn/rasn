@@ -41,6 +41,10 @@ impl<'input> Decoder for Parser<'input> {
         Ok(contents[0] != 0)
     }
 
+    fn decode_enumerated(&mut self, tag: Tag) -> Result<types::Integer> {
+        self.decode_integer(tag)
+    }
+
     fn decode_integer(&mut self, tag: Tag) -> Result<types::Integer> {
         Ok(types::Integer::from_signed_bytes_be(
             self.parse_value(tag)?.1,

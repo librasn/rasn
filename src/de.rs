@@ -18,6 +18,7 @@ pub trait Decoder: Sized {
 
     fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString, Self::Error>;
     fn decode_bool(&mut self, tag: Tag) -> Result<bool, Self::Error>;
+    fn decode_enumerated(&mut self, tag: Tag) -> Result<types::Integer, Self::Error>;
     fn decode_integer(&mut self, tag: Tag) -> Result<types::Integer, Self::Error>;
     fn decode_null(&mut self, tag: Tag) -> Result<(), Self::Error>;
     fn decode_object_identifier(
