@@ -13,6 +13,7 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::E
 
     Ok(enc.output)
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -22,7 +23,7 @@ mod tests {
         Decode,
         Encode,
         types::*,
-        tag::{Class, Tag, Implicit, Explicit},
+        tag::{Class, Tag},
     };
 
     #[test]
@@ -183,9 +184,10 @@ mod tests {
         assert_eq!(raw, &*encode(&bools_vec).unwrap());
     }
 
+
     #[test]
     fn enumerated() {
-        #[derive(AsnType, Clone, Debug, Decode, PartialEq)]
+        #[derive(AsnType, Clone, Copy, Debug, Encode, Decode, PartialEq)]
         #[rasn(crate_root = "crate")]
         #[rasn(enumerated)]
         enum Foo {
@@ -198,76 +200,29 @@ mod tests {
         let zwei = Foo::Zwei;
         let drei = Foo::Drei;
 
-        // assert_eq!(ein, decode(&encode(&ein).unwrap()).unwrap());
-        // assert_eq!(zwei, decode(&encode(&zwei).unwrap()).unwrap());
-        // assert_eq!(drei, decode(&encode(&drei).unwrap()).unwrap());
+        assert_eq!(ein, decode(&encode(&ein).unwrap()).unwrap());
+        assert_eq!(zwei, decode(&encode(&zwei).unwrap()).unwrap());
+        assert_eq!(drei, decode(&encode(&drei).unwrap()).unwrap());
     }
 
-    /*
     #[test]
-    fn choice_newtype_variant() {
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-        enum Foo {
-            Bar(Implicit<Context, U0, bool>),
-            Baz(Implicit<Context, U1, OctetString>),
+    fn choice() {
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[rasn(choice)]
+        enum Choice {
+            Bar(bool),
+            Baz(OctetString),
         }
 
-        let bar = Foo::Bar(Implicit::new(true));
-        let baz = Foo::Baz(Implicit::new(OctetString::from(vec![1, 2, 3, 4, 5])));
+        let bar = Choice::Bar(true);
+        let baz = Choice::Baz(OctetString::from(vec![1, 2, 3, 4, 5]));
 
         assert_eq!(bar, decode(&encode(&bar).unwrap()).unwrap());
         assert_eq!(baz, decode(&encode(&baz).unwrap()).unwrap());
     }
 
-    #[test]
-    fn sequence_in_sequence_in_choice() {
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-        enum FooExtern {
-            Bar(Implicit<Context, U0, BarData>),
-        }
-
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-        struct BarData {
-            data: OctetString,
-        }
-
-        let bar_extern = FooExtern::Bar(Implicit::new(BarData {
-            data: OctetString::from(vec![1, 2, 3, 4]),
-        }));
-        let extern_encoded = encode(&bar_extern).unwrap();
-
-        assert_eq!(bar_extern, decode(&extern_encoded).unwrap());
-    }
-
-    #[test]
-    fn response() {
-        #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-        struct Response {
-            status: Status,
-            body: Body,
-        }
-
-        #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-        enum Status {
-            Success(Implicit<Context, U0, ()>),
-            Error(Implicit<Context, U1, u8>),
-        }
-
-        #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-        struct Body {
-            data: OctetString,
-        }
-
-        let response = Response {
-            status: Status::Success(Implicit::new(())),
-            body: Body {
-                data: OctetString::from(vec![1, 2, 3, 4, 5]),
-            },
-        };
-
-        assert_eq!(response, decode(&encode(&response).unwrap()).unwrap());
-    }
-
+    /*
     #[test]
     fn optional() {
         env_logger::init();

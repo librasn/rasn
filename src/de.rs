@@ -14,7 +14,10 @@ pub trait Decode: Sized + AsnType {
 pub trait Decoder: Sized {
     type Error: crate::error::Error;
 
+    /// Returns whether the decoder's input is empty.
     fn is_empty(&self) -> bool;
+    /// Peek at the next available tag.
+    fn peek_tag(&self) -> Result<Tag, Self::Error>;
 
     fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString, Self::Error>;
     fn decode_bool(&mut self, tag: Tag) -> Result<bool, Self::Error>;
@@ -110,13 +113,13 @@ impl<T: Decode> Decode for alloc::vec::Vec<T> {
     }
 }
 
-impl<T: AsnType, V: Decode> Decode for crate::tag::Implicit<T, V> {
+impl<T: AsnType, V: Decode> Decode for types::Implicit<T, V> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(V::decode_with_tag(decoder, tag)?))
     }
 }
 
-impl<T: AsnType, V: Decode> Decode for crate::tag::Explicit<T, V> {
+impl<T: AsnType, V: Decode> Decode for types::Explicit<T, V> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(decoder.decode_explicit_prefix(tag)?))
     }

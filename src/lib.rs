@@ -19,3 +19,6 @@ pub use enc::{Encode, Encoder};
 pub use types::AsnType;
 pub use tag::Tag;
 pub use rasn_derive::*;
+
+#[doc(hidden)]
+pub use phf;

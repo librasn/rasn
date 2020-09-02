@@ -10,7 +10,7 @@ pub trait Encode: types::AsnType {
 
 pub trait Encoder {
     type Ok;
-    type Error;
+    type Error: crate::error::Error;
 
     fn encode_explicit_prefix<V: Encode>(&mut self, tag: Tag, value: &V) -> Result<Self::Ok, Self::Error>;
     fn encode_bit_string(&mut self, tag: Tag, value: &types::BitSlice) -> Result<Self::Ok, Self::Error>;
@@ -111,13 +111,13 @@ impl<E: Encode> Encode for types::SequenceOf<E> {
     }
 }
 
-impl<T: crate::types::AsnType, V: Encode> Encode for crate::tag::Implicit<T, V> {
+impl<T: crate::types::AsnType, V: Encode> Encode for types::Implicit<T, V> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<EN::Ok, EN::Error> {
         V::encode_with_tag(&self.value, encoder, tag)
     }
 }
 
-impl<T: crate::types::AsnType, V: Encode> Encode for crate::tag::Explicit<T, V> {
+impl<T: crate::types::AsnType, V: Encode> Encode for types::Explicit<T, V> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<EN::Ok, EN::Error> {
         encoder.encode_explicit_prefix(tag, &self.value)
     }

@@ -26,6 +26,11 @@ impl<'input> Parser<'input> {
         self.input = input;
         Ok((identifier, contents))
     }
+
+    pub(crate) fn peek_identifier(&self) -> Result<Identifier> {
+        let (_, identifier) = self::parser::parse_identifier_octet(self.input).map_err(error::map_nom_err)?;
+        Ok(identifier)
+    }
 }
 
 impl<'input> Decoder for Parser<'input> {
@@ -33,6 +38,10 @@ impl<'input> Decoder for Parser<'input> {
 
     fn is_empty(&self) -> bool {
         self.input.is_empty()
+    }
+
+    fn peek_tag(&self) -> Result<Tag> {
+        Ok(self.peek_identifier()?.tag)
     }
 
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {
@@ -171,7 +180,7 @@ impl<'input> Decoder for Parser<'input> {
 mod tests {
     use alloc::string::String;
 
-    use crate::{ber::decode, tag};
+    use crate::{ber::decode, tag::{self, Class}, types::*};
     use super::*;
 
     #[test]
@@ -189,7 +198,7 @@ mod tests {
         }
 
         assert_eq!(
-            tag::Explicit::<A2, _>::new(true),
+            Explicit::<A2, _>::new(true),
             decode(&[0xa2, 0x03, 0x01, 0x01, 0xff]).unwrap()
         );
     }
@@ -267,7 +276,6 @@ mod tests {
                 0x00, 0x00, // EOC
             ][..],
         )
-        .map_err(|e| panic!("{}", e))
         .unwrap();
 
         assert_eq!(bitstring, primitive_encoded);
@@ -346,5 +354,48 @@ mod tests {
 
         assert_eq!(foo, decode(bytes).unwrap());
     }
+
+    #[test]
+    fn tagging() {
+        type Type1 = VisibleString;
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        struct Type2Tag;
+        impl AsnType for Type2Tag {
+            const TAG: Tag = Tag::new(Class::Application, 3);
+        }
+        type Type2 = Implicit<Type2Tag, Type1>;
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        struct Type3Tag;
+        impl AsnType for Type3Tag {
+            const TAG: Tag = Tag::new(Class::Context, 2);
+        }
+        type Type3 = Explicit<Type3Tag, Type2>;
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        struct Type4Tag;
+        impl AsnType for Type4Tag {
+            const TAG: Tag = Tag::new(Class::Application, 7);
+        }
+        type Type4 = Implicit<Type4Tag, Type3>;
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        struct Type5Tag;
+        impl AsnType for Type5Tag {
+            const TAG: Tag = Tag::new(Class::Context, 2);
+        }
+        type Type5 = Implicit<Type5Tag, Type2>;
+
+        let jones = String::from("Jones");
+        let jones1 = Type1::from(jones);
+        let jones2 = Type2::from(jones1.clone());
+        let jones3 = Type3::from(jones2.clone());
+        let jones4 = Type4::from(jones3.clone());
+        let jones5 = Type5::from(jones2.clone());
+
+        assert_eq!(jones1, decode(&[0x1A, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
+        assert_eq!(jones2, decode(&[0x43, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
+        assert_eq!(jones3, decode(&[0xa2, 0x07, 0x43, 0x5, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
+        assert_eq!(jones4, decode(&[0x67, 0x07, 0x43, 0x5, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
+        assert_eq!(jones5, decode(&[0x82, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
+    }
+
 }
 

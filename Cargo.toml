@@ -8,6 +8,7 @@ license = "MIT/Apache-2.0"
 
 [workspace]
 members = [".", "macros"]
+exclude = ["fuzzing"]
 
 [dependencies]
 nom = { version = "5", default-features = false, features = ["alloc"] }
@@ -17,3 +18,4 @@ snafu = { version = "0.6.8", default-features = false }
 bytes = { version = "0.5.6", default-features = false }
 bitvec = { version = "0.17.4", default-features = false, features = ["alloc"] }
 rasn-derive = { version = "0.1.0", path = "macros" }
+phf = { version = "0.8.0", features = ["macros"] }

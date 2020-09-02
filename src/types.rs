@@ -1,6 +1,6 @@
 mod oid;
 
-use crate::tag::{self, Implicit, Tag};
+use crate::tag::{self, Tag};
 
 pub use alloc::string::String as Utf8String;
 pub use bytes::Bytes as OctetString;
@@ -26,11 +26,74 @@ pub type SequenceOf<T> = alloc::vec::Vec<T>;
 ///  `UniversalString` string alias that matches BER's encoding rules.
 pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
 
+pub use rasn_derive::AsnType;
+
 /// A trait representing any type that can represented in ASN.1.
 pub trait AsnType {
     /// The associated tag for the type.
     const TAG: Tag;
 }
+
+#[derive(AsnType)]
+#[rasn(crate_root = "crate")]
+#[rasn(choice)]
+pub enum Open {
+    BitString(BitString),
+    IA5String(IA5String),
+    PrintableString(PrintableString),
+    VisibleString(VisibleString),
+    BmpString(BmpString),
+    NumericString(NumericString),
+    SequenceOf(SequenceOf<Open>),
+    UniversalString(UniversalString),
+    Bool(bool),
+    Integer(Integer),
+    Null,
+    OctetString(OctetString),
+}
+
+macro_rules! tag_kind {
+    ($($name:ident),+) => {
+        $(
+            #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+            pub struct $name<T, V>{
+                _tag: core::marker::PhantomData<T>,
+                pub(crate) value: V,
+            }
+
+            impl<T, V> $name<T, V>{
+                pub fn new(value: V) -> Self {
+                    Self {
+                        value,
+                        _tag: core::marker::PhantomData,
+                    }
+                }
+            }
+
+            impl<T, V> From<V> for $name<T, V> {
+                fn from(value: V) -> Self {
+                    Self::new(value)
+                }
+            }
+
+            impl<T, V> core::ops::Deref for $name<T, V> {
+                type Target = V;
+
+                fn deref(&self) -> &Self::Target {
+                    &self.value
+                }
+            }
+
+            impl<T, V> core::ops::DerefMut for $name<T, V> {
+                fn deref_mut(&mut self) -> &mut Self::Target {
+                    &mut self.value
+                }
+            }
+        )+
+    }
+}
+
+tag_kind!(Implicit, Explicit);
 
 macro_rules! asn_type {
     ($($name:ty: $value:ident),+) => {
@@ -75,10 +138,10 @@ impl<T> AsnType for &'_ [T] {
     const TAG: Tag = Tag::SEQUENCE;
 }
 
-impl<T: AsnType, V> AsnType for crate::tag::Implicit<T, V> {
+impl<T: AsnType, V> AsnType for Implicit<T, V> {
     const TAG: Tag = T::TAG;
 }
 
-impl<T: AsnType, V> AsnType for crate::tag::Explicit<T, V> {
+impl<T: AsnType, V> AsnType for Explicit<T, V> {
     const TAG: Tag = T::TAG;
 }

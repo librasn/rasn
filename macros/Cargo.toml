@@ -13,3 +13,4 @@ proc-macro = true
 syn = "1.0.39"
 quote = "1.0.7"
 proc-macro2 = "1.0.19"
+phf_codegen = "0.8.0"

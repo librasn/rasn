@@ -51,7 +51,13 @@ pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier>
     let (input, tag) = if identifier.tag.value >= 0x1f {
         let (input, tag) = parse_encoded_number(input)?;
 
-        (input, tag.to_u32().expect("Tag was larger than `u32`."))
+        match tag.to_u32() {
+            Some(value) => (input, value),
+            None => {
+                use nom::error::ParseError;
+                return Err(nom::Err::Failure(<_>::from_error_kind(input, nom::error::ErrorKind::TooLarge)));
+            }
+        }
     } else {
         (input, identifier.tag.value)
     };
