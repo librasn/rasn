@@ -1,6 +1,10 @@
 use crate::config::Config;
 
-pub fn derive_struct_impl(name: syn::Ident, generics: syn::Generics, config: &Config) -> proc_macro2::TokenStream {
+pub fn derive_struct_impl(
+    name: syn::Ident,
+    generics: syn::Generics,
+    config: &Config,
+) -> proc_macro2::TokenStream {
     let crate_root = &config.crate_root;
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
@@ -10,7 +14,11 @@ pub fn derive_struct_impl(name: syn::Ident, generics: syn::Generics, config: &Co
     })
 }
 
-pub fn derive_enum_impl(name: syn::Ident, generics: syn::Generics, config: &Config) -> proc_macro2::TokenStream {
+pub fn derive_enum_impl(
+    name: syn::Ident,
+    generics: syn::Generics,
+    config: &Config,
+) -> proc_macro2::TokenStream {
     let crate_root = &config.crate_root;
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]

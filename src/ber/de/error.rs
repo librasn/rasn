@@ -20,15 +20,13 @@ pub(crate) fn assert_length(expected: usize, actual: usize) -> super::Result<()>
 pub(crate) fn map_nom_err(error: nom::Err<(&[u8], nom::error::ErrorKind)>) -> Error {
     use nom::{Err, Needed};
     let msg = match error {
-      Err::Incomplete(Needed::Size(u)) => alloc::format!("Parsing requires {} bytes/chars", u),
-      Err::Incomplete(Needed::Unknown) => alloc::format!("Parsing requires more data"),
-      Err::Failure(c) => alloc::format!("Parsing Failure: {:?}", c),
-      Err::Error(c) => alloc::format!("Parsing Error: {:?}", c),
+        Err::Incomplete(Needed::Size(u)) => alloc::format!("Parsing requires {} bytes/chars", u),
+        Err::Incomplete(Needed::Unknown) => alloc::format!("Parsing requires more data"),
+        Err::Failure(c) => alloc::format!("Parsing Failure: {:?}", c),
+        Err::Error(c) => alloc::format!("Parsing Error: {:?}", c),
     };
 
-    Error::Parser {
-        msg,
-    }
+    Error::Parser { msg }
 }
 
 #[derive(Snafu)]
@@ -38,9 +36,7 @@ pub enum Error {
     #[snafu(display("Invalid UTF-8 in UTF8String"))]
     InvalidUtf8,
     #[snafu(display("Error in Parser\n{}", msg))]
-    Parser {
-        msg: alloc::string::String
-    },
+    Parser { msg: alloc::string::String },
     #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
     MismatchedTag { expected: Tag, actual: Tag },
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]

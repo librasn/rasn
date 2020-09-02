@@ -1,12 +1,12 @@
-mod parser;
 mod error;
+mod parser;
 
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use snafu::*;
 
-use crate::{tag::Tag, types, Decode, Decoder};
 use super::identifier::Identifier;
+use crate::{tag::Tag, types, Decode, Decoder};
 
 pub use self::error::Error;
 
@@ -28,7 +28,8 @@ impl<'input> Parser<'input> {
     }
 
     pub(crate) fn peek_identifier(&self) -> Result<Identifier> {
-        let (_, identifier) = self::parser::parse_identifier_octet(self.input).map_err(error::map_nom_err)?;
+        let (_, identifier) =
+            self::parser::parse_identifier_octet(self.input).map_err(error::map_nom_err)?;
         Ok(identifier)
     }
 }
@@ -90,8 +91,8 @@ impl<'input> Decoder for Parser<'input> {
     fn decode_object_identifier(&mut self, tag: Tag) -> Result<crate::types::ObjectIdentifier> {
         use num_traits::ToPrimitive;
         let contents = self.parse_value(tag)?.1;
-        let (mut contents, root_octets) = parser::parse_encoded_number(contents)
-            .map_err(error::map_nom_err)?;
+        let (mut contents, root_octets) =
+            parser::parse_encoded_number(contents).map_err(error::map_nom_err)?;
         let second = (&root_octets % 40u8)
             .to_u32()
             .expect("Second root component greater than `u32`");
@@ -101,8 +102,7 @@ impl<'input> Decoder for Parser<'input> {
         let mut buffer = alloc::vec![first, second];
 
         while !contents.is_empty() {
-            let (c, number) = parser::parse_encoded_number(contents)
-                .map_err(error::map_nom_err)?;
+            let (c, number) = parser::parse_encoded_number(contents).map_err(error::map_nom_err)?;
             contents = c;
             buffer.push(number.to_u32().expect("sub component greater than `u32`"));
         }
@@ -117,7 +117,7 @@ impl<'input> Decoder for Parser<'input> {
             match unused_bits {
                 0..=7 => {
                     let mut buffer = types::BitString::from_slice(&input[1..]);
-                    buffer.truncate(buffer.len()-unused_bits as usize);
+                    buffer.truncate(buffer.len() - unused_bits as usize);
                     Ok(buffer)
                 }
                 _ => return Err(Error::InvalidBitString { bits: unused_bits }),
@@ -180,8 +180,12 @@ impl<'input> Decoder for Parser<'input> {
 mod tests {
     use alloc::string::String;
 
-    use crate::{ber::decode, tag::{self, Class}, types::*};
     use super::*;
+    use crate::{
+        ber::decode,
+        tag::{self, Class},
+        types::*,
+    };
 
     #[test]
     fn boolean() {
@@ -348,8 +352,8 @@ mod tests {
         };
         let bytes = &[
             0x30, 0x0A, // TAG + LENGTH
-                0x16, 0x05, 0x53, 0x6d, 0x69, 0x74, 0x68, // IA5String "Smith"
-                0x01, 0x01, 0xff, // BOOL True
+            0x16, 0x05, 0x53, 0x6d, 0x69, 0x74, 0x68, // IA5String "Smith"
+            0x01, 0x01, 0xff, // BOOL True
         ];
 
         assert_eq!(foo, decode(bytes).unwrap());
@@ -390,12 +394,25 @@ mod tests {
         let jones4 = Type4::from(jones3.clone());
         let jones5 = Type5::from(jones2.clone());
 
-        assert_eq!(jones1, decode(&[0x1A, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
-        assert_eq!(jones2, decode(&[0x43, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
-        assert_eq!(jones3, decode(&[0xa2, 0x07, 0x43, 0x5, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
-        assert_eq!(jones4, decode(&[0x67, 0x07, 0x43, 0x5, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
-        assert_eq!(jones5, decode(&[0x82, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap());
+        assert_eq!(
+            jones1,
+            decode(&[0x1A, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap()
+        );
+        assert_eq!(
+            jones2,
+            decode(&[0x43, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap()
+        );
+        assert_eq!(
+            jones3,
+            decode(&[0xa2, 0x07, 0x43, 0x5, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap()
+        );
+        assert_eq!(
+            jones4,
+            decode(&[0x67, 0x07, 0x43, 0x5, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap()
+        );
+        assert_eq!(
+            jones5,
+            decode(&[0x82, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap()
+        );
     }
-
 }
-

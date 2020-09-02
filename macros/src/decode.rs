@@ -2,14 +2,21 @@ use syn::Fields;
 
 use crate::config::{Config, VariantConfig};
 
-pub fn derive_struct_impl(name: syn::Ident, generics: syn::Generics, container: syn::DataStruct, config: &Config) -> proc_macro2::TokenStream {
+pub fn derive_struct_impl(
+    name: syn::Ident,
+    generics: syn::Generics,
+    container: syn::DataStruct,
+    config: &Config,
+) -> proc_macro2::TokenStream {
     let mut list = vec![];
     let crate_root = &config.crate_root;
 
     for field in container.fields.iter() {
         let lhs = field.ident.as_ref().map(|i| quote!(#i :));
 
-        list.push(proc_macro2::TokenStream::from(quote!(#lhs <_>::decode(&mut decoder)?)));
+        list.push(proc_macro2::TokenStream::from(
+            quote!(#lhs <_>::decode(&mut decoder)?),
+        ));
     }
 
     let fields = match container.fields {
@@ -29,15 +36,18 @@ pub fn derive_struct_impl(name: syn::Ident, generics: syn::Generics, container: 
     })
 }
 
-pub fn derive_enum_impl(name: syn::Ident, generics: syn::Generics, container: syn::DataEnum, config: &Config) -> proc_macro2::TokenStream {
-
+pub fn derive_enum_impl(
+    name: syn::Ident,
+    generics: syn::Generics,
+    container: syn::DataEnum,
+    config: &Config,
+) -> proc_macro2::TokenStream {
     let crate_root = &config.crate_root;
     let decode_with_tag = if config.enumerated {
-        let variants = container.variants.iter()
-            .map(|v| {
-                let ident = &v.ident;
-                quote!(i if i == (#name::#ident as isize).into() => #name::#ident,)
-            });
+        let variants = container.variants.iter().map(|v| {
+            let ident = &v.ident;
+            quote!(i if i == (#name::#ident as isize).into() => #name::#ident,)
+        });
 
         quote! {
             let integer = decoder.decode_enumerated(tag)?;
@@ -56,9 +66,11 @@ pub fn derive_enum_impl(name: syn::Ident, generics: syn::Generics, container: sy
 
     let decode = if config.choice {
         let idents = container.variants.iter().map(|v| &v.ident);
-        let tags = container.variants.iter().enumerate().map(|(i, _)| {
-            quote::format_ident!("TAG_{}", i)
-        });
+        let tags = container
+            .variants
+            .iter()
+            .enumerate()
+            .map(|(i, _)| quote::format_ident!("TAG_{}", i));
 
         let tag_consts = container.variants.iter().map(|v| {
             let tag = VariantConfig::new(&v).tag(crate_root);
@@ -70,7 +82,7 @@ pub fn derive_enum_impl(name: syn::Ident, generics: syn::Generics, container: sy
             _ => {
                 let is_newtype = match &v.fields {
                     syn::Fields::Unnamed(_) => true,
-                    _ => false
+                    _ => false,
                 };
 
                 let decode_fields = v.fields.iter().map(|f| {

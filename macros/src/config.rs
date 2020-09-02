@@ -10,18 +10,23 @@ impl Config {
         let mut crate_root = None;
         let mut enumerated = false;
 
-        let mut iter = input.attrs.iter()
+        let mut iter = input
+            .attrs
+            .iter()
             .filter_map(|a| a.parse_meta().ok())
             .filter(|m| m.path().is_ident(crate::CRATE_NAME));
 
         while let Some(syn::Meta::List(list)) = iter.next() {
-            for item in list.nested.iter().filter_map(|n| match n { syn::NestedMeta::Meta(m) => Some(m), _ => None }) {
+            for item in list.nested.iter().filter_map(|n| match n {
+                syn::NestedMeta::Meta(m) => Some(m),
+                _ => None,
+            }) {
                 let path = item.path();
                 if path.is_ident("crate_root") {
                     if let syn::Meta::NameValue(nv) = item {
                         crate_root = match &nv.lit {
                             syn::Lit::Str(s) => s.parse::<syn::Path>().ok(),
-                            _ => None
+                            _ => None,
                         };
                     }
                 } else if path.is_ident("enumerated") {
@@ -44,7 +49,11 @@ impl Config {
         Self {
             choice,
             enumerated,
-            crate_root: crate_root.unwrap_or_else(|| syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site()).parse().unwrap()),
+            crate_root: crate_root.unwrap_or_else(|| {
+                syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site())
+                    .parse()
+                    .unwrap()
+            }),
         }
     }
 }
@@ -71,52 +80,53 @@ impl quote::ToTokens for Class {
 
 pub struct VariantConfig<'a> {
     variant: &'a syn::Variant,
-    pub tag: Option<(Class, syn::Lit)>
+    pub tag: Option<(Class, syn::Lit)>,
 }
 
 impl<'a> VariantConfig<'a> {
     pub fn new(variant: &'a syn::Variant) -> Self {
         let mut tag = None;
-        let mut iter = variant.attrs.iter()
+        let mut iter = variant
+            .attrs
+            .iter()
             .filter_map(|a| a.parse_meta().ok())
             .filter(|m| m.path().is_ident(crate::CRATE_NAME));
 
         while let Some(syn::Meta::List(list)) = iter.next() {
-            for item in list.nested.iter().filter_map(|n| match n { syn::NestedMeta::Meta(m) => Some(m), _ => None }) {
+            for item in list.nested.iter().filter_map(|n| match n {
+                syn::NestedMeta::Meta(m) => Some(m),
+                _ => None,
+            }) {
                 let path = item.path();
                 if path.is_ident("tag") {
                     match item {
-                        syn::Meta::List(list) => {
-                            match list.nested.iter().count() {
-                                1 => {
-                                    if let syn::NestedMeta::Lit(lit) = list.nested.iter().next().unwrap() {
-                                        if core::matches!(lit, syn::Lit::Int(_)) {
-                                            tag = Some((Class::Context, lit.clone()));
-                                        }
-
+                        syn::Meta::List(list) => match list.nested.iter().count() {
+                            1 => {
+                                if let syn::NestedMeta::Lit(lit) =
+                                    list.nested.iter().next().unwrap()
+                                {
+                                    if core::matches!(lit, syn::Lit::Int(_)) {
+                                        tag = Some((Class::Context, lit.clone()));
                                     }
                                 }
-                                2 => {
-                                    todo!()
-                                }
-                                _ => panic!("The `#[rasn(tag)]`attribute takes a maximum of two arguments.")
                             }
-                        }
+                            2 => todo!(),
+                            _ => panic!(
+                                "The `#[rasn(tag)]`attribute takes a maximum of two arguments."
+                            ),
+                        },
                         _ => todo!(),
                     }
                 }
             }
         }
 
-        Self {
-            variant,
-            tag
-        }
+        Self { variant, tag }
     }
 
     pub fn tag(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
         if let Some((class, value)) = &self.tag {
-            return quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value))
+            return quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value));
         }
 
         match self.variant.fields {

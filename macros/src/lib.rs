@@ -1,7 +1,8 @@
-#[macro_use] extern crate quote;
+#[macro_use]
+extern crate quote;
 
-mod config;
 mod asn_type;
+mod config;
 mod decode;
 mod encode;
 
@@ -22,11 +23,14 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let name = input.ident;
     let generics = input.generics;
 
-    _print_stream(match input.data {
-        syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
-        syn::Data::Enum(v) => decode::derive_enum_impl(name, generics, v, &config),
-        _ => panic!("Union types are not supported."),
-    }.into())
+    _print_stream(
+        match input.data {
+            syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
+            syn::Data::Enum(v) => decode::derive_enum_impl(name, generics, v, &config),
+            _ => panic!("Union types are not supported."),
+        }
+        .into(),
+    )
 }
 
 #[proc_macro_derive(Encode, attributes(rasn))]
@@ -42,7 +46,8 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         syn::Data::Struct(v) => encode::derive_struct_impl(name, generics, v, &config),
         syn::Data::Enum(v) => encode::derive_enum_impl(name, generics, v, &config),
         _ => todo!(),
-    }.into()
+    }
+    .into()
 }
 
 #[proc_macro_derive(AsnType, attributes(rasn))]

@@ -4,8 +4,8 @@
 
 extern crate alloc;
 
-pub mod enc;
 pub mod de;
+pub mod enc;
 pub mod error;
 pub mod tag;
 pub mod types;
@@ -16,9 +16,9 @@ pub mod ber;
 
 pub use de::{Decode, Decoder};
 pub use enc::{Encode, Encoder};
-pub use types::AsnType;
-pub use tag::Tag;
 pub use rasn_derive::*;
+pub use tag::Tag;
+pub use types::AsnType;
 
 #[doc(hidden)]
 pub use phf;

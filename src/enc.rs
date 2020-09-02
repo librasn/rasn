@@ -12,18 +12,35 @@ pub trait Encoder {
     type Ok;
     type Error: crate::error::Error;
 
-    fn encode_explicit_prefix<V: Encode>(&mut self, tag: Tag, value: &V) -> Result<Self::Ok, Self::Error>;
-    fn encode_bit_string(&mut self, tag: Tag, value: &types::BitSlice) -> Result<Self::Ok, Self::Error>;
+    fn encode_explicit_prefix<V: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &V,
+    ) -> Result<Self::Ok, Self::Error>;
+    fn encode_bit_string(
+        &mut self,
+        tag: Tag,
+        value: &types::BitSlice,
+    ) -> Result<Self::Ok, Self::Error>;
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error>;
     fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error>;
     fn encode_integer(&mut self, tag: Tag, value: types::Integer) -> Result<Self::Ok, Self::Error>;
     fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error>;
-    fn encode_object_identifier(&mut self, tag: Tag, value: &[u32]) -> Result<Self::Ok, Self::Error>;
+    fn encode_object_identifier(
+        &mut self,
+        tag: Tag,
+        value: &[u32],
+    ) -> Result<Self::Ok, Self::Error>;
     fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error>;
     fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error>;
-    fn encode_sequence_of<E: Encode>(&mut self, tag: Tag, value: &[E]) -> Result<Self::Ok, Self::Error>;
+    fn encode_sequence_of<E: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &[E],
+    ) -> Result<Self::Ok, Self::Error>;
     fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
-        where F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>;
+    where
+        F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>;
     // fn encode_sequence(&mut self, tag: Tag) -> Result<Self, Self::Error>;
     // fn encode_set(&mut self, tag: Tag) -> Result<Self, Self::Error>;
     // fn encode_set_of<D: Encode + Ord>(&mut self, tag: Tag) -> Result<BTreeSet<D>, Self::Error>;
@@ -106,19 +123,31 @@ impl Encode for types::ObjectIdentifier {
 }
 
 impl<E: Encode> Encode for types::SequenceOf<E> {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<EN::Ok, EN::Error> {
+    fn encode_with_tag<EN: Encoder>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+    ) -> Result<EN::Ok, EN::Error> {
         encoder.encode_sequence_of(tag, self)
     }
 }
 
 impl<T: crate::types::AsnType, V: Encode> Encode for types::Implicit<T, V> {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<EN::Ok, EN::Error> {
+    fn encode_with_tag<EN: Encoder>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+    ) -> Result<EN::Ok, EN::Error> {
         V::encode_with_tag(&self.value, encoder, tag)
     }
 }
 
 impl<T: crate::types::AsnType, V: Encode> Encode for types::Explicit<T, V> {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<EN::Ok, EN::Error> {
+    fn encode_with_tag<EN: Encoder>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+    ) -> Result<EN::Ok, EN::Error> {
         encoder.encode_explicit_prefix(tag, &self.value)
     }
 }

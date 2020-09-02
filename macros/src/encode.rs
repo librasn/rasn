@@ -1,14 +1,23 @@
 use crate::config::{Config, VariantConfig};
 
-pub fn derive_struct_impl(name: syn::Ident, generics: syn::Generics, container: syn::DataStruct, config: &Config) -> proc_macro2::TokenStream {
+pub fn derive_struct_impl(
+    name: syn::Ident,
+    generics: syn::Generics,
+    container: syn::DataStruct,
+    config: &Config,
+) -> proc_macro2::TokenStream {
     let mut list = vec![];
     for (i, field) in container.fields.iter().enumerate() {
         let i = syn::Index::from(i);
-        let field = field.ident.as_ref()
+        let field = field
+            .ident
+            .as_ref()
             .map(|name| quote!(#name))
             .unwrap_or_else(|| quote!(#i));
 
-        list.push(proc_macro2::TokenStream::from(quote!(let value = self.#field.encode(encoder)?;)));
+        list.push(proc_macro2::TokenStream::from(
+            quote!(let value = self.#field.encode(encoder)?;),
+        ));
     }
 
     let crate_root = &config.crate_root;
@@ -24,10 +33,14 @@ pub fn derive_struct_impl(name: syn::Ident, generics: syn::Generics, container: 
             }
         }
     })
-
 }
 
-pub fn derive_enum_impl(name: syn::Ident, generics: syn::Generics, container: syn::DataEnum, config: &Config) -> proc_macro2::TokenStream {
+pub fn derive_enum_impl(
+    name: syn::Ident,
+    generics: syn::Generics,
+    container: syn::DataEnum,
+    config: &Config,
+) -> proc_macro2::TokenStream {
     let crate_root = &config.crate_root;
 
     let encode_with_tag = if config.enumerated {
@@ -41,7 +54,6 @@ pub fn derive_enum_impl(name: syn::Ident, generics: syn::Generics, container: sy
     };
 
     let encode = if config.choice {
-
         let variants = container.variants.iter().map(|v| {
             let ident = &v.ident;
             let tags = VariantConfig::new(&v).tag(crate_root);
@@ -67,7 +79,7 @@ pub fn derive_enum_impl(name: syn::Ident, generics: syn::Generics, container: sy
                     }
                     quote!(#name::#ident(value) => { value.encode(encoder) })
                 }
-                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null() })
+                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null() }),
             }
         });
 

@@ -1,6 +1,6 @@
-mod identifier;
 mod de;
 mod enc;
+mod identifier;
 
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
     T::decode(&mut de::Parser::new(input))
@@ -17,21 +17,16 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::E
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::{vec, vec::Vec};
     use crate::{
-        AsnType,
-        Decode,
-        Encode,
-        types::*,
         tag::{Class, Tag},
+        types::*,
+        AsnType, Decode, Encode,
     };
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn null() {
-        assert_eq!(
-            (),
-            decode::<()>(&*encode(&()).unwrap()).unwrap()
-        );
+        assert_eq!((), decode::<()>(&*encode(&()).unwrap()).unwrap());
     }
 
     #[test]
@@ -94,7 +89,10 @@ mod tests {
     #[test]
     fn long_sequence_of() {
         let vec = vec![5u8; 0xffff];
-        assert_eq!(vec, decode::<alloc::vec::Vec<u8>>(&encode(&vec).unwrap()).unwrap());
+        assert_eq!(
+            vec,
+            decode::<alloc::vec::Vec<u8>>(&encode(&vec).unwrap()).unwrap()
+        );
     }
 
     #[test]
@@ -105,10 +103,7 @@ mod tests {
         let pkcs = ObjectIdentifier::new(vec![1, 2, 840, 113549, 1]);
 
         assert_eq!(iso.clone(), decode(&encode(&iso).unwrap()).unwrap());
-        assert_eq!(
-            us_ansi.clone(),
-            decode(&encode(&us_ansi).unwrap()).unwrap()
-        );
+        assert_eq!(us_ansi.clone(), decode(&encode(&us_ansi).unwrap()).unwrap());
         assert_eq!(rsa.clone(), decode(&encode(&rsa).unwrap()).unwrap());
         assert_eq!(pkcs.clone(), decode(&encode(&pkcs).unwrap()).unwrap());
     }
@@ -183,7 +178,6 @@ mod tests {
         assert_eq!(bools_vec, decode::<Vec<bool>>(&raw).unwrap());
         assert_eq!(raw, &*encode(&bools_vec).unwrap());
     }
-
 
     #[test]
     fn enumerated() {

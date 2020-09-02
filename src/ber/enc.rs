@@ -1,8 +1,8 @@
 mod error;
 
-use alloc::{borrow::ToOwned, vec::Vec, collections::VecDeque};
+use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
 
-use crate::{Encode, tag::Tag, types};
+use crate::{tag::Tag, types, Encode};
 
 pub use error::Error;
 
@@ -13,7 +13,7 @@ pub(crate) struct Encoder {
 
 enum ByteOrBytes {
     Single(u8),
-    Many(Vec<u8>)
+    Many(Vec<u8>),
 }
 
 impl Encoder {
@@ -31,9 +31,7 @@ impl Encoder {
         // Constructed is a single bit.
         tag_byte <<= 1;
         tag_byte |= match tag {
-            Tag::EXTERNAL |
-            Tag::SEQUENCE |
-            Tag::SET => 1,
+            Tag::EXTERNAL | Tag::SEQUENCE | Tag::SET => 1,
             _ => 0,
         };
 
@@ -95,7 +93,11 @@ impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = error::Error;
 
-    fn encode_bit_string(&mut self, tag: Tag, value: &types::BitSlice) -> Result<Self::Ok, Self::Error> {
+    fn encode_bit_string(
+        &mut self,
+        tag: Tag,
+        value: &types::BitSlice,
+    ) -> Result<Self::Ok, Self::Error> {
         let mut deque = VecDeque::from(value.as_slice().to_owned());
         deque.push_front(deque.back().map(|i| i.trailing_zeros() as u8).unwrap_or(0));
         Ok(self.encode_value(tag, &Vec::from(deque)))
@@ -116,9 +118,9 @@ impl crate::Encoder for Encoder {
         Ok(self.encode_value(tag, &[]))
     }
 
-    fn encode_object_identifier( &mut self, tag: Tag, oid: &[u32]) -> Result<Self::Ok, Self::Error> {
+    fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32]) -> Result<Self::Ok, Self::Error> {
         if oid.len() < 2 {
-            return Err(error::Error::InvalidObjectIdentifier)
+            return Err(error::Error::InvalidObjectIdentifier);
         }
 
         fn encode_component(mut v: u32, writer: &mut Vec<u8>) {
@@ -160,7 +162,11 @@ impl crate::Encoder for Encoder {
         Ok(self.encode_value(tag, value.as_bytes()))
     }
 
-    fn encode_sequence_of<E: Encode>(&mut self, tag: Tag, values: &[E]) -> Result<Self::Ok, Self::Error> {
+    fn encode_sequence_of<E: Encode>(
+        &mut self,
+        tag: Tag,
+        values: &[E],
+    ) -> Result<Self::Ok, Self::Error> {
         let mut sequence_encoder = Self::default();
 
         for value in values {
@@ -170,7 +176,11 @@ impl crate::Encoder for Encoder {
         Ok(self.encode_value(tag, &sequence_encoder.output))
     }
 
-    fn encode_explicit_prefix<V: Encode>(&mut self, tag: Tag, value: &V) -> Result<Self::Ok, Self::Error> {
+    fn encode_explicit_prefix<V: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &V,
+    ) -> Result<Self::Ok, Self::Error> {
         let bytes = {
             let mut encoder = Self::default();
             value.encode(&mut encoder)?;
@@ -181,7 +191,8 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
-        where F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut encoder = Self::default();
 
@@ -189,7 +200,6 @@ impl crate::Encoder for Encoder {
 
         Ok(self.encode_value(tag, &encoder.output))
     }
-
 }
 
 #[cfg(test)]

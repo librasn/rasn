@@ -3,12 +3,12 @@ use alloc::vec::Vec;
 use nom::IResult;
 use num_traits::ToPrimitive;
 
+use super::error;
 use crate::{
     ber::identifier::Identifier,
     tag::{Class, Tag},
     types::Integer,
 };
-use super::error;
 
 pub(crate) fn parse_value(input: &[u8], tag: Tag) -> super::Result<(&[u8], (Identifier, &[u8]))> {
     let (input, identifier) = parse_identifier_octet(input).map_err(error::map_nom_err)?;
@@ -55,7 +55,10 @@ pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier>
             Some(value) => (input, value),
             None => {
                 use nom::error::ParseError;
-                return Err(nom::Err::Failure(<_>::from_error_kind(input, nom::error::ErrorKind::TooLarge)));
+                return Err(nom::Err::Failure(<_>::from_error_kind(
+                    input,
+                    nom::error::ErrorKind::TooLarge,
+                )));
             }
         }
     } else {
