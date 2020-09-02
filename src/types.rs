@@ -34,7 +34,7 @@ pub trait AsnType {
     const TAG: Tag;
 }
 
-#[derive(AsnType)]
+#[derive(AsnType, crate::Decode, crate::Encode)]
 #[rasn(crate_root = "crate")]
 #[rasn(choice)]
 pub enum Open {

@@ -1,5 +1,6 @@
 #[cfg(not(test))]
-#[macro_use] extern crate afl;
+#[macro_use]
+extern crate afl;
 
 #[cfg(not(test))]
 fn main() {

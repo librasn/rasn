@@ -71,37 +71,46 @@ pub fn derive_enum_impl(
             .iter()
             .enumerate()
             .map(|(i, _)| quote::format_ident!("TAG_{}", i));
+        let tags2 = tags.clone();
 
-        let tag_consts = container.variants.iter().map(|v| {
-            let tag = VariantConfig::new(&v).tag(crate_root);
-            quote!(#tag => ())
-        });
+        let tag_consts = container
+            .variants
+            .iter()
+            .map(|v| VariantConfig::new(&v).tag(crate_root));
 
-        let fields = container.variants.iter().map(|v| match &v.fields {
-            syn::Fields::Unit => quote!(decoder.decode_null(<()>::TAG)?),
-            _ => {
-                let is_newtype = match &v.fields {
-                    syn::Fields::Unnamed(_) => true,
-                    _ => false,
-                };
+        let fields = container.variants.iter().map(|v| {
+            let ident = &v.ident;
+            match &v.fields {
+                syn::Fields::Unit => quote!({ decoder.decode_null(<()>::TAG)?; #name::#ident}),
+                _ => {
+                    let is_newtype = match &v.fields {
+                        syn::Fields::Unnamed(_) => true,
+                        _ => false,
+                    };
 
-                let decode_fields = v.fields.iter().map(|f| {
-                    let ident = f.ident.as_ref().map(|i| quote!(#i :));
-                    quote!(#ident <_>::decode(decoder)?)
-                });
+                    let decode_fields = v.fields.iter().map(|f| {
+                        let ident = f.ident.as_ref().map(|i| quote!(#i :));
+                        quote!(#ident <_>::decode(decoder)?)
+                    });
 
-                if is_newtype {
-                    quote!(( #(#decode_fields),* ))
-                } else {
-                    quote!({ #(#decode_fields),* })
+                    if is_newtype {
+                        quote!(#name::#ident ( #(#decode_fields),* ))
+                    } else {
+                        quote!(#name::#ident { #(#decode_fields),* })
+                    }
                 }
             }
         });
 
         Some(quote! {
             fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-                Ok(match decoder.peek_tag()? {
-                    #(#tags => #name::#idents #fields,)*
+                #(
+                    const #tags: #crate_root::Tag = #tag_consts;
+                )*
+
+                let tag = decoder.peek_tag()?;
+                Ok(match tag {
+                    #(#tags2 => #fields,)*
                     _ => return Err(#crate_root::error::Error::custom("Invalid `CHOICE` discriminant.")),
                 })
             }

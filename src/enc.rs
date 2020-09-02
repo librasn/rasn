@@ -24,7 +24,7 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error>;
     fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error>;
-    fn encode_integer(&mut self, tag: Tag, value: types::Integer) -> Result<Self::Ok, Self::Error>;
+    fn encode_integer(&mut self, tag: Tag, value: &types::Integer) -> Result<Self::Ok, Self::Error>;
     fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error>;
     fn encode_object_identifier(
         &mut self,
@@ -64,7 +64,7 @@ macro_rules! impl_integers {
         $(
             impl Encode for $int {
                 fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<E::Ok, E::Error> {
-                    encoder.encode_integer(tag, (*self).into())
+                    encoder.encode_integer(tag, &(*self).into())
                 }
             }
         )+
@@ -84,6 +84,12 @@ impl_integers! {
     u64,
     u128,
     usize
+}
+
+impl Encode for types::Integer {
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<E::Ok, E::Error> {
+        encoder.encode_integer(tag, self)
+    }
 }
 
 impl Encode for types::OctetString {

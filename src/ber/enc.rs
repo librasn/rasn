@@ -107,10 +107,10 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error> {
-        self.encode_integer(tag, value.into())
+        self.encode_integer(tag, &(value.into()))
     }
 
-    fn encode_integer(&mut self, tag: Tag, value: types::Integer) -> Result<Self::Ok, Self::Error> {
+    fn encode_integer(&mut self, tag: Tag, value: &types::Integer) -> Result<Self::Ok, Self::Error> {
         Ok(self.encode_value(tag, &value.to_signed_bytes_be()))
     }
 

@@ -77,9 +77,9 @@ pub fn derive_enum_impl(
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
-                    quote!(#name::#ident(value) => { value.encode(encoder) })
+                    quote!(#name::#ident(value) => { #crate_root::Encode::encode(value, encoder) })
                 }
-                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null() }),
+                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(<()>::TAG) }),
             }
         });
 
