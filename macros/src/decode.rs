@@ -65,7 +65,6 @@ pub fn derive_enum_impl(
     };
 
     let decode = if config.choice {
-        let idents = container.variants.iter().map(|v| &v.ident);
         let tags = container
             .variants
             .iter()

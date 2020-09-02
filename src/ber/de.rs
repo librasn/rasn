@@ -37,10 +37,6 @@ impl<'input> Parser<'input> {
 impl<'input> Decoder for Parser<'input> {
     type Error = Error;
 
-    fn is_empty(&self) -> bool {
-        self.input.is_empty()
-    }
-
     fn peek_tag(&self) -> Result<Tag> {
         Ok(self.peek_identifier()?.tag)
     }
@@ -111,19 +107,25 @@ impl<'input> Decoder for Parser<'input> {
     }
 
     fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString> {
-        self::parser::parse_encoded_value(self.input, tag, |input| {
-            let unused_bits = input[0];
+        let (input, bs) = self::parser::parse_encoded_value(self.input, tag, |input| {
+            let unused_bits = input.get(0).copied();
 
             match unused_bits {
-                0..=7 => {
+                Some(bits @ 0..=7) => {
                     let mut buffer = types::BitString::from_slice(&input[1..]);
-                    buffer.truncate(buffer.len() - unused_bits as usize);
+                    buffer.truncate(buffer.len().saturating_sub(bits as usize));
                     Ok(buffer)
                 }
-                _ => return Err(Error::InvalidBitString { bits: unused_bits }),
+                _ => {
+                    return Err(Error::InvalidBitString {
+                        bits: unused_bits.unwrap_or(0),
+                    })
+                }
             }
-        })
-        .map(|(_, rv)| rv)
+        })?;
+
+        self.input = input;
+        Ok(bs)
     }
 
     fn decode_utf8_string(&mut self, tag: Tag) -> Result<types::Utf8String> {
@@ -139,7 +141,7 @@ impl<'input> Decoder for Parser<'input> {
 
         let mut sequence_parser = Parser { input: contents };
 
-        while !Decoder::is_empty(&sequence_parser) {
+        while !sequence_parser.input.is_empty() {
             let value = D::decode(&mut sequence_parser)?;
             vec.push(value);
         }
@@ -153,7 +155,7 @@ impl<'input> Decoder for Parser<'input> {
 
         let mut set_parser = Parser { input: contents };
 
-        while !Decoder::is_empty(&set_parser) {
+        while !set_parser.input.is_empty() {
             let value = D::decode(&mut set_parser)?;
             vec.insert(value);
         }
@@ -414,5 +416,13 @@ mod tests {
             jones5,
             decode(&[0x82, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73]).unwrap()
         );
+    }
+
+    #[test]
+    fn flip1() {
+        let _ = decode::<Open>(&[
+            0x10, 0x10, 0x23, 0x00, 0xfe, 0x7f, 0x10, 0x03, 0x00, 0xff, 0xe4, 0x04, 0x50, 0x10,
+            0x50, 0x10, 0x10, 0x10,
+        ]);
     }
 }

@@ -110,7 +110,11 @@ impl crate::Encoder for Encoder {
         self.encode_integer(tag, &(value.into()))
     }
 
-    fn encode_integer(&mut self, tag: Tag, value: &types::Integer) -> Result<Self::Ok, Self::Error> {
+    fn encode_integer(
+        &mut self,
+        tag: Tag,
+        value: &types::Integer,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(self.encode_value(tag, &value.to_signed_bytes_be()))
     }
 

@@ -1,3 +1,4 @@
 /target
 **/*.rs.bk
-.vscode
+/.vscode
+.DS_Store

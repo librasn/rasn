@@ -14,8 +14,6 @@ pub trait Decode: Sized + AsnType {
 pub trait Decoder: Sized {
     type Error: crate::error::Error;
 
-    /// Returns whether the decoder's input is empty.
-    fn is_empty(&self) -> bool;
     /// Peek at the next available tag.
     fn peek_tag(&self) -> Result<Tag, Self::Error>;
 

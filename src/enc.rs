@@ -24,7 +24,8 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error>;
     fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error>;
-    fn encode_integer(&mut self, tag: Tag, value: &types::Integer) -> Result<Self::Ok, Self::Error>;
+    fn encode_integer(&mut self, tag: Tag, value: &types::Integer)
+        -> Result<Self::Ok, Self::Error>;
     fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error>;
     fn encode_object_identifier(
         &mut self,

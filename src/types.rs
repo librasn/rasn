@@ -34,7 +34,7 @@ pub trait AsnType {
     const TAG: Tag;
 }
 
-#[derive(AsnType, crate::Decode, crate::Encode)]
+#[derive(AsnType, crate::Encode)]
 #[rasn(crate_root = "crate")]
 #[rasn(choice)]
 pub enum Open {
@@ -50,6 +50,51 @@ pub enum Open {
     Integer(Integer),
     Null,
     OctetString(OctetString),
+}
+
+impl crate::Decode for Open {
+    fn decode_with_tag<D: crate::Decoder>(_: &mut D, _: Tag) -> Result<Self, D::Error> {
+        Err(crate::error::Error::custom(
+            "`CHOICE`-style enums cannot be implicitly tagged.",
+        ))
+    }
+    fn decode<D: crate::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
+        const TAG_0: crate::Tag = <BitString>::TAG;
+        const TAG_1: crate::Tag = <IA5String>::TAG;
+        const TAG_2: crate::Tag = <PrintableString>::TAG;
+        const TAG_3: crate::Tag = <VisibleString>::TAG;
+        const TAG_4: crate::Tag = <BmpString>::TAG;
+        const TAG_5: crate::Tag = <NumericString>::TAG;
+        const TAG_6: crate::Tag = <SequenceOf<Open>>::TAG;
+        const TAG_7: crate::Tag = <UniversalString>::TAG;
+        const TAG_8: crate::Tag = <bool>::TAG;
+        const TAG_9: crate::Tag = <Integer>::TAG;
+        const TAG_10: crate::Tag = <()>::TAG;
+        const TAG_11: crate::Tag = <OctetString>::TAG;
+        let tag = decoder.peek_tag()?;
+        Ok(match tag {
+            TAG_0 => Open::BitString(<_>::decode(decoder)?),
+            TAG_1 => Open::IA5String(<_>::decode(decoder)?),
+            TAG_2 => Open::PrintableString(<_>::decode(decoder)?),
+            TAG_3 => Open::VisibleString(<_>::decode(decoder)?),
+            TAG_4 => Open::BmpString(<_>::decode(decoder)?),
+            TAG_5 => Open::NumericString(<_>::decode(decoder)?),
+            TAG_6 => Open::SequenceOf(<_>::decode(decoder)?),
+            TAG_7 => Open::UniversalString(<_>::decode(decoder)?),
+            TAG_8 => Open::Bool(<_>::decode(decoder)?),
+            TAG_9 => Open::Integer(<_>::decode(decoder)?),
+            TAG_10 => {
+                decoder.decode_null(<()>::TAG)?;
+                Open::Null
+            }
+            TAG_11 => Open::OctetString(<_>::decode(decoder)?),
+            _ => {
+                return Err(crate::error::Error::custom(
+                    "Invalid `CHOICE` discriminant.",
+                ))
+            }
+        })
+    }
 }
 
 macro_rules! tag_kind {
