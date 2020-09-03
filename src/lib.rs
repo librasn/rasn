@@ -6,7 +6,6 @@ extern crate alloc;
 
 pub mod de;
 pub mod enc;
-pub mod error;
 pub mod tag;
 pub mod types;
 
@@ -14,9 +13,13 @@ pub mod types;
 
 pub mod ber;
 
+#[doc(inline)]
 pub use de::{Decode, Decoder};
+#[doc(inline)]
 pub use enc::{Encode, Encoder};
+#[doc(inline)]
 pub use tag::Tag;
+#[doc(inline)]
 pub use types::AsnType;
 
 #[doc(hidden)]

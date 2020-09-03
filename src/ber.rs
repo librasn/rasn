@@ -1,6 +1,8 @@
-mod de;
-mod enc;
+pub mod de;
+pub mod enc;
 mod identifier;
+
+pub use identifier::Identifier;
 
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
     T::decode(&mut de::Parser::new(input))
@@ -16,13 +18,15 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::E
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use alloc::vec;
+
     use crate::{
         tag::{Class, Tag},
         types::*,
-        AsnType, Decode, Encode,
+        AsnType,
     };
-    use alloc::{vec, vec::Vec};
+
+    use super::*;
 
     #[test]
     fn null() {
@@ -144,133 +148,4 @@ mod tests {
 
         assert_eq!(new_int, decode(&encode(&new_int).unwrap()).unwrap());
     }
-
-    #[test]
-    fn sequence() {
-        #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
-        #[rasn(crate_root = "crate")]
-        struct Bools {
-            a: bool,
-            b: bool,
-            c: bool,
-        }
-
-        let raw = &[
-            0x30, // Sequence tag
-            9,    // Length
-            1, 1, 0xff, // A
-            1, 1, 0, // B
-            1, 1, 0xff, // C
-        ][..];
-
-        let default = Bools {
-            a: true,
-            b: false,
-            c: true,
-        };
-
-        assert_eq!(default, decode(&raw).unwrap());
-        assert_eq!(raw, &*encode(&default).unwrap());
-
-        // The representation of SEQUENCE and SEQUENCE OF are the same in this case.
-        let bools_vec = vec![true, false, true];
-
-        assert_eq!(bools_vec, decode::<Vec<bool>>(&raw).unwrap());
-        assert_eq!(raw, &*encode(&bools_vec).unwrap());
-    }
-
-    #[test]
-    fn enumerated() {
-        #[derive(AsnType, Clone, Copy, Debug, Encode, Decode, PartialEq)]
-        #[rasn(crate_root = "crate")]
-        #[rasn(enumerated)]
-        enum Foo {
-            Ein,
-            Zwei,
-            Drei,
-        }
-
-        let ein = Foo::Ein;
-        let zwei = Foo::Zwei;
-        let drei = Foo::Drei;
-
-        assert_eq!(ein, decode(&encode(&ein).unwrap()).unwrap());
-        assert_eq!(zwei, decode(&encode(&zwei).unwrap()).unwrap());
-        assert_eq!(drei, decode(&encode(&drei).unwrap()).unwrap());
-    }
-
-    #[test]
-    fn choice() {
-        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        #[rasn(crate_root = "crate")]
-        #[rasn(choice)]
-        enum Choice {
-            Bar(bool),
-            #[rasn(tag(1))]
-            Baz(OctetString),
-            #[rasn(tag(2))]
-            Foo(OctetString),
-        }
-
-        let bar = Choice::Bar(true);
-        let baz = Choice::Baz(OctetString::from(vec![1, 2, 3, 4, 5]));
-        let foo = Choice::Foo(OctetString::from(vec![1, 2, 3, 4, 5]));
-
-        assert_eq!(foo, decode(&encode(&foo).unwrap()).unwrap());
-        assert_eq!(bar, decode(&encode(&bar).unwrap()).unwrap());
-        assert_eq!(baz, decode(&encode(&baz).unwrap()).unwrap());
-    }
-
-    /*
-    #[test]
-    fn optional() {
-        env_logger::init();
-        #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-        struct Struct {
-            a: Optional<u8>,
-        }
-        let none = Struct { a: None.into() };
-        let raw = encode(&none).unwrap();
-        assert_eq!(&[0x30, 0][..], &*raw);
-        assert_eq!(none, decode(&raw).unwrap());
-        let some = Struct { a: Some(100).into() };
-        assert_eq!(some, decode(&encode(&some).unwrap()).unwrap());
-    }
-    #[test]
-    fn sequence_with_option() {
-        #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-        struct Foo {
-            a: u8,
-            b: Optional<u8>,
-        }
-        let some = Foo { a: 1, b: Some(2).into() };
-        let none = Foo { a: 1, b: None.into() };
-        assert_eq!(some, decode(&encode(&some).unwrap()).unwrap());
-        assert_eq!(none, decode(&encode(&none).unwrap()).unwrap());
-    }
-
-    #[test]
-    fn nested_enum() {
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum Alpha {
-            A(Implicit<Context, U0, Charlie>),
-            B(Implicit<Context, U1, Charlie>),
-        }
-
-
-        #[derive(Serialize, Deserialize, Debug, PartialEq)]
-        enum Bravo {
-            A,
-            B,
-        }
-
-        impl Enumerable for Bravo {}
-
-        type Charlie = Enumerated<Bravo>;
-
-        let input = Alpha::A(Implicit::new(Enumerated::new(Bravo::B)));
-
-        assert_eq!(input, decode(&encode(&input).unwrap()).unwrap())
-    }
-    */
 }

@@ -54,13 +54,13 @@ pub fn derive_enum_impl(
 
             Ok(match integer {
                 #(#variants)*
-                _ => return Err(#crate_root::error::Error::custom("Invalid enumerated disrciminant."))
+                _ => return Err(#crate_root::de::Error::custom("Invalid enumerated disrciminant."))
             })
 
         }
     } else {
         quote! {
-            Err(#crate_root::error::Error::custom("`CHOICE`-style enums cannot be implicitly tagged."))
+            Err(#crate_root::de::Error::custom("`CHOICE`-style enums cannot be implicitly tagged."))
         }
     };
 
@@ -114,7 +114,7 @@ pub fn derive_enum_impl(
                 let tag = decoder.peek_tag()?;
                 Ok(match tag {
                     #(#tags2 => #fields,)*
-                    _ => return Err(#crate_root::error::Error::custom("Invalid `CHOICE` discriminant.")),
+                    _ => return Err(#crate_root::de::Error::custom("Invalid `CHOICE` discriminant.")),
                 })
             }
         })

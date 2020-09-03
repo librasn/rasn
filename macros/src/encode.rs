@@ -25,12 +25,12 @@ pub fn derive_struct_impl(
         #[automatically_derived]
         impl #generics #crate_root::Encode for #name #generics {
 
-            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<EN::Ok, EN::Error> {
+            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
                 encoder.encode_sequence(tag, |encoder| {
                     #(#list)*
 
                     Ok(())
-                })
+                }).map(drop)
             }
         }
     })
@@ -46,11 +46,11 @@ pub fn derive_enum_impl(
 
     let encode_with_tag = if config.enumerated {
         quote! {
-            encoder.encode_enumerated(tag, *self as isize)
+            encoder.encode_enumerated(tag, *self as isize).map(drop)
         }
     } else {
         quote! {
-            Err(#crate_root::error::Error::custom("CHOICE-style enums do not allow implicit tagging."))
+            Err(#crate_root::enc::Error::custom("CHOICE-style enums do not allow implicit tagging."))
         }
     };
 
@@ -86,10 +86,10 @@ pub fn derive_enum_impl(
         });
 
         Some(quote! {
-            fn encode<E: #crate_root::Encoder>(&self, encoder: &mut E) -> Result<E::Ok, E::Error> {
+            fn encode<E: #crate_root::Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
                 match self {
                     #(#variants),*
-                }
+                }.map(drop)
             }
         })
     } else {
@@ -99,7 +99,7 @@ pub fn derive_enum_impl(
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
         impl #generics #crate_root::Encode for #name #generics {
-            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<EN::Ok, EN::Error> {
+            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
                 #encode_with_tag
             }
 

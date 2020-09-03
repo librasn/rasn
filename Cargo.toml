@@ -3,12 +3,16 @@ name = "rasn"
 version = "0.1.0"
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
-description = "Something someday."
+description = "A safe no_std ASN.1 codec framework."
 license = "MIT/Apache-2.0"
 
 [workspace]
 members = [".", "macros"]
 exclude = ["fuzzing"]
+
+[features]
+default = ["macros"]
+macros = ["rasn-derive"]
 
 [dependencies]
 nom = { version = "5", default-features = false, features = ["alloc"] }
@@ -17,7 +21,7 @@ num-traits = { version = "0.2.12", default-features = false }
 snafu = { version = "0.6.8", default-features = false }
 bytes = { version = "0.5.6", default-features = false }
 bitvec = { version = "0.17.4", default-features = false, features = ["alloc"] }
-rasn-derive = { version = "0.1.0", path = "macros" }
+rasn-derive = { version = "0.1.0", path = "macros", optional = true }
 phf = { version = "0.8.0", features = ["macros"] }
 chrono = "0.4.15"
 static_assertions = "1.1.0"
