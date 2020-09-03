@@ -1,5 +1,7 @@
 use crate::{tag::Tag, types};
 
+pub use rasn_derive::Encode;
+
 pub trait Encode: types::AsnType {
     fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<E::Ok, E::Error> {
         self.encode_with_tag(encoder, Self::TAG)

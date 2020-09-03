@@ -2,6 +2,8 @@ mod oid;
 
 use crate::tag::{self, Tag};
 
+pub use rasn_derive::AsnType;
+
 pub use alloc::string::String as Utf8String;
 pub use bytes::Bytes as OctetString;
 pub use num_bigint::BigInt as Integer;
@@ -23,14 +25,14 @@ pub type BmpString = Implicit<tag::BMP_STRING, Utf8String>;
 pub type NumericString = Implicit<tag::NUMERIC_STRING, Utf8String>;
 ///  Alias to `Vec<T>`.
 pub type SequenceOf<T> = alloc::vec::Vec<T>;
+///  Alias to `Vec<T>`.
+pub type SetOf<T> = alloc::collections::BTreeSet<T>;
 ///  `UniversalString` string alias that matches BER's encoding rules.
 pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
 ///  Alias for `chrono::DateTime<Utc>`.
 pub type UtcTime = chrono::DateTime<chrono::Utc>;
 ///  Alias for `chrono::DateTime<FixedOffset>`.
 pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
-
-pub use rasn_derive::AsnType;
 
 /// A trait representing any type that can represented in ASN.1.
 pub trait AsnType {
@@ -53,8 +55,6 @@ pub enum Open {
     NumericString(NumericString),
     OctetString(OctetString),
     PrintableString(PrintableString),
-    Sequence(alloc::collections::BTreeMap<Tag, Open>),
-    SequenceOf(SequenceOf<Open>),
     UniversalString(UniversalString),
     UtcTime(UtcTime),
     VisibleString(VisibleString),
@@ -74,8 +74,6 @@ impl Open {
             Self::VisibleString(_) => VisibleString::TAG,
             Self::BmpString(_) => BmpString::TAG,
             Self::NumericString(_) => NumericString::TAG,
-            Self::Sequence(_) => Tag::SEQUENCE,
-            Self::SequenceOf(_) => <SequenceOf<Open>>::TAG,
             Self::UniversalString(_) => UniversalString::TAG,
             Self::UtcTime(_) => UtcTime::TAG,
             Self::GeneralizedTime(_) => GeneralizedTime::TAG,
@@ -95,36 +93,23 @@ impl crate::Decode for Open {
         ))
     }
     fn decode<D: crate::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-        const TAG_0: crate::Tag = <BitString>::TAG;
-        const TAG_1: crate::Tag = <IA5String>::TAG;
-        const TAG_2: crate::Tag = <PrintableString>::TAG;
-        const TAG_3: crate::Tag = <VisibleString>::TAG;
-        const TAG_4: crate::Tag = <BmpString>::TAG;
-        const TAG_5: crate::Tag = <NumericString>::TAG;
-        const TAG_6: crate::Tag = <SequenceOf<Open>>::TAG;
-        const TAG_7: crate::Tag = <UniversalString>::TAG;
-        const TAG_8: crate::Tag = <bool>::TAG;
-        const TAG_9: crate::Tag = <Integer>::TAG;
-        const TAG_10: crate::Tag = <()>::TAG;
-        const TAG_11: crate::Tag = <OctetString>::TAG;
-
-        let tag = decoder.peek_tag()?;
-        Ok(match tag {
-            TAG_0 => Open::BitString(<_>::decode(decoder)?),
-            TAG_1 => Open::IA5String(<_>::decode(decoder)?),
-            TAG_2 => Open::PrintableString(<_>::decode(decoder)?),
-            TAG_3 => Open::VisibleString(<_>::decode(decoder)?),
-            TAG_4 => Open::BmpString(<_>::decode(decoder)?),
-            TAG_5 => Open::NumericString(<_>::decode(decoder)?),
-            TAG_6 => Open::SequenceOf(<_>::decode(decoder)?),
-            TAG_7 => Open::UniversalString(<_>::decode(decoder)?),
-            TAG_8 => Open::Bool(<_>::decode(decoder)?),
-            TAG_9 => Open::Integer(<_>::decode(decoder)?),
-            TAG_10 => {
+        Ok(match decoder.peek_tag()? {
+            Tag::BIT_STRING => Open::BitString(<_>::decode(decoder)?),
+            Tag::BMP_STRING => Open::BmpString(<_>::decode(decoder)?),
+            Tag::BOOL => Open::Bool(<_>::decode(decoder)?),
+            Tag::IA5_STRING => Open::IA5String(<_>::decode(decoder)?),
+            Tag::INTEGER => Open::Integer(<_>::decode(decoder)?),
+            Tag::NUMERIC_STRING => Open::NumericString(<_>::decode(decoder)?),
+            Tag::OCTET_STRING => Open::OctetString(<_>::decode(decoder)?),
+            Tag::PRINTABLE_STRING => Open::PrintableString(<_>::decode(decoder)?),
+            Tag::UNIVERSAL_STRING => Open::UniversalString(<_>::decode(decoder)?),
+            Tag::VISIBLE_STRING => Open::VisibleString(<_>::decode(decoder)?),
+            Tag::UTC_TIME => Open::UtcTime(<_>::decode(decoder)?),
+            Tag::GENERALIZED_TIME => Open::GeneralizedTime(<_>::decode(decoder)?),
+            Tag::NULL => {
                 decoder.decode_null(<()>::TAG)?;
                 Open::Null
             }
-            TAG_11 => Open::OctetString(<_>::decode(decoder)?),
             tag => Self::Unknown {
                 tag,
                 value: decoder.decode_octet_string(tag)?,
@@ -148,8 +133,6 @@ impl crate::Encode for Open {
             Open::VisibleString(value) => crate::Encode::encode(value, encoder),
             Open::BmpString(value) => crate::Encode::encode(value, encoder),
             Open::NumericString(value) => crate::Encode::encode(value, encoder),
-            Open::Sequence(value) => crate::Encode::encode(value, encoder),
-            Open::SequenceOf(value) => crate::Encode::encode(value, encoder),
             Open::UniversalString(value) => crate::Encode::encode(value, encoder),
             Open::UtcTime(value) => crate::Encode::encode(value, encoder),
             Open::GeneralizedTime(value) => crate::Encode::encode(value, encoder),
@@ -244,6 +227,10 @@ asn_type! {
 
 impl<T> AsnType for SequenceOf<T> {
     const TAG: Tag = Tag::SEQUENCE;
+}
+
+impl<T> AsnType for SetOf<T> {
+    const TAG: Tag = Tag::SET;
 }
 
 impl<T> AsnType for &'_ [T] {

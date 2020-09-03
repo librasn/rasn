@@ -23,14 +23,12 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let name = input.ident;
     let generics = input.generics;
 
-    __print_stream(
-        match input.data {
-            syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
-            syn::Data::Enum(v) => decode::derive_enum_impl(name, generics, v, &config),
-            _ => panic!("Union types are not supported."),
-        }
-        .into(),
-    )
+    match input.data {
+        syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
+        syn::Data::Enum(v) => decode::derive_enum_impl(name, generics, v, &config),
+        _ => panic!("Union types are not supported."),
+    }
+    .into()
 }
 
 #[proc_macro_derive(Encode, attributes(rasn))]

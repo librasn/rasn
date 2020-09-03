@@ -3,6 +3,8 @@ use alloc::{collections::BTreeSet, vec::Vec};
 use crate::tag::Tag;
 use crate::types::{self, AsnType};
 
+pub use rasn_derive::Decode;
+
 pub trait Decode: Sized + AsnType {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
         Self::decode_with_tag(decoder, Self::TAG)

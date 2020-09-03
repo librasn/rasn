@@ -16,7 +16,6 @@ pub mod ber;
 
 pub use de::{Decode, Decoder};
 pub use enc::{Encode, Encoder};
-pub use rasn_derive::*;
 pub use tag::Tag;
 pub use types::AsnType;
 
