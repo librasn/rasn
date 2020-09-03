@@ -16,7 +16,8 @@ pub fn derive_struct_impl(
     let field_tags = container
         .fields
         .iter()
-        .map(|f| FieldConfig::new(f, config).tag());
+        .enumerate()
+        .map(|(i, f)| FieldConfig::new(f, config).tag(i));
 
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
@@ -44,11 +45,12 @@ pub fn derive_enum_impl(
     let variant_tags = container
         .variants
         .iter()
-        .map(|v| VariantConfig::new(v, config).tag());
+        .enumerate()
+        .map(|(i, v)| VariantConfig::new(v, config).tag(i));
 
     let asserts = if config.choice {
         let field_asserts = container.variants.iter().map(|v| {
-            let field_tags = v.fields.iter().map(|f| FieldConfig::new(f, config).tag());
+            let field_tags = v.fields.iter().enumerate().map(|(i, f)| FieldConfig::new(f, config).tag(i));
             quote! {
                 #crate_root::sa::const_assert!(#crate_root::Tag::is_distinct_set(&[#(#field_tags),*]));
             }

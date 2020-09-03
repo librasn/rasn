@@ -8,8 +8,8 @@ pub fn derive_struct_impl(
 ) -> proc_macro2::TokenStream {
     let mut list = vec![];
     for (i, field) in container.fields.iter().enumerate() {
+        let tag = FieldConfig::new(field, config).tag(i);
         let i = syn::Index::from(i);
-        let tag = FieldConfig::new(field, config).tag();
         let field = field
             .ident
             .as_ref()
@@ -56,9 +56,9 @@ pub fn derive_enum_impl(
     };
 
     let encode = if config.choice {
-        let variants = container.variants.iter().map(|v| {
+        let variants = container.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
-            let tag = VariantConfig::new(&v, &config).tag();
+            let tag = VariantConfig::new(&v, &config).tag(i);
 
             match &v.fields {
                 syn::Fields::Named(_) => {

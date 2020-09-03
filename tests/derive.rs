@@ -74,3 +74,23 @@ enum NestedAnonChoiceStruct {
     #[rasn(tag(0))]
     Bar { x: bool, y: Integer },
 }
+
+#[test]
+fn automatic_tagging() {
+    #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
+    #[rasn(automatic_tagging)]
+    struct Bools {
+        a: bool,
+        b: bool,
+    }
+
+    let raw = &[
+        0x30, // Sequence tag
+        0x6,  // Length
+        0x80, 1, 0xFF, // A
+        0x81, 1, 0, // B
+    ][..];
+
+    let default = Bools { a: true, b: false };
+    assert_eq!(default, ber::decode(&raw).unwrap());
+}

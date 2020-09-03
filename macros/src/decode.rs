@@ -11,9 +11,9 @@ pub fn derive_struct_impl(
     let mut list = vec![];
     let crate_root = &config.crate_root;
 
-    for field in container.fields.iter() {
+    for (i, field) in container.fields.iter().enumerate() {
         let lhs = field.ident.as_ref().map(|i| quote!(#i :));
-        let tag = FieldConfig::new(field, config).tag();
+        let tag = FieldConfig::new(field, config).tag(i);
 
         list.push(proc_macro2::TokenStream::from(
             quote!(#lhs <_>::decode_with_tag(&mut decoder, #tag)?),
@@ -76,11 +76,12 @@ pub fn derive_enum_impl(
         let tag_consts = container
             .variants
             .iter()
-            .map(|v| VariantConfig::new(&v, config).tag());
+            .enumerate()
+            .map(|(i, v)| VariantConfig::new(&v, config).tag(i));
         let tag_consts2 = tag_consts.clone();
 
-        let fields = container.variants.iter().map(|v| {
-            let tag = VariantConfig::new(&v, config).tag();
+        let fields = container.variants.iter().enumerate().map(|(i, v)| {
+            let tag = VariantConfig::new(&v, config).tag(i);
             let ident = &v.ident;
             match &v.fields {
                 syn::Fields::Unit => quote!({ decoder.decode_null(#tag)?; #name::#ident}),

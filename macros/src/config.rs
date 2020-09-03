@@ -4,6 +4,7 @@ pub struct Config {
     pub crate_root: syn::Path,
     pub enumerated: bool,
     pub choice: bool,
+    pub automatic_tagging: bool,
     pub tag: Option<Tag>,
 }
 
@@ -12,6 +13,7 @@ impl Config {
         let mut choice = false;
         let mut crate_root = None;
         let mut enumerated = false;
+        let mut automatic_tagging = false;
         let mut tag = None;
 
         let mut iter = input
@@ -37,6 +39,8 @@ impl Config {
                     enumerated = true;
                 } else if path.is_ident("choice") {
                     choice = true;
+                } else if path.is_ident("automatic_tagging") {
+                    automatic_tagging = true;
                 } else if path.is_ident("tag") {
                     tag = Tag::from_meta(item);
                 }
@@ -53,6 +57,7 @@ impl Config {
         }
 
         Self {
+            automatic_tagging,
             choice,
             enumerated,
             tag,
@@ -99,10 +104,12 @@ impl<'a> VariantConfig<'a> {
         }
     }
 
-    pub fn tag(&self) -> proc_macro2::TokenStream {
+    pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         if let Some(Tag { class, value }) = &self.tag {
-            return quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value));
+            quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value))
+        } else if self.container_config.automatic_tagging {
+            quote!(#crate_root::Tag::new(#crate_root::tag::Class::Context, #context))
         } else {
             Tag::from_fields(&self.variant.fields, crate_root)
         }
@@ -143,10 +150,15 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
-    pub fn tag(&self) -> proc_macro2::TokenStream {
+    pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         if let Some(Tag { class, value }) = &self.tag {
+            if self.container_config.automatic_tagging {
+                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tagging)]`.")
+            }
             quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value))
+        } else if self.container_config.automatic_tagging {
+            quote!(#crate_root::Tag::new(#crate_root::tag::Class::Context, #context as u32))
         } else {
             let ty = &self.field.ty;
             quote!(<#ty>::TAG)
