@@ -78,9 +78,10 @@ pub fn derive_enum_impl(
             .map(|v| VariantConfig::new(&v).tag(crate_root));
 
         let fields = container.variants.iter().map(|v| {
+            let tag = VariantConfig::new(&v).tag(crate_root);
             let ident = &v.ident;
             match &v.fields {
-                syn::Fields::Unit => quote!({ decoder.decode_null(<()>::TAG)?; #name::#ident}),
+                syn::Fields::Unit => quote!({ decoder.decode_null(#tag)?; #name::#ident}),
                 _ => {
                     let is_newtype = match &v.fields {
                         syn::Fields::Unnamed(_) => true,
@@ -89,7 +90,7 @@ pub fn derive_enum_impl(
 
                     let decode_fields = v.fields.iter().map(|f| {
                         let ident = f.ident.as_ref().map(|i| quote!(#i :));
-                        quote!(#ident <_>::decode(decoder)?)
+                        quote!(#ident <_>::decode_with_tag(decoder, #tag)?)
                     });
 
                     if is_newtype {

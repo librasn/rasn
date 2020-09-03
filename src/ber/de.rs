@@ -57,13 +57,14 @@ impl<'input> Decoder for Parser<'input> {
         ))
     }
 
-    fn decode_octet_string(&mut self, tag: Tag) -> Result<types::OctetString> {
+    fn decode_octet_string(&mut self, tag: Tag) -> Result<Vec<u8>> {
         let (identifier, mut contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
             Ok(contents.to_vec().into())
         } else {
-            let mut buffer = alloc::vec![];
+            let mut buffer = Vec::new();
+
             while !contents.is_empty() {
                 let (c, mut vec) =
                     self::parser::parse_encoded_value(contents, Tag::OCTET_STRING, |input| {
@@ -74,7 +75,7 @@ impl<'input> Decoder for Parser<'input> {
                 buffer.append(&mut vec);
             }
 
-            Ok(buffer.into())
+            Ok(buffer)
         }
     }
 

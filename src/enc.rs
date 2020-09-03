@@ -41,7 +41,7 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
     fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
     where
-        F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>;
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
     // fn encode_sequence(&mut self, tag: Tag) -> Result<Self, Self::Error>;
     // fn encode_set(&mut self, tag: Tag) -> Result<Self, Self::Error>;
     // fn encode_set_of<D: Encode + Ord>(&mut self, tag: Tag) -> Result<BTreeSet<D>, Self::Error>;
@@ -156,5 +156,21 @@ impl<T: crate::types::AsnType, V: Encode> Encode for types::Explicit<T, V> {
         tag: Tag,
     ) -> Result<EN::Ok, EN::Error> {
         encoder.encode_explicit_prefix(tag, &self.value)
+    }
+}
+
+impl Encode for alloc::collections::BTreeMap<Tag, types::Open> {
+    fn encode_with_tag<EN: Encoder>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+    ) -> Result<EN::Ok, EN::Error> {
+        encoder.encode_sequence(tag, |encoder| {
+            for (tag, value) in self {
+                <_>::encode_with_tag(value, encoder, *tag)?;
+            }
+
+            Ok(())
+        })
     }
 }

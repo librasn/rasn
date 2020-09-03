@@ -34,7 +34,8 @@ pub trait AsnType {
     const TAG: Tag;
 }
 
-#[derive(AsnType, crate::Encode)]
+/// An "open" type representating any valid ASN.1 type.
+#[derive(AsnType)]
 #[rasn(crate_root = "crate")]
 #[rasn(choice)]
 pub enum Open {
@@ -44,12 +45,39 @@ pub enum Open {
     VisibleString(VisibleString),
     BmpString(BmpString),
     NumericString(NumericString),
+    Sequence(alloc::collections::BTreeMap<Tag, Open>),
     SequenceOf(SequenceOf<Open>),
     UniversalString(UniversalString),
     Bool(bool),
     Integer(Integer),
     Null,
     OctetString(OctetString),
+    Unknown {
+        tag: Tag,
+        value: alloc::vec::Vec<u8>,
+    },
+}
+
+impl Open {
+    /// Returns the tag of the variant.
+    pub fn tag(&self) -> Tag {
+        match self {
+            Self::BitString(_) => <BitString>::TAG,
+            Self::IA5String(_) => <IA5String>::TAG,
+            Self::PrintableString(_) => <PrintableString>::TAG,
+            Self::VisibleString(_) => <VisibleString>::TAG,
+            Self::BmpString(_) => <BmpString>::TAG,
+            Self::NumericString(_) => <NumericString>::TAG,
+            Self::Sequence(_) => Tag::SEQUENCE,
+            Self::SequenceOf(_) => <SequenceOf<Open>>::TAG,
+            Self::UniversalString(_) => <UniversalString>::TAG,
+            Self::Bool(_) => <bool>::TAG,
+            Self::Integer(_) => <Integer>::TAG,
+            Self::Null => <()>::TAG,
+            Self::OctetString(_) => <OctetString>::TAG,
+            Self::Unknown { tag, .. } => *tag,
+        }
+    }
 }
 
 impl crate::Decode for Open {
@@ -88,12 +116,38 @@ impl crate::Decode for Open {
                 Open::Null
             }
             TAG_11 => Open::OctetString(<_>::decode(decoder)?),
-            _ => {
-                return Err(crate::error::Error::custom(
-                    "Invalid `CHOICE` discriminant.",
-                ))
-            }
+            tag => Self::Unknown {
+                tag,
+                value: decoder.decode_octet_string(tag)?,
+            },
         })
+    }
+}
+
+impl crate::Encode for Open {
+    fn encode_with_tag<EN: crate::Encoder>(&self, _: &mut EN, _: Tag) -> Result<EN::Ok, EN::Error> {
+        Err(crate::error::Error::custom(
+            "CHOICE-style enums do not allow implicit tagging.",
+        ))
+    }
+
+    fn encode<E: crate::Encoder>(&self, encoder: &mut E) -> Result<E::Ok, E::Error> {
+        match self {
+            Open::BitString(value) => value.encode(encoder),
+            Open::IA5String(value) => crate::Encode::encode(value, encoder),
+            Open::PrintableString(value) => crate::Encode::encode(value, encoder),
+            Open::VisibleString(value) => crate::Encode::encode(value, encoder),
+            Open::BmpString(value) => crate::Encode::encode(value, encoder),
+            Open::NumericString(value) => crate::Encode::encode(value, encoder),
+            Open::Sequence(value) => crate::Encode::encode(value, encoder),
+            Open::SequenceOf(value) => crate::Encode::encode(value, encoder),
+            Open::UniversalString(value) => crate::Encode::encode(value, encoder),
+            Open::Bool(value) => crate::Encode::encode(value, encoder),
+            Open::Integer(value) => crate::Encode::encode(value, encoder),
+            Open::Null => encoder.encode_null(<()>::TAG),
+            Open::OctetString(value) => crate::Encode::encode(value, encoder),
+            Open::Unknown { tag, value } => encoder.encode_octet_string(*tag, value),
+        }
     }
 }
 
@@ -189,4 +243,8 @@ impl<T: AsnType, V> AsnType for Implicit<T, V> {
 
 impl<T: AsnType, V> AsnType for Explicit<T, V> {
     const TAG: Tag = T::TAG;
+}
+
+impl<K, V> AsnType for alloc::collections::BTreeMap<K, V> {
+    const TAG: Tag = Tag::SEQUENCE;
 }

@@ -30,7 +30,7 @@ impl Class {
 
 /// An abstract representation of the tag octets used in BER, CER, and
 /// DER to identify .
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Tag {
     pub class: Class,
     pub value: u32,

@@ -66,6 +66,21 @@ pub enum Class {
     Private,
 }
 
+impl Class {
+    fn from_lit(lit: &syn::Lit) -> Self {
+        match &*format!("{}", quote!(#lit)).to_lowercase() {
+            "universal" => Class::Universal,
+            "application" => Class::Application,
+            "context" => Class::Context,
+            "private" => Class::Private,
+            s => panic!(
+                "Class MUST BE `universal`, `application`, `context`, or `private`. Found: {}",
+                s
+            ),
+        }
+    }
+}
+
 impl quote::ToTokens for Class {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         use quote::TokenStreamExt;
@@ -105,12 +120,20 @@ impl<'a> VariantConfig<'a> {
                                 if let syn::NestedMeta::Lit(lit) =
                                     list.nested.iter().next().unwrap()
                                 {
-                                    if core::matches!(lit, syn::Lit::Int(_)) {
-                                        tag = Some((Class::Context, lit.clone()));
-                                    }
+                                    tag = Some((Class::Context, lit.clone()));
                                 }
                             }
-                            2 => todo!(),
+                            2 => {
+                                let mut iter = list.nested.iter();
+                                let class = iter.next().unwrap();
+                                let value = iter.next().unwrap();
+
+                                if let (syn::NestedMeta::Lit(class), syn::NestedMeta::Lit(value)) =
+                                    (class, value)
+                                {
+                                    tag = Some((Class::from_lit(class), value.clone()));
+                                }
+                            }
                             _ => panic!(
                                 "The `#[rasn(tag)]`attribute takes a maximum of two arguments."
                             ),

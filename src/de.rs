@@ -26,7 +26,7 @@ pub trait Decoder: Sized {
         &mut self,
         tag: Tag,
     ) -> Result<types::ObjectIdentifier, Self::Error>;
-    fn decode_octet_string(&mut self, tag: Tag) -> Result<types::OctetString, Self::Error>;
+    fn decode_octet_string(&mut self, tag: Tag) -> Result<Vec<u8>, Self::Error>;
     fn decode_sequence(&mut self, tag: Tag) -> Result<Self, Self::Error>;
     fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>, Self::Error>;
     fn decode_set(&mut self, tag: Tag) -> Result<Self, Self::Error>;
@@ -83,7 +83,7 @@ impl Decode for types::Integer {
 
 impl Decode for types::OctetString {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_octet_string(tag)
+        decoder.decode_octet_string(tag).map(Self::from)
     }
 }
 
@@ -120,5 +120,18 @@ impl<T: AsnType, V: Decode> Decode for types::Implicit<T, V> {
 impl<T: AsnType, V: Decode> Decode for types::Explicit<T, V> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(decoder.decode_explicit_prefix(tag)?))
+    }
+}
+
+impl Decode for alloc::collections::BTreeMap<Tag, types::Open> {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        let mut decoder = decoder.decode_sequence(tag)?;
+        let mut map = alloc::collections::BTreeMap::new();
+
+        while let Ok(value) = <types::Open>::decode(&mut decoder) {
+            map.insert(value.tag(), value);
+        }
+
+        Ok(map)
     }
 }

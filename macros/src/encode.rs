@@ -16,7 +16,7 @@ pub fn derive_struct_impl(
             .unwrap_or_else(|| quote!(#i));
 
         list.push(proc_macro2::TokenStream::from(
-            quote!(let value = self.#field.encode(encoder)?;),
+            quote!(self.#field.encode(encoder)?;),
         ));
     }
 
@@ -28,7 +28,8 @@ pub fn derive_struct_impl(
             fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<EN::Ok, EN::Error> {
                 encoder.encode_sequence(tag, |encoder| {
                     #(#list)*
-                    Ok(value)
+
+                    Ok(())
                 })
             }
         }
@@ -56,7 +57,7 @@ pub fn derive_enum_impl(
     let encode = if config.choice {
         let variants = container.variants.iter().map(|v| {
             let ident = &v.ident;
-            let tags = VariantConfig::new(&v).tag(crate_root);
+            let tag = VariantConfig::new(&v).tag(crate_root);
 
             match &v.fields {
                 syn::Fields::Named(_) => {
@@ -68,8 +69,9 @@ pub fn derive_enum_impl(
 
                     quote!(#name::#ident { #(#fields),* } => {
                         encoder.encode_sequence(tag, |encoder| {
-                            #(let value = #fields2.encode_with_tag(encoder, #tags)?);*
-                            Ok(value)
+                            #(#crate_root::Encode::encode_with_tag(#fields2, encoder, #tag)?);*
+
+                            Ok(())
                         })
                     })
                 }
@@ -77,9 +79,9 @@ pub fn derive_enum_impl(
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
-                    quote!(#name::#ident(value) => { #crate_root::Encode::encode(value, encoder) })
+                    quote!(#name::#ident(value) => { #crate_root::Encode::encode_with_tag(value, encoder, #tag) })
                 }
-                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(<()>::TAG) }),
+                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(#tag) }),
             }
         });
 

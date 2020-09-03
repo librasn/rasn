@@ -206,12 +206,17 @@ mod tests {
         #[rasn(choice)]
         enum Choice {
             Bar(bool),
+            #[rasn(tag(1))]
             Baz(OctetString),
+            #[rasn(tag(Application, 1))]
+            Foo(OctetString),
         }
 
         let bar = Choice::Bar(true);
         let baz = Choice::Baz(OctetString::from(vec![1, 2, 3, 4, 5]));
+        let foo = Choice::Foo(OctetString::from(vec![1, 2, 3, 4, 5]));
 
+        assert_eq!(foo, decode(&encode(&foo).unwrap()).unwrap());
         assert_eq!(bar, decode(&encode(&bar).unwrap()).unwrap());
         assert_eq!(baz, decode(&encode(&baz).unwrap()).unwrap());
     }
