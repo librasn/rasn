@@ -208,7 +208,7 @@ mod tests {
             Bar(bool),
             #[rasn(tag(1))]
             Baz(OctetString),
-            #[rasn(tag(Application, 1))]
+            #[rasn(tag(2))]
             Foo(OctetString),
         }
 

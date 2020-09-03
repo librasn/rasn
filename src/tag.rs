@@ -104,18 +104,28 @@ impl Tag {
         self
     }
 
-    pub fn len(&self) -> usize {
-        if self.value > 0x1f {
-            let mut len = 1;
-            let mut value = self.value;
-            while value != 0 {
-                len += 1;
-                value >>= 7;
+    /// Checks that a slice of tags is a distinct set in a way that is `const`
+    /// compatible.
+    pub const fn is_distinct_set(set: &[Self]) -> bool {
+        let mut index = 0;
+        while index < set.len() {
+            let needle = &set[index];
+            let mut after = index + 1;
+            while after < set.len() {
+                if needle.const_eq(&set[after]) {
+                    return false;
+                } else {
+                    after += 1;
+                }
             }
 
-            len
-        } else {
-            1
+            index += 1;
         }
+
+        true
+    }
+
+    const fn const_eq(&self, rhs: &Self) -> bool {
+        self.class as u8 == rhs.class as u8 && self.value == rhs.value
     }
 }

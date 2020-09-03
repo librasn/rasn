@@ -33,6 +33,8 @@ pub trait Decoder: Sized {
     fn decode_set_of<D: Decode + Ord>(&mut self, tag: Tag) -> Result<BTreeSet<D>, Self::Error>;
     fn decode_utf8_string(&mut self, tag: Tag) -> Result<types::Utf8String, Self::Error>;
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D, Self::Error>;
+    fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime, Self::Error>;
+    fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime, Self::Error>;
 }
 
 impl Decode for () {
@@ -102,6 +104,18 @@ impl Decode for types::BitString {
 impl Decode for types::Utf8String {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_utf8_string(tag)
+    }
+}
+
+impl Decode for types::UtcTime {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        decoder.decode_utc_time(tag)
+    }
+}
+
+impl Decode for types::GeneralizedTime {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        decoder.decode_generalized_time(tag)
     }
 }
 

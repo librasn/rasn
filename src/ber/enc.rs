@@ -166,6 +166,22 @@ impl crate::Encoder for Encoder {
         Ok(self.encode_value(tag, value.as_bytes()))
     }
 
+    fn encode_utc_time(
+        &mut self,
+        tag: Tag,
+        value: &types::UtcTime,
+    ) -> Result<Self::Ok, Self::Error> {
+        Ok(self.encode_value(tag, value.to_rfc2822().as_bytes()))
+    }
+
+    fn encode_generalized_time(
+        &mut self,
+        tag: Tag,
+        value: &types::GeneralizedTime,
+    ) -> Result<Self::Ok, Self::Error> {
+        Ok(self.encode_value(tag, value.to_rfc3339().as_bytes()))
+    }
+
     fn encode_sequence_of<E: Encode>(
         &mut self,
         tag: Tag,

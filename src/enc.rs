@@ -34,6 +34,16 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
     fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error>;
     fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error>;
+    fn encode_utc_time(
+        &mut self,
+        tag: Tag,
+        value: &types::UtcTime,
+    ) -> Result<Self::Ok, Self::Error>;
+    fn encode_generalized_time(
+        &mut self,
+        tag: Tag,
+        value: &types::GeneralizedTime,
+    ) -> Result<Self::Ok, Self::Error>;
     fn encode_sequence_of<E: Encode>(
         &mut self,
         tag: Tag,
@@ -126,6 +136,18 @@ impl Encode for &'_ types::BitSlice {
 impl Encode for types::ObjectIdentifier {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<E::Ok, E::Error> {
         encoder.encode_object_identifier(tag, self)
+    }
+}
+
+impl Encode for types::UtcTime {
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<E::Ok, E::Error> {
+        encoder.encode_utc_time(tag, self)
+    }
+}
+
+impl Encode for types::GeneralizedTime {
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<E::Ok, E::Error> {
+        encoder.encode_generalized_time(tag, self)
     }
 }
 

@@ -61,7 +61,7 @@ impl<'input> Decoder for Parser<'input> {
         let (identifier, mut contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
-            Ok(contents.to_vec().into())
+            Ok(contents.to_vec())
         } else {
             let mut buffer = Vec::new();
 
@@ -130,10 +130,25 @@ impl<'input> Decoder for Parser<'input> {
     }
 
     fn decode_utf8_string(&mut self, tag: Tag) -> Result<types::Utf8String> {
-        let vec = self.decode_octet_string(tag)?.to_vec();
+        let vec = self.decode_octet_string(tag)?;
         types::Utf8String::from_utf8(vec)
             .ok()
             .context(error::InvalidUtf8)
+    }
+
+    fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
+        let string = self.decode_utf8_string(tag)?;
+        types::GeneralizedTime::parse_from_rfc3339(&string)
+            .ok()
+            .context(error::InvalidDate)
+    }
+
+    fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
+        let string = self.decode_utf8_string(tag)?;
+        types::GeneralizedTime::parse_from_rfc2822(&string)
+            .map(types::UtcTime::from)
+            .ok()
+            .context(error::InvalidDate)
     }
 
     fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>> {

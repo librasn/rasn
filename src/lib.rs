@@ -21,4 +21,4 @@ pub use tag::Tag;
 pub use types::AsnType;
 
 #[doc(hidden)]
-pub use phf;
+pub use static_assertions as sa;

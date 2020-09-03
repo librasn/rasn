@@ -76,6 +76,7 @@ pub fn derive_enum_impl(
             .variants
             .iter()
             .map(|v| VariantConfig::new(&v).tag(crate_root));
+        let tag_consts2 = tag_consts.clone();
 
         let fields = container.variants.iter().map(|v| {
             let tag = VariantConfig::new(&v).tag(crate_root);
@@ -104,8 +105,10 @@ pub fn derive_enum_impl(
 
         Some(quote! {
             fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
+                #crate_root::sa::const_assert!(#crate_root::Tag::is_distinct_set(&[#(#tag_consts),*]));
+
                 #(
-                    const #tags: #crate_root::Tag = #tag_consts;
+                    const #tags: #crate_root::Tag = #tag_consts2;
                 )*
 
                 let tag = decoder.peek_tag()?;

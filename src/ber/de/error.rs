@@ -33,8 +33,10 @@ pub(crate) fn map_nom_err(error: nom::Err<(&[u8], nom::error::ErrorKind)>) -> Er
 #[snafu(visibility = "pub(crate)")]
 #[derive(Debug)]
 pub enum Error {
-    #[snafu(display("Invalid UTF-8 in UTF8String"))]
+    #[snafu(display("Invalid UTF-8"))]
     InvalidUtf8,
+    #[snafu(display("Invalid Date"))]
+    InvalidDate,
     #[snafu(display("Error in Parser\n{}", msg))]
     Parser { msg: alloc::string::String },
     #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
