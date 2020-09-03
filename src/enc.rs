@@ -179,47 +179,33 @@ impl Encode for types::GeneralizedTime {
 }
 
 impl<E: Encode> Encode for types::SequenceOf<E> {
-    fn encode_with_tag<EN: Encoder>(
-        &self,
-        encoder: &mut EN,
-        tag: Tag,
-    ) -> Result<(), EN::Error> {
+    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         encoder.encode_sequence_of(tag, self).map(drop)
     }
 }
 
 impl<T: crate::types::AsnType, V: Encode> Encode for types::Implicit<T, V> {
-    fn encode_with_tag<EN: Encoder>(
-        &self,
-        encoder: &mut EN,
-        tag: Tag,
-    ) -> Result<(), EN::Error> {
+    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         V::encode_with_tag(&self.value, encoder, tag).map(drop)
     }
 }
 
 impl<T: crate::types::AsnType, V: Encode> Encode for types::Explicit<T, V> {
-    fn encode_with_tag<EN: Encoder>(
-        &self,
-        encoder: &mut EN,
-        tag: Tag,
-    ) -> Result<(), EN::Error> {
+    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         encoder.encode_explicit_prefix(tag, &self.value).map(drop)
     }
 }
 
 impl Encode for alloc::collections::BTreeMap<Tag, types::Open> {
-    fn encode_with_tag<EN: Encoder>(
-        &self,
-        encoder: &mut EN,
-        tag: Tag,
-    ) -> Result<(), EN::Error> {
-        encoder.encode_sequence(tag, |encoder| {
-            for (tag, value) in self {
-                <_>::encode_with_tag(value, encoder, *tag)?;
-            }
+    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+        encoder
+            .encode_sequence(tag, |encoder| {
+                for (tag, value) in self {
+                    <_>::encode_with_tag(value, encoder, *tag)?;
+                }
 
-            Ok(())
-        }).map(drop)
+                Ok(())
+            })
+            .map(drop)
     }
 }

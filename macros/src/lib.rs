@@ -5,6 +5,7 @@ mod asn_type;
 mod config;
 mod decode;
 mod encode;
+mod tag;
 
 use config::Config;
 
@@ -57,8 +58,8 @@ pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let generics = input.generics;
 
     match input.data {
-        syn::Data::Struct(_) => asn_type::derive_struct_impl(name, generics, &config).into(),
-        syn::Data::Enum(_) => asn_type::derive_enum_impl(name, generics, &config).into(),
+        syn::Data::Struct(v) => asn_type::derive_struct_impl(name, generics, v, &config).into(),
+        syn::Data::Enum(v) => asn_type::derive_enum_impl(name, generics, v, &config).into(),
         _ => panic!("Union types are not supported."),
     }
 }

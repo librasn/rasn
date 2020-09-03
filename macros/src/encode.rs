@@ -1,4 +1,4 @@
-use crate::config::{Config, VariantConfig};
+use crate::config::*;
 
 pub fn derive_struct_impl(
     name: syn::Ident,
@@ -9,6 +9,7 @@ pub fn derive_struct_impl(
     let mut list = vec![];
     for (i, field) in container.fields.iter().enumerate() {
         let i = syn::Index::from(i);
+        let tag = FieldConfig::new(field, config).tag();
         let field = field
             .ident
             .as_ref()
@@ -16,7 +17,7 @@ pub fn derive_struct_impl(
             .unwrap_or_else(|| quote!(#i));
 
         list.push(proc_macro2::TokenStream::from(
-            quote!(self.#field.encode(encoder)?;),
+            quote!(self.#field.encode_with_tag(encoder, #tag)?;),
         ));
     }
 
@@ -57,20 +58,19 @@ pub fn derive_enum_impl(
     let encode = if config.choice {
         let variants = container.variants.iter().map(|v| {
             let ident = &v.ident;
-            let tag = VariantConfig::new(&v).tag(crate_root);
+            let tag = VariantConfig::new(&v, &config).tag();
 
             match &v.fields {
                 syn::Fields::Named(_) => {
-                    let fields = v.fields.iter().map(|v| {
-                        let ident = v.ident.as_ref().unwrap();
+                    let fields = v.fields.iter().map(|f| {
+                        let ident = f.ident.as_ref().unwrap();
                         quote!(#ident)
                     });
                     let fields2 = fields.clone();
 
                     quote!(#name::#ident { #(#fields),* } => {
-                        encoder.encode_sequence(tag, |encoder| {
-                            #(#crate_root::Encode::encode_with_tag(#fields2, encoder, #tag)?);*
-
+                        encoder.encode_sequence(#tag, |encoder| {
+                            #(#crate_root::Encode::encode_with_tag(#fields2, encoder, #tag)?;)*
                             Ok(())
                         })
                     })

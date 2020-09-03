@@ -1,7 +1,10 @@
+use crate::tag::Tag;
+
 pub struct Config {
     pub crate_root: syn::Path,
     pub enumerated: bool,
     pub choice: bool,
+    pub tag: Option<Tag>,
 }
 
 impl Config {
@@ -9,6 +12,7 @@ impl Config {
         let mut choice = false;
         let mut crate_root = None;
         let mut enumerated = false;
+        let mut tag = None;
 
         let mut iter = input
             .attrs
@@ -33,6 +37,8 @@ impl Config {
                     enumerated = true;
                 } else if path.is_ident("choice") {
                     choice = true;
+                } else if path.is_ident("tag") {
+                    tag = Tag::from_meta(item);
                 }
             }
         }
@@ -49,6 +55,7 @@ impl Config {
         Self {
             choice,
             enumerated,
+            tag,
             crate_root: crate_root.unwrap_or_else(|| {
                 syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site())
                     .parse()
@@ -58,48 +65,14 @@ impl Config {
     }
 }
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
-pub enum Class {
-    Universal = 0,
-    Application,
-    Context,
-    Private,
-}
-
-impl Class {
-    fn from_lit(lit: &syn::Lit) -> Self {
-        match &*format!("{}", quote!(#lit)).to_lowercase() {
-            "universal" => Class::Universal,
-            "application" => Class::Application,
-            "context" => Class::Context,
-            "private" => Class::Private,
-            s => panic!(
-                "Class MUST BE `universal`, `application`, `context`, or `private`. Found: {}",
-                s
-            ),
-        }
-    }
-}
-
-impl quote::ToTokens for Class {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        use quote::TokenStreamExt;
-        tokens.append(match self {
-            Self::Universal => format_ident!("Universal"),
-            Self::Application => format_ident!("Application"),
-            Self::Context => format_ident!("Context"),
-            Self::Private => format_ident!("Private"),
-        });
-    }
-}
-
 pub struct VariantConfig<'a> {
     variant: &'a syn::Variant,
-    pub tag: Option<(Class, syn::Lit)>,
+    container_config: &'a Config,
+    pub tag: Option<Tag>,
 }
 
 impl<'a> VariantConfig<'a> {
-    pub fn new(variant: &'a syn::Variant) -> Self {
+    pub fn new(variant: &'a syn::Variant, container_config: &'a Config) -> Self {
         let mut tag = None;
         let mut iter = variant
             .attrs
@@ -114,56 +87,69 @@ impl<'a> VariantConfig<'a> {
             }) {
                 let path = item.path();
                 if path.is_ident("tag") {
-                    match item {
-                        syn::Meta::List(list) => match list.nested.iter().count() {
-                            1 => {
-                                if let syn::NestedMeta::Lit(lit) =
-                                    list.nested.iter().next().unwrap()
-                                {
-                                    tag = Some((Class::Context, lit.clone()));
-                                }
-                            }
-                            2 => {
-                                let mut iter = list.nested.iter();
-                                let class = iter.next().unwrap();
-                                let value = iter.next().unwrap();
-
-                                if let (syn::NestedMeta::Lit(class), syn::NestedMeta::Lit(value)) =
-                                    (class, value)
-                                {
-                                    tag = Some((Class::from_lit(class), value.clone()));
-                                }
-                            }
-                            _ => panic!(
-                                "The `#[rasn(tag)]`attribute takes a maximum of two arguments."
-                            ),
-                        },
-                        _ => todo!(),
-                    }
+                    tag = Tag::from_meta(item);
                 }
             }
         }
 
-        Self { variant, tag }
+        Self {
+            variant,
+            container_config,
+            tag,
+        }
     }
 
-    pub fn tag(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
-        if let Some((class, value)) = &self.tag {
+    pub fn tag(&self) -> proc_macro2::TokenStream {
+        let crate_root = &self.container_config.crate_root;
+        if let Some(Tag { class, value }) = &self.tag {
             return quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value));
+        } else {
+            Tag::from_fields(&self.variant.fields, crate_root)
         }
+    }
+}
 
-        match self.variant.fields {
-            syn::Fields::Unit => quote!(<()>::TAG),
-            syn::Fields::Named(_) => quote!(#crate_root::Tag::SEQUENCE),
-            syn::Fields::Unnamed(_) => {
-                if self.variant.fields.iter().count() != 1 {
-                    panic!("Tuple-style enum variants must contain only a single field, switch to struct-style variants for multiple fields.");
-                } else {
-                    let ty = &self.variant.fields.iter().next().unwrap().ty;
+pub struct FieldConfig<'a> {
+    field: &'a syn::Field,
+    container_config: &'a Config,
+    pub tag: Option<Tag>,
+}
 
-                    quote!(<#ty>::TAG)
+impl<'a> FieldConfig<'a> {
+    pub fn new(field: &'a syn::Field, container_config: &'a Config) -> Self {
+        let mut tag = None;
+        let mut iter = field
+            .attrs
+            .iter()
+            .filter_map(|a| a.parse_meta().ok())
+            .filter(|m| m.path().is_ident(crate::CRATE_NAME));
+
+        while let Some(syn::Meta::List(list)) = iter.next() {
+            for item in list.nested.iter().filter_map(|n| match n {
+                syn::NestedMeta::Meta(m) => Some(m),
+                _ => None,
+            }) {
+                let path = item.path();
+                if path.is_ident("tag") {
+                    tag = Tag::from_meta(item);
                 }
             }
+        }
+
+        Self {
+            field,
+            container_config,
+            tag,
+        }
+    }
+
+    pub fn tag(&self) -> proc_macro2::TokenStream {
+        let crate_root = &self.container_config.crate_root;
+        if let Some(Tag { class, value }) = &self.tag {
+            quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value))
+        } else {
+            let ty = &self.field.ty;
+            quote!(<#ty>::TAG)
         }
     }
 }

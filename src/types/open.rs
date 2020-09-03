@@ -98,7 +98,7 @@ impl crate::Encode for Open {
             Open::Unknown { tag, value } => encoder.encode_octet_string(*tag, value).map(drop),
             Open::UtcTime(value) => crate::Encode::encode(value, encoder),
             Open::VisibleString(value) => crate::Encode::encode(value, encoder),
-        }.map(drop)
+        }
+        .map(drop)
     }
 }
-

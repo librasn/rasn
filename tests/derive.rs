@@ -1,9 +1,8 @@
-use rasn::{*, types::*};
+use rasn::{types::*, *};
 
 #[test]
 fn enumerated() {
     #[derive(AsnType, Clone, Copy, Debug, Encode, Decode, PartialEq)]
-    #[rasn(crate_root = "crate")]
     #[rasn(enumerated)]
     enum Foo {
         Ein,
@@ -23,14 +22,13 @@ fn enumerated() {
 #[test]
 fn choice() {
     #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-    #[rasn(crate_root = "crate")]
     #[rasn(choice)]
     enum Choice {
         Bar(bool),
         #[rasn(tag(1))]
-            Baz(OctetString),
-            #[rasn(tag(2))]
-            Foo(OctetString),
+        Baz(OctetString),
+        #[rasn(tag(2))]
+        Foo(OctetString),
     }
 
     let bar = Choice::Bar(true);
@@ -45,68 +43,34 @@ fn choice() {
 #[test]
 fn sequence() {
     #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
-    #[rasn(crate_root = "crate")]
     struct Bools {
         a: bool,
+        #[rasn(tag(0))]
         b: bool,
-        c: bool,
     }
 
     let raw = &[
         0x30, // Sequence tag
-        9,    // Length
+        0x6,  // Length
         1, 1, 0xff, // A
-        1, 1, 0, // B
-        1, 1, 0xff, // C
+        0x80, 1, 0, // B
     ][..];
 
-    let default = Bools {
-        a: true,
-        b: false,
-        c: true,
-    };
+    let default = Bools { a: true, b: false };
 
     assert_eq!(default, ber::decode(&raw).unwrap());
     assert_eq!(raw, &*ber::encode(&default).unwrap());
-
-    // The representation of SEQUENCE and SEQUENCE OF are the same in this case.
-    let bools_vec = vec![true, false, true];
-
-    assert_eq!(bools_vec, ber::decode::<Vec<bool>>(&raw).unwrap());
-    assert_eq!(raw, &*ber::encode(&bools_vec).unwrap());
 }
 
-#[test]
-fn sequence_with_optionals() {
-    #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
-    #[rasn(crate_root = "crate")]
-    struct Bools {
-        a: bool,
-        b: Option<bool>,
-        c: bool,
-    }
+#[derive(AsnType, Debug, Decode, Encode, PartialEq)]
+#[rasn(choice)]
+enum NestedAnonChoiceStruct {
+    Foo {
+        x: bool,
+        #[rasn(tag(0))]
+        y: bool,
+    },
 
-    let raw = &[
-        0x30, // Sequence tag
-        9,    // Length
-        1, 1, 0xff, // A
-        1, 1, 0, // B
-        1, 1, 0xff, // C
-    ][..];
-
-    let default = Bools {
-        a: true,
-        b: None,
-        c: true,
-    };
-
-    assert_eq!(default, ber::decode(&raw).unwrap());
-    assert_eq!(raw, &*ber::encode(&default).unwrap());
-
-    // The representation of SEQUENCE and SEQUENCE OF are the same in this case.
-    let bools_vec = vec![true, false, true];
-
-    assert_eq!(bools_vec, ber::decode::<Vec<bool>>(&raw).unwrap());
-    assert_eq!(raw, &*ber::encode(&bools_vec).unwrap());
+    #[rasn(tag(0))]
+    Bar { x: bool, y: Integer },
 }
-
