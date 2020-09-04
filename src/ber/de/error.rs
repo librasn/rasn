@@ -33,6 +33,10 @@ pub(crate) fn map_nom_err(error: nom::Err<(&[u8], nom::error::ErrorKind)>) -> Er
 #[snafu(visibility = "pub(crate)")]
 #[derive(Debug)]
 pub enum Error {
+    #[snafu(display("Constructed encoding encountered but not allowed."))]
+    ConstructedEncodingNotAllowed,
+    #[snafu(display("BOOL value is not `0` or `0xFF`."))]
+    InvalidBool,
     #[snafu(display("Invalid UTF-8"))]
     InvalidUtf8,
     #[snafu(display("Invalid Date"))]

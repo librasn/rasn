@@ -1,3 +1,4 @@
+mod config;
 mod error;
 mod parser;
 
@@ -6,23 +7,25 @@ use alloc::{collections::BTreeSet, vec::Vec};
 use snafu::*;
 
 use super::identifier::Identifier;
-use crate::{tag::Tag, types, Decode, Decoder};
+use crate::{tag::Tag, types, Decode};
 
-pub use self::error::Error;
+pub use self::{config::DecoderOptions, error::Error};
 
 type Result<T, E = Error> = core::result::Result<T, E>;
 
-pub(crate) struct Parser<'input> {
+pub struct Decoder<'input> {
     input: &'input [u8],
+    config: DecoderOptions,
 }
 
-impl<'input> Parser<'input> {
-    pub(crate) fn new(input: &'input [u8]) -> Self {
-        Self { input }
+impl<'input> Decoder<'input> {
+    pub fn new(input: &'input [u8], config: DecoderOptions) -> Self {
+        Self { input, config }
     }
 
     pub(crate) fn parse_value(&mut self, tag: Tag) -> Result<(Identifier, &'input [u8])> {
-        let (input, (identifier, contents)) = self::parser::parse_value(self.input, tag)?;
+        let (input, (identifier, contents)) =
+            self::parser::parse_value(&self.config, self.input, tag)?;
         self.input = input;
         Ok((identifier, contents))
     }
@@ -34,7 +37,7 @@ impl<'input> Parser<'input> {
     }
 }
 
-impl<'input> Decoder for Parser<'input> {
+impl<'input> crate::Decoder for Decoder<'input> {
     type Error = Error;
 
     fn peek_tag(&self) -> Result<Tag> {
@@ -44,7 +47,12 @@ impl<'input> Decoder for Parser<'input> {
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {
         let (_, contents) = self.parse_value(tag)?;
         error::assert_length(1, contents.len())?;
-        Ok(contents[0] != 0)
+        Ok(match contents[0] {
+            0 => false,
+            0xFF => true,
+            _ if self.config.encoding_rules.is_ber() => true,
+            _ => return Err(error::Error::InvalidBool),
+        })
     }
 
     fn decode_enumerated(&mut self, tag: Tag) -> Result<types::Integer> {
@@ -62,14 +70,18 @@ impl<'input> Decoder for Parser<'input> {
 
         if identifier.is_primitive() {
             Ok(contents.to_vec())
+        } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
+            Err(error::Error::ConstructedEncodingNotAllowed)
         } else {
             let mut buffer = Vec::new();
 
             while !contents.is_empty() {
-                let (c, mut vec) =
-                    self::parser::parse_encoded_value(contents, Tag::OCTET_STRING, |input| {
-                        Ok(alloc::vec::Vec::from(input))
-                    })?;
+                let (c, mut vec) = self::parser::parse_encoded_value(
+                    &self.config,
+                    contents,
+                    Tag::OCTET_STRING,
+                    |input| Ok(alloc::vec::Vec::from(input)),
+                )?;
                 contents = c;
 
                 buffer.append(&mut vec);
@@ -108,22 +120,23 @@ impl<'input> Decoder for Parser<'input> {
     }
 
     fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString> {
-        let (input, bs) = self::parser::parse_encoded_value(self.input, tag, |input| {
-            let unused_bits = input.get(0).copied();
+        let (input, bs) =
+            self::parser::parse_encoded_value(&self.config, self.input, tag, |input| {
+                let unused_bits = input.get(0).copied();
 
-            match unused_bits {
-                Some(bits @ 0..=7) => {
-                    let mut buffer = types::BitString::from_slice(&input[1..]);
-                    buffer.truncate(buffer.len().saturating_sub(bits as usize));
-                    Ok(buffer)
+                match unused_bits {
+                    Some(bits @ 0..=7) => {
+                        let mut buffer = types::BitString::from_slice(&input[1..]);
+                        buffer.truncate(buffer.len().saturating_sub(bits as usize));
+                        Ok(buffer)
+                    }
+                    _ => {
+                        return Err(Error::InvalidBitString {
+                            bits: unused_bits.unwrap_or(0),
+                        })
+                    }
                 }
-                _ => {
-                    return Err(Error::InvalidBitString {
-                        bits: unused_bits.unwrap_or(0),
-                    })
-                }
-            }
-        })?;
+            })?;
 
         self.input = input;
         Ok(bs)
@@ -155,7 +168,7 @@ impl<'input> Decoder for Parser<'input> {
         let contents = self.parse_value(tag)?.1;
         let mut vec = Vec::new();
 
-        let mut sequence_parser = Parser { input: contents };
+        let mut sequence_parser = Self::new(contents, self.config);
 
         while !sequence_parser.input.is_empty() {
             let value = D::decode(&mut sequence_parser)?;
@@ -169,7 +182,7 @@ impl<'input> Decoder for Parser<'input> {
         let contents = self.parse_value(tag)?.1;
         let mut vec = BTreeSet::new();
 
-        let mut set_parser = Parser { input: contents };
+        let mut set_parser = Self::new(contents, self.config);
 
         while !set_parser.input.is_empty() {
             let value = D::decode(&mut set_parser)?;
@@ -186,7 +199,7 @@ impl<'input> Decoder for Parser<'input> {
     fn decode_sequence(&mut self, tag: Tag) -> Result<Self> {
         let contents = self.parse_value(tag)?.1;
 
-        Ok(Parser { input: contents })
+        Ok(Self::new(contents, self.config))
     }
 
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D> {
@@ -354,7 +367,10 @@ mod tests {
         }
 
         impl Decode for Foo {
-            fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+            fn decode_with_tag<D: crate::Decoder>(
+                decoder: &mut D,
+                tag: Tag,
+            ) -> Result<Self, D::Error> {
                 let mut field_decoder = decoder.decode_sequence(tag)?;
 
                 let name: IA5String = IA5String::decode(&mut field_decoder)?;

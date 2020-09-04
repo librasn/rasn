@@ -1,15 +1,17 @@
 pub mod de;
 pub mod enc;
 mod identifier;
+mod rules;
 
 pub use identifier::Identifier;
+pub(crate) use rules::EncodingRules;
 
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
-    T::decode(&mut de::Parser::new(input))
+    T::decode(&mut de::Decoder::new(input, de::DecoderOptions::ber()))
 }
 
 pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::Error> {
-    let mut enc = enc::Encoder::default();
+    let mut enc = enc::Encoder::new(enc::EncoderOptions::ber());
 
     value.encode(&mut enc)?;
 

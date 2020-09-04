@@ -1,14 +1,29 @@
+mod config;
 mod error;
 
 use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
 
+use super::Identifier;
 use crate::{tag::Tag, types, Encode};
 
+pub use config::EncoderOptions;
 pub use error::Error;
 
-#[derive(Default)]
-pub(crate) struct Encoder {
+const START_OF_CONTENTS: u8 = 0x80;
+const END_OF_CONTENTS: &[u8] = &[0, 0];
+
+pub struct Encoder {
     pub(crate) output: Vec<u8>,
+    config: EncoderOptions,
+}
+
+impl Encoder {
+    pub fn new(config: EncoderOptions) -> Self {
+        Self {
+            output: Vec::new(),
+            config,
+        }
+    }
 }
 
 enum ByteOrBytes {
@@ -24,7 +39,7 @@ impl Encoder {
         }
     }
 
-    fn encode_identifier(&mut self, tag: Tag) -> ByteOrBytes {
+    fn encode_identifier(&mut self, tag: Tag, constructed: bool) -> ByteOrBytes {
         let mut tag_byte = tag.class as u8;
         let mut tag_number = tag.value;
 
@@ -32,6 +47,7 @@ impl Encoder {
         tag_byte <<= 1;
         tag_byte |= match tag {
             Tag::EXTERNAL | Tag::SEQUENCE | Tag::SET => 1,
+            _ if constructed => 1,
             _ => 0,
         };
 
@@ -62,7 +78,19 @@ impl Encoder {
         }
     }
 
-    fn encode_length(&mut self, len: usize) -> ByteOrBytes {
+    fn encode_length(&mut self, identifier: Identifier, len: usize, value: &[u8]) {
+        if identifier.is_primitive() || !self.config.encoding_rules.is_cer() {
+            let len_bytes = self.encode_definite_length(len);
+            self.append_byte_or_bytes(len_bytes);
+            self.output.extend_from_slice(value);
+        } else {
+            self.output.push(START_OF_CONTENTS);
+            self.output.extend_from_slice(value);
+            self.output.extend_from_slice(END_OF_CONTENTS);
+        }
+    }
+
+    fn encode_definite_length(&mut self, len: usize) -> ByteOrBytes {
         if len <= 127 {
             ByteOrBytes::Single(len as u8)
         } else {
@@ -80,12 +108,31 @@ impl Encoder {
         }
     }
 
+    fn encode_string(&mut self, tag: Tag, value: &[u8]) -> Result<(), Error> {
+        let max_string_length = self.config.encoding_rules.max_string_length();
+
+        if value.len() > max_string_length {
+            let ident_bytes = self.encode_identifier(tag, false);
+            self.append_byte_or_bytes(ident_bytes);
+
+            self.output.push(START_OF_CONTENTS);
+
+            for chunk in value.chunks(max_string_length) {
+                self.encode_string(tag, chunk)?;
+            }
+
+            self.output.push(START_OF_CONTENTS);
+        } else {
+            self.encode_value(tag, value);
+        }
+
+        Ok(())
+    }
+
     fn encode_value(&mut self, tag: Tag, value: &[u8]) {
-        let ident_bytes = self.encode_identifier(tag);
-        let len_bytes = self.encode_length(value.len());
+        let ident_bytes = self.encode_identifier(tag, false);
         self.append_byte_or_bytes(ident_bytes);
-        self.append_byte_or_bytes(len_bytes);
-        self.output.extend_from_slice(value);
+        self.encode_length(Identifier::from_tag(tag, false), value.len(), value);
     }
 }
 
@@ -159,11 +206,11 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_value(tag, value))
+        self.encode_string(tag, value)
     }
 
     fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_value(tag, value.as_bytes()))
+        self.encode_string(tag, value.as_bytes())
     }
 
     fn encode_utc_time(
@@ -187,7 +234,7 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         values: &[E],
     ) -> Result<Self::Ok, Self::Error> {
-        let mut sequence_encoder = Self::default();
+        let mut sequence_encoder = Self::new(self.config);
 
         for value in values {
             value.encode(&mut sequence_encoder)?;
@@ -202,7 +249,7 @@ impl crate::Encoder for Encoder {
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
         let bytes = {
-            let mut encoder = Self::default();
+            let mut encoder = Self::new(self.config);
             value.encode(&mut encoder)?;
             encoder.output
         };
@@ -214,7 +261,7 @@ impl crate::Encoder for Encoder {
     where
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
-        let mut encoder = Self::default();
+        let mut encoder = Self::new(self.config);
 
         (encoder_scope)(&mut encoder)?;
 

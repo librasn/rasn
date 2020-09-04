@@ -18,6 +18,14 @@ impl Identifier {
         }
     }
 
+    /// Instantiates a new instance of `Identifier` from its components.
+    pub fn from_tag(tag: Tag, is_constructed: bool) -> Self {
+        Self {
+            tag,
+            is_constructed,
+        }
+    }
+
     /// Instantiates a new tag from `self` with `tag` overwritten.
     pub fn tag(self, tag: u32) -> Self {
         Self {

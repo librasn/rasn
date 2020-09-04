@@ -1,4 +1,4 @@
-pub use self::consts::*;
+pub(crate) use self::consts::*;
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
