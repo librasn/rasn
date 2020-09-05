@@ -28,11 +28,8 @@ fn int161() {
 #[test]
 fn int162() {
     let bytes = &*include_bytes!("data/int162.bin");
-    println!("{:?}", bytes);
     if let Ok(value) = ber::decode::<types::Open>(bytes) {
-        println!("{:?}", value);
         let bytes = &ber::encode(&value).unwrap();
-        println!("{:?}", bytes);
         assert_eq!(value, ber::decode(&bytes).unwrap());
     }
 }
@@ -61,11 +58,8 @@ fn int323() {
 #[test]
 fn int324() {
     let bytes = &*include_bytes!("data/int324.bin");
-    println!("{:?}", bytes);
     if let Ok(value) = ber::decode::<types::Open>(bytes) {
-        println!("{:?}", value);
         let bytes = &ber::encode(&value).unwrap();
-        println!("{:?}", bytes);
         assert_eq!(value, ber::decode(&bytes).unwrap());
     }
 }
@@ -73,22 +67,17 @@ fn int324() {
 #[test]
 fn int325() {
     let data = &*include_bytes!("data/int325.bin");
-    println!("{:?}", data);
 
     if let Ok(value) = ber::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let bytes = &ber::encode(&value).unwrap();
-        println!("{:?}", bytes);
         assert_eq!(value, ber::decode(&bytes).unwrap());
     }
 
     if let Ok(value) = cer::decode::<types::Open>(data) {
-        println!("{:?}", value);
         assert_eq!(value, cer::decode(&cer::encode(&value).unwrap()).unwrap());
     }
 
     if let Ok(value) = der::decode::<types::Open>(data) {
-        println!("{:?}", value);
         assert_eq!(value, der::decode(&der::encode(&value).unwrap()).unwrap());
     }
 }
@@ -106,11 +95,8 @@ fn havoc2() {
 #[test]
 fn havoc3() {
     let bytes = &*include_bytes!("data/havoc3.bin");
-    println!("{:?}", bytes);
     if let Ok(value) = ber::decode::<types::Open>(bytes) {
-        println!("{:?}", value);
         let bytes = &ber::encode(&value).unwrap();
-        println!("{:?}", bytes);
         assert_eq!(value, ber::decode(&bytes).unwrap());
     }
 }
@@ -118,11 +104,8 @@ fn havoc3() {
 #[test]
 fn havoc4() {
     let bytes = &*include_bytes!("data/havoc4.bin");
-    println!("{:?}", bytes);
     if let Ok(value) = ber::decode::<types::Open>(bytes) {
-        println!("{:?}", value);
         let bytes = &ber::encode(&value).unwrap();
-        println!("{:?}", bytes);
         assert_eq!(value, ber::decode(bytes).unwrap());
     }
 }
@@ -130,11 +113,8 @@ fn havoc4() {
 #[test]
 fn havoc5() {
     let bytes = &*include_bytes!("data/havoc5.bin");
-    println!("{:?}", bytes);
     if let Ok(value) = ber::decode::<types::Open>(bytes) {
-        println!("{:?}", value);
         let bytes = &ber::encode(&value).unwrap();
-        println!("{:?}", bytes);
         assert_eq!(value, ber::decode(&bytes).unwrap());
     }
 }
@@ -167,11 +147,8 @@ fn flip3() {
 fn flip4() {
     let data = &*include_bytes!("data/flip4.bin");
 
-    println!("{:?}", data);
     if let Ok(value) = ber::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &ber::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, ber::decode(&encoded).unwrap());
     }
 
@@ -188,11 +165,8 @@ fn flip4() {
 fn havoc7() {
     let data = &*include_bytes!("data/havoc7.bin");
 
-    println!("{:?}", data);
     if let Ok(value) = ber::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &ber::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, ber::decode(&encoded).unwrap());
     }
 
@@ -209,18 +183,13 @@ fn havoc7() {
 fn havoc8() {
     let data = &*include_bytes!("data/havoc8.bin");
 
-    println!("{:?}", data);
     if let Ok(value) = ber::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &ber::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, ber::decode(&encoded).unwrap());
     }
 
     if let Ok(value) = cer::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &cer::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, cer::decode(&encoded).unwrap());
     }
 
@@ -233,18 +202,13 @@ fn havoc8() {
 fn havoc9() {
     let data = &*include_bytes!("data/havoc9.bin");
 
-    println!("{:?}", data);
     if let Ok(value) = ber::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &ber::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, ber::decode(&encoded).unwrap());
     }
 
     if let Ok(value) = cer::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &cer::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, cer::decode(&encoded).unwrap());
     }
 
@@ -258,18 +222,13 @@ fn havoc9() {
 fn havoc10() {
     let data = &*include_bytes!("data/havoc10.bin");
 
-    println!("{:?}", data);
     if let Ok(value) = ber::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &ber::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, ber::decode(&encoded).unwrap());
     }
 
     if let Ok(value) = cer::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &cer::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, cer::decode(&encoded).unwrap());
     }
 
@@ -282,18 +241,13 @@ fn havoc10() {
 fn flip5() {
     let data = &*include_bytes!("data/flip5.bin");
 
-    println!("{:?}", data);
     if let Ok(value) = ber::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &ber::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, ber::decode(&encoded).unwrap());
     }
 
     if let Ok(value) = cer::decode::<types::Open>(data) {
-        println!("{:?}", value);
         let encoded = &cer::encode(&value).unwrap();
-        println!("{:?}", encoded);
         assert_eq!(value, cer::decode(&encoded).unwrap());
     }
 
