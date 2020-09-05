@@ -203,7 +203,7 @@
 //! change to one of the types in person, we don't have re-check that our model
 //! is still valid, the compiler takes care of that for us.
 //!
-//! ```no_compile,rust
+//! ```no_compile
 //! // Invalid
 //! #[derive(rasn::AsnType)]
 //! struct Person {
@@ -237,7 +237,7 @@
 //! container  automatically generate tags will apply the same automatic
 //! tagging transformation you'd expect from an ASN.1 compiler.
 //!
-//! ```no_compile,rust
+//! ```no_compile
 //! use rasn::AsnType;
 //!
 //! // Valid
