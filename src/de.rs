@@ -1,4 +1,4 @@
-//!
+//! Generic ASN.1 decoding framework.
 
 use alloc::{collections::BTreeSet, vec::Vec};
 

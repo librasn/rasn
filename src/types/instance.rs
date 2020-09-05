@@ -4,7 +4,9 @@ use crate::tag::{Class, Tag};
 /// An instance of a defined object class.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InstanceOf<T> {
+    /// The OID identifying T's real type.
     pub type_id: ObjectIdentifier,
+    /// The value identified by `type_id`.
     pub value: T,
 }
 

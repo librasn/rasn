@@ -1,8 +1,13 @@
+//! # Types
+//! The `types` modules is a collection of Rust types and data structures that
+//! are defined to represent various ASN.1 data types, and renamed to use
+//! ASN.1's terminology.
+
 mod instance;
 mod oid;
 mod open;
 
-use crate::tag::{self, Tag};
+use crate::tag;
 
 pub use rasn_derive::AsnType;
 
@@ -13,6 +18,7 @@ pub use num_bigint::BigInt as Integer;
 pub use instance::InstanceOf;
 pub use oid::ObjectIdentifier;
 pub use open::Open;
+pub use super::tag::{Tag, Class};
 
 ///  Alias for `bitvec::BitVec` mapped to ASN.1'a `BIT STRING`.
 pub type BitString = bitvec::vec::BitVec<bitvec::order::Msb0, u8>;

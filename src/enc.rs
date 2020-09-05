@@ -1,3 +1,5 @@
+//! Generic ASN.1 encoding framework.
+
 use crate::{tag::Tag, types};
 
 pub use rasn_derive::Encode;

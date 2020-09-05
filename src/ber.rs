@@ -1,3 +1,5 @@
+//! # Basic Encoding Rules
+
 pub mod de;
 pub mod enc;
 mod identifier;
@@ -6,10 +8,12 @@ mod rules;
 pub use identifier::Identifier;
 pub(crate) use rules::EncodingRules;
 
+/// Attempts to decode `T` from `input` using BER.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
     T::decode(&mut de::Decoder::new(input, de::DecoderOptions::ber()))
 }
 
+/// Attempts to encode `value` to BER.
 pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::Error> {
     let mut enc = enc::Encoder::new(enc::EncoderOptions::ber());
 

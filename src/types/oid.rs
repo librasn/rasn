@@ -1,6 +1,8 @@
 use alloc::vec::Vec;
 use core::ops;
 
+/// A global unique identifier that identifies an concept, such as a
+/// organisation, or encoding rules.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct ObjectIdentifier(Vec<u32>);
 

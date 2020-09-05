@@ -1,10 +1,14 @@
+//! # Rasn: A safe no_std ASN.1 Codec Framework
+//!
 #![no_std]
+#[deny(missing_docs)]
 
 extern crate alloc;
 
+mod tag;
+
 pub mod de;
 pub mod enc;
-pub mod tag;
 pub mod types;
 
 // Data Formats

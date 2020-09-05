@@ -49,6 +49,16 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     .into()
 }
 
+/// An automatic derive of the `AsnType` trait.
+///
+/// This macro will automatically generate an implementation of `AsnType`,
+/// and generate a *compile-time* check that all of your fields (if struct) or
+/// variants (if a choice style enum) have distinct tags.
+///
+/// **Shared Attributes**
+/// These attributes are available on containers, variants, and fields.
+/// - *`tag([class], number)` — override the default tag with the one
+/// specified 
 #[proc_macro_derive(AsnType, attributes(rasn))]
 pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree

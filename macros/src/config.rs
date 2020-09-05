@@ -107,9 +107,9 @@ impl<'a> VariantConfig<'a> {
     pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         if let Some(Tag { class, value }) = &self.tag {
-            quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value))
+            quote!(#crate_root::Tag::new(#crate_root::types::Class::#class, #value))
         } else if self.container_config.automatic_tagging {
-            quote!(#crate_root::Tag::new(#crate_root::tag::Class::Context, #context))
+            quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context))
         } else {
             Tag::from_fields(&self.variant.fields, crate_root)
         }
@@ -154,11 +154,11 @@ impl<'a> FieldConfig<'a> {
         let crate_root = &self.container_config.crate_root;
         if let Some(Tag { class, value }) = &self.tag {
             if self.container_config.automatic_tagging {
-                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tagging)]`.")
+                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tagging)]`")
             }
-            quote!(#crate_root::Tag::new(#crate_root::tag::Class::#class, #value))
+            quote!(#crate_root::Tag::new(#crate_root::types::Class::#class, #value))
         } else if self.container_config.automatic_tagging {
-            quote!(#crate_root::Tag::new(#crate_root::tag::Class::Context, #context as u32))
+            quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
         } else {
             let ty = &self.field.ty;
             quote!(<#ty>::TAG)

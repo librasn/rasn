@@ -143,7 +143,7 @@ impl Encoder {
             self.output.push(START_OF_CONTENTS);
 
             for chunk in value.chunks(max_string_length) {
-                self.encode_value(tag, chunk);
+                self.encode_value(Tag::OCTET_STRING, chunk);
             }
 
             self.output.extend_from_slice(END_OF_CONTENTS);
