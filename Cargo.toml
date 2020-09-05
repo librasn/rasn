@@ -7,7 +7,7 @@ edition = "2018"
 description = "A safe no_std ASN.1 codec framework."
 license = "MIT/Apache-2.0"
 exclude = ["fuzzing"]
-keywords = ["asn1", "der", "ber", "cer", "per", "codec", "framework"]
+keywords = ["asn1", "der", "ber", "cer", "per"]
 repository = "https://github.com/XAMPPRocky/rasn.git"
 
 
