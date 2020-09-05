@@ -210,7 +210,60 @@ fn havoc8() {
     let data = &*include_bytes!("data/havoc8.bin");
 
     println!("{:?}", data);
-    if let Ok(value) = ber::decode::<types::Open>(data) {}
+    if let Ok(value) = ber::decode::<types::Open>(data) {
+        println!("{:?}", value);
+        let encoded = &ber::encode(&value).unwrap();
+        println!("{:?}", encoded);
+        assert_eq!(value, ber::decode(&encoded).unwrap());
+    }
+
+    if let Ok(value) = cer::decode::<types::Open>(data) {
+        println!("{:?}", value);
+        let encoded = &cer::encode(&value).unwrap();
+        println!("{:?}", encoded);
+        assert_eq!(value, cer::decode(&encoded).unwrap());
+    }
+
+    if let Ok(value) = der::decode::<types::Open>(data) {
+        assert_eq!(value, der::decode(&der::encode(&value).unwrap()).unwrap());
+    }
+}
+
+#[test]
+fn havoc9() {
+    let data = &*include_bytes!("data/havoc9.bin");
+
+    println!("{:?}", data);
+    if let Ok(value) = ber::decode::<types::Open>(data) {
+        println!("{:?}", value);
+        let encoded = &ber::encode(&value).unwrap();
+        println!("{:?}", encoded);
+        assert_eq!(value, ber::decode(&encoded).unwrap());
+    }
+
+    if let Ok(value) = cer::decode::<types::Open>(data) {
+        println!("{:?}", value);
+        let encoded = &cer::encode(&value).unwrap();
+        println!("{:?}", encoded);
+        assert_eq!(value, cer::decode(&encoded).unwrap());
+    }
+
+    if let Ok(value) = der::decode::<types::Open>(data) {
+        assert_eq!(value, der::decode(&der::encode(&value).unwrap()).unwrap());
+    }
+}
+
+#[test]
+fn flip5() {
+    let data = &*include_bytes!("data/flip5.bin");
+
+    println!("{:?}", data);
+    if let Ok(value) = ber::decode::<types::Open>(data) {
+        println!("{:?}", value);
+        let encoded = &ber::encode(&value).unwrap();
+        println!("{:?}", encoded);
+        assert_eq!(value, ber::decode(&encoded).unwrap());
+    }
 
     if let Ok(value) = cer::decode::<types::Open>(data) {
         println!("{:?}", value);

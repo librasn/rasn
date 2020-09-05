@@ -115,10 +115,10 @@ mod tests {
     #[test]
     fn long_sequence_of() {
         let vec = vec![5u8; 0xffff];
-        // assert_eq!(
-        //     vec,
-        //     decode::<alloc::vec::Vec<u8>>(&encode(&vec).unwrap()).unwrap()
-        // );
+        assert_eq!(
+            vec,
+            decode::<alloc::vec::Vec<u8>>(&encode(&vec).unwrap()).unwrap()
+        );
     }
 
     #[test]

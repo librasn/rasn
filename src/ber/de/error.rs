@@ -35,8 +35,12 @@ pub(crate) fn map_nom_err(error: nom::Err<(&[u8], nom::error::ErrorKind)>) -> Er
 pub enum Error {
     #[snafu(display("Constructed encoding encountered but not allowed."))]
     ConstructedEncodingNotAllowed,
+    #[snafu(display("Indefinite length encountered but not allowed."))]
+    IndefiniteLengthNotAllowed,
     #[snafu(display("BOOL value is not `0` or `0xFF`."))]
     InvalidBool,
+    #[snafu(display("OBJECT IDENTIFIER with missing or corrupt root nodes."))]
+    InvalidObjectIdentifier,
     #[snafu(display("Invalid UTF-8"))]
     InvalidUtf8,
     #[snafu(display("Invalid Date"))]

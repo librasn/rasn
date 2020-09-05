@@ -14,7 +14,7 @@ pub(crate) fn parse_value<'config, 'input>(
     config: &'config DecoderOptions,
     input: &'input [u8],
     tag: Tag,
-) -> super::Result<(&'input [u8], (Identifier, &'input [u8]))> {
+) -> super::Result<(&'input [u8], (Identifier, Option<&'input [u8]>))> {
     let (input, identifier) = parse_identifier_octet(input).map_err(error::map_nom_err)?;
     error::assert_tag(tag, identifier.tag)?;
     let (input, contents) =
@@ -35,16 +35,32 @@ where
     let (input, (identifier, contents)) = parse_value(config, slice, tag)?;
 
     if identifier.is_primitive() {
-        Ok((input, (primitive_callback)(contents)?))
+        Ok((input, (primitive_callback)(contents.unwrap())?))
     } else if config.encoding_rules.allows_constructed_strings() {
         let mut container = RV::new();
-        let mut contents = contents;
+        let mut input = input;
 
-        while !contents.is_empty() {
-            let (c, mut embedded_container) =
-                parse_encoded_value(config, contents, tag, primitive_callback)?;
-            contents = c;
-            container.append(&mut embedded_container)
+        match contents {
+            Some(contents) => {
+                while !contents.is_empty() {
+                    let (i, mut child) =
+                        parse_encoded_value(config, input, tag, primitive_callback)?;
+                    input = i;
+                    container.append(&mut child);
+                }
+            }
+            None => {
+                const EOC: &[u8] = &[0, 0];
+                while !input.is_empty() && !input.starts_with(EOC) {
+                    let (i, mut child) =
+                        parse_encoded_value(config, input, tag, primitive_callback)?;
+                    input = i;
+                    container.append(&mut child);
+                }
+
+                let (i, _) = nom::bytes::streaming::tag(EOC)(input).map_err(error::map_nom_err)?;
+                input = i;
+            }
         }
 
         Ok((input, container))
@@ -99,9 +115,21 @@ pub(crate) fn parse_contents<'input, 'config>(
     config: &'config DecoderOptions,
     identifier: Identifier,
     input: &'input [u8],
-) -> IResult<&'input [u8], &'input [u8]> {
+) -> IResult<&'input [u8], Option<&'input [u8]>> {
     let (input, length) = nom::bytes::streaming::take(1usize)(input)?;
-    take_contents(config, input, identifier, length[0])
+    let length = length[0];
+    if length == 0x80 {
+        if identifier.is_primitive() || !config.encoding_rules.allows_indefinite() {
+            nom::error::context("Indefinite length not allowed", |_| {
+                Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
+            })(input)
+        } else {
+            Ok((input, None))
+        }
+    } else {
+        let (input, contents) = take_contents(input, length)?;
+        Ok((input, Some(contents)))
+    }
 }
 
 pub(crate) trait Appendable: Sized {
@@ -143,36 +171,19 @@ fn concat_number(body: &[u8], start: u8) -> Integer {
 }
 
 fn take_contents<'config, 'input>(
-    config: &'config DecoderOptions,
     input: &'input [u8],
-    identifier: Identifier,
     length: u8,
 ) -> IResult<&'input [u8], &'input [u8]> {
     match length {
-        0xff => {
-            nom::error::context("Reserved Length Octet found.", |_| {
-                Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
-            })(input)
-        }
-        0x80 if (identifier.is_primitive() || !config.encoding_rules.allows_indefinite()) => {
-            nom::error::context("Indefinite length not allowed", |_| {
-                Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
-            })(input)
-        }
-        0x80 => {
-            const EOC_OCTET: &[u8] = &[0, 0];
-            let (input, contents) = nom::bytes::streaming::take_until(EOC_OCTET)(input)?;
-            let (input, _) = nom::bytes::streaming::tag(EOC_OCTET)(input)?;
-
-            Ok((input, contents))
-        }
+        0xff => nom::error::context("Reserved Length Octet found.", |_| {
+            Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
+        })(input),
         0 => Ok((input, &[])),
         1..=0x7f => nom::bytes::streaming::take(length)(input),
         _ => {
             let length = length ^ 0x80;
             let (input, length_slice) = nom::bytes::streaming::take(length)(input)?;
-            let length = Integer::from_bytes_be(num_bigint::Sign::Plus, &length_slice)
-                .to_usize();
+            let length = Integer::from_bytes_be(num_bigint::Sign::Plus, &length_slice).to_usize();
 
             if let Some(length) = length {
                 nom::bytes::streaming::take(length)(input)
@@ -209,7 +220,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(contents, &[0xF0, 0xF0]);
+        assert_eq!(contents.unwrap(), &[0xF0, 0xF0]);
     }
 
     #[test]
@@ -221,7 +232,7 @@ mod tests {
 
         let (_, (_, contents)) = parse_value(&BER_OPTIONS, (&*value).into(), Tag::BOOL).unwrap();
 
-        assert_eq!(contents, &full_buffer[..]);
+        assert_eq!(contents.unwrap(), &full_buffer[..]);
     }
 
     #[test]

@@ -124,7 +124,7 @@ impl Encoder {
 
             while length != 0 {
                 length_buffer.push_front((length & 0xff) as u8);
-                length <<= 8;
+                length >>= 8;
             }
 
             length_buffer.push_front(length_buffer.len() as u8 | 0x80);

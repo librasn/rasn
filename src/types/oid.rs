@@ -8,14 +8,14 @@ impl ObjectIdentifier {
     /// Creates a new object identifier from `vec`.
     ///
     /// # Panics
-    /// If `vec` contains less than two components.
-    pub fn new(vec: Vec<u32>) -> Self {
-        assert!(
-            vec.len() >= 2,
-            "ObjectIdentifier requires at least two components."
-        );
-
-        Self(vec)
+    /// If `vec` contains less than two components or the first component is
+    /// greater than 1.
+    pub fn new(vec: Vec<u32>) -> Option<Self> {
+        if vec.len() >= 2 && vec[0] < 2 {
+            Some(Self(vec))
+        } else {
+            None
+        }
     }
 }
 
