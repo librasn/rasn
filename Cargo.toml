@@ -1,10 +1,15 @@
 [package]
 name = "rasn"
 version = "0.1.0"
+categories = ["encoding", "no-std", "parser-implementations"]
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
 description = "A safe no_std ASN.1 codec framework."
 license = "MIT/Apache-2.0"
+exclude = ["fuzzing"]
+keywords = ["asn1", "der", "ber", "cer", "per", "codec", "framework"]
+repository = "https://github.com/XAMPPRocky/rasn.git"
+
 
 [workspace]
 members = [".", "macros"]
@@ -22,5 +27,5 @@ snafu = { version = "0.6.8", default-features = false }
 bytes = { version = "0.5.6", default-features = false }
 bitvec = { version = "0.18.1", default-features = false, features = ["alloc"] }
 rasn-derive = { version = "0.1.0", path = "macros", optional = true }
-chrono = "0.4.15"
+chrono = { version = "0.4.15", default-features = false, features = ["alloc"] }
 static_assertions = "1.1.0"
