@@ -1,4 +1,4 @@
-# Rasn: A Safe `#[no_std]` ASN.1 Codec Framework
+# Rasn
 [![crates.io](https://img.shields.io/crates/d/rasn.svg)](https://crates.io/crates/rasn)
 [![Help Wanted](https://img.shields.io/github/issues/XAMPPRocky/rasn/help%20wanted?color=green)](https://github.com/XAMPPRocky/rasn/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 [![Lines Of Code](https://tokei.rs/b1/github/XAMPPRocky/rasn?category=code)](https://github.com/XAMPPRocky/tokei)
