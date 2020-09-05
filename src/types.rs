@@ -1,3 +1,4 @@
+mod instance;
 mod oid;
 mod open;
 
@@ -8,11 +9,11 @@ pub use rasn_derive::AsnType;
 pub use alloc::string::String as Utf8String;
 pub use bytes::Bytes as OctetString;
 pub use num_bigint::BigInt as Integer;
+
+pub use instance::InstanceOf;
 pub use oid::ObjectIdentifier;
 pub use open::Open;
 
-/// A reference to a `BIT STRING`.
-pub type BitSlice = bitvec::slice::BitSlice<bitvec::order::Msb0, u8>;
 ///  Alias for `bitvec::BitVec` mapped to ASN.1'a `BIT STRING`.
 pub type BitString = bitvec::vec::BitVec<bitvec::order::Msb0, u8>;
 ///  `IA5String` string alias that matches BER's encoding rules.
@@ -115,8 +116,7 @@ asn_type! {
     UtcTime: UTC_TIME,
     GeneralizedTime: GENERALIZED_TIME,
     (): NULL,
-    &'_ str: UTF8_STRING,
-    &'_ BitSlice: BIT_STRING
+    &'_ str: UTF8_STRING
 
 }
 

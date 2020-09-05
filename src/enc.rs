@@ -24,50 +24,61 @@ pub trait Encoder {
     type Ok;
     type Error: Error;
 
+    /// Encode an unknown ASN.1 value.
+    fn encode_any(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `BIT STRING` value.
+    fn encode_bit_string(
+        &mut self,
+        tag: Tag,
+        value: &types::BitString,
+    ) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `BOOL` value.
+    fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `ENUMERATED` value.
+    fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error>;
+    /// Encode a explicitly tag value.
     fn encode_explicit_prefix<V: Encode>(
         &mut self,
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error>;
-    fn encode_bit_string(
-        &mut self,
-        tag: Tag,
-        value: &types::BitSlice,
-    ) -> Result<Self::Ok, Self::Error>;
-    fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error>;
-    fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error>;
-    fn encode_integer(&mut self, tag: Tag, value: &types::Integer)
-        -> Result<Self::Ok, Self::Error>;
-    fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error>;
-    fn encode_object_identifier(
-        &mut self,
-        tag: Tag,
-        value: &[u32],
-    ) -> Result<Self::Ok, Self::Error>;
-    fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error>;
-    fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error>;
-    fn encode_utc_time(
-        &mut self,
-        tag: Tag,
-        value: &types::UtcTime,
-    ) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `GeneralizedTime` value.
     fn encode_generalized_time(
         &mut self,
         tag: Tag,
         value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `INTEGER` value.
+    fn encode_integer(&mut self, tag: Tag, value: &types::Integer)
+        -> Result<Self::Ok, Self::Error>;
+    /// Encode a `NULL` value.
+    fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `OBJECT IDENTIFIER` value.
+    fn encode_object_identifier(
+        &mut self,
+        tag: Tag,
+        value: &[u32],
+    ) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `OCTET STRING` value.
+    fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `SEQUENCE` value.
+    fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+    /// Encode a `SEQUENCE OF` value.
     fn encode_sequence_of<E: Encode>(
         &mut self,
         tag: Tag,
         value: &[E],
     ) -> Result<Self::Ok, Self::Error>;
-    fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
-    where
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
-    // fn encode_sequence(&mut self, tag: Tag) -> Result<Self, Self::Error>;
-    // fn encode_set(&mut self, tag: Tag) -> Result<Self, Self::Error>;
-    // fn encode_set_of<D: Encode + Ord>(&mut self, tag: Tag) -> Result<BTreeSet<D>, Self::Error>;
-    // fn encode_explicit_prefix<D: Encode>(&mut self, tag: Tag) -> Result<D, Self::Error>;
+    /// Encode a `UtcTime` value.
+    fn encode_utc_time(
+        &mut self,
+        tag: Tag,
+        value: &types::UtcTime,
+    ) -> Result<Self::Ok, Self::Error>;
+    /// Encode a `Utf8String` value.
+    fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error>;
 }
 
 /// A generic error that occurred while trying to encode ASN.1.
@@ -149,12 +160,6 @@ impl Encode for &'_ str {
 }
 
 impl Encode for types::BitString {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, self).map(drop)
-    }
-}
-
-impl Encode for &'_ types::BitSlice {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         encoder.encode_bit_string(tag, self).map(drop)
     }

@@ -1,6 +1,4 @@
 #![no_std]
-#![feature(const_generics)]
-#![allow(incomplete_features)]
 
 extern crate alloc;
 
@@ -12,6 +10,8 @@ pub mod types;
 // Data Formats
 
 pub mod ber;
+pub mod cer;
+pub mod der;
 
 #[doc(inline)]
 pub use de::{Decode, Decoder};

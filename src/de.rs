@@ -31,6 +31,8 @@ pub trait Decoder: Sized {
     /// Peek at the next available tag.
     fn peek_tag(&self) -> Result<Tag, Self::Error>;
 
+    /// Decode a unknown ASN.1 value identified by `tag` from the available input.
+    fn decode_any(&mut self, tag: Tag) -> Result<Vec<u8>, Self::Error>;
     /// Decode a `BIT STRING` identified by `tag` from the available input.
     fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString, Self::Error>;
     /// Decode a `BOOL` identified by `tag` from the available input.
@@ -82,7 +84,7 @@ impl Decode for () {
 
 impl<D: Decode> Decode for Option<D> {
     fn decode_with_tag<DE: Decoder>(decoder: &mut DE, tag: Tag) -> Result<Self, DE::Error> {
-        if decoder.peek_tag()? == tag {
+        if decoder.peek_tag().map_or(false, |t| t == tag) {
             D::decode_with_tag(decoder, tag).map(Some)
         } else {
             Ok(None)

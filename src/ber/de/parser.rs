@@ -76,7 +76,7 @@ pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier>
     Ok((input, identifier.tag(tag)))
 }
 
-pub(crate) fn parse_encoded_number(input: &[u8]) -> IResult<&[u8], Integer> {
+pub fn parse_encoded_number(input: &[u8]) -> IResult<&[u8], Integer> {
     let (input, body) = nom::bytes::streaming::take_while(|i| i & 0x80 != 0)(input)?;
     let (input, end) = nom::bytes::streaming::take(1usize)(input)?;
 
@@ -131,31 +131,15 @@ impl Appendable for crate::types::BitString {
 
 /// Concatenates a series of 7 bit numbers delimited by `1`'s and
 /// ended by a `0` in the 8th bit.
-fn concat_number(body: &[u8], end: u8) -> Integer {
-    let mut number = Integer::new(num_bigint::Sign::NoSign, Vec::new());
+fn concat_number(body: &[u8], start: u8) -> Integer {
+    let mut number = Integer::from(start);
 
-    for byte in body {
+    for byte in body.iter().rev() {
         number <<= 7usize;
         number |= Integer::from(byte & 0x7F);
     }
 
-    // end doesn't need to be bitmasked as we know the MSB is `0`
-    // (X.690 8.1.2.4.2.a).
-    number <<= 7usize;
-    number |= Integer::from(end);
-
     number
-}
-
-fn concat_bits(body: &[u8], width: u8) -> usize {
-    let mut result: usize = 0;
-
-    for byte in body {
-        result <<= width;
-        result |= *byte as usize;
-    }
-
-    result
 }
 
 fn take_contents<'config, 'input>(
@@ -164,27 +148,40 @@ fn take_contents<'config, 'input>(
     identifier: Identifier,
     length: u8,
 ) -> IResult<&'input [u8], &'input [u8]> {
-    if length == 0x80 && (identifier.is_primitive() || !config.encoding_rules.allows_indefinite()) {
-        return nom::error::context("Indefinite length not allowed", |_| {
-            Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
-        })(input);
-    }
+    match length {
+        0xff => {
+            nom::error::context("Reserved Length Octet found.", |_| {
+                Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
+            })(input)
+        }
+        0x80 if (identifier.is_primitive() || !config.encoding_rules.allows_indefinite()) => {
+            nom::error::context("Indefinite length not allowed", |_| {
+                Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
+            })(input)
+        }
+        0x80 => {
+            const EOC_OCTET: &[u8] = &[0, 0];
+            let (input, contents) = nom::bytes::streaming::take_until(EOC_OCTET)(input)?;
+            let (input, _) = nom::bytes::streaming::tag(EOC_OCTET)(input)?;
 
-    if length == 0x80 {
-        const EOC_OCTET: &[u8] = &[0, 0];
-        let (input, contents) = nom::bytes::streaming::take_until(EOC_OCTET)(input)?;
-        let (input, _) = nom::bytes::streaming::tag(EOC_OCTET)(input)?;
+            Ok((input, contents))
+        }
+        0 => Ok((input, &[])),
+        1..=0x7f => nom::bytes::streaming::take(length)(input),
+        _ => {
+            let length = length ^ 0x80;
+            let (input, length_slice) = nom::bytes::streaming::take(length)(input)?;
+            let length = Integer::from_bytes_be(num_bigint::Sign::Plus, &length_slice)
+                .to_usize();
 
-        Ok((input, contents))
-    } else if length >= 0x7f {
-        let length = length ^ 0x80;
-        let (input, length_slice) = nom::bytes::streaming::take(length)(input)?;
-        let length = concat_bits(&length_slice, 8);
-        nom::bytes::streaming::take(length)(input)
-    } else if length == 0 {
-        Ok((input, &[]))
-    } else {
-        nom::bytes::streaming::take(length)(input)
+            if let Some(length) = length {
+                nom::bytes::streaming::take(length)(input)
+            } else {
+                nom::error::context("Length longer than possible capacity.", |_| {
+                    Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
+                })(input)
+            }
+        }
     }
 }
 
@@ -195,6 +192,13 @@ mod tests {
     const BER_OPTIONS: DecoderOptions = DecoderOptions::ber();
     const CER_OPTIONS: DecoderOptions = DecoderOptions::cer();
     const DER_OPTIONS: DecoderOptions = DecoderOptions::der();
+
+    #[test]
+    fn long_tag() {
+        let (_, identifier) = parse_identifier_octet([0xFF, 0x80, 0x7F][..].into()).unwrap();
+        assert!(identifier.is_constructed);
+        assert_eq!(Tag::new(Class::Private, 16256), identifier.tag);
+    }
 
     #[test]
     fn value_long_length_form() {

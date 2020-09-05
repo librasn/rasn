@@ -1,8 +1,8 @@
 mod config;
 mod error;
-mod parser;
+pub(super) mod parser;
 
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::{borrow::ToOwned, collections::BTreeSet, vec::Vec};
 
 use snafu::*;
 
@@ -42,6 +42,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn peek_tag(&self) -> Result<Tag> {
         Ok(self.peek_identifier()?.tag)
+    }
+
+    fn decode_any(&mut self, tag: Tag) -> Result<Vec<u8>> {
+        let (_, contents) = self.parse_value(tag)?;
+
+        Ok(contents.to_vec())
     }
 
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {
@@ -104,16 +110,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
             parser::parse_encoded_number(contents).map_err(error::map_nom_err)?;
         let second = (&root_octets % 40u8)
             .to_u32()
-            .expect("Second root component greater than `u32`");
+            .context(error::IntegerOverflow { max_width: 32u32 })?;
         let first = ((root_octets - second) / 40u8)
             .to_u32()
-            .expect("first root component greater than `u32`");
+            .context(error::IntegerOverflow { max_width: 32u32 })?;
         let mut buffer = alloc::vec![first, second];
 
         while !contents.is_empty() {
             let (c, number) = parser::parse_encoded_number(contents).map_err(error::map_nom_err)?;
             contents = c;
-            buffer.push(number.to_u32().expect("sub component greater than `u32`"));
+            buffer.push(
+                number
+                    .to_u32()
+                    .context(error::IntegerOverflow { max_width: 32u32 })?,
+            );
         }
 
         Ok(crate::types::ObjectIdentifier::new(buffer))
@@ -122,24 +132,47 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(&self.config, self.input, tag, |input| {
-                let unused_bits = input.get(0).copied();
+                let unused_bits = if let Some(bits) = input.get(0).copied() {
+                    bits
+                } else {
+                    return Ok(types::BitString::new());
+                };
 
                 match unused_bits {
-                    Some(bits @ 0..=7) => {
-                        let mut buffer = types::BitString::from_slice(&input[1..]);
-                        buffer.truncate(buffer.len().saturating_sub(bits as usize));
-                        Ok(buffer)
+                    // TODO: https://github.com/myrrlyn/bitvec/issues/72
+                    bits @ 0..=7 => {
+                        let mut buffer = input[1..].to_owned();
+                        if let Some(last) = buffer.last_mut() {
+                            *last &= !((1 << bits) - 1);
+                        }
+                        if buffer.last().map_or(false, |i| *i == 0) {
+                            buffer.pop();
+                        }
+
+                        let string = types::BitString::from_vec(buffer);
+
+                        if string.not_any() {
+                            Ok(types::BitString::new())
+                        } else {
+                            Ok(string)
+                        }
                     }
-                    _ => {
-                        return Err(Error::InvalidBitString {
-                            bits: unused_bits.unwrap_or(0),
-                        })
-                    }
+                    _ => return Err(Error::InvalidBitString { bits: unused_bits }),
                 }
             })?;
 
         self.input = input;
-        Ok(bs)
+        if let Some((i, _)) = bs
+            .as_slice()
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_, v)| **v != 0)
+        {
+            Ok(types::BitString::from_vec(bs.as_slice()[..=i].to_vec()))
+        } else {
+            Ok(bs)
+        }
     }
 
     fn decode_utf8_string(&mut self, tag: Tag) -> Result<types::Utf8String> {
@@ -267,14 +300,6 @@ mod tests {
     }
 
     #[test]
-    fn oid_from_bytes() {
-        let oid = types::ObjectIdentifier::new(alloc::vec![1, 2, 840, 113549]);
-        let from_raw = decode(&[0x6, 0x6, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d][..]).unwrap();
-
-        assert_eq!(oid, from_raw);
-    }
-
-    #[test]
     fn octet_string() {
         let octet_string = types::OctetString::from(alloc::vec![1, 2, 3, 4, 5, 6]);
         let primitive_encoded = &[0x4, 0x6, 1, 2, 3, 4, 5, 6];
@@ -292,13 +317,8 @@ mod tests {
 
     #[test]
     fn bit_string() {
-        let bitstring = {
-            let mut b = types::BitString::from_slice(&[0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0]);
-            for _ in 0..4 {
-                b.pop();
-            }
-            b
-        };
+        let bitstring =
+            types::BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
 
         let primitive_encoded: types::BitString =
             decode(&[0x03, 0x07, 0x04, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..]).unwrap();

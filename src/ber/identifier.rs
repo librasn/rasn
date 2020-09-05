@@ -6,7 +6,7 @@ pub struct Identifier {
     /// The ASN.1 tag.
     pub tag: Tag,
     /// Whether a type is using `constructed` or `primitive` encoding.
-    is_constructed: bool,
+    pub(crate) is_constructed: bool,
 }
 
 impl Identifier {

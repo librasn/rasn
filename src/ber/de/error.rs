@@ -47,7 +47,7 @@ pub enum Error {
     MismatchedTag { expected: Tag, actual: Tag },
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
     MismatchedLength { expected: usize, actual: usize },
-    #[snafu(display("Actual larger than expected {} bits", max_width))]
+    #[snafu(display("Actual integer larger than expected {} bits", max_width))]
     IntegerOverflow { max_width: u32 },
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
     InvalidBitString { bits: u8 },
