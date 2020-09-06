@@ -93,7 +93,9 @@ impl Encode for Person {
 }
 ```
 
-That's it!  We've just created a new ASN.1 that be encoded and decoded to BER, CER, and DER; and nowhere did we have to check the tag, the length, or whether the string was primitive or constructed encoded. All those nasty encoding rules details are completely abstracted away so your type only has handle how to map to and from ASN.1's data model. With all the actual conversion code isolated to the codec implementations you can know that your model is always safe to use. The API has also been designed to prevent you from making common logic errors that can lead to invalid encoding. For example; if we look back our `Encode` implementation, and what if we forgot to use the encoder we were given in `encode_sequence` and tired to use the parent instead?
+That's it!  We've just created a new ASN.1 that be encoded and decoded to BER, CER, and DER; and nowhere did we have to check the tag, the length, or whether the string was primitive or constructed encoded. All those nasty encoding rules details are completely abstracted away so your type only has handle how to map to and from ASN.1's data model. 
+
+With all the actual conversion code isolated to the codec implementations you can know that your model is always safe to use. The API has also been designed to prevent you from making common logic errors that can lead to invalid encoding. For example; if we look back our `Encode` implementation, and what if we forgot to use the encoder we were given in `encode_sequence` and tired to use the parent instead?
 
 ```rust
 error[E0501]: cannot borrow `*encoder` as mutable because previous closure requires unique access
