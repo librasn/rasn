@@ -21,7 +21,7 @@ Rasn is entirely `#[no_std]`, so you can handle and share the same ASN.1 code wi
 ### Rich Data Types
 Rasn currently has support for nearly all of ASN.1's data types. `rasn` uses popular community libraries such as `bitvec`, `bytes`, and `chrono` for some of its data types as well as providing a couple of its own. Check out the [`types`][mod:types] module for what's currently available.
 
-[mod:types]: tk
+[mod:types]: http://docs.rs/rasn/0.2.0/rasn/types/index.html
 
 ### Safe BER, CER, and DER Codecs
 Included with the framework is a implementation of the X.690 standard also known as the Basic Encoding Rules, Canonical Encoding Rules, and Distinguished Encoding Rules codecs. The encoder and decoder have been written in 100% safe Rust and fuzzed with [American Fuzzy Lop][bun] to ensure that the decoder correctly handles random input, and if valid that the encoder can correctly re-encode that value.
