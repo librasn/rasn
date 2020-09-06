@@ -47,14 +47,23 @@ pub trait AsnType {
     const TAG: Tag;
 }
 
+/// A newtype wrapper that will explicitly tag its value with `T`'s tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Explicit<T, V>{
+    _tag: core::marker::PhantomData<T>,
+    pub(crate) value: V,
+}
+
+/// A newtype wrapper that will implicitly tag its value with `T`'s tag.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Implicit<T, V>{
+    _tag: core::marker::PhantomData<T>,
+    pub(crate) value: V,
+}
+
 macro_rules! tag_kind {
     ($($name:ident),+) => {
         $(
-            #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-            pub struct $name<T, V>{
-                _tag: core::marker::PhantomData<T>,
-                pub(crate) value: V,
-            }
 
             impl<T, V> $name<T, V>{
                 pub fn new(value: V) -> Self {
