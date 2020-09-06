@@ -81,7 +81,7 @@ impl Decode for Person {
 
 impl Encode for Person {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-			// Creates another Encoder and calls your closure with it.
+        // Creates another Encoder and calls your closure with it.
         encoder.encode_sequence(tag, |sequence| {
             self.age.encode(sequence)?;
             self.name.encode(sequence)?;
