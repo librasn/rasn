@@ -13,7 +13,7 @@ That enables you to safely create, share, and handle ASN.1 data types from and t
 ## Features
 
 ### Abstract Codec Data Model
-There are quite a few existing ASN.1 related Rust crates already, however they are currently specific to a single format or even a single standard, this makes it hard to share and re-use standards that are specified in ASN.1. Now with `rasn`'s abstract model you can build and share ASN.1 data types as crates that work with any encoder or decoder regardless of the underlying encoding rules, whether it's BER, CER, DER, our your own custom encoding.
+There are quite a few existing ASN.1 related Rust crates already, however they are currently specific to a single format or even a single standard, this makes it hard to share and re-use standards that are specified in ASN.1. Now with `rasn`'s abstract model you can build and share ASN.1 data types as crates that work with any encoder or decoder regardless of the underlying encoding rules, whether it's BER, CER, DER, or your own custom encoding.
 
 ### `#[no_std]` Support
 Rasn is entirely `#[no_std]`, so you can handle and share the same ASN.1 code with a wide variety of platforms and devices.
