@@ -4,6 +4,7 @@ use alloc::{collections::BTreeSet, vec::Vec};
 
 use crate::tag::Tag;
 use crate::types::{self, AsnType};
+use crate::constraints::{Constraints, Unconstrained};
 
 pub use rasn_derive::Decode;
 
@@ -40,7 +41,7 @@ pub trait Decoder: Sized {
     /// Decode an enumerated enum's discriminant identified by `tag` from the available input.
     fn decode_enumerated(&mut self, tag: Tag) -> Result<types::Integer, Self::Error>;
     /// Decode a `INTEGER` identified by `tag` from the available input.
-    fn decode_integer(&mut self, tag: Tag) -> Result<types::Integer, Self::Error>;
+    fn decode_integer<C: Constraints>(&mut self, tag: Tag) -> Result<types::Integer, Self::Error>;
     /// Decode `NULL` identified by `tag` from the available input.
     fn decode_null(&mut self, tag: Tag) -> Result<(), Self::Error>;
     /// Decode a `OBJECT IDENTIFIER` identified by `tag` from the available input.
@@ -103,7 +104,7 @@ macro_rules! impl_integers {
         $(
         impl Decode for $int {
             fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-                core::convert::TryInto::try_into(decoder.decode_integer(tag)?)
+                core::convert::TryInto::try_into(decoder.decode_integer::<Unconstrained>(tag)?)
                     .map_err(Error::custom)
             }
         }
@@ -128,7 +129,7 @@ impl_integers! {
 
 impl Decode for types::Integer {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_integer(tag)
+        decoder.decode_integer::<Unconstrained>(tag)
     }
 }
 

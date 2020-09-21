@@ -264,6 +264,7 @@ extern crate alloc;
 
 mod tag;
 
+pub mod constraints;
 pub mod de;
 pub mod enc;
 pub mod types;

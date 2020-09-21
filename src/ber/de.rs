@@ -7,7 +7,7 @@ use alloc::{borrow::ToOwned, collections::BTreeSet, vec::Vec};
 use snafu::*;
 
 use super::identifier::Identifier;
-use crate::{tag::Tag, types, Decode};
+use crate::{constraints::{Constraints, Unconstrained}, tag::Tag, types, Decode};
 
 pub use self::{config::DecoderOptions, error::Error};
 
@@ -91,10 +91,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated(&mut self, tag: Tag) -> Result<types::Integer> {
-        self.decode_integer(tag)
+        self.decode_integer::<Unconstrained>(tag)
     }
 
-    fn decode_integer(&mut self, tag: Tag) -> Result<types::Integer> {
+    fn decode_integer<C: Constraints>(&mut self, tag: Tag) -> Result<types::Integer> {
         Ok(types::Integer::from_signed_bytes_be(
             self.parse_primitive_value(tag)?.1,
         ))
