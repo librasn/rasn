@@ -8,12 +8,24 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "bitvec"
-version = "0.18.1"
+version = "0.18.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c1f0df4bb4c441080e98d6ea2dc3281fc19bb440e69ce03075e3d705894f1cb"
+checksum = "1d2838fdd79e8776dbe07a106c784b0f8dda571a21b2750a092cc4cbaa653c8e"
 dependencies = [
  "funty",
- "radium",
+ "radium 0.4.1",
+ "wyz",
+]
+
+[[package]]
+name = "bitvec"
+version = "0.19.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11593270830d9b037fbead730bb0c05ef6fbf6be55537a1e8e5892edef7e1f03"
+dependencies = [
+ "funty",
+ "radium 0.5.3",
+ "tap",
  "wyz",
 ]
 
@@ -25,9 +37,9 @@ checksum = "0e4cec68f03f32e44924783795810fa50a7035d8c8ebe78580ad7e6c703fba38"
 
 [[package]]
 name = "chrono"
-version = "0.4.15"
+version = "0.4.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "942f72db697d8767c22d46a598e01f2d3b475501ea43d0db4f16d90259182d0b"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -53,10 +65,11 @@ checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
 
 [[package]]
 name = "nom"
-version = "6.0.0-alpha1"
+version = "6.0.0-beta1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25020779544bf717b917323b42f23c9dbef1bd2b97b576df6484a0c8709705c6"
+checksum = "8b02fb408567819fa987428e8133d7c374f9c2c30bd9c1378abb45e9282cc259"
 dependencies = [
+ "bitvec 0.19.3",
  "memchr",
  "version_check",
 ]
@@ -93,9 +106,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.20"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "175c513d55719db99da20232b06cda8bab6b83ec2d04e3283edf0213c37c1a29"
+checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
 dependencies = [
  "unicode-xid",
 ]
@@ -111,15 +124,21 @@ dependencies = [
 
 [[package]]
 name = "radium"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "def50a86306165861203e7f84ecffbbdfdea79f0e51039b33de1e952358c47ac"
+checksum = "64de9a0c5361e034f1aefc9f71a86871ec870e766fe31a009734a989b329286a"
+
+[[package]]
+name = "radium"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "941ba9d78d8e2f7ce474c015eea4d9c6d25b6a3327f9832ee29a4de27f91bbb8"
 
 [[package]]
 name = "rasn"
 version = "0.2.0"
 dependencies = [
- "bitvec",
+ "bitvec 0.18.4",
  "bytes",
  "chrono",
  "nom",
@@ -141,9 +160,9 @@ dependencies = [
 
 [[package]]
 name = "snafu"
-version = "0.6.8"
+version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f5aed652511f5c9123cf2afbe9c244c29db6effa2abb05c866e965c82405ce"
+checksum = "9c4e6046e4691afe918fd1b603fd6e515bcda5388a1092a9edbada307d159f09"
 dependencies = [
  "doc-comment",
  "snafu-derive",
@@ -151,9 +170,9 @@ dependencies = [
 
 [[package]]
 name = "snafu-derive"
-version = "0.6.8"
+version = "0.6.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebf8f7d5720104a9df0f7076a8682024e958bba0fe9848767bb44f251f3648e9"
+checksum = "7073448732a89f2f3e6581989106067f403d378faeafb4a50812eb814170d3e5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -168,14 +187,20 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "syn"
-version = "1.0.39"
+version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "891d8d6567fe7c7f8835a3a98af4208f3846fba258c1bc3c31d6e506239f11f9"
+checksum = "ea9c5432ff16d6152371f808fb5a871cd67368171b09bb21b43df8e4a47a3556"
 dependencies = [
  "proc-macro2",
  "quote",
  "unicode-xid",
 ]
+
+[[package]]
+name = "tap"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36474e732d1affd3a6ed582781b3683df3d0563714c59c39591e8ff707cf078e"
 
 [[package]]
 name = "unicode-xid"

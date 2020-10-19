@@ -121,7 +121,7 @@ pub(crate) fn parse_contents<'input, 'config>(
     if length == 0x80 {
         if identifier.is_primitive() || !config.encoding_rules.allows_indefinite() {
             nom::error::context("Indefinite length not allowed", |_| {
-                Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
+                Err(nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Tag)))
             })(input)
         } else {
             Ok((input, None))
@@ -176,7 +176,7 @@ fn take_contents<'config, 'input>(
 ) -> IResult<&'input [u8], &'input [u8]> {
     match length {
         0xff => nom::error::context("Reserved Length Octet found.", |_| {
-            Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
+            Err(nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Tag)))
         })(input),
         0 => Ok((input, &[])),
         1..=0x7f => nom::bytes::streaming::take(length)(input),
@@ -189,7 +189,7 @@ fn take_contents<'config, 'input>(
                 nom::bytes::streaming::take(length)(input)
             } else {
                 nom::error::context("Length longer than possible capacity.", |_| {
-                    Err(nom::Err::Failure((input, nom::error::ErrorKind::Tag)))
+                    Err(nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Tag)))
                 })(input)
             }
         }

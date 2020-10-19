@@ -17,7 +17,7 @@ pub(crate) fn assert_length(expected: usize, actual: usize) -> super::Result<()>
     }
 }
 
-pub(crate) fn map_nom_err(error: nom::Err<(&[u8], nom::error::ErrorKind)>) -> Error {
+pub(crate) fn map_nom_err(error: nom::Err<nom::error::Error<&[u8]>>) -> Error {
     use nom::{Err, Needed};
     let msg = match error {
         Err::Incomplete(Needed::Size(u)) => alloc::format!("Parsing requires {} bytes/chars", u),
