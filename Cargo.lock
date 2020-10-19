@@ -8,23 +8,12 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
 name = "bitvec"
-version = "0.18.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d2838fdd79e8776dbe07a106c784b0f8dda571a21b2750a092cc4cbaa653c8e"
-dependencies = [
- "funty",
- "radium 0.4.1",
- "wyz",
-]
-
-[[package]]
-name = "bitvec"
 version = "0.19.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "11593270830d9b037fbead730bb0c05ef6fbf6be55537a1e8e5892edef7e1f03"
 dependencies = [
  "funty",
- "radium 0.5.3",
+ "radium",
  "tap",
  "wyz",
 ]
@@ -69,7 +58,7 @@ version = "6.0.0-beta1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b02fb408567819fa987428e8133d7c374f9c2c30bd9c1378abb45e9282cc259"
 dependencies = [
- "bitvec 0.19.3",
+ "bitvec",
  "memchr",
  "version_check",
 ]
@@ -124,12 +113,6 @@ dependencies = [
 
 [[package]]
 name = "radium"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64de9a0c5361e034f1aefc9f71a86871ec870e766fe31a009734a989b329286a"
-
-[[package]]
-name = "radium"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "941ba9d78d8e2f7ce474c015eea4d9c6d25b6a3327f9832ee29a4de27f91bbb8"
@@ -138,7 +121,7 @@ checksum = "941ba9d78d8e2f7ce474c015eea4d9c6d25b6a3327f9832ee29a4de27f91bbb8"
 name = "rasn"
 version = "0.2.0"
 dependencies = [
- "bitvec 0.18.4",
+ "bitvec",
  "bytes",
  "chrono",
  "nom",
