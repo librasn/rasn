@@ -38,6 +38,29 @@ fn choice() {
     assert_eq!(foo, ber::decode(&ber::encode(&foo).unwrap()).unwrap());
     assert_eq!(bar, ber::decode(&ber::encode(&bar).unwrap()).unwrap());
     assert_eq!(baz, ber::decode(&ber::encode(&baz).unwrap()).unwrap());
+
+    #[derive(AsnType, Clone, Debug, Encode, Decode, PartialEq)]
+    struct ChoiceField {
+        #[rasn(choice)]
+        choice: VecChoice,
+    }
+
+    #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+    #[rasn(choice)]
+    enum VecChoice {
+        #[rasn(tag(1))]
+        Bar(Vec<bool>),
+        #[rasn(tag(2))]
+        Foo(Vec<OctetString>),
+    }
+    let bar = ChoiceField {
+        choice: VecChoice::Bar(vec![true]),
+    };
+    let foo = ChoiceField {
+        choice: VecChoice::Foo(vec![OctetString::from(vec![1, 2, 3, 4, 5])]),
+    };
+    assert_eq!(foo, ber::decode(&ber::encode(&foo).unwrap()).unwrap());
+    assert_eq!(bar, ber::decode(&ber::encode(&bar).unwrap()).unwrap());
 }
 
 #[test]
