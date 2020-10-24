@@ -13,11 +13,17 @@ pub fn derive_struct_impl(
 
     for (i, field) in container.fields.iter().enumerate() {
         let lhs = field.ident.as_ref().map(|i| quote!(#i :));
-        let tag = FieldConfig::new(field, config).tag(i);
-
-        list.push(proc_macro2::TokenStream::from(
-            quote!(#lhs <_>::decode_with_tag(&mut decoder, #tag)?),
-        ));
+        let field_config = FieldConfig::new(field, config);
+        if field_config.choice {
+            list.push(proc_macro2::TokenStream::from(
+                quote!(#lhs <_>::decode(&mut decoder)?),
+            ));
+        } else {
+            let tag = field_config.tag(i);
+            list.push(proc_macro2::TokenStream::from(
+                quote!(#lhs <_>::decode_with_tag(&mut decoder, #tag)?),
+            ));
+        }
     }
 
     let fields = match container.fields {

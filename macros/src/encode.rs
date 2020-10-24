@@ -8,7 +8,8 @@ pub fn derive_struct_impl(
 ) -> proc_macro2::TokenStream {
     let mut list = vec![];
     for (i, field) in container.fields.iter().enumerate() {
-        let tag = FieldConfig::new(field, config).tag(i);
+        let field_config = FieldConfig::new(field, config);
+        let tag = field_config.tag(i);
         let i = syn::Index::from(i);
         let field = field
             .ident
@@ -16,9 +17,15 @@ pub fn derive_struct_impl(
             .map(|name| quote!(#name))
             .unwrap_or_else(|| quote!(#i));
 
-        list.push(proc_macro2::TokenStream::from(
-            quote!(self.#field.encode_with_tag(encoder, #tag)?;),
-        ));
+        if field_config.choice {
+            list.push(proc_macro2::TokenStream::from(
+                quote!(self.#field.encode(encoder)?;),
+            ));
+        } else {
+            list.push(proc_macro2::TokenStream::from(
+                quote!(self.#field.encode_with_tag(encoder, #tag)?;),
+            ));
+        }
     }
 
     let crate_root = &config.crate_root;
