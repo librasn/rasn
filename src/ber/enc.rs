@@ -4,7 +4,7 @@ mod error;
 use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
 
 use super::Identifier;
-use crate::{tag::Tag, types, Encode};
+use crate::{tag::Tag, types, Encode, constraints::{Constraints, Unconstrained}};
 
 pub use config::EncoderOptions;
 pub use error::Error;
@@ -271,13 +271,13 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_sequence(tag, |sequence| {
+        self.encode_sequence::<Unconstrained, _>(tag, |sequence| {
             value.encode(sequence)?;
             Ok(())
         })
     }
 
-    fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_sequence<Constraints, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {

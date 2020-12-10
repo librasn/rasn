@@ -7,6 +7,7 @@ pub enum Size {
 
 pub trait Constraints {
     const SIZE: Option<Size> = None;
+    const EXTENSIBLE: bool = false;
 }
 
 pub struct Unconstrained;

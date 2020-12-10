@@ -37,7 +37,7 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         encoder: &mut D,
         tag: Tag,
     ) -> Result<(), D::Error> {
-        encoder.encode_sequence(tag, |sequence| {
+        encoder.encode_sequence::<crate::constraints::Unconstrained, _>(tag, |sequence| {
             self.type_id.encode(sequence)?;
             sequence.encode_explicit_prefix(CONTEXT_0, &self.value)?;
             Ok(())

@@ -64,8 +64,9 @@ pub trait Encoder {
     /// Encode a `OCTET STRING` value.
     fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error>;
     /// Encode a `SEQUENCE` value.
-    fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_sequence<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
     where
+        C: crate::constraints::Constraints,
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
     /// Encode a `SEQUENCE OF` value.
     fn encode_sequence_of<E: Encode>(
@@ -206,7 +207,7 @@ impl<T: crate::types::AsnType, V: Encode> Encode for types::Explicit<T, V> {
 impl Encode for alloc::collections::BTreeMap<Tag, types::Open> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         encoder
-            .encode_sequence(tag, |encoder| {
+            .encode_sequence::<crate::constraints::Unconstrained, _>(tag, |encoder| {
                 for (tag, value) in self {
                     <_>::encode_with_tag(value, encoder, *tag)?;
                 }

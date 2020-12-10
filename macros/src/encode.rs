@@ -34,7 +34,7 @@ pub fn derive_struct_impl(
         impl #generics #crate_root::Encode for #name #generics {
 
             fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-                encoder.encode_sequence(tag, |encoder| {
+                encoder.encode_sequence::<#crate_root::constraints::Unconstrained, _>(tag, |encoder| {
                     #(#list)*
 
                     Ok(())
@@ -76,7 +76,7 @@ pub fn derive_enum_impl(
                     let fields2 = fields.clone();
 
                     quote!(#name::#ident { #(#fields),* } => {
-                        encoder.encode_sequence(#tag, |encoder| {
+                        encoder.encode_sequence::<#crate_root::constraints::Unconstrained, _>(#tag, |encoder| {
                             #(#crate_root::Encode::encode_with_tag(#fields2, encoder, #tag)?;)*
                             Ok(())
                         })
