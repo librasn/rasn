@@ -201,4 +201,23 @@ mod tests {
         assert_eq!(data, &*crate::ber::encode(&value).unwrap());
         assert_eq!(value, crate::ber::decode::<Explicit<C0, _>>(data).unwrap());
     }
+
+    #[test]
+    fn implicit_tagged_constructed() {
+        use crate::{tag::Class, types::Implicit, AsnType, Tag};
+        #[derive(Debug, PartialEq)]
+        struct C0;
+        impl AsnType for C0 {
+            const TAG: Tag = Tag::new(Class::Context, 0);
+        }
+
+        let value = <Implicit<C0, _>>::new(vec![1, 2]);
+        let data = &[0xA0, 6, 2, 1, 1, 2, 1, 2][..];
+
+        assert_eq!(data, &*crate::ber::encode(&value).unwrap());
+        assert_eq!(
+            value,
+            crate::ber::decode::<Implicit<C0, Vec<i32>>>(data).unwrap()
+        );
+    }
 }
