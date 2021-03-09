@@ -1,6 +1,6 @@
 [package]
 name = "rasn"
-version = "0.2.1"
+version = "0.2.2"
 categories = ["encoding", "no-std", "parser-implementations"]
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
