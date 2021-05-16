@@ -1,0 +1,11 @@
+[package]
+name = "rasn_smi"
+version = "0.1.0"
+authors = ["Erin Power <xampprocky@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rasn = { path = "../..", version = "0.2.2" }
+typic = "0.3.0"
