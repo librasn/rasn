@@ -12,7 +12,7 @@ repository = "https://github.com/XAMPPRocky/rasn.git"
 
 
 [workspace]
-members = [".", "macros"]
+members = [".", "macros", "standards/smi"]
 exclude = ["fuzzing"]
 
 [features]

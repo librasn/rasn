@@ -3,7 +3,7 @@
 use alloc::{collections::BTreeSet, vec::Vec};
 
 use crate::tag::Tag;
-use crate::types::{self, AsnType};
+use crate::types::{self, AsnType, SequenceOf};
 
 pub use rasn_derive::Decode;
 
@@ -68,6 +68,15 @@ pub trait Decoder: Sized {
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime, Self::Error>;
     /// Decode a `GeneralizedTime` identified by `tag` from the available input.
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime, Self::Error>;
+
+    /// Decode a `OBJECT IDENTIFIER` identified by `tag` from the available input.
+    /// This is a specialisation of [`Self::decode_object_identifier`] for
+    /// formats where you can zero copy the input.
+    fn decode_oid<'de>(&'de mut self, _tag: Tag) -> Result<&'de types::Oid, Self::Error> {
+        Err(Self::Error::custom(
+            "This format does not support losslessly decoding object identifiers.",
+        ))
+    }
 }
 
 /// A generic error that can occur while decoding ASN.1.
@@ -174,13 +183,13 @@ impl<T: Decode> Decode for alloc::vec::Vec<T> {
     }
 }
 
-impl<T: AsnType, V: Decode> Decode for types::Implicit<T, V> {
+impl<const TAG: Tag, V: Decode> Decode for types::Implicit<TAG, V> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(V::decode_with_tag(decoder, tag)?))
     }
 }
 
-impl<T: AsnType, V: Decode> Decode for types::Explicit<T, V> {
+impl<const TAG: Tag, V: Decode> Decode for types::Explicit<TAG, V> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(decoder.decode_explicit_prefix(tag)?))
     }

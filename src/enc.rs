@@ -173,6 +173,12 @@ impl Encode for types::ObjectIdentifier {
     }
 }
 
+impl Encode for types::Oid {
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+        encoder.encode_object_identifier(tag, self).map(drop)
+    }
+}
+
 impl Encode for types::UtcTime {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         encoder.encode_utc_time(tag, self).map(drop)
@@ -185,19 +191,19 @@ impl Encode for types::GeneralizedTime {
     }
 }
 
-impl<E: Encode> Encode for types::SequenceOf<E> {
+impl<E: Encode> Encode for alloc::vec::Vec<E> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         encoder.encode_sequence_of(tag, self).map(drop)
     }
 }
 
-impl<T: crate::types::AsnType, V: Encode> Encode for types::Implicit<T, V> {
+impl<const TAG: Tag, V: Encode> Encode for types::Implicit<TAG, V> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         V::encode_with_tag(&self.value, encoder, tag).map(drop)
     }
 }
 
-impl<T: crate::types::AsnType, V: Encode> Encode for types::Explicit<T, V> {
+impl<const TAG: Tag, V: Encode> Encode for types::Explicit<TAG, V> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         encoder.encode_explicit_prefix(tag, &self.value).map(drop)
     }

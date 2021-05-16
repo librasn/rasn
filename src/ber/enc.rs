@@ -336,16 +336,14 @@ mod tests {
 
     #[test]
     fn explicit_empty_tag() {
-        use crate::{tag::Class, types::Explicit, AsnType, Tag};
-
-        struct C0;
-        impl AsnType for C0 {
-            const TAG: Tag = Tag::new(Class::Context, 0);
-        }
+        use crate::{tag::Class, types::Explicit, Tag};
 
         assert_eq!(
             &[0x80, 0],
-            &*crate::ber::encode(&<Explicit<C0, _>>::new(None::<()>)).unwrap()
+            &*crate::ber::encode(&<Explicit<{ Tag::new(Class::Context, 0) }, _>>::new(
+                None::<()>
+            ))
+            .unwrap()
         );
     }
 }

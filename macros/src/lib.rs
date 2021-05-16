@@ -17,7 +17,6 @@ fn __print_stream(stream: proc_macro2::TokenStream) -> proc_macro::TokenStream {
     stream.into()
 }
 
-
 /// An automatic derive of the `Decode` trait.
 ///
 /// Will automatically generate a decode implementation using the your

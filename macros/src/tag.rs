@@ -69,7 +69,7 @@ impl Tag {
 
     pub fn from_fields(fields: &syn::Fields, crate_root: &syn::Path) -> proc_macro2::TokenStream {
         match fields {
-            syn::Fields::Unit => quote!(<()>::TAG),
+            syn::Fields::Unit => quote!(<() as #crate_root::AsnType>::TAG),
             syn::Fields::Named(_) => quote!(#crate_root::Tag::SEQUENCE),
             syn::Fields::Unnamed(_) => {
                 if fields.iter().count() != 1 {
@@ -77,7 +77,7 @@ impl Tag {
                 } else {
                     let ty = &fields.iter().next().unwrap().ty;
 
-                    quote!(<#ty>::TAG)
+                    quote!(<#ty as #crate_root::AsnType>::TAG)
                 }
             }
         }

@@ -166,7 +166,7 @@ impl<'a> FieldConfig<'a> {
             quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
         } else {
             let ty = &self.field.ty;
-            quote!(<#ty>::TAG)
+            quote!(<#ty as #crate_root::AsnType>::TAG)
         }
     }
 }

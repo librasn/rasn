@@ -217,7 +217,6 @@ fn havoc9() {
     }
 }
 
-
 #[test]
 fn havoc10() {
     let data = &*include_bytes!("data/havoc10.bin");

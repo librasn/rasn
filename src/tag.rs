@@ -1,5 +1,3 @@
-pub(crate) use self::consts::*;
-
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
     Universal = 0,
@@ -43,22 +41,6 @@ macro_rules! consts {
                 pub const $name: Tag = Tag::new(Class::Universal, $value);
             )+
         }
-
-        #[allow(non_camel_case_types)]
-        pub mod consts {
-            use super::*;
-
-            $(
-                #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
-                pub struct $name;
-
-                impl crate::types::AsnType for $name {
-                    const TAG: Tag = Tag::$name;
-                }
-
-            )+
-        }
-
     }
 }
 
@@ -112,7 +94,7 @@ impl Tag {
             let needle = &set[index];
             let mut after = index + 1;
             while after < set.len() {
-                if needle.const_eq(&set[after]) {
+                if needle.const_eq(set[after]) && !needle.const_eq(Tag::EOC) {
                     return false;
                 } else {
                     after += 1;
@@ -125,7 +107,40 @@ impl Tag {
         true
     }
 
-    const fn const_eq(&self, rhs: &Self) -> bool {
+    pub(crate) const fn const_eq(self, rhs: Self) -> bool {
         self.class as u8 == rhs.class as u8 && self.value == rhs.value
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn canonical_ordering() {
+        let mut tags = [
+            Tag::EOC,
+            Tag::new(Class::Application, 0),
+            Tag::BIT_STRING,
+            Tag::new(Class::Application, 1),
+            Tag::new(Class::Private, 1),
+            Tag::new(Class::Private, 0),
+            Tag::new(Class::Context, 2),
+            Tag::new(Class::Context, 0),
+        ];
+        let expected = [
+            Tag::EOC,
+            Tag::BIT_STRING,
+            Tag::new(Class::Application, 0),
+            Tag::new(Class::Application, 1),
+            Tag::new(Class::Context, 0),
+            Tag::new(Class::Context, 2),
+            Tag::new(Class::Private, 0),
+            Tag::new(Class::Private, 1),
+        ];
+
+        tags.sort();
+
+        assert_eq!(tags, expected);
     }
 }

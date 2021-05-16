@@ -310,14 +310,8 @@ mod tests {
 
     #[test]
     fn tagged_boolean() {
-        #[derive(Debug, PartialEq, Eq)]
-        struct A2;
-        impl types::AsnType for A2 {
-            const TAG: Tag = Tag::new(tag::Class::Context, 2);
-        }
-
         assert_eq!(
-            Explicit::<A2, _>::new(true),
+            Explicit::<{ Tag::new(tag::Class::Context, 2) }, _>::new(true),
             decode(&[0xa2, 0x03, 0x01, 0x01, 0xff]).unwrap()
         );
     }
@@ -467,30 +461,10 @@ mod tests {
     #[test]
     fn tagging() {
         type Type1 = VisibleString;
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        struct Type2Tag;
-        impl AsnType for Type2Tag {
-            const TAG: Tag = Tag::new(Class::Application, 3);
-        }
-        type Type2 = Implicit<Type2Tag, Type1>;
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        struct Type3Tag;
-        impl AsnType for Type3Tag {
-            const TAG: Tag = Tag::new(Class::Context, 2);
-        }
-        type Type3 = Explicit<Type3Tag, Type2>;
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        struct Type4Tag;
-        impl AsnType for Type4Tag {
-            const TAG: Tag = Tag::new(Class::Application, 7);
-        }
-        type Type4 = Implicit<Type4Tag, Type3>;
-        #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        struct Type5Tag;
-        impl AsnType for Type5Tag {
-            const TAG: Tag = Tag::new(Class::Context, 2);
-        }
-        type Type5 = Implicit<Type5Tag, Type2>;
+        type Type2 = Implicit<{ Tag::new(Class::Application, 3) }, Type1>;
+        type Type3 = Explicit<{ Tag::new(Class::Context, 2) }, Type2>;
+        type Type4 = Implicit<{ Tag::new(Class::Application, 7) }, Type3>;
+        type Type5 = Implicit<{ Tag::new(Class::Context, 2) }, Type2>;
 
         let jones = String::from("Jones");
         let jones1 = Type1::from(jones);

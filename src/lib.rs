@@ -258,8 +258,9 @@
 //! ```
 
 #![no_std]
+#![feature(const_generics, const_evaluatable_checked)]
+#![allow(incomplete_features)]
 #[deny(missing_docs)]
-
 extern crate alloc;
 
 mod tag;
