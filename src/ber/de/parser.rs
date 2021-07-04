@@ -6,8 +6,7 @@ use num_traits::ToPrimitive;
 use super::{error, DecoderOptions};
 use crate::{
     ber::identifier::Identifier,
-    tag::{Class, Tag},
-    types::Integer,
+    types::{Class, Integer, Tag},
 };
 
 pub(crate) fn parse_value<'config, 'input>(

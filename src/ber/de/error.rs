@@ -1,4 +1,4 @@
-use crate::tag::Tag;
+use crate::types::Tag;
 use snafu::Snafu;
 
 pub(crate) fn assert_tag(expected: Tag, actual: Tag) -> super::Result<()> {
@@ -18,12 +18,10 @@ pub(crate) fn assert_length(expected: usize, actual: usize) -> super::Result<()>
 }
 
 pub(crate) fn map_nom_err(error: nom::Err<nom::error::Error<&[u8]>>) -> Error {
-    use nom::{Err, Needed};
     let msg = match error {
-        Err::Incomplete(Needed::Size(u)) => alloc::format!("Parsing requires {} bytes/chars", u),
-        Err::Incomplete(Needed::Unknown) => alloc::format!("Parsing requires more data"),
-        Err::Failure(c) => alloc::format!("Parsing Failure: {:?}", c),
-        Err::Error(c) => alloc::format!("Parsing Error: {:?}", c),
+        nom::Err::Incomplete(needed) => return Error::Incomplete { needed },
+        nom::Err::Failure(c) => alloc::format!("Parsing Failure: {:?}", c),
+        nom::Err::Error(c) => alloc::format!("Parsing Error: {:?}", c),
     };
 
     Error::Parser { msg }
@@ -33,6 +31,8 @@ pub(crate) fn map_nom_err(error: nom::Err<nom::error::Error<&[u8]>>) -> Error {
 #[snafu(visibility = "pub(crate)")]
 #[derive(Debug)]
 pub enum Error {
+    #[snafu(display("Need more bytes to continue ({:?}).", needed))]
+    Incomplete { needed: nom::Needed },
     #[snafu(display("Constructed encoding encountered but not allowed."))]
     ConstructedEncodingNotAllowed,
     #[snafu(display("Indefinite length encountered but not allowed."))]
@@ -51,6 +51,8 @@ pub enum Error {
     MismatchedTag { expected: Tag, actual: Tag },
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
     MismatchedLength { expected: usize, actual: usize },
+    #[snafu(display("Expected maximum of {} items", length))]
+    ExceedsMaxLength { length: usize },
     #[snafu(display("Actual integer larger than expected {} bits", max_width))]
     IntegerOverflow { max_width: u32 },
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
@@ -64,5 +66,13 @@ impl crate::de::Error for Error {
         Self::Custom {
             msg: alloc::string::ToString::to_string(&msg),
         }
+    }
+
+    fn incomplete(needed: nom::Needed) -> Self {
+        Self::Incomplete { needed }
+    }
+
+    fn exceeds_max_length(length: usize) -> Self {
+        Self::ExceedsMaxLength { length }
     }
 }

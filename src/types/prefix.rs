@@ -1,14 +1,16 @@
-use crate::Tag;
+use crate::{AsnType, Tag};
 
 /// A newtype wrapper that will explicitly tag its value with `T`'s tag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Explicit<const TAG: Tag, V> {
+pub struct Explicit<T, V> {
+    _tag: core::marker::PhantomData<T>,
     pub(crate) value: V,
 }
 
 /// A newtype wrapper that will implicitly tag its value with `T`'s tag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Implicit<const TAG: Tag, V> {
+pub struct Implicit<T, V> {
+    _tag: core::marker::PhantomData<T>,
     pub(crate) value: V,
 }
 
@@ -16,21 +18,22 @@ macro_rules! tag_kind {
     ($($name:ident),+) => {
         $(
 
-            impl<const TAG: Tag, V> $name<TAG, V>{
-                /// Create a new implicitly wrapped value.
+            impl<T, V> $name<T, V>{
                 pub fn new(value: V) -> Self {
-                    Self { value, }
+                    Self {
+                        value,
+                        _tag: core::marker::PhantomData,
+                    }
                 }
             }
 
-            impl<const TAG: Tag, V> From<V> for $name<TAG, V>
-            {
+            impl<T, V> From<V> for $name<T, V> {
                 fn from(value: V) -> Self {
                     Self::new(value)
                 }
             }
 
-            impl<const TAG: Tag, V> core::ops::Deref for $name<TAG, V> {
+            impl<T, V> core::ops::Deref for $name<T, V> {
                 type Target = V;
 
                 fn deref(&self) -> &Self::Target {
@@ -38,7 +41,7 @@ macro_rules! tag_kind {
                 }
             }
 
-            impl<const TAG: Tag, V> core::ops::DerefMut for $name<TAG, V> {
+            impl<T, V> core::ops::DerefMut for $name<T, V> {
                 fn deref_mut(&mut self) -> &mut Self::Target {
                     &mut self.value
                 }
@@ -48,3 +51,11 @@ macro_rules! tag_kind {
 }
 
 tag_kind!(Implicit, Explicit);
+
+impl<T: AsnType, V> AsnType for Implicit<T, V> {
+    const TAG: Tag = T::TAG;
+}
+
+impl<T: AsnType, V> AsnType for Explicit<T, V> {
+    const TAG: Tag = T::TAG;
+}

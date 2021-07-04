@@ -28,12 +28,15 @@ mod tests {
     use alloc::vec;
     use alloc::vec::Vec;
 
-    use crate::{
-        tag::{Class, Tag},
-        types::*,
-    };
+    use crate::types::*;
 
     use super::*;
+
+    #[derive(Clone, Copy, Hash, Debug, PartialEq)]
+    struct C0;
+    impl AsnType for C0 {
+        const TAG: Tag = Tag::new(Class::Context, 0);
+    }
 
     #[test]
     fn null() {
@@ -156,7 +159,7 @@ mod tests {
 
     #[test]
     fn implicit_prefix() {
-        type MyInteger = Implicit<{ Tag::new(Class::Context, 0) }, u64>;
+        type MyInteger = Implicit<C0, u64>;
 
         let new_int = MyInteger::new(5);
 
@@ -165,7 +168,7 @@ mod tests {
 
     #[test]
     fn explicit_prefix() {
-        type MyInteger = Explicit<{ Tag::new(Class::Context, 0) }, u64>;
+        type MyInteger = Explicit<C0, u64>;
 
         let new_int = MyInteger::new(5);
 
@@ -174,8 +177,8 @@ mod tests {
 
     #[test]
     fn explicit_empty_tag() {
-        use crate::{tag::Class, types::Explicit, Tag};
-        type EmptyTag = Explicit<{ Tag::new(Class::Context, 0) }, Option<()>>;
+        use crate::types::Explicit;
+        type EmptyTag = Explicit<C0, Option<()>>;
 
         let value = EmptyTag::new(None::<()>);
         let data = &[0x80, 0][..];
@@ -186,8 +189,8 @@ mod tests {
 
     #[test]
     fn implicit_tagged_constructed() {
-        use crate::{tag::Class, types::Implicit, Tag};
-        type ImpVec = Implicit<{ Tag::new(Class::Context, 0) }, Vec<i32>>;
+        use crate::types::Implicit;
+        type ImpVec = Implicit<C0, Vec<i32>>;
 
         let value = ImpVec::new(vec![1, 2]);
         let data = &[0xA0, 6, 2, 1, 1, 2, 1, 2][..];

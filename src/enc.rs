@@ -1,11 +1,11 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::{tag::Tag, types};
+use crate::types::{self, AsnType, Tag};
 
 pub use rasn_derive::Encode;
 
 /// A **data type** that can be encoded to a ASN.1 data format.
-pub trait Encode: types::AsnType {
+pub trait Encode: AsnType {
     /// Encodes `self`'s data into the given `Encoder`.
     ///
     /// **Note for implementors** You typically do not need to implement this.
@@ -84,8 +84,14 @@ pub trait Encoder {
 }
 
 /// A generic error that occurred while trying to encode ASN.1.
-pub trait Error {
+pub trait Error: core::fmt::Display {
     fn custom<D: core::fmt::Display>(msg: D) -> Self;
+}
+
+impl Error for core::convert::Infallible {
+    fn custom<D: core::fmt::Display>(msg: D) -> Self {
+        core::panic!("Infallible error! {}", msg)
+    }
 }
 
 impl Encode for () {
@@ -197,28 +203,20 @@ impl<E: Encode> Encode for alloc::vec::Vec<E> {
     }
 }
 
-impl<const TAG: Tag, V: Encode> Encode for types::Implicit<TAG, V> {
+impl<E: Encode, const N: usize> Encode for [E; N] {
+    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+        encoder.encode_sequence_of(tag, self).map(drop)
+    }
+}
+
+impl<T: AsnType, V: Encode> Encode for types::Implicit<T, V> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         V::encode_with_tag(&self.value, encoder, tag).map(drop)
     }
 }
 
-impl<const TAG: Tag, V: Encode> Encode for types::Explicit<TAG, V> {
+impl<T: AsnType, V: Encode> Encode for types::Explicit<T, V> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         encoder.encode_explicit_prefix(tag, &self.value).map(drop)
-    }
-}
-
-impl Encode for alloc::collections::BTreeMap<Tag, types::Open> {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-        encoder
-            .encode_sequence(tag, |encoder| {
-                for (tag, value) in self {
-                    <_>::encode_with_tag(value, encoder, *tag)?;
-                }
-
-                Ok(())
-            })
-            .map(drop)
     }
 }

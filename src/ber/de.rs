@@ -2,12 +2,15 @@ mod config;
 mod error;
 pub(super) mod parser;
 
-use alloc::{borrow::ToOwned, collections::BTreeSet, vec::Vec};
+use alloc::{borrow::ToOwned, vec::Vec};
 
 use snafu::*;
 
 use super::identifier::Identifier;
-use crate::{tag::Tag, types, Decode};
+use crate::{
+    types::{self, Tag},
+    Decode,
+};
 
 pub use self::{config::DecoderOptions, error::Error};
 
@@ -214,13 +217,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         self.input = input;
         if let Some((i, _)) = bs
-            .as_slice()
+            .as_raw_slice()
             .iter()
             .enumerate()
             .rev()
             .find(|(_, v)| **v != 0)
         {
-            Ok(types::BitString::from_vec(bs.as_slice()[..=i].to_vec()))
+            Ok(types::BitString::from_vec(bs.as_raw_slice()[..=i].to_vec()))
         } else {
             Ok(bs)
         }
@@ -248,46 +251,44 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .context(error::InvalidDate)
     }
 
-    fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>> {
+    fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>, Self::Error> {
+        self.decode_sequence(tag, |decoder| {
+            let mut items = Vec::new();
+
+            while let Ok(item) = D::decode(decoder) {
+                items.push(item);
+            }
+
+            Ok(items)
+        })
+    }
+
+    fn decode_sequence<D, F: FnOnce(&mut Self) -> Result<D>>(
+        &mut self,
+        tag: Tag,
+        decode_fn: F,
+    ) -> Result<D> {
         let contents = self.parse_value(tag)?.1;
-        let mut vec = Vec::new();
 
-        let mut sequence_parser = Self::new(contents.unwrap_or(self.input), self.config);
+        let (streaming, contents) = match contents {
+            Some(contents) => (false, contents),
+            None => (true, self.input),
+        };
 
-        if contents.is_some() {
-            while !sequence_parser.input.is_empty() {
-                let value = D::decode(&mut sequence_parser)?;
-                vec.push(value);
-            }
-        } else {
-            while !self.is_eoc() {
-                let value = D::decode(&mut sequence_parser)?;
-                vec.push(value);
-            }
+        let mut inner = Self::new(contents, self.config);
 
+        let result = (decode_fn)(&mut inner)?;
+
+        if streaming {
+            self.input = inner.input;
             self.parse_eoc()?;
         }
 
-        Ok(vec)
-    }
-
-    fn decode_set_of<D: Decode + Ord>(&mut self, tag: Tag) -> Result<BTreeSet<D>> {
-        self.decode_sequence_of(tag)
-            .map(|v| v.into_iter().collect())
-    }
-
-    fn decode_set(&mut self, tag: Tag) -> Result<Self> {
-        self.decode_sequence(tag)
-    }
-
-    fn decode_sequence(&mut self, tag: Tag) -> Result<Self> {
-        let contents = self.parse_value(tag)?.1;
-
-        Ok(Self::new(contents.unwrap_or(self.input), self.config))
+        Ok(result)
     }
 
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D> {
-        D::decode(&mut self.decode_sequence(tag)?)
+        self.decode_sequence(tag, D::decode)
     }
 }
 
@@ -295,12 +296,26 @@ impl<'input> crate::Decoder for Decoder<'input> {
 mod tests {
     use alloc::string::String;
 
+    #[derive(Clone, Copy, Hash, Debug, PartialEq)]
+    struct C2;
+    impl AsnType for C2 {
+        const TAG: Tag = Tag::new(Class::Context, 2);
+    }
+
+    #[derive(Clone, Copy, Hash, Debug, PartialEq)]
+    struct A3;
+    impl AsnType for A3 {
+        const TAG: Tag = Tag::new(Class::Application, 3);
+    }
+
+    #[derive(Clone, Copy, Hash, Debug, PartialEq)]
+    struct A7;
+    impl AsnType for A7 {
+        const TAG: Tag = Tag::new(Class::Application, 7);
+    }
+
     use super::*;
-    use crate::{
-        ber::decode,
-        tag::{self, Class},
-        types::*,
-    };
+    use crate::{ber::decode, types::*};
 
     #[test]
     fn boolean() {
@@ -311,7 +326,7 @@ mod tests {
     #[test]
     fn tagged_boolean() {
         assert_eq!(
-            Explicit::<{ Tag::new(tag::Class::Context, 2) }, _>::new(true),
+            Explicit::<C2, _>::new(true),
             decode(&[0xa2, 0x03, 0x01, 0x01, 0xff]).unwrap()
         );
     }
@@ -436,12 +451,11 @@ mod tests {
                 decoder: &mut D,
                 tag: Tag,
             ) -> Result<Self, D::Error> {
-                let mut field_decoder = decoder.decode_sequence(tag)?;
-
-                let name: IA5String = IA5String::decode(&mut field_decoder)?;
-                let ok: bool = bool::decode(&mut field_decoder)?;
-
-                Ok(Self { name, ok })
+                decoder.decode_sequence(tag, |sequence| {
+                    let name: IA5String = IA5String::decode(sequence)?;
+                    let ok: bool = bool::decode(sequence)?;
+                    Ok(Self { name, ok })
+                })
             }
         }
 
@@ -461,10 +475,10 @@ mod tests {
     #[test]
     fn tagging() {
         type Type1 = VisibleString;
-        type Type2 = Implicit<{ Tag::new(Class::Application, 3) }, Type1>;
-        type Type3 = Explicit<{ Tag::new(Class::Context, 2) }, Type2>;
-        type Type4 = Implicit<{ Tag::new(Class::Application, 7) }, Type3>;
-        type Type5 = Implicit<{ Tag::new(Class::Context, 2) }, Type2>;
+        type Type2 = Implicit<A3, Type1>;
+        type Type3 = Explicit<C2, Type2>;
+        type Type4 = Implicit<A7, Type3>;
+        type Type5 = Implicit<C2, Type2>;
 
         let jones = String::from("Jones");
         let jones1 = Type1::from(jones);

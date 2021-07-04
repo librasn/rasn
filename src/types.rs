@@ -7,33 +7,37 @@ mod instance;
 mod oid;
 mod open;
 mod prefix;
+mod tag;
 
-pub use rasn_derive::AsnType;
+use alloc::boxed::Box;
 
-pub use alloc::string::String as Utf8String;
-pub use bytes::Bytes as OctetString;
-pub use num_bigint::BigInt as Integer;
+pub use ::{
+    alloc::string::String as Utf8String, bytes::Bytes as OctetString,
+    num_bigint::BigInt as Integer, rasn_derive::AsnType,
+};
 
-pub use super::tag::{Class, Tag};
-pub use instance::InstanceOf;
-pub use oid::{ConstOid, ObjectIdentifier, Oid};
-pub use open::Open;
-pub use prefix::{Explicit, Implicit};
+pub use self::{
+    instance::InstanceOf,
+    oid::{ConstOid, ObjectIdentifier, Oid},
+    open::Open,
+    prefix::{Explicit, Implicit},
+    tag::{Class, Tag},
+};
 
 ///  Alias for `bitvec::BitVec` mapped to ASN.1'a `BIT STRING`.
 pub type BitString = bitvec::vec::BitVec<bitvec::order::Msb0, u8>;
 ///  `IA5String` string alias that matches BER's encoding rules.
-pub type IA5String = Implicit<{ Tag::IA5_STRING }, Utf8String>;
+pub type IA5String = Implicit<tag::IA5_STRING, Utf8String>;
 ///  `PrintableString` string alias that matches BER's encoding rules.
-pub type PrintableString = Implicit<{ Tag::PRINTABLE_STRING }, Utf8String>;
+pub type PrintableString = Implicit<tag::PRINTABLE_STRING, Utf8String>;
 ///  `VisibleString` string alias that matches BER's encoding rules.
-pub type VisibleString = Implicit<{ Tag::VISIBLE_STRING }, Utf8String>;
+pub type VisibleString = Implicit<tag::VISIBLE_STRING, Utf8String>;
 ///  `String` alias that matches `BmpString` BER's encoding rules.
-pub type BmpString = Implicit<{ Tag::BMP_STRING }, Utf8String>;
+pub type BmpString = Implicit<tag::BMP_STRING, Utf8String>;
 ///  Alias to `Vec<T>`.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
 ///  `UniversalString` string alias that matches BER's encoding rules.
-pub type UniversalString = Implicit<{ Tag::UNIVERSAL_STRING }, Utf8String>;
+pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
 ///  Alias for `chrono::DateTime<Utc>`.
 pub type UtcTime = chrono::DateTime<chrono::Utc>;
 ///  Alias for `chrono::DateTime<FixedOffset>`.
@@ -47,12 +51,6 @@ pub trait AsnType {
     /// `Tag::EOC` to represent that's invalid for use.
     const TAG: Tag;
 }
-
-pub trait SequenceOf {}
-
-impl<A: AsnType> SequenceOf for alloc::vec::Vec<A> {}
-impl<A: AsnType, const N: usize> SequenceOf for [A; N] {}
-impl<A: AsnType> SequenceOf for [A] {}
 
 macro_rules! asn_type {
     ($($name:ty: $value:ident),+) => {
@@ -92,6 +90,10 @@ asn_type! {
 
 }
 
+impl<T: AsnType> AsnType for Box<T> {
+    const TAG: Tag = T::TAG;
+}
+
 impl<T: AsnType> AsnType for alloc::vec::Vec<T> {
     const TAG: Tag = Tag::SEQUENCE;
 }
@@ -109,17 +111,5 @@ impl<T: AsnType, const N: usize> AsnType for [T; N] {
 }
 
 impl<T> AsnType for &'_ [T] {
-    const TAG: Tag = Tag::SEQUENCE;
-}
-
-impl<const TAG: Tag, V> AsnType for Implicit<TAG, V> {
-    const TAG: Tag = TAG;
-}
-
-impl<const TAG: Tag, V> AsnType for Explicit<TAG, V> {
-    const TAG: Tag = TAG;
-}
-
-impl<K, V> AsnType for alloc::collections::BTreeMap<K, V> {
     const TAG: Tag = Tag::SEQUENCE;
 }

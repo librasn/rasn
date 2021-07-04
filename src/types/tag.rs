@@ -1,3 +1,5 @@
+pub(crate) use self::consts::*;
+
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
     Universal = 0,
@@ -41,6 +43,22 @@ macro_rules! consts {
                 pub const $name: Tag = Tag::new(Class::Universal, $value);
             )+
         }
+
+        #[allow(non_camel_case_types)]
+        pub mod consts {
+            use super::*;
+
+            $(
+                #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+                pub struct $name;
+
+                impl crate::types::AsnType for $name {
+                    const TAG: Tag = Tag::$name;
+                }
+
+            )+
+        }
+
     }
 }
 

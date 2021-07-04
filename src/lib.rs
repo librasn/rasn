@@ -89,7 +89,7 @@
 //! }
 //!# struct Person {
 //!#     age: rasn::types::Integer,
-//!#     name: String, // or rasn::types::Utf8String
+//!#     name: String, // or crate::types::Utf8String
 //!# }
 //! ```
 //!
@@ -107,12 +107,12 @@
 //!
 //! impl Decode for Person {
 //!     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-//!         // Returns a decoder that contains the data inside the sequence.
-//!         let mut sequence = decoder.decode_sequence(tag)?;
-//!         let age = Integer::decode(&mut sequence)?;
-//!         let name = String::decode(&mut sequence)?;
-//!
-//!         Ok(Self { age, name })
+//!         decoder.decode_sequence(tag, |sequence| {
+//!             Ok(Self {
+//!                 age: Integer::decode(sequence)?,
+//!                 name: String::decode(sequence)?,
+//!             })
+//!         })
 //!     }
 //! }
 //!
@@ -258,12 +258,8 @@
 //! ```
 
 #![no_std]
-#![feature(const_generics, const_evaluatable_checked)]
-#![allow(incomplete_features)]
 #[deny(missing_docs)]
 extern crate alloc;
-
-mod tag;
 
 pub mod de;
 pub mod enc;
@@ -276,13 +272,11 @@ pub mod cer;
 pub mod der;
 
 #[doc(inline)]
-pub use de::{Decode, Decoder};
-#[doc(inline)]
-pub use enc::{Encode, Encoder};
-#[doc(inline)]
-pub use tag::Tag;
-#[doc(inline)]
-pub use types::AsnType;
+pub use self::{
+    de::{Decode, Decoder},
+    enc::{Encode, Encoder},
+    types::{AsnType, Tag},
+};
 
 #[doc(hidden)]
 pub use static_assertions as sa;

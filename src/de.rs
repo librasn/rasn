@@ -1,10 +1,11 @@
 //! Generic ASN.1 decoding framework.
 
-use alloc::{collections::BTreeSet, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
+use core::convert::TryInto;
 
-use crate::tag::Tag;
-use crate::types::{self, AsnType, SequenceOf};
+use crate::types::{self, AsnType, Tag};
 
+pub use nom::Needed;
 pub use rasn_derive::Decode;
 
 /// A **data type** that can decoded from any ASN.1 format.
@@ -50,14 +51,11 @@ pub trait Decoder: Sized {
     ) -> Result<types::ObjectIdentifier, Self::Error>;
     /// Decode a `SEQUENCE` identified by `tag` from the available input. Returning
     /// a new `Decoder` containing the sequence's contents to be decoded.
-    fn decode_sequence(&mut self, tag: Tag) -> Result<Self, Self::Error>;
+    fn decode_sequence<D, F>(&mut self, tag: Tag, decode_fn: F) -> Result<D, Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<D, Self::Error>;
     /// Decode a `SEQUENCE OF D` where `D: Decode` identified by `tag` from the available input.
     fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>, Self::Error>;
-    /// Decode a `SET` identified by `tag` from the available input. Returning
-    /// a new `Decoder` containing the sequence's contents to be decoded.
-    fn decode_set(&mut self, tag: Tag) -> Result<Self, Self::Error>;
-    /// Decode a `SET OF D` where `D: Decode` identified by `tag` from the available input.
-    fn decode_set_of<D: Decode + Ord>(&mut self, tag: Tag) -> Result<BTreeSet<D>, Self::Error>;
     /// Decode a `OCTET STRING` identified by `tag` from the available input.
     fn decode_octet_string(&mut self, tag: Tag) -> Result<Vec<u8>, Self::Error>;
     /// Decode a `UTF8 STRING` identified by `tag` from the available input.
@@ -80,9 +78,13 @@ pub trait Decoder: Sized {
 }
 
 /// A generic error that can occur while decoding ASN.1.
-pub trait Error {
+pub trait Error: core::fmt::Display {
     /// Creates a new general error using `msg` when decoding ASN.1.
     fn custom<D: core::fmt::Display>(msg: D) -> Self;
+    /// Creates a new error about needing more data to finish parsing.
+    fn incomplete(needed: Needed) -> Self;
+    /// Creates a new error about exceeding the maximum allowed data for a type.
+    fn exceeds_max_length(length: usize) -> Self;
 }
 
 impl Decode for () {
@@ -135,6 +137,16 @@ impl_integers! {
     usize,
 }
 
+impl<T: Decode> Decode for Box<T> {
+    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
+        T::decode(decoder).map(Box::new)
+    }
+
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        T::decode_with_tag(decoder, tag).map(Box::new)
+    }
+}
+
 impl Decode for types::Integer {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_integer(tag)
@@ -183,27 +195,28 @@ impl<T: Decode> Decode for alloc::vec::Vec<T> {
     }
 }
 
-impl<const TAG: Tag, V: Decode> Decode for types::Implicit<TAG, V> {
+impl<T: Decode + Default, const N: usize> Decode for [T; N] {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        let sequence = decoder.decode_sequence_of(tag)?;
+
+        sequence.try_into().map_err(|seq: Vec<_>| {
+            Error::custom(alloc::format!(
+                "Incorrect number of items provided. Expected {}, Actual {}.",
+                N,
+                seq.len()
+            ))
+        })
+    }
+}
+
+impl<T: AsnType, V: Decode> Decode for types::Implicit<T, V> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(V::decode_with_tag(decoder, tag)?))
     }
 }
 
-impl<const TAG: Tag, V: Decode> Decode for types::Explicit<TAG, V> {
+impl<T: AsnType, V: Decode> Decode for types::Explicit<T, V> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         Ok(Self::new(decoder.decode_explicit_prefix(tag)?))
-    }
-}
-
-impl Decode for alloc::collections::BTreeMap<Tag, types::Open> {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        let mut decoder = decoder.decode_sequence(tag)?;
-        let mut map = alloc::collections::BTreeMap::new();
-
-        while let Ok(value) = <types::Open>::decode(&mut decoder) {
-            map.insert(value.tag(), value);
-        }
-
-        Ok(map)
     }
 }

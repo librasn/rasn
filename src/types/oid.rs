@@ -6,7 +6,7 @@ const fn is_valid_oid(slice: &[u32]) -> bool {
 }
 
 /// A temporary workaround for [`Oid`] not currently being `const` compatible.
-pub struct ConstOid(&'static [u32]);
+pub struct ConstOid(pub &'static [u32]);
 
 impl AsRef<[u32]> for ConstOid {
     fn as_ref(&self) -> &[u32] {
@@ -24,7 +24,19 @@ impl ops::Deref for ConstOid {
 
 impl AsRef<Oid> for ConstOid {
     fn as_ref(&self) -> &Oid {
-        unsafe { Oid::new_unchecked(self.0) }
+         Oid::new_unchecked(self.0)
+    }
+}
+
+impl PartialEq<[u32]> for ConstOid {
+    fn eq(&self, rhs: &[u32]) -> bool {
+        self.0 == rhs
+    }
+}
+
+impl PartialEq<Oid> for ConstOid {
+    fn eq(&self, rhs: &Oid) -> bool {
+        *self.0 == rhs.0
     }
 }
 
@@ -44,6 +56,15 @@ impl Oid {
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_DIRECTORY: ConstOid =
         ConstOid(&[1, 3, 6, 1, 1]);
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT: ConstOid = ConstOid(&[1, 3, 6, 1, 2]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_SYSTEM: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 1]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_INTERFACES: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 2]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_AT: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 3]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_IP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 4]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_ICMP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 5]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_TCP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 6]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_UDP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 7]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_EGP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 8]);
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_EXPERIMENTAL: ConstOid =
         ConstOid(&[1, 3, 6, 1, 3]);
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_PRIVATE: ConstOid =
@@ -62,7 +83,7 @@ impl Oid {
     /// ```
     pub fn new(slice: &[u32]) -> Option<&Oid> {
         if is_valid_oid(slice) {
-            Some(unsafe { Self::new_unchecked(slice) })
+            Some(Self::new_unchecked(slice))
         } else {
             None
         }
@@ -79,7 +100,7 @@ impl Oid {
     /// ```
     pub fn new_mut(slice: &mut [u32]) -> Option<&mut Oid> {
         if is_valid_oid(slice) {
-            Some(unsafe { Self::new_unchecked_mut(slice) })
+            Some(Self::new_unchecked_mut(slice))
         } else {
             None
         }
@@ -90,8 +111,8 @@ impl Oid {
     /// # Safety
     /// This allows you to create potentially invalid object identifiers which
     /// may affect encoding validity.
-    pub unsafe fn new_unchecked(slice: &[u32]) -> &Oid {
-        &*(slice as *const [u32] as *const Oid)
+    pub fn new_unchecked(slice: &[u32]) -> &Oid {
+        unsafe { &*(slice as *const [u32] as *const Oid) }
     }
 
     /// Creates a new object identifier from `slice`.
@@ -99,8 +120,8 @@ impl Oid {
     /// # Safety
     /// This allows you to create potentially invalid object identifiers which
     /// may affect encoding validity.
-    pub unsafe fn new_unchecked_mut(slice: &mut [u32]) -> &mut Oid {
-        &mut *(slice as *mut [u32] as *mut Oid)
+    pub fn new_unchecked_mut(slice: &mut [u32]) -> &mut Oid {
+        unsafe { &mut *(slice as *mut [u32] as *mut Oid) }
     }
 }
 
@@ -202,17 +223,29 @@ impl ops::Deref for ObjectIdentifier {
     type Target = Oid;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { Oid::new_unchecked(&self.0) }
+         Oid::new_unchecked(&self.0)
     }
 }
 
 impl ops::DerefMut for ObjectIdentifier {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { Oid::new_unchecked_mut(&mut self.0) }
+        Oid::new_unchecked_mut(&mut self.0)
     }
 }
 
 impl<const N: usize> PartialEq<ObjectIdentifier> for [u32; N] {
+    fn eq(&self, rhs: &ObjectIdentifier) -> bool {
+        self == &**rhs
+    }
+}
+
+impl PartialEq<ObjectIdentifier> for Oid {
+    fn eq(&self, rhs: &ObjectIdentifier) -> bool {
+        self == &**rhs
+    }
+}
+
+impl PartialEq<ObjectIdentifier> for ConstOid {
     fn eq(&self, rhs: &ObjectIdentifier) -> bool {
         self == &**rhs
     }

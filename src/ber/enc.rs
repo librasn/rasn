@@ -4,7 +4,10 @@ mod error;
 use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
 
 use super::Identifier;
-use crate::{tag::Tag, types, Encode};
+use crate::{
+    types::{self, Tag},
+    Encode,
+};
 
 pub use config::EncoderOptions;
 pub use error::Error;
@@ -183,7 +186,7 @@ impl crate::Encoder for Encoder {
         if value.not_any() {
             Ok(self.encode_value(tag, &[]))
         } else {
-            let bytes = value.as_slice().to_owned();
+            let bytes = value.as_raw_slice().to_owned();
             let mut deque = VecDeque::from(bytes);
             while deque.back().map_or(false, |i| *i == 0) {
                 deque.pop_back();
@@ -299,6 +302,12 @@ impl crate::Encoder for Encoder {
 mod tests {
     use super::*;
 
+    #[derive(Clone, Copy, Hash, Debug, PartialEq)]
+    struct C0;
+    impl crate::AsnType for C0 {
+        const TAG: Tag = Tag::new(crate::types::Class::Context, 0);
+    }
+
     #[test]
     fn bit_string() {
         let bitstring =
@@ -321,14 +330,14 @@ mod tests {
         assert_eq!(
             &[0xFF, 0x7F,][..],
             ident_to_bytes(Identifier::from_tag(
-                Tag::new(crate::tag::Class::Private, 127),
+                Tag::new(crate::types::Class::Private, 127),
                 true,
             ))
         );
         assert_eq!(
             &[0b1101_1111, 0xFF, 0xFF, 0x3][..],
             ident_to_bytes(Identifier::from_tag(
-                Tag::new(crate::tag::Class::Private, 65535),
+                Tag::new(crate::types::Class::Private, 65535),
                 false,
             ))
         );
@@ -336,14 +345,11 @@ mod tests {
 
     #[test]
     fn explicit_empty_tag() {
-        use crate::{tag::Class, types::Explicit, Tag};
+        use crate::types::Explicit;
 
         assert_eq!(
             &[0x80, 0],
-            &*crate::ber::encode(&<Explicit<{ Tag::new(Class::Context, 0) }, _>>::new(
-                None::<()>
-            ))
-            .unwrap()
+            &*crate::ber::encode(&<Explicit<C0, _>>::new(None::<()>)).unwrap()
         );
     }
 }
