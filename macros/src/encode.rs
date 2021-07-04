@@ -29,10 +29,10 @@ pub fn derive_struct_impl(
     }
 
     let crate_root = &config.crate_root;
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
-        impl #generics #crate_root::Encode for #name #generics {
-
+        impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
             fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
                 encoder.encode_sequence(tag, |encoder| {
                     #(#list)*
@@ -58,7 +58,7 @@ pub fn derive_enum_impl(
         }
     } else {
         quote! {
-            Err(#crate_root::enc::Error::custom("CHOICE-style enums do not allow implicit tagging."))
+            Err::<(), _>(#crate_root::enc::Error::custom("CHOICE-style enums do not allow implicit tagging."))
         }
     };
 
@@ -86,9 +86,9 @@ pub fn derive_enum_impl(
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
-                    quote!(#name::#ident(value) => { #crate_root::Encode::encode_with_tag(value, encoder, #tag) })
+                    quote!(#name::#ident(value) => { #crate_root::Encode::encode_with_tag(value, encoder, #tag).map(drop) })
                 }
-                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(#tag) }),
+                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(#tag).map(drop) }),
             }
         });
 
@@ -103,9 +103,10 @@ pub fn derive_enum_impl(
         None
     };
 
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
-        impl #generics #crate_root::Encode for #name #generics {
+        impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
             fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
                 #encode_with_tag
             }

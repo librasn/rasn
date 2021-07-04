@@ -16,12 +16,12 @@ pub fn derive_struct_impl(
         let field_config = FieldConfig::new(field, config);
         if field_config.choice {
             list.push(proc_macro2::TokenStream::from(
-                quote!(#lhs <_>::decode(&mut decoder)?),
+                quote!(#lhs <_>::decode(decoder)?),
             ));
         } else {
             let tag = field_config.tag(i);
             list.push(proc_macro2::TokenStream::from(
-                quote!(#lhs <_>::decode_with_tag(&mut decoder, #tag)?),
+                quote!(#lhs <_>::decode_with_tag(decoder, #tag)?),
             ));
         }
     }
@@ -32,12 +32,14 @@ pub fn derive_struct_impl(
         Fields::Unit => quote!(),
     };
 
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
     proc_macro2::TokenStream::from(quote! {
-        #[automatically_derived]
-        impl #generics #crate_root::Decode for #name #generics {
+        impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
             fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-                let mut decoder = decoder.decode_sequence(tag)?;
-                Ok(Self #fields)
+                decoder.decode_sequence(tag, |decoder| {
+                    Ok(Self #fields)
+                })
             }
         }
     })
@@ -130,8 +132,9 @@ pub fn derive_enum_impl(
         None
     };
 
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     proc_macro2::TokenStream::from(quote! {
-        impl #generics #crate_root::Decode for #name #generics {
+        impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
             fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
                 #decode_with_tag
             }

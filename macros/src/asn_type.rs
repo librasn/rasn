@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::config::*;
 
 pub fn derive_struct_impl(
@@ -13,19 +15,29 @@ pub fn derive_struct_impl(
         .map(|t| t.to_tokens(crate_root))
         .unwrap_or(quote!(#crate_root::Tag::SEQUENCE));
 
-    let field_tags = container
+
+    let field_groups = container
         .fields
         .iter()
         .enumerate()
-        .map(|(i, f)| FieldConfig::new(f, config).tag(i));
+        .map(|(i, f)| (i, FieldConfig::new(f, config)))
+        .group_by(|(_, config)| config.field.ty == config.container_config.option_type.path);
+    let field_asserts = field_groups.into_iter().filter_map(|(key, fields)| key.then(|| fields)).map(|fields| {
+        let fields = fields.map(|(i, f)| f.tag(i));
+        quote!(#crate_root::sa::const_assert!(#crate_root::Tag::is_distinct_set(&[#(#fields),*]));)
+    });
+
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
-        impl <#generics> #crate_root::AsnType for #name <#generics> {
+        impl #impl_generics  #crate_root::AsnType for #name #ty_generics #where_clause {
             const TAG: #crate_root::Tag = #tag;
         }
 
-        #crate_root::sa::const_assert!(#crate_root::Tag::is_distinct_set(&[#(#field_tags),*]));
+        const _: () = {
+            #(#field_asserts)*;
+        };
     })
 }
 
@@ -40,7 +52,12 @@ pub fn derive_enum_impl(
         .tag
         .as_ref()
         .map(|t| t.to_tokens(crate_root))
-        .unwrap_or(quote!(#crate_root::Tag::EOC));
+        .unwrap_or_else(|| {
+            config
+                .enumerated
+                .then(|| quote!(#crate_root::Tag::ENUMERATED))
+                .unwrap_or(quote!(#crate_root::Tag::EOC))
+        });
 
     let variant_tags = container
         .variants
@@ -50,9 +67,14 @@ pub fn derive_enum_impl(
 
     let asserts = if config.choice {
         let field_asserts = container.variants.iter().map(|v| {
-            let field_tags = v.fields.iter().enumerate().map(|(i, f)| FieldConfig::new(f, config).tag(i));
-            quote! {
-                #crate_root::sa::const_assert!(#crate_root::Tag::is_distinct_set(&[#(#field_tags),*]));
+            if v.fields.len() > 1 {
+                let field_tags = v.fields.iter().enumerate().map(|(i, f)| FieldConfig::new(f, config).tag(i));
+
+                quote! {
+                    #crate_root::sa::const_assert!(#crate_root::Tag::is_distinct_set(&[#(#field_tags),*]));
+                }
+            } else {
+                quote!()
             }
         });
 
@@ -65,12 +87,17 @@ pub fn derive_enum_impl(
         None
     };
 
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
-        impl<#generics> #crate_root::AsnType for #name <#generics> {
-            const TAG: #crate_root::Tag = #tag;
+        impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
+            const TAG: #crate_root::Tag = {
+                const _: () = { #asserts };
+
+                #tag
+            };
         }
 
-        #asserts
     })
 }
