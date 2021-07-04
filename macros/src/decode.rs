@@ -4,7 +4,7 @@ use crate::config::*;
 
 pub fn derive_struct_impl(
     name: syn::Ident,
-    generics: syn::Generics,
+    mut generics: syn::Generics,
     container: syn::DataStruct,
     config: &Config,
 ) -> proc_macro2::TokenStream {
@@ -32,11 +32,34 @@ pub fn derive_struct_impl(
         Fields::Unit => quote!(),
     };
 
+    for param in generics.type_params_mut() {
+        param.colon_token = Some(Default::default());
+        param.bounds = {
+            let mut punct = syn::punctuated::Punctuated::new();
+            punct.push(syn::TraitBound {
+                paren_token: None,
+                modifier: syn::TraitBoundModifier::None,
+                lifetimes: None,
+                path: {
+                    let mut path = crate_root.clone();
+                    path.segments.push(syn::PathSegment {
+                        ident: quote::format_ident!("Decode"),
+                        arguments: syn::PathArguments::None,
+                    });
+
+                    path
+                }
+            }.into());
+
+            punct
+        };
+    }
+
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     proc_macro2::TokenStream::from(quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
                 decoder.decode_sequence(tag, |decoder| {
                     Ok(Self #fields)
                 })
@@ -47,7 +70,7 @@ pub fn derive_struct_impl(
 
 pub fn derive_enum_impl(
     name: syn::Ident,
-    generics: syn::Generics,
+    mut generics: syn::Generics,
     container: syn::DataEnum,
     config: &Config,
 ) -> proc_macro2::TokenStream {
@@ -132,10 +155,35 @@ pub fn derive_enum_impl(
         None
     };
 
+    let crate_root = &config.crate_root;
+
+    for param in generics.type_params_mut() {
+        param.colon_token = Some(Default::default());
+        param.bounds = {
+            let mut punct = syn::punctuated::Punctuated::new();
+            punct.push(syn::TraitBound {
+                paren_token: None,
+                modifier: syn::TraitBoundModifier::None,
+                lifetimes: None,
+                path: {
+                    let mut path = crate_root.clone();
+                    path.segments.push(syn::PathSegment {
+                        ident: quote::format_ident!("Decode"),
+                        arguments: syn::PathArguments::None,
+                    });
+
+                    path
+                }
+            }.into());
+
+            punct
+        };
+    }
+
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     proc_macro2::TokenStream::from(quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
                 #decode_with_tag
             }
 
