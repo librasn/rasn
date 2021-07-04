@@ -10,22 +10,40 @@ exclude = ["fuzzing"]
 keywords = ["asn1", "der", "ber", "cer", "per"]
 repository = "https://github.com/XAMPPRocky/rasn.git"
 
+[lib]
+bench = false
 
 [workspace]
-members = [".", "macros", "standards/smi"]
+members = [".", "macros", "standards/smi", "standards/mib"]
 exclude = ["fuzzing"]
 
 [features]
 default = ["macros"]
 macros = ["rasn-derive"]
 
+[[bench]]
+name = "criterion"
+path = "benches/criterion.rs"
+harness = false
+test = true
+
+[[bench]]
+name = "iai"
+path = "benches/iai.rs"
+harness = false
+
 [dependencies]
-nom = { version = "6.0.0-beta1", default-features = false, features = ["alloc"] }
-num-bigint = { version = "0.3.0", default-features = false }
-num-traits = { version = "0.2.12", default-features = false }
-snafu = { version = "0.6.8", default-features = false }
-bytes = { version = "0.5.6", default-features = false }
-bitvec = { version = "0.19.3", default-features = false, features = ["alloc"] }
+nom = { version = "7.0.0-alpha1", default-features = false, features = ["alloc"] }
+num-bigint = { version = "0.4.0", default-features = false }
+num-traits = { version = "0.2.14", default-features = false }
+snafu = { version = "0.6.10", default-features = false }
+bytes = { version = "1.0.1", default-features = false }
+bitvec = { version = "0.22.3", default-features = false, features = ["alloc"] }
 rasn-derive = { version = "0.2.0", path = "macros", optional = true }
-chrono = { version = "0.4.15", default-features = false, features = ["alloc"] }
+chrono = { version = "0.4.19", default-features = false, features = ["alloc"] }
 static_assertions = "1.1.0"
+
+[dev-dependencies]
+criterion = "0.3.4"
+iai = "0.1.1"
+once_cell = "1.8.0"

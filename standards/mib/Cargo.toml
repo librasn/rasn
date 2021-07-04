@@ -1,11 +1,10 @@
 [package]
-name = "rasn-smi"
+name = "rasn-mib"
 version = "0.1.0"
-authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rasn = { path = "../..", version = "0.3.0-alpha.0" }
-typic = "0.3.0"
+smi = { path = "../smi", package = "rasn-smi" }
+rasn = { path = "../.." }
