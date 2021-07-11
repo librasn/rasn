@@ -580,7 +580,7 @@ pub mod address {
         /// The NetworkAddress (e.g., the IP address) corresponding to the
         /// media-dependent [`PhysAddress`].
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NetAddress(pub NetworkAddress);
+        pub struct NetAddress(pub IpAddress);
         access: ReadWrite,
         status: Mandatory,
         value = [1, 3, 6, 1, 2, 1, 3, 1, 1, 3];
