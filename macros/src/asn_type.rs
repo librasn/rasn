@@ -13,8 +13,12 @@ pub fn derive_struct_impl(
         .tag
         .as_ref()
         .map(|t| t.to_tokens(crate_root))
-        .unwrap_or(quote!(#crate_root::Tag::SEQUENCE));
+        .or(config.delegate.then(|| {
+            let ty = &container.fields.iter().next().unwrap().ty;
 
+            quote!(<#ty as #crate_root::AsnType>::TAG)
+        }))
+        .unwrap_or(quote!(#crate_root::Tag::SEQUENCE));
 
     let field_groups = container
         .fields

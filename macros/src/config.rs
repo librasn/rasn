@@ -1,3 +1,4 @@
+use quote::ToTokens;
 use syn::Path;
 
 use crate::tag::Tag;
@@ -9,6 +10,7 @@ pub struct Config {
     pub choice: bool,
     pub automatic_tagging: bool,
     pub option_type: OptionalEnum,
+    pub delegate: bool,
     pub tag: Option<Tag>,
 }
 
@@ -20,12 +22,13 @@ impl Config {
         let mut automatic_tagging = false;
         let mut tag = None;
         let mut option = None;
+        let mut delegate = false;
 
         let mut iter = input
             .attrs
             .iter()
-            .filter_map(|a| a.parse_meta().ok())
-            .filter(|m| m.path().is_ident(crate::CRATE_NAME));
+            .filter(|a| a.path.is_ident(crate::CRATE_NAME))
+            .map(|a| a.parse_meta().unwrap());
 
         while let Some(syn::Meta::List(list)) = iter.next() {
             for item in list.nested.iter().filter_map(|n| match n {
@@ -33,6 +36,7 @@ impl Config {
                 _ => None,
             }) {
                 let path = item.path();
+
                 if path.is_ident("crate_root") {
                     if let syn::Meta::NameValue(nv) = item {
                         crate_root = match &nv.lit {
@@ -66,6 +70,10 @@ impl Config {
                     }
                 } else if path.is_ident("tag") {
                     tag = Tag::from_meta(item);
+                } else if path.is_ident("delegate") {
+                    delegate = true;
+                } else {
+                    panic!("unknown input provided: {}", path.to_token_stream());
                 }
             }
         }
@@ -77,6 +85,21 @@ impl Config {
 
         if is_enum && ((choice && enumerated) || (!choice && !enumerated)) {
             panic!("A Rust enum must be marked either `choice` OR `enumerated`")
+        }
+
+        let mut invalid_delegate = false;
+
+        if is_enum && delegate {
+            invalid_delegate = true;
+        } else if delegate {
+            match &input.data {
+                syn::Data::Struct(data) => invalid_delegate = data.fields.len() != 1,
+                _ => (),
+            }
+        }
+
+        if invalid_delegate {
+            panic!("`#[rasn(delegate)]` is only valid on single-unit structs.");
         }
 
         let option_type = {
@@ -113,6 +136,7 @@ impl Config {
             enumerated,
             tag,
             option_type,
+            delegate,
             crate_root: crate_root.unwrap_or_else(|| {
                 syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site())
                     .parse()
@@ -181,10 +205,12 @@ pub struct FieldConfig<'a> {
     pub container_config: &'a Config,
     pub choice: bool,
     pub tag: Option<Tag>,
+    pub default: Option<Option<syn::Path>>,
 }
 
 impl<'a> FieldConfig<'a> {
     pub fn new(field: &'a syn::Field, container_config: &'a Config) -> Self {
+        let mut default = None;
         let mut tag = None;
         let mut choice = false;
         let mut iter = field
@@ -203,6 +229,11 @@ impl<'a> FieldConfig<'a> {
                     tag = Tag::from_meta(item);
                 } else if path.is_ident("choice") {
                     choice = true;
+                } else if path.is_ident("default") {
+                    default = Some(match item {
+                        syn::Meta::List(list) => list.nested.iter().cloned().filter_map(unested_meta).map(|m| m.path().clone()).next(),
+                        _ => panic!("default must provided zero arguments or a path to a function use as a default."),
+                    });
                 }
             }
         }
@@ -212,6 +243,7 @@ impl<'a> FieldConfig<'a> {
             container_config,
             choice,
             tag,
+            default,
         }
     }
 
@@ -228,5 +260,12 @@ impl<'a> FieldConfig<'a> {
             let ty = &self.field.ty;
             quote!(<#ty as #crate_root::AsnType>::TAG)
         }
+    }
+}
+
+fn unested_meta(nm: syn::NestedMeta) -> Option<syn::Meta> {
+    match nm {
+        syn::NestedMeta::Meta(m) => Some(m),
+        _ => None,
     }
 }

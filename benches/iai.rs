@@ -1,6 +1,5 @@
 mod common;
 
-
 use common::*;
 
 macro_rules! encoding_rules {

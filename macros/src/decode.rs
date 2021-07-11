@@ -14,14 +14,21 @@ pub fn derive_struct_impl(
     for (i, field) in container.fields.iter().enumerate() {
         let lhs = field.ident.as_ref().map(|i| quote!(#i :));
         let field_config = FieldConfig::new(field, config);
+
+        let or_else = match field_config.default {
+            Some(Some(ref path)) => quote! { .unwrap_or_else(#path) },
+            Some(None) => quote! { .unwrap_or_default() },
+            None => quote!(?),
+        };
+
         if field_config.choice {
             list.push(proc_macro2::TokenStream::from(
-                quote!(#lhs <_>::decode(decoder)?),
+                quote!(#lhs <_>::decode(decoder) #or_else),
             ));
         } else {
             let tag = field_config.tag(i);
             list.push(proc_macro2::TokenStream::from(
-                quote!(#lhs <_>::decode_with_tag(decoder, #tag)?),
+                quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else),
             ));
         }
     }
@@ -36,20 +43,23 @@ pub fn derive_struct_impl(
         param.colon_token = Some(Default::default());
         param.bounds = {
             let mut punct = syn::punctuated::Punctuated::new();
-            punct.push(syn::TraitBound {
-                paren_token: None,
-                modifier: syn::TraitBoundModifier::None,
-                lifetimes: None,
-                path: {
-                    let mut path = crate_root.clone();
-                    path.segments.push(syn::PathSegment {
-                        ident: quote::format_ident!("Decode"),
-                        arguments: syn::PathArguments::None,
-                    });
+            punct.push(
+                syn::TraitBound {
+                    paren_token: None,
+                    modifier: syn::TraitBoundModifier::None,
+                    lifetimes: None,
+                    path: {
+                        let mut path = crate_root.clone();
+                        path.segments.push(syn::PathSegment {
+                            ident: quote::format_ident!("Decode"),
+                            arguments: syn::PathArguments::None,
+                        });
 
-                    path
+                        path
+                    },
                 }
-            }.into());
+                .into(),
+            );
 
             punct
         };
@@ -57,12 +67,23 @@ pub fn derive_struct_impl(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    let decode_impl = if config.delegate {
+        let ty = &container.fields.iter().next().unwrap().ty;
+        quote! {
+            <#ty as #crate_root::Decode>::decode_with_tag(decoder, tag).map(Self)
+        }
+    } else {
+        quote! {
+            decoder.decode_sequence(tag, |decoder| {
+                Ok(Self #fields)
+            })
+        }
+    };
+
     proc_macro2::TokenStream::from(quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
             fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
-                decoder.decode_sequence(tag, |decoder| {
-                    Ok(Self #fields)
-                })
+                #decode_impl
             }
         }
     })
@@ -109,7 +130,6 @@ pub fn derive_enum_impl(
             .iter()
             .enumerate()
             .map(|(i, v)| VariantConfig::new(&v, config).tag(i));
-        let tag_consts2 = tag_consts.clone();
 
         let fields = container.variants.iter().enumerate().map(|(i, v)| {
             let tag = VariantConfig::new(&v, config).tag(i);
@@ -138,10 +158,8 @@ pub fn derive_enum_impl(
 
         Some(quote! {
             fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-                #crate_root::sa::const_assert!(#crate_root::Tag::is_distinct_set(&[#(#tag_consts),*]));
-
                 #(
-                    const #tags: #crate_root::Tag = #tag_consts2;
+                    const #tags: #crate_root::Tag = #tag_consts;
                 )*
 
                 let tag = decoder.peek_tag()?;
@@ -161,20 +179,23 @@ pub fn derive_enum_impl(
         param.colon_token = Some(Default::default());
         param.bounds = {
             let mut punct = syn::punctuated::Punctuated::new();
-            punct.push(syn::TraitBound {
-                paren_token: None,
-                modifier: syn::TraitBoundModifier::None,
-                lifetimes: None,
-                path: {
-                    let mut path = crate_root.clone();
-                    path.segments.push(syn::PathSegment {
-                        ident: quote::format_ident!("Decode"),
-                        arguments: syn::PathArguments::None,
-                    });
+            punct.push(
+                syn::TraitBound {
+                    paren_token: None,
+                    modifier: syn::TraitBoundModifier::None,
+                    lifetimes: None,
+                    path: {
+                        let mut path = crate_root.clone();
+                        path.segments.push(syn::PathSegment {
+                            ident: quote::format_ident!("Decode"),
+                            arguments: syn::PathArguments::None,
+                        });
 
-                    path
+                        path
+                    },
                 }
-            }.into());
+                .into(),
+            );
 
             punct
         };

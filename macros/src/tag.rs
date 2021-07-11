@@ -54,8 +54,10 @@ impl Tag {
                     let class = iter.next().unwrap();
                     let value = iter.next().unwrap();
 
-                    if let (syn::NestedMeta::Meta(syn::Meta::Path(path)), syn::NestedMeta::Lit(value)) =
-                        (class, value)
+                    if let (
+                        syn::NestedMeta::Meta(syn::Meta::Path(path)),
+                        syn::NestedMeta::Lit(value),
+                    ) = (class, value)
                     {
                         tag = Some((Class::from_ident(path.get_ident().unwrap()), value.clone()));
                     }

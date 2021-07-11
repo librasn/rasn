@@ -1,5 +1,5 @@
-use rasn::{types::*, AsnType, Decode, Encode};
 use chrono::{FixedOffset, TimeZone, Utc};
+use rasn::{types::*, AsnType, Decode, Encode};
 
 #[derive(AsnType, Decode, Encode)]
 pub struct Bench {
@@ -60,4 +60,3 @@ pub fn bench_default() -> Bench {
             .and_hms(11, 1, 58),
     }
 }
-

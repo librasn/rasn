@@ -34,35 +34,46 @@ pub fn derive_struct_impl(
         param.colon_token = Some(Default::default());
         param.bounds = {
             let mut punct = syn::punctuated::Punctuated::new();
-            punct.push(syn::TraitBound {
-                paren_token: None,
-                modifier: syn::TraitBoundModifier::None,
-                lifetimes: None,
-                path: {
-                    let mut path = crate_root.clone();
-                    path.segments.push(syn::PathSegment {
-                        ident: quote::format_ident!("Encode"),
-                        arguments: syn::PathArguments::None,
-                    });
+            punct.push(
+                syn::TraitBound {
+                    paren_token: None,
+                    modifier: syn::TraitBoundModifier::None,
+                    lifetimes: None,
+                    path: {
+                        let mut path = crate_root.clone();
+                        path.segments.push(syn::PathSegment {
+                            ident: quote::format_ident!("Encode"),
+                            arguments: syn::PathArguments::None,
+                        });
 
-                    path
+                        path
+                    },
                 }
-            }.into());
+                .into(),
+            );
 
             punct
         };
     }
 
+    let encode_impl = if config.delegate {
+        let ty = &container.fields.iter().next().unwrap().ty;
+        quote!(<#ty as #crate_root::Encode>::encode_with_tag(&self.0, encoder, tag))
+    } else {
+        quote! {
+            encoder.encode_sequence(tag, |encoder| {
+                #(#list)*
+
+                Ok(())
+            }).map(drop)
+        }
+    };
+
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     proc_macro2::TokenStream::from(quote! {
-        #[automatically_derived]
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
             fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> Result<(), EN::Error> {
-                encoder.encode_sequence(tag, |encoder| {
-                    #(#list)*
-
-                    Ok(())
-                }).map(drop)
+                #encode_impl
             }
         }
     })
@@ -131,20 +142,23 @@ pub fn derive_enum_impl(
         param.colon_token = Some(Default::default());
         param.bounds = {
             let mut punct = syn::punctuated::Punctuated::new();
-            punct.push(syn::TraitBound {
-                paren_token: None,
-                modifier: syn::TraitBoundModifier::None,
-                lifetimes: None,
-                path: {
-                    let mut path = crate_root.clone();
-                    path.segments.push(syn::PathSegment {
-                        ident: quote::format_ident!("Encode"),
-                        arguments: syn::PathArguments::None,
-                    });
+            punct.push(
+                syn::TraitBound {
+                    paren_token: None,
+                    modifier: syn::TraitBoundModifier::None,
+                    lifetimes: None,
+                    path: {
+                        let mut path = crate_root.clone();
+                        path.segments.push(syn::PathSegment {
+                            ident: quote::format_ident!("Encode"),
+                            arguments: syn::PathArguments::None,
+                        });
 
-                    path
+                        path
+                    },
                 }
-            }.into());
+                .into(),
+            );
 
             punct
         };

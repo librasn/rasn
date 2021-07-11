@@ -6,6 +6,7 @@ const fn is_valid_oid(slice: &[u32]) -> bool {
 }
 
 /// A temporary workaround for [`Oid`] not currently being `const` compatible.
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct ConstOid(pub &'static [u32]);
 
 impl AsRef<[u32]> for ConstOid {
@@ -24,7 +25,7 @@ impl ops::Deref for ConstOid {
 
 impl AsRef<Oid> for ConstOid {
     fn as_ref(&self) -> &Oid {
-         Oid::new_unchecked(self.0)
+        Oid::new_unchecked(self.0)
     }
 }
 
@@ -42,7 +43,7 @@ impl PartialEq<Oid> for ConstOid {
 
 /// A reference to a global unique identifier that identifies an concept, such
 /// as a organisation, or encoding rules.
-#[derive(Debug, Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 #[repr(transparent)]
 pub struct Oid([u32]);
 
@@ -56,21 +57,46 @@ impl Oid {
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_DIRECTORY: ConstOid =
         ConstOid(&[1, 3, 6, 1, 1]);
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT: ConstOid = ConstOid(&[1, 3, 6, 1, 2]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_SYSTEM: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 1]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_INTERFACES: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 2]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_AT: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 3]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_IP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 4]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_ICMP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 5]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_TCP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 6]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_UDP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 7]);
-    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_EGP: ConstOid = ConstOid(&[1, 3, 6, 1, 2, 1, 8]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_SYSTEM: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 1]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_INTERFACES: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 2]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_AT: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 3]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_IP: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 4]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_ICMP: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 5]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_TCP: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 6]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_UDP: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 7]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_EGP: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 8]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_CMOT: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 9]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_TRANSMISSION: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 10]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT_MIB_SNMP: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 2, 1, 11]);
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_EXPERIMENTAL: ConstOid =
         ConstOid(&[1, 3, 6, 1, 3]);
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_PRIVATE: ConstOid =
         ConstOid(&[1, 3, 6, 1, 4]);
     pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_PRIVATE_ENTERPRISES: ConstOid =
         ConstOid(&[1, 3, 6, 1, 3, 1]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 5]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 6]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_DOMAINS: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 6, 1]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_PROXIES: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 6, 2]);
+    pub const ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_MODULES: ConstOid =
+        ConstOid(&[1, 3, 6, 1, 6, 3]);
 
     /// Creates a new reference to a object identifier from `slice`.
     ///
@@ -179,7 +205,7 @@ impl ops::DerefMut for Oid {
 
 /// A global unique identifier that identifies an concept, such as a
 /// organisation, or encoding rules. The "owned" version of [`Oid`].
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct ObjectIdentifier(Vec<u32>);
 
 impl ObjectIdentifier {
@@ -223,7 +249,7 @@ impl ops::Deref for ObjectIdentifier {
     type Target = Oid;
 
     fn deref(&self) -> &Self::Target {
-         Oid::new_unchecked(&self.0)
+        Oid::new_unchecked(&self.0)
     }
 }
 

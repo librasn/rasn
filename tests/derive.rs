@@ -117,3 +117,17 @@ fn automatic_tagging() {
     let default = Bools { a: true, b: false };
     assert_eq!(default, ber::decode(&raw).unwrap());
 }
+
+#[test]
+fn list_in_single_attr() {
+    #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
+    #[rasn(delegate, tag(context, 0))]
+    struct Foo(u8);
+
+    #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
+    #[rasn(delegate)]
+    pub struct Bar(pub u8);
+
+    assert_eq!(Foo::TAG, Tag::new(Class::Context, 0));
+    assert_eq!(Bar::TAG, Integer::TAG);
+}
