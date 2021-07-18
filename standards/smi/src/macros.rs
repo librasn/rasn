@@ -118,6 +118,8 @@ macro_rules! opaque_impls {
     };
 }
 
+/// A declartive macro for generating SMI objects. This macro accepts a list
+/// of statements preceeded by a struct-like definition
 #[macro_export]
 macro_rules! object_type {
     (
@@ -152,6 +154,7 @@ macro_rules! object_type {
     ) => {
         $(#[$($tree)+])*
         #[derive(Clone)]
+        #[repr(transparent)]
         pub struct $name($fv $typ);
 
         $crate::common_impls!($name, $typ, $access_variant, $status_variant,  $const_oid);
@@ -188,6 +191,7 @@ macro_rules! object_type {
     ) => {
         $(#[$($tree)+])*
         #[derive(Clone)]
+        #[repr(transparent)]
         pub struct $name($fv $typ);
 
         $crate::common_impls!($name, $crate::v2::Opaque, $access_variant, $status_variant, $const_oid);

@@ -1,8 +1,9 @@
 //! # `rasn-mib`: Management Information Base
-//! This crate represents an implementation of IETF RFC 1213, containing data
-//! types representing Managed Information Base objects.  Nearly all of these
-//! types are newtype wrappers around their networrk protocol type, and any
-//! `OBJECT-TYPE` informartion has been defined through [`smi::ObjectType`].
+//! This crate represents an implementation of MIB objects defined in IETF RFCs,
+//! Nearly all of these types are newtype wrappers around their networrk
+//! protocol type, and as such don't they add any additional overhead in terms
+//! of size, any `OBJECT-TYPE` information is available statically through the
+//! [`smi::ObjectType`] trait.
 
 #![no_std]
 
@@ -11,7 +12,7 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 
 use rasn::types::*;
-use smi::{object_type, v1::*};
+use smi::{object_type, v2::*};
 
 /// Used to model textual information taken from the NVT ASCII character set. By
 /// convention, objects with this syntax are declared as having `SIZE (0...255)`
@@ -43,14 +44,13 @@ pub mod system {
     use super::*;
 
     object_type! {
-        /// A textual description of the entity. This value should include the
+        /// A textual description of the entity.  This value should include the
         /// full name and version identification of the system's hardware type,
-        /// software operating-system, and networking software. It is mandatory
-        /// that this only contain printable ASCII characters.
+        /// software operating-system, and networking software.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Descr(pub OctetString);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 1, 1];
 
         /// The vendor's authoritative identification of the network management
@@ -63,7 +63,7 @@ pub mod system {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct ObjectId(pub ObjectName);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 1, 2];
 
         /// The time (in hundredths of a second) since the network management
@@ -71,15 +71,16 @@ pub mod system {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct UpTime(pub TimeTicks);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 1, 3];
 
         /// The textual identification of the contact person for this managed
-        /// node, together with information on how to contact this person.
+        /// node, together with information on how to contact this person. If no
+        /// contact information is known, the value is the zero-length string.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Contact(pub DisplayString);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 1, 4];
 
         /// An administratively-assigned name for this managed node. By
@@ -87,7 +88,7 @@ pub mod system {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Name(pub DisplayString);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 1, 5];
 
         /// The physical location of this node (e.g., "telephone closet,
@@ -95,7 +96,7 @@ pub mod system {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Location(pub DisplayString);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 1, 6];
 
         /// A value which indicates the set of services that this entity
@@ -123,8 +124,71 @@ pub mod system {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Services(pub u8);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 1, 7];
+
+        /// The value of [`system::UpTime`] at the time of the most recent
+        /// change in state or value of any instance of sysORID.
+        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+        pub struct OrLastChange(pub TimeTicks);
+        access: ReadOnly,
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 1, 8];
+
+        /// The (conceptual) table listing the capabilities of the local SNMP
+        /// application acting as a command responder with respect to various
+        /// MIB modules. SNMP entities having dynamically-configurable support
+        /// of MIB modules will have a dynamically-varying number of
+        /// conceptual rows.
+        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+        pub opaque struct OrTable(pub Vec<OrEntry>);
+        access: ReadOnly,
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 1, 9];
+
+        /// An entry in the [`OrTable`].
+        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+        pub struct OrEntry {
+            index: OrIndex,
+            id: OrId,
+            descr: OrDescr,
+            up_time: OrUpTime,
+        }
+        access: NotAccessible,
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 1, 9, 1];
+
+        /// The auxiliary variable used for identifying instances of the
+        /// columnar objects in the [`OrTable`].
+        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+        pub struct OrIndex(pub u32);
+        access: NotAccessible,
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 1, 9, 1];
+
+        /// The auxiliary variable used for identifying instances of the
+        /// columnar objects in the [`OrTable`].
+        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+        pub struct OrId(pub ObjectIdentifier);
+        access: ReadOnly,
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 1, 9, 2];
+
+        /// A textual description of the capabilities identified by the
+        /// corresponding instance of [`OrId`].
+        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+        pub struct OrDescr(pub DisplayString);
+        access: ReadOnly,
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 1, 9, 3];
+
+        /// The value of [`system::UpTime`] at the time this conceptual row was
+        /// last instantiated.
+        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+        pub struct OrUpTime(pub TimeTicks);
+        access: ReadOnly,
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 1, 9, 4];
     }
 }
 
@@ -163,7 +227,7 @@ pub mod interfaces {
         pub specific: Specific,
     }
 
-    smi::common_impls!(Entry, Opaque, ReadWrite, Mandatory, [1, 3, 6, 1, 2, 1, 2, 2, 1]);
+    smi::common_impls!(Entry, Opaque, ReadWrite, Current, [1, 3, 6, 1, 2, 1, 2, 2, 1]);
 
     impl core::convert::TryFrom<Opaque> for Entry {
         type Error = rasn::ber::de::Error;
@@ -236,7 +300,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Number(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 1];
 
         /// A list of interface entries.  The number of entries is given by the
@@ -244,7 +308,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub opaque struct Table(pub Vec<Entry>);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2];
 
         /// A unique value for each interface. Its value ranges between 1 and
@@ -254,7 +318,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Index(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 1];
 
         /// A textual string containing information about the interface. This
@@ -263,7 +327,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Descr(pub DisplayString);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 2];
 
         /// The type of interface, distinguished according to the physical/link
@@ -272,7 +336,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Type(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 3];
 
         impl Type {
@@ -317,7 +381,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Mtu(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 4];
 
         /// An estimate of the interface's current bandwidth in bits per second.
@@ -325,9 +389,9 @@ pub mod interfaces {
         /// accurate estimation can be made, this object should contain the
         /// nominal bandwidth.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct Speed(pub Gauge);
+        pub struct Speed(pub Gauge32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 5];
 
         /// The interface's address at the protocol layer immediately "below"
@@ -337,7 +401,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct PhysAddress(pub super::PhysAddress);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 6];
 
         /// The desired state of the interface. The [`Self::TESTING`] state
@@ -345,7 +409,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct AdminStatus(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 7];
 
         impl AdminStatus {
@@ -360,7 +424,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct OperStatus(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 8];
 
         impl OperStatus {
@@ -376,31 +440,31 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct LastChange(pub TimeTicks);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 9];
 
         /// The total number of octets received on the interface, including
         /// framing characters.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InOctets(pub Counter);
+        pub struct InOctets(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 10];
 
         /// The number of subnetwork-unicast packets delivered to a
         /// higher-layer protocol.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InUcastPkts(pub Counter);
+        pub struct InUcastPkts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 11];
 
         /// The number of non-unicast (i.e., subnetwork-broadcast or
         /// subnetwork-multicast) packets delivered to a higher-layer protocol.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InNUcastPkts(pub Counter);
+        pub struct InNUcastPkts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 12];
 
         /// The number of inbound packets which were chosen to be discarded even
@@ -408,42 +472,42 @@ pub mod interfaces {
         /// deliverable to a higher-layer protocol. One possible reason for
         /// discarding such a packet could be to free up buffer space.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InDiscards(pub Counter);
+        pub struct InDiscards(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 13];
 
         /// The number of inbound packets that contained errors preventing them
         /// from being deliverable to a higher-layer protocol.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InErrors(pub Counter);
+        pub struct InErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 14];
 
         /// The number of packets received via the interface which were
         /// discarded because of an unknown or unsupported protocol.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InUnknownProtos(pub Counter);
+        pub struct InUnknownProtos(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 15];
 
         /// The total number of octets transmitted out of the interface,
         /// including framing characters.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutOctets(pub Counter);
+        pub struct OutOctets(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 16];
 
         /// The total number of packets that higher-level protocols requested be
         /// transmitted to a subnetwork-unicast address, including those that
         /// were discarded or not sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutUcastPkts(pub Counter);
+        pub struct OutUcastPkts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 17];
 
         /// The total number of packets that higher-level protocols requested be
@@ -451,9 +515,9 @@ pub mod interfaces {
         /// subnetwork-multicast) address, including those that were discarded
         /// or not sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutNUcastPkts(pub Counter);
+        pub struct OutNUcastPkts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 18];
 
         /// The number of outbound packets which were chosen to be discarded
@@ -461,24 +525,24 @@ pub mod interfaces {
         /// transmitted. One possible reason for discarding such a packet could
         /// be to free up buffer space.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutDiscards(pub Counter);
+        pub struct OutDiscards(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 19];
 
         /// The number of outbound packets that could not be transmitted because
         /// of errors.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutErrors(pub Counter);
+        pub struct OutErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 20];
 
         /// The length of the output packet queue (in packets).
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutQLen(pub Gauge);
+        pub struct OutQLen(pub Gauge32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 21];
 
         /// A reference to MIB definitions specific to the particular media
@@ -492,7 +556,7 @@ pub mod interfaces {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Specific(pub ObjectIdentifier);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 2, 2, 1, 22];
 
         impl Default for Specific {
@@ -556,7 +620,7 @@ pub mod address {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Index(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 3, 1, 1, 1];
 
         /// The media-dependent `physical' address.
@@ -574,7 +638,7 @@ pub mod address {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct PhysAddress(pub super::PhysAddress);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 3, 1, 1, 2];
 
         /// The NetworkAddress (e.g., the IP address) corresponding to the
@@ -582,7 +646,7 @@ pub mod address {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NetAddress(pub IpAddress);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 3, 1, 1, 3];
     }
 }
@@ -606,7 +670,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct Forwarding(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 1];
 
         impl Forwarding {
@@ -620,15 +684,15 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct DefaultTtl(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 2];
 
         /// The total number of input datagrams received from interfaces,
         /// including those received in error.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InReceives(pub Counter);
+        pub struct InReceives(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 3];
 
         /// The number of input datagrams discarded due to errors in their IP
@@ -636,9 +700,9 @@ pub mod ip {
         /// format errors, time-to-live exceeded, errors discovered in
         /// processing their IP options, etc.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InHdrErrors(pub Counter);
+        pub struct InHdrErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 4];
 
         /// The number of input datagrams discarded because the IP address in
@@ -649,9 +713,9 @@ pub mod ip {
         /// therefore do not forward datagrams, this counter includes datagrams
         /// discarded because the destination address was not a local address.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InAddrErrors(pub Counter);
+        pub struct InAddrErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 5];
 
         /// The number of input datagrams for which this entity was not their
@@ -661,17 +725,17 @@ pub mod ip {
         /// those packets which were "Source-Routed" via this entity, and the
         /// Source-Route option processing was successful.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct ForwDatagrams(pub Counter);
+        pub struct ForwDatagrams(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 6];
 
         /// The number of locally-addressed datagrams received successfully but
         /// discarded because of an unknown or unsupported protocol.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InUnknownProtos(pub Counter);
+        pub struct InUnknownProtos(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 7];
 
         /// The number of input IP datagrams for which no problems were
@@ -679,17 +743,17 @@ pub mod ip {
         /// discarded (e.g., for lack of buffer space).  Note that this counter
         /// does not include any datagrams discarded while awaiting re-assembly.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InDiscards(pub Counter);
+        pub struct InDiscards(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 8];
 
         /// The total number of input datagrams successfully delivered to IP
         /// user-protocols (including ICMP).
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InDelivers(pub Counter);
+        pub struct InDelivers(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 9];
 
         /// The total number of IP datagrams which local IP user-protocols
@@ -697,9 +761,9 @@ pub mod ip {
         /// that this counter does not include any datagrams counted
         /// in [`ForwDatagrams`].
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutRequests(pub Counter);
+        pub struct OutRequests(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 10];
 
         /// The number of output IP datagrams for which no problem was
@@ -708,9 +772,9 @@ pub mod ip {
         /// this counter would include datagrams counted in [`ForwDatagrams`] if
         /// any such packets met this (discretionary) discard criterion.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutDiscards(pub Counter);
+        pub struct OutDiscards(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 11];
 
         /// The number of IP datagrams discarded because no route could be found
@@ -719,9 +783,9 @@ pub mod ip {
         /// `no-route' criterion.  Note that this includes any datagarms which a
         /// host cannot route because all of its default gateways are down.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutNoRoutes(pub Counter);
+        pub struct OutNoRoutes(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 12];
 
         /// The maximum number of seconds which received fragments are held
@@ -729,22 +793,22 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct ReasmTimeout(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 13];
 
         /// The number of IP fragments received which needed to be reassembled
         /// at this entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct ReasmReqds(pub Counter);
+        pub struct ReasmReqds(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 14];
 
         /// The number of IP datagrams successfully re-assembled.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct ReasmOks(pub Counter);
+        pub struct ReasmOks(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 15];
 
         /// The number of failures detected by the IP re-assembly algorithm
@@ -753,34 +817,34 @@ pub mod ip {
         /// algorithms (notably the algorithm in RFC 815) can lose track of the
         /// number of fragments by combining them as they are received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct ReasmFails(pub Counter);
+        pub struct ReasmFails(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 16];
 
         /// The number of IP datagrams that have been successfully fragmented at
         /// this entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct FragOks(pub Counter);
+        pub struct FragOks(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 17];
 
         /// The number of IP datagrams that have been discarded because they
         /// needed to be fragmented at this entity but could not be, e.g.,
         /// because their "Don't Fragment" flag was set.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct FragFails(pub Counter);
+        pub struct FragFails(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 18];
 
         /// The number of IP datagram fragments that have been generated as a
         /// result of fragmentation at this entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct FragCreates(pub Counter);
+        pub struct FragCreates(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 19];
 
         /// The table of addressing information relevant to this entity's
@@ -788,7 +852,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub opaque struct AddrTable(pub Vec<AddrEntry>);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 20];
 
         /// The addressing information for one of this entity's IP addresses.
@@ -800,7 +864,7 @@ pub mod ip {
             pub ad_ent_bcast_addr: AdEntBcastAddr,
         }
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 20, 1];
 
         /// The IP address to which this entry's addressing
@@ -808,7 +872,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct AdEntAddr(pub IpAddress);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 20, 1, 1];
 
         /// The index value which uniquely identifies the interface to which
@@ -818,7 +882,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct AdEntIfIndex(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 20, 1, 2];
 
         /// The subnet mask associated with the IP address of this entry. The
@@ -827,7 +891,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct AdEntNetMask(pub IpAddress);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 20, 1, 3];
 
         /// The value of the least-significant bit in the IP broadcast address
@@ -850,7 +914,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct AdEntBcastAddr(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 20, 1, 4];
 
         /// The size of the largest IP datagram which this entity can
@@ -859,14 +923,14 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct AdEntReasmMaxSize(pub u16);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 20, 1, 5];
 
         /// This entity's IP Routing table.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub opaque struct RoutingTable(pub Vec<RouteEntry>);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21];
 
         /// A router to a particular destination.
@@ -887,7 +951,7 @@ pub mod ip {
             pub route_info: RouteInfo,
         }
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1];
 
         /// The destination IP address of this route. An entry with a value of
@@ -898,7 +962,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteDest(pub IpAddress);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 1];
 
         /// The index value which uniquely identifies the local interface
@@ -908,7 +972,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteIfIndex(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 2];
 
         /// The primary routing metric for this route. The semantics of this
@@ -918,7 +982,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteMetric1(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 3];
 
         /// An alternate routing metric for this route. The semantics of this
@@ -928,7 +992,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteMetric2(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 4];
 
         /// An alternate routing metric for this route. The semantics of this
@@ -938,7 +1002,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteMetric3(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 5];
 
         /// An alternate routing metric for this route. The semantics of this
@@ -948,7 +1012,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteMetric4(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 6];
 
         /// The IP address of the next hop of this route.  (In the case of a
@@ -958,7 +1022,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteNextHop(pub IpAddress);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 7];
 
         /// The type of route.  Note that the values [`Self::DIRECT`] and
@@ -978,7 +1042,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteType(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 8];
 
         impl RouteType {
@@ -998,7 +1062,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteProto(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 9];
 
         impl RouteProto {
@@ -1024,7 +1088,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteAge(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 10];
 
         /// Indicate the mask to be logical-ANDed with the destination address
@@ -1046,7 +1110,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteMask(pub IpAddress);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 11];
 
         /// An alternate routing metric for this route. The semantics of this
@@ -1056,7 +1120,7 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteMetric5(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 12];
 
         /// A reference to MIB definitions specific to the particular routing
@@ -1069,14 +1133,14 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RouteInfo(pub ObjectIdentifier);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 21, 1, 13];
 
         /// A reference to MIB definitions specific to the particular routing
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub opaque struct NetToMediaTable(pub Vec<NetToMediaEntry>);
         access: NotAccessible,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 22];
 
         /// A reference to MIB definitions specific to the particular routing
@@ -1088,7 +1152,7 @@ pub mod ip {
             r#type: NetToMediaType,
         }
         access: NotAccessible,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 22, 1];
 
         /// The interface on which this entry's equivalence is effective. The
@@ -1097,21 +1161,21 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NetToMediaIndex(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 22, 1, 1];
 
         /// The media-dependent "physical" address.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NetToMediaPhysAddress(pub PhysAddress);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 22, 1, 2];
 
         /// The [`IpAddress`] corresponding to the media-dependent [`NetToMediaPhysAddress`].
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NetToMediaNetAddress(pub IpAddress);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 22, 1, 3];
 
         /// The type of mapping.
@@ -1129,16 +1193,16 @@ pub mod ip {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NetToMediaType(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 22, 1, 4];
 
         /// The number of routing entries which were chosen to be discarded even
         /// though they are valid. One possible reason for discarding such an
         /// entry could be to free-up buffer space for other routing entries.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct RoutingDiscards(pub Counter);
+        pub struct RoutingDiscards(pub Counter32);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 4, 23];
     }
 }
@@ -1153,104 +1217,104 @@ pub mod icmp {
         /// The total number of ICMP messages which the entity received. Note
         /// that this counter includes all those counted by [`InErrors`].
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InMsgs(pub Counter);
+        pub struct InMsgs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 1];
 
         /// The number of ICMP messages which the entity received but determined
         /// as having ICMP-specific errors (bad ICMP checksums,
         /// bad length, etc.).
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InErrors(pub Counter);
+        pub struct InErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 2];
 
         /// The number of ICMP "Destination Unreachable" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InDestUnreachs(pub Counter);
+        pub struct InDestUnreachs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 3];
 
         /// The number of ICMP "Time Exceeded" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InTimeExcds(pub Counter);
+        pub struct InTimeExcds(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 4];
 
         /// The number of ICMP "Parameter Problem" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InParmProbs(pub Counter);
+        pub struct InParmProbs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 5];
 
         /// The number of ICMP "Source Quench" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InSrcQuenchs(pub Counter);
+        pub struct InSrcQuenchs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 6];
 
         /// The number of ICMP "Redirect" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InRedirects(pub Counter);
+        pub struct InRedirects(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 7];
 
         /// The number of ICMP "Echo (request)" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InEchos(pub Counter);
+        pub struct InEchos(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 8];
 
         /// The number of ICMP "Echo Reply" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InEchosReps(pub Counter);
+        pub struct InEchosReps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 9];
 
         /// The number of ICMP "Timestamp (request)" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InTimestamps(pub Counter);
+        pub struct InTimestamps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 10];
 
         /// The number of ICMP "Timestamp Reply" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InTimestampsReps(pub Counter);
+        pub struct InTimestampsReps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 11];
 
         /// The number of ICMP "Address Mask (request)" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InAddrMasks(pub Counter);
+        pub struct InAddrMasks(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 12];
 
         /// The number of ICMP "Address Mask Reply" messages received.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InAddrMasksReps(pub Counter);
+        pub struct InAddrMasksReps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 13];
 
         /// The total number of ICMP messages which this entity attempted to
         /// send. Note that this counter includes all those counted
         /// by [`OutErrors`].
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutMsgs(pub Counter);
+        pub struct OutMsgs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 14];
 
         /// The number of ICMP messages which this entity did not send due to
@@ -1260,87 +1324,87 @@ pub mod icmp {
         /// implementations there may be no types of error which contribute to
         /// this counter's value.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutErrors(pub Counter);
+        pub struct OutErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 15];
 
         /// The number of ICMP "Destination Unreachable" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutDestUnreachs(pub Counter);
+        pub struct OutDestUnreachs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 16];
 
         /// The number of ICMP "Time Exceeded" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutTimeExcds(pub Counter);
+        pub struct OutTimeExcds(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 17];
 
         /// The number of ICMP "Parameter Problem" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutParmProbs(pub Counter);
+        pub struct OutParmProbs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 18];
 
         /// The number of ICMP "Source Quench" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutSrcQuenchs(pub Counter);
+        pub struct OutSrcQuenchs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 19];
 
         /// The number of ICMP Redirect messages sent. For a host, this object
         /// will always be zero, since hosts do not send redirects.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutRedirects(pub Counter);
+        pub struct OutRedirects(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 20];
 
         /// The number of ICMP "Echo (request)" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutEchos(pub Counter);
+        pub struct OutEchos(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 21];
 
         /// The number of ICMP "Echo Reply" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutEchosReps(pub Counter);
+        pub struct OutEchosReps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 22];
 
         /// The number of ICMP "Timestamp (request)" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutTimestamps(pub Counter);
+        pub struct OutTimestamps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 23];
 
         /// The number of ICMP "Timestamp Reply" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutTimestampsReps(pub Counter);
+        pub struct OutTimestampsReps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 24];
 
         /// The number of ICMP "Address Mask (request)" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutAddrMasks(pub Counter);
+        pub struct OutAddrMasks(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 25];
 
         /// The number of ICMP "Address Mask Reply" messages sent.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutAddrMasksReps(pub Counter);
+        pub struct OutAddrMasksReps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 5, 26];
     }
 }
@@ -1362,7 +1426,7 @@ pub mod tcp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RtoAlgorithm(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 1];
 
         impl RtoAlgorithm {
@@ -1385,7 +1449,7 @@ pub mod tcp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RtoMin(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 2];
 
         /// The maximum value permitted by a TCP implementation for the
@@ -1397,7 +1461,7 @@ pub mod tcp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct RtoMax(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 3];
 
         /// The limit on the total number of TCP connections the entity can
@@ -1406,23 +1470,23 @@ pub mod tcp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct MaxConn(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 4];
 
         /// The number of times TCP connections have made a direct transition to
         /// the `SYN-SENT` state from the `CLOSED` state.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct ActiveOpens(pub Counter);
+        pub struct ActiveOpens(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 5];
 
         /// The number of times TCP connections have made a direct transition to
         /// the `SYN-RCVD` state from the `LISTEN` state.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct PassiveOpens(pub Counter);
+        pub struct PassiveOpens(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 6];
 
         /// The number of times TCP connections have made a direct transition to
@@ -1430,60 +1494,60 @@ pub mod tcp {
         /// `SYN-RCVD` state, plus the number of times TCP connections have made
         /// a direct transition to the `LISTEN` state from the `SYN-RCVD` state.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct AttemptsFails(pub Counter);
+        pub struct AttemptsFails(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 7];
 
         /// The number of times TCP connections have made a direct transition to
         /// the `CLOSED` state from either the `ESTABLISHED` state or the
         /// `CLOSE-WAIT` state.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct EstabResets(pub Counter);
+        pub struct EstabResets(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 8];
 
         /// The number of TCP connections for which the current state is either
         /// `ESTABLISHED` or `CLOSE-WAIT`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct CurrEstab(pub Gauge);
+        pub struct CurrEstab(pub Gauge32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 9];
 
         /// The total number of segments received, including those received in
         /// error. This count includes segments received on currently
         /// established connections.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InSegs(pub Counter);
+        pub struct InSegs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 10];
 
         /// The total number of segments sent, including those on current
         /// connections but excluding those containing only
         /// retransmitted octets.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutSegs(pub Counter);
+        pub struct OutSegs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 11];
 
         /// The total number of segments retransmitted - that is, the number of
         /// TCP segments transmitted containing one or more previously
         /// transmitted octets.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct RetransSegs(pub Counter);
+        pub struct RetransSegs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 12];
 
         /// A table containing TCP connection-specific information.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub opaque struct ConnTable(pub Vec<ConnEntry>);
         access: NotAccessible,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 13];
 
         /// Information about a particular current TCP connection.  An object of
@@ -1499,7 +1563,7 @@ pub mod tcp {
 
         }
         access: NotAccessible,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 13, 1];
 
         /// The state of this TCP connection.
@@ -1520,7 +1584,7 @@ pub mod tcp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct ConnState(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 13, 1, 1];
 
         impl ConnState {
@@ -1545,43 +1609,43 @@ pub mod tcp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct ConnLocalAddress(pub IpAddress);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 13, 1, 2];
 
         /// The local port number for this TCP connection.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct ConnLocalPort(pub u16);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 13, 1, 3];
 
         /// The remote IP address for this TCP connection.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct ConnRemAddress(pub IpAddress);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 13, 1, 4];
 
         /// The remote port number for this TCP connection.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct ConnRemPort(pub u16);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 13, 1, 5];
 
         /// The total number of segments received in error
         /// (e.g., bad TCP checksums).
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InErrs(pub Counter);
+        pub struct InErrs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 14];
 
         /// The number of TCP segments sent containing the `RST` flag
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutRsts(pub Counter);
+        pub struct OutRsts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 6, 15];
     }
 }
@@ -1595,68 +1659,76 @@ pub mod udp {
 
     object_type! {
         /// The total number of UDP datagrams delivered to UDP users.
+        /// Discontinuities in the value of this counter can occur at
+        /// re-initialization of the management system, and at other times as
+        /// indicated by discontinuities in the value of `sysUpTime`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InDatagrams(pub Counter);
+        pub struct InDatagrams(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 7, 1];
 
         /// The total number of received UDP datagrams for which there was no
         /// application at the destination port.
+        ///
+        /// Discontinuities in the value of this counter can occur at
+        /// re-initialization of the management system, and at other times as
+        /// indicated by discontinuities in the value of `sysUpTime`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NoPorts(pub Counter);
+        pub struct NoPorts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 7, 2];
 
         /// The number of received UDP datagrams that could not be delivered for
         /// reasons other than the lack of an application at the
         /// destination port.
+        ///
+        /// Discontinuities in the value of this counter can occur at
+        /// re-initialization of the management system, and at other times as
+        /// indicated by discontinuities in the value of sysUpTime.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InErrors(pub Counter);
+        pub struct InErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 7, 3];
 
         /// The total number of UDP datagrams sent from this entity.
+        ///
+        /// Discontinuities in the value of this counter can occur at
+        /// re-initialization of the management system, and at other times as
+        /// indicated by discontinuities in the value of sysUpTime.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutDatagrams(pub Counter);
+        pub struct OutDatagrams(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 7, 4];
 
-        /// A table containing UDP listener information.
+        /// The total number of UDP datagrams delivered to UDP users, for
+        /// devices that can receive more than 1 million UDP datagrams
+        /// per second.
+        ///
+        /// Discontinuities in the value of this counter can occur at
+        /// re-initialization of the management system, and at other times as
+        /// indicated by discontinuities in the value of sysUpTime.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub opaque struct Table(pub Vec<Entry>);
-        access: NotAccessible,
-        status: Mandatory,
-        value = [1, 3, 6, 1, 2, 1, 7, 5];
-
-        /// Information about a particular current UDP listener.
-        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct Entry {
-            local_address: LocalAddress,
-            local_port: LocalPort,
-        }
-        access: NotAccessible,
-        status: Mandatory,
-        value = [1, 3, 6, 1, 2, 1, 7, 5, 1];
-
-        /// The local IP address for this UDP listener.  In the case of a UDP
-        /// listener which is willing to accept datagrams for any IP interface
-        /// associated with the node, the value 0.0.0.0 is used.
-        #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct LocalAddress(pub IpAddress);
+        pub struct HcInDatagrams(pub Counter64);
         access: ReadOnly,
-        status: Mandatory,
-        value = [1, 3, 6, 1, 2, 1, 7, 5, 1, 1];
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 7, 8];
 
-        /// The local port number for this UDP listener.
+        /// The total number of UDP datagrams sent from this entity, for devices
+        /// that can transmit more than 1 million UDP datagrams per second.
+        ///
+        /// Discontinuities in the value of this counter can occur at
+        /// re-initialization of the management system, and at other times as
+        /// indicated by discontinuities in the value of sysUpTime.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct LocalPort(pub u16);
+        pub struct HcOutDatagrams(pub Counter64);
         access: ReadOnly,
-        status: Mandatory,
-        value = [1, 3, 6, 1, 2, 1, 7, 5, 1, 2];
+        status: Current,
+        value = [1, 3, 6, 1, 2, 1, 7, 9];
+
     }
 }
 
@@ -1670,31 +1742,31 @@ pub mod egp {
     object_type! {
         /// The number of EGP messages received without error.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InMsgs(pub Counter);
+        pub struct InMsgs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 1];
 
         /// The number of EGP messages received that proved to be in error.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InErrors(pub Counter);
+        pub struct InErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 2];
 
         /// The total number of locally generated EGP messages.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutMsgs(pub Counter);
+        pub struct OutMsgs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 3];
 
         /// The number of locally generated EGP messages not sent due to
         /// resource limitations within an EGP entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutErrors(pub Counter);
+        pub struct OutErrors(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 4];
 
         /// The EGP neighbor table contains information about this entity's
@@ -1702,7 +1774,7 @@ pub mod egp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub opaque struct NeighTable(pub Vec<NeighEntry>);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5];
 
         /// Information about this entity's relationship with a particular
@@ -1726,7 +1798,7 @@ pub mod egp {
             event_trigger: NeighEventTrigger,
         }
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1];
 
         /// The EGP state of the local system with respect to this entry's EGP
@@ -1736,7 +1808,7 @@ pub mod egp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NeighState(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 1];
 
         impl NeighState {
@@ -1751,7 +1823,7 @@ pub mod egp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NeighAddr(pub IpAddress);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 2];
 
         /// The autonomous system of this EGP peer. Zero should be specified if
@@ -1759,88 +1831,88 @@ pub mod egp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NeighAs(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 3];
 
         /// The number of EGP messages received without error from this
         /// EGP peer.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighInMsgs(pub Counter);
+        pub struct NeighInMsgs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 4];
 
         /// The number of EGP messages received from this EGP peer that proved
         /// to be in error (e.g., bad EGP checksum).
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighInErrs(pub Counter);
+        pub struct NeighInErrs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 5];
 
         /// The number of locally generated EGP messages to this EGP peer.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighOutMsgs(pub Counter);
+        pub struct NeighOutMsgs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 6];
 
         /// The number of locally generated EGP messages not sent to this EGP
         /// peer due to resource limitations within an EGP entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighOutErrs(pub Counter);
+        pub struct NeighOutErrs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 7];
 
         /// The number of EGP-defined error messages received from this
         /// EGP peer.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighInErrMsgs(pub Counter);
+        pub struct NeighInErrMsgs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 8];
 
         /// The number of EGP-defined error messages sent to this
         /// EGP peer.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighOutErrMsgs(pub Counter);
+        pub struct NeighOutErrMsgs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 9];
 
         /// The number of EGP state transitions to the UP state with this
         /// EGP peer.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighStateUps(pub Counter);
+        pub struct NeighStateUps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 10];
 
         /// The number of EGP state transitions from the UP state to any other
         /// state with this EGP peer.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighStateDowns(pub Counter);
+        pub struct NeighStateDowns(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 11];
 
         /// The interval between EGP Hello command retransmissions (in
         /// hundredths of a second).  This represents the t1 timer as defined in
         /// RFC 904.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighIntervalHello(pub Counter);
+        pub struct NeighIntervalHello(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 12];
 
         /// The interval between EGP poll command retransmissions (in
         /// hundredths of a second). This represents the t3 timer as defined in
         /// RFC 904.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct NeighIntervalPoll(pub Counter);
+        pub struct NeighIntervalPoll(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 13];
 
         /// The interval between EGP poll command retransmissions (in
@@ -1849,7 +1921,7 @@ pub mod egp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NeighMode(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 14];
 
         impl NeighMode {
@@ -1872,7 +1944,7 @@ pub mod egp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct NeighEventTrigger(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 5, 1, 15];
 
         impl NeighEventTrigger {
@@ -1884,7 +1956,7 @@ pub mod egp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct As(pub Integer);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 8, 6];
     }
 }
@@ -1905,77 +1977,93 @@ pub mod snmp {
         /// The total number of Messages delivered to the SNMP entity from the
         /// transport service.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InPkts(pub Counter);
+        pub struct InPkts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 1];
 
         /// The total number of SNMP Messages which were passed from the SNMP
         /// protocol entity to the transport service.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutPkts(pub Counter);
+        pub struct OutPkts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Obsolete,
         value = [1, 3, 6, 1, 2, 1, 11, 2];
 
         /// The total number of SNMP Messages which were delivered to the SNMP
         /// protocol entity and were for an unsupported SNMP version.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InBadVersions(pub Counter);
+        pub struct InBadVersions(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 3];
 
-        /// The total number of SNMP Messages delivered to the SNMP protocol
-        /// entity which used a SNMP community name not known to said entity.
+        /// The total number of community-based SNMP messages (for example,
+        /// SNMPv1) delivered to the SNMP entity which used an SNMP community
+        /// name not known to said entity.  Also, implementations which
+        /// authenticate community-based SNMP messages using check(s) in
+        /// addition to matching the community name (for example, by also
+        /// checking whether the message originated from a transport address
+        /// allowed to use a specified community name) MAY include in this value
+        /// the number of messages which failed the additional check(s). It is
+        /// strongly recommended that the documentation for any security model
+        /// which is used to authenticate community-based SNMP messages specify
+        /// the precise conditions that contribute to this value.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InBadCommunityNames(pub Counter);
+        pub struct InBadCommunityNames(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 4];
 
-        /// The total number of SNMP Messages delivered to the SNMP protocol
-        /// entity which represented an SNMP operation which was not allowed by
-        /// the SNMP community named in the Message.
+        /// The total number of community-based SNMP messages (for example,
+        /// SNMPv1) delivered to the SNMP entity which represented an SNMP
+        /// operation that was not allowed for the SNMP community named in the
+        /// message. The precise conditions under which this counter is
+        /// incremented (if at all) depend on how the SNMP entity implements its
+        /// access control mechanism and how its applications interact with that
+        /// access control mechanism. It is strongly recommended that the
+        /// documentation for any access control mechanism which is used to
+        /// control access to and visibility of MIB instrumentation specify the
+        /// precise conditions that contribute to this value.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InBadCommunityUses(pub Counter);
+        pub struct InBadCommunityUses(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 5];
 
         /// The total number of ASN.1 or BER errors encountered by the SNMP
-        /// protocol entity when decoding received SNMP Messages.
+        /// entity when decoding received SNMP messages.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InAsnParseErrs(pub Counter);
+        pub struct InAsnParseErrs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 6];
 
         /// The total number of SNMP PDUs which were delivered to the SNMP
         /// protocol entity and for which the value of the error-status field
         /// is `tooBig`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InTooBigs(pub Counter);
+        pub struct InTooBigs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 8];
 
         /// The total number of SNMP PDUs which were delivered to the SNMP
         /// protocol entity and for which the value of the error-status field
         /// is `noSuchName`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InNoSuchNames(pub Counter);
+        pub struct InNoSuchNames(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 9];
 
         /// The total number of SNMP PDUs which were delivered to the SNMP
         /// protocol entity and for which the value of the error-status field
         /// is `badValue`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InBadValues(pub Counter);
+        pub struct InBadValues(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 10];
 
         /// The total number valid SNMP PDUs which were delivered to the SNMP
@@ -1985,152 +2073,152 @@ pub mod snmp {
         /// error-status field, as such this object is provided as a means of
         /// detecting incorrect implementations of the SNMP.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InReadOnlys(pub Counter);
+        pub struct InReadOnlys(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 11];
 
         /// The total number of SNMP PDUs which were delivered to the SNMP
         /// protocol entity and for which the value of the error-status field
         /// is `genErr`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InGenErrs(pub Counter);
+        pub struct InGenErrs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 12];
 
         /// The total number of MIB objects which have been retrieved
         /// successfully by the SNMP protocol entity as the result of receiving
         /// valid SNMP Get-Request and Get-Next PDUs.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InTotalReqVars(pub Counter);
+        pub struct InTotalReqVars(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 13];
 
         /// The total number of MIB objects which have been altered
         /// successfully by the SNMP protocol entity as the result of receiving
         /// valid SNMP Set-Request PDUs.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InTotalSetVars(pub Counter);
+        pub struct InTotalSetVars(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 14];
 
         /// The total number of SNMP Get-Request PDUs which have been accepted
         /// and processed by the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InGetRequests(pub Counter);
+        pub struct InGetRequests(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 15];
 
         /// The total number of SNMP Get-Next PDUs which have been accepted and
         /// processed by the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InGetNexts(pub Counter);
+        pub struct InGetNexts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 16];
 
         /// The total number of SNMP Set-Request PDUs which have been accepted
         /// and processed by the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InSetRequests(pub Counter);
+        pub struct InSetRequests(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 17];
 
         /// The total number of SNMP Get-Response PDUs which have been accepted
         /// and processed by the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InGetResponses(pub Counter);
+        pub struct InGetResponses(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 18];
 
         /// The total number of SNMP Trap PDUs which have been accepted and
         /// processed by the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct InTraps(pub Counter);
+        pub struct InTraps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 19];
 
         /// The total number of SNMP PDUs which were generated byt the SNMP
         /// protocol entity and for which the value of the error-status field
         /// is `tooBig`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutTooBigs(pub Counter);
+        pub struct OutTooBigs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 20];
 
         /// The total number of SNMP PDUs which were generated by the SNMP
         /// protocol entity and for which the value of the error-status field
         /// is `noSuchName`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutNoSuchNames(pub Counter);
+        pub struct OutNoSuchNames(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 21];
 
         /// The total number of SNMP PDUs which were generated by the SNMP
         /// protocol entity and for which the value of the error-status field
         /// is `badValue`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutBadValues(pub Counter);
+        pub struct OutBadValues(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 22];
 
         /// The total number of SNMP PDUs which were generated by the SNMP
         /// protocol entity and for which the value of the error-status field
         /// is `genErr`.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutGenErrs(pub Counter);
+        pub struct OutGenErrs(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 24];
 
         /// The total number of SNMP Get-Request PDUs which have been generated
         /// by the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutGetRequests(pub Counter);
+        pub struct OutGetRequests(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 25];
 
         /// The total number of SNMP Get-Next PDUs which have been generated by
         /// the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutGetNexts(pub Counter);
+        pub struct OutGetNexts(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 26];
 
         /// The total number of SNMP Set-Request PDUs which have been generated
         /// by the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutSetRequests(pub Counter);
+        pub struct OutSetRequests(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 27];
 
         /// The total number of SNMP Get-Response PDUs which have been generated
         /// by the SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutGetResponses(pub Counter);
+        pub struct OutGetResponses(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 28];
 
         /// The total number of SNMP Trap PDUs which have been generated by the
         /// SNMP protocol entity.
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
-        pub struct OutTraps(pub Counter);
+        pub struct OutTraps(pub Counter32);
         access: ReadOnly,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 29];
 
         /// Indicates whether the SNMP agent process is permitted to generate
@@ -2144,7 +2232,7 @@ pub mod snmp {
         #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
         pub struct EnableAuthenTraps(pub Integer);
         access: ReadWrite,
-        status: Mandatory,
+        status: Current,
         value = [1, 3, 6, 1, 2, 1, 11, 30];
     }
 }

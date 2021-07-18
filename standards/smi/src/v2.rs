@@ -1,3 +1,5 @@
+//! Version 2 (RFC 2578)
+
 use core::convert::TryInto;
 use alloc::string::ToString;
 
@@ -10,6 +12,9 @@ use rasn::{
 
 use crate::v1::InvalidVariant;
 
+#[doc(inline)]
+pub use crate::v1::IntoOpaque;
+
 pub type ObjectName = crate::v1::ObjectName;
 pub type NotificationName = ObjectIdentifier;
 pub type IpAddress = crate::v1::IpAddress;
@@ -20,7 +25,7 @@ pub type Unsigned32 = crate::v1::Gauge;
 pub type TimeTicks = crate::v1::TimeTicks;
 pub type Opaque = crate::v1::Opaque;
 
-#[derive(AsnType, Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Encode, Decode, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(delegate, tag(application, 6))]
 pub struct Counter64(pub u64);
 
@@ -41,13 +46,13 @@ pub const SNMP_MODULES: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET
 const FULL_DATE_FORMAT: &str = "%Y%m%d%H%MZ";
 const SHORT_DATE_FORMAT: &str = "%y%m%d%H%MZ";
 
-#[derive(Debug, Clone, AsnType, Decode, Encode)]
+#[derive(Debug, Clone, AsnType, Decode, Encode, Hash)]
 #[rasn(choice)]
 pub enum ObjectSyntax {
     Simple(SimpleSyntax),
     ApplicationWide(ApplicationSyntax),
 }
-#[derive(Debug, Clone, AsnType, Decode, Encode)]
+#[derive(Debug, Clone, AsnType, Decode, Encode, Hash)]
 #[rasn(choice)]
 pub enum SimpleSyntax {
     Integer(Integer),
@@ -55,7 +60,7 @@ pub enum SimpleSyntax {
     ObjectId(ObjectIdentifier),
 }
 
-#[derive(Debug, Clone, AsnType, Decode, Encode)]
+#[derive(Debug, Clone, AsnType, Decode, Encode, Hash)]
 #[rasn(choice)]
 pub enum ApplicationSyntax {
     Address(IpAddress),
@@ -135,6 +140,7 @@ from_impls! {
     impl OctetString => ObjectSyntax:  (value) -> SimpleSyntax::String(value).into();
     impl ObjectIdentifier => ObjectSyntax:  (value) -> SimpleSyntax::ObjectId(value).into();
     impl Counter32 => ObjectSyntax:  (value) -> ApplicationSyntax::Counter(value).into();
+    impl Counter64 => ObjectSyntax:  (value) -> ApplicationSyntax::BigCounter(value).into();
     impl Unsigned32 => ObjectSyntax:  (value) -> ApplicationSyntax::Unsigned(value).into();
     impl TimeTicks => ObjectSyntax: (value) -> ApplicationSyntax::Ticks(value).into();
     impl Opaque => ObjectSyntax: (value) -> ApplicationSyntax::Arbitrary(value).into();
@@ -156,6 +162,7 @@ from_impls! {
     impl ObjectIdentifier => SimpleSyntax:  (value) -> SimpleSyntax::ObjectId(value);
     // -> ApplicationSyntax
     impl Counter32 => ApplicationSyntax:  (value) -> ApplicationSyntax::Counter(value);
+    impl Counter64 => ApplicationSyntax:  (value) -> ApplicationSyntax::BigCounter(value);
     impl Unsigned32 => ApplicationSyntax:  (value) -> ApplicationSyntax::Unsigned(value);
     impl TimeTicks => ApplicationSyntax: (value) -> ApplicationSyntax::Ticks(value);
     impl Opaque => ApplicationSyntax: (value) -> ApplicationSyntax::Arbitrary(value);
@@ -179,6 +186,7 @@ try_from_impls_v2! {
     impl i128 => ObjectSyntax::Simple(SimpleSyntax::Integer(value)) => value.try_into().map_err(|_| InvalidVariant)?;
     impl ObjectIdentifier => ObjectSyntax::Simple(SimpleSyntax::ObjectId(value)) => value;
     impl Counter32 => ObjectSyntax::ApplicationWide(ApplicationSyntax::Counter(value)) => value;
+    impl Counter64 => ObjectSyntax::ApplicationWide(ApplicationSyntax::BigCounter(value)) => value;
     impl Unsigned32 => ObjectSyntax::ApplicationWide(ApplicationSyntax::Unsigned(value)) => value;
     impl TimeTicks => ObjectSyntax::ApplicationWide(ApplicationSyntax::Ticks(value)) => value;
     impl Opaque => ObjectSyntax::ApplicationWide(ApplicationSyntax::Arbitrary(value)) => value;

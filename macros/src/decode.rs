@@ -112,8 +112,10 @@ pub fn derive_enum_impl(
 
         }
     } else {
+        let error = crate::CHOICE_ERROR_MESSAGE;
+
         quote! {
-            Err(#crate_root::de::Error::custom("`CHOICE`-style enums cannot be implicitly tagged."))
+            Err(#crate_root::de::Error::custom(#error))
         }
     };
 

@@ -10,6 +10,7 @@ mod tag;
 use config::Config;
 
 const CRATE_NAME: &str = "rasn";
+const CHOICE_ERROR_MESSAGE: &str = "CHOICE-style enums do not allow implicit tagging. If using the derive macro on a sequence with a choice field ensure it is marked with `#[rasn(choice)]`.";
 
 /// Helper function print out the derive.
 fn __print_stream(stream: proc_macro2::TokenStream) -> proc_macro::TokenStream {

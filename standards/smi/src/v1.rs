@@ -1,3 +1,5 @@
+//! Version 1 (RFC 1155)
+
 use core::convert::TryInto;
 
 use rasn::{
@@ -65,7 +67,7 @@ pub struct TimeTicks(pub u32);
 /// A wrapper around arbitrary ASN.1 syntax, encoded in Basic Enncoding Rules,
 /// this type is not typically useful on its own, and should decoded into its
 /// inner type when possible.
-#[derive(Debug, Clone, AsnType)]
+#[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
 #[rasn(tag(application, 4))]
 pub struct Opaque(alloc::vec::Vec<u8>);
 

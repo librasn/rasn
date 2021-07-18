@@ -1,3 +1,5 @@
+//! Version 1 (RFC 1157)
+
 use rasn::{
     types::{Integer, ObjectIdentifier, OctetString},
     AsnType, Decode, Encode,
@@ -6,9 +8,9 @@ use smi::v1::{NetworkAddress, ObjectName, ObjectSyntax, TimeTicks};
 
 #[derive(AsnType, Debug, Clone, Decode, Encode)]
 pub struct Message<T> {
-    version: Integer,
-    community: OctetString,
-    data: T,
+    pub version: Integer,
+    pub community: OctetString,
+    pub data: T,
 }
 
 impl<T> Message<T> {
