@@ -64,7 +64,7 @@ pub struct Gauge(pub u32);
 #[rasn(delegate, tag(application, 3))]
 pub struct TimeTicks(pub u32);
 
-/// A wrapper around arbitrary ASN.1 syntax, encoded in Basic Enncoding Rules,
+/// A wrapper around arbitrary ASN.1 syntax, encoded in Basic Encoding Rules,
 /// this type is not typically useful on its own, and should decoded into its
 /// inner type when possible.
 #[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]

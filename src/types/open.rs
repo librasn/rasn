@@ -1,6 +1,6 @@
 use super::*;
 
-/// An "open" type representating any valid ASN.1 type.
+/// An "open" type representing any valid ASN.1 type.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Open {
     BitString(BitString),

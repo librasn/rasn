@@ -1,6 +1,6 @@
 //! # Simple Network Management Protocol
 //! `rasn-snmp` implementation of the protocol data types from IETF RFCs 1157,
-//! 1901, and 3416. This does provide an implementation of an agent or proxy,
+//! 1901, and 3416. This does not provide an implementation of an agent or proxy,
 //! but provides the data types needed to build your own agent or proxy
 //! implementation.
 //!
