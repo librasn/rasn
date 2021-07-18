@@ -1,6 +1,6 @@
 [package]
 name = "rasn-smi"
-version = "0.1.0"
+version = "0.3.0"
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
 
