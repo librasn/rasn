@@ -28,6 +28,17 @@ Included with the framework is a implementation of the X.690 standard also known
 
 [bun]: https://lcamtuf.coredump.cx/afl/
 
+### RFC implementations
+Rasn also provides implementations for a number of IETF RFCs using the `rasn`
+framework for use out of the box. These crates provide strongly typed
+definitions for the necessary data types. Like `rasn` they are `#[no_std]`,
+transport layer, and encoding rule agnostic.
+
+- [SMI](https://docs.rs/rasn-smi)
+- [SNMP](https://docs.rs/rasn-snmp)
+- [MIB-II](https://docs.rs/rasn-mib)
+
+
 ### Powerful Derive Macros
 Easily model your structs and enums with derive equivalents of all of the traits. These macros provide a automatic implementation that ensures your model is a valid ASN.1 type at *compile-time*. To explain that though, first we have to explain…
 
