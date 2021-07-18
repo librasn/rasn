@@ -232,7 +232,7 @@ impl<'a> FieldConfig<'a> {
                 } else if path.is_ident("default") {
                     default = Some(match item {
                         syn::Meta::List(list) => list.nested.iter().cloned().filter_map(unested_meta).map(|m| m.path().clone()).next(),
-                        _ => panic!("default must provided zero arguments or a path to a function use as a default."),
+                        _ => None
                     });
                 }
             }

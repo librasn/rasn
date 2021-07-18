@@ -103,7 +103,9 @@ fn automatic_tagging() {
     #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
     #[rasn(automatic_tagging)]
     struct Bools {
+        #[rasn(default)]
         a: bool,
+        #[rasn(default)]
         b: bool,
     }
 
