@@ -7,6 +7,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rasn = { path = "../..", version = "0.3.0-alpha.0" }
-typic = "0.3.0"
+rasn = { path = "../..", version = "0.3.0" }
 chrono = "0.4.19"
