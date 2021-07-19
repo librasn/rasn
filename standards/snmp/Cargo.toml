@@ -1,6 +1,6 @@
 [package]
 name = "rasn-snmp"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2018"
 description = "Data types for handling the Simple Network Management Protocol"
 license = "Apache-2.0/MIT"

@@ -435,7 +435,7 @@ checksum = "643f8f41a8ebc4c5dc4515c82bb8abd397b527fc20fd681b7c011c2aee5d44fb"
 
 [[package]]
 name = "rasn"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "bitvec",
  "bytes",
@@ -463,7 +463,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-mib"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "rasn",
  "rasn-smi",
@@ -471,7 +471,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-smi"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "chrono",
  "rasn",
@@ -479,7 +479,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-snmp"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "rasn",
  "rasn-smi",

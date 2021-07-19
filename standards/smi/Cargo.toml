@@ -1,6 +1,6 @@
 [package]
 name = "rasn-smi"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
 description = "Data types for handling Structure for Management Information"
