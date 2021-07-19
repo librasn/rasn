@@ -51,10 +51,10 @@ pub type VarBindList = alloc::vec::Vec<VarBind>;
 
 #[derive(AsnType, Debug, Clone, Decode, Encode)]
 pub struct Pdu {
-    request_id: Integer,
-    error_status: Integer,
-    error_index: Integer,
-    variable_bindings: VarBindList,
+    pub request_id: Integer,
+    pub error_status: Integer,
+    pub error_index: Integer,
+    pub variable_bindings: VarBindList,
 }
 
 impl Pdu {
@@ -69,16 +69,16 @@ impl Pdu {
 #[derive(AsnType, Debug, Clone, Decode, Encode)]
 #[rasn(tag(context, 4))]
 pub struct Trap {
-    enterprise: ObjectIdentifier,
-    agent_addr: NetworkAddress,
-    generic_trap: Integer,
-    specific_trap: Integer,
-    time_stamp: TimeTicks,
-    variable_bindings: VarBindList,
+    pub enterprise: ObjectIdentifier,
+    pub agent_addr: NetworkAddress,
+    pub generic_trap: Integer,
+    pub specific_trap: Integer,
+    pub time_stamp: TimeTicks,
+    pub variable_bindings: VarBindList,
 }
 
 #[derive(AsnType, Debug, Clone, Decode, Encode)]
 pub struct VarBind {
-    name: ObjectName,
-    value: ObjectSyntax,
+    pub name: ObjectName,
+    pub value: ObjectSyntax,
 }
