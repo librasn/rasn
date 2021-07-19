@@ -148,8 +148,8 @@ Included with rasn is a set of derive macros that enable you to have your ASN.1 
 // Invalid
 #[derive(rasn::AsnType)]
 struct Person {
-    age: String,
-    name: String,
+    age: Option<String>,
+    name: Option<String>,
 }
 ```
 
@@ -173,16 +173,16 @@ use rasn::AsnType;
 #[derive(AsnType)]
 struct Person {
     #[rasn(tag(context, 0)] // or just #[rasn(tag(0))]
-    age: String,
-    name: String,
+    age: Option<String>,
+    name: Option<String>,
 }
 
 // Also valid
 #[derive(AsnType)]
 #[rasn(automatic_tags)]
 struct Person {
-    age: String,
-    name: String,
+    age: Option<String>,
+    name: Option<String>,
 }
 ```
 
