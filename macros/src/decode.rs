@@ -112,7 +112,11 @@ pub fn derive_enum_impl(
 
         }
     } else {
-        let error = crate::CHOICE_ERROR_MESSAGE;
+        let error = format!(
+            "Decoding field of type `{}`: {}",
+            name.to_string(),
+            crate::CHOICE_ERROR_MESSAGE
+        );
 
         quote! {
             Err(#crate_root::de::Error::custom(#error))
