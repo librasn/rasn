@@ -187,31 +187,19 @@ mod tests {
                 time_stamp: TimeTicks(11_932),
                 variable_bindings: vec![
                     VarBind {
-                        name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3, 67, 2]),
+                        name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3]),
                         value: TimeTicks(11_932).into(),
                     },
                     VarBind {
                         name: ObjectIdentifier::new_unchecked(vec![
-                            1, 3, 6, 1, 4, 1, 11779, 1, 42, 2, 1, 7,
+                            1, 3, 6, 1, 4, 1, 11779, 1, 42, 2, 1, 6,
                         ]),
                         value: Gauge(1).into(),
                     },
                 ],
             },
         };
-        // TODO: Currently presence of any elements in `variable_bindings` throws a choice error.
-        // Encoding succeeds and is correct with that field empty. There's a smoke-test for that
-        // below for now.
-        //let encode_data = rasn::ber::encode(&encode_msg).unwrap();
-        //assert_eq!(encode_data, decode_data);
-
-        let encode_msg_no_bindings = Message {
-            data: Trap {
-                variable_bindings: vec![],
-                ..encode_msg.data
-            },
-            ..encode_msg
-        };
-        assert!(rasn::ber::encode(&encode_msg_no_bindings).is_ok());
+        let encode_data = rasn::ber::encode(&encode_msg).unwrap();
+        assert_eq!(encode_data, decode_data);
     }
 }

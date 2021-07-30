@@ -19,7 +19,9 @@ pub type ObjectName = ObjectIdentifier;
 #[derive(Debug, Clone, AsnType, Decode, Encode)]
 #[rasn(choice)]
 pub enum ObjectSyntax {
+    #[rasn(choice)]
     Simple(SimpleSyntax),
+    #[rasn(choice)]
     ApplicationWide(ApplicationSyntax),
 }
 

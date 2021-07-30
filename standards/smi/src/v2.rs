@@ -49,7 +49,9 @@ const SHORT_DATE_FORMAT: &str = "%y%m%d%H%MZ";
 #[derive(Debug, Clone, AsnType, Decode, Encode, Hash)]
 #[rasn(choice)]
 pub enum ObjectSyntax {
+    #[rasn(choice)]
     Simple(SimpleSyntax),
+    #[rasn(choice)]
     ApplicationWide(ApplicationSyntax),
 }
 #[derive(Debug, Clone, AsnType, Decode, Encode, Hash)]

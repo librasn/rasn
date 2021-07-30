@@ -156,12 +156,14 @@ pub struct OptionalEnum {
 pub struct VariantConfig<'a> {
     variant: &'a syn::Variant,
     container_config: &'a Config,
+    pub choice: bool,
     pub tag: Option<Tag>,
 }
 
 impl<'a> VariantConfig<'a> {
     pub fn new(variant: &'a syn::Variant, container_config: &'a Config) -> Self {
         let mut tag = None;
+        let mut choice = false;
         let mut iter = variant
             .attrs
             .iter()
@@ -176,6 +178,8 @@ impl<'a> VariantConfig<'a> {
                 let path = item.path();
                 if path.is_ident("tag") {
                     tag = Tag::from_meta(item);
+                } else if path.is_ident("choice") {
+                    choice = true;
                 }
             }
         }
@@ -183,6 +187,7 @@ impl<'a> VariantConfig<'a> {
         Self {
             variant,
             container_config,
+            choice,
             tag,
         }
     }
