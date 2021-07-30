@@ -90,7 +90,7 @@ mod tests {
     use super::{Message, Trap, VarBind};
     use alloc::{string::String, string::ToString, vec, vec::Vec};
     use rasn::types::ObjectIdentifier;
-    use smi::v1::{Gauge, IpAddress, NetworkAddress, TimeTicks};
+    use smi::v1::{ApplicationSyntax, Gauge, IpAddress, NetworkAddress, ObjectSyntax, TimeTicks};
 
     fn string_oid(oid: impl AsRef<[u32]>) -> String {
         oid.as_ref()
@@ -98,6 +98,34 @@ mod tests {
             .map(ToString::to_string)
             .collect::<Vec<_>>()
             .join(".")
+    }
+
+    #[test]
+    fn var_bind() {
+        #[cfg_attr(rustfmt, rustfmt_skip)]
+        let decode_data = [
+            0x30, 0x0d, // SEQUENCE -> VarBind
+                0x06, 0x07, // OID -> VarBind::name
+                    0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x03,
+                0x43, 0x02, // application tag 3 -> TimeTicks
+                    0x2e, 0x9c, // 11_932
+        ];
+        let decode_msg: VarBind = rasn::ber::decode(&decode_data).unwrap();
+        assert_eq!(string_oid(decode_msg.name), "1.3.6.1.2.1.1.3");
+        assert!(
+            if let ObjectSyntax::ApplicationWide(ApplicationSyntax::Ticks(v)) = decode_msg.value {
+                v == TimeTicks(11_932)
+            } else {
+                false
+            }
+        );
+
+        let encode_msg = VarBind {
+            name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3]),
+            value: TimeTicks(11_932).into(),
+        };
+        let encode_data = rasn::ber::encode(&encode_msg).unwrap();
+        assert_eq!(encode_data, decode_data);
     }
 
     #[test]
@@ -171,8 +199,33 @@ mod tests {
         assert_eq!(decode_msg.data.generic_trap, 6.into());
         assert_eq!(decode_msg.data.specific_trap, 2.into());
         assert_eq!(decode_msg.data.time_stamp, TimeTicks(11_932));
-        // TODO: Currently this incorectly decodes as an empty vector.
-        //assert_eq!(decode_msg.data.variable_bindings.len(), 2);
+        assert_eq!(decode_msg.data.variable_bindings.len(), 2);
+        assert_eq!(
+            string_oid(&decode_msg.data.variable_bindings[0].name),
+            "1.3.6.1.2.1.1.3"
+        );
+        assert!(
+            if let ObjectSyntax::ApplicationWide(ApplicationSyntax::Ticks(v)) =
+                decode_msg.data.variable_bindings[0].value
+            {
+                v == TimeTicks(11_932)
+            } else {
+                false
+            }
+        );
+        assert_eq!(
+            string_oid(&decode_msg.data.variable_bindings[1].name),
+            "1.3.6.1.4.1.11779.1.42.2.1.6"
+        );
+        assert!(
+            if let ObjectSyntax::ApplicationWide(ApplicationSyntax::Gauge(v)) =
+                decode_msg.data.variable_bindings[1].value
+            {
+                v == Gauge(1)
+            } else {
+                false
+            }
+        );
 
         let encode_msg = Message {
             version: 0.into(),

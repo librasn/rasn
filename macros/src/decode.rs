@@ -124,59 +124,110 @@ pub fn derive_enum_impl(
     };
 
     let decode = if config.choice {
-        let tags = container
+        // To handle CHOICE enums that have newtype variants which themselves contain CHOICE enums,
+        // the decode is split into two phases:
+        //
+        // - Dispatch on tag matching for all variants not marked #[rasn(choice)]. For struct
+        //   variants, the tag is SEQUENCE. For unit variants, they are either explicitly tagged,
+        //   or one untagged unit variant is allowed for "not present". Finally, for
+        //   non-explicitly-tagged newtype variants, the tag of the contained type is used.
+        // - For newtype variants that contain a CHOICE enum, direct tag dispatch does not work
+        //   because the contained type will potentially match an arbitrary number of tags. Thus,
+        //   if tag dispatch fails, and there are any newtype variants marked #[rasn(choice)], just
+        //   speculatively try to decode as each such variant, and fail only if none of them are
+        //   able to decode anything.
+
+        let all_variants_with_config = container
             .variants
             .iter()
             .enumerate()
-            .map(|(i, _)| quote::format_ident!("TAG_{}", i));
-        let tags2 = tags.clone();
+            .map(|(i, v)| (i, v, VariantConfig::new(&v, config)))
+            .collect::<Vec<_>>();
 
-        let tag_consts = container
-            .variants
+        let non_choice_variants_with_config = all_variants_with_config
             .iter()
-            .enumerate()
-            .map(|(i, v)| VariantConfig::new(&v, config).tag(i));
+            .filter(|(_, _, vc)| !vc.choice)
+            .collect::<Vec<_>>();
 
-        let fields = container.variants.iter().enumerate().map(|(i, v)| {
-            let tag = VariantConfig::new(&v, config).tag(i);
-            let ident = &v.ident;
-            match &v.fields {
-                syn::Fields::Unit => quote!({ decoder.decode_null(#tag)?; #name::#ident}),
-                _ => {
-                    let is_newtype = match &v.fields {
-                        syn::Fields::Unnamed(_) => true,
-                        _ => false,
-                    };
+        let non_choice_tag_consts = non_choice_variants_with_config
+            .iter()
+            .map(|(i, _, vc)| vc.tag(*i));
+        let non_choice_tags = non_choice_variants_with_config
+            .iter()
+            .map(|(i, _, _)| quote::format_ident!("TAG_{}", i))
+            .collect::<Vec<_>>();
 
-                    let decode_fields = v.fields.iter().map(|f| {
-                        let ident = f.ident.as_ref().map(|i| quote!(#i :));
-                        quote!(#ident <_>::decode_with_tag(decoder, #tag)?)
-                    });
+        let fields = non_choice_variants_with_config
+            .iter()
+            .map(|(i, v, variant_config)| {
+                let tag = variant_config.tag(*i);
+                let ident = &v.ident;
+                match &v.fields {
+                    syn::Fields::Unit => quote!({ decoder.decode_null(#tag)?; #name::#ident}),
+                    _ => {
+                        let is_newtype = match &v.fields {
+                            syn::Fields::Unnamed(_) => true,
+                            _ => false,
+                        };
 
-                    if is_newtype {
-                        quote!(#name::#ident ( #(#decode_fields),* ))
-                    } else {
-                        quote!(#name::#ident { #(#decode_fields),* })
+                        let decode_fields = v.fields.iter().map(|f| {
+                            let ident = f.ident.as_ref().map(|i| quote!(#i :));
+                            if variant_config.choice {
+                                quote!(#ident <_>::decode(decoder)?)
+                            } else {
+                                quote!(#ident <_>::decode_with_tag(decoder, #tag)?)
+                            }
+                        });
+
+                        if is_newtype {
+                            quote!(#name::#ident ( #(#decode_fields),* ))
+                        } else {
+                            quote!(#name::#ident { #(#decode_fields),* })
+                        }
                     }
                 }
-            }
-        });
+            });
 
-        let match_fail_error = format!(
+        let choice_variant_trials = all_variants_with_config
+            .iter()
+            .filter(|(_, _, vc)| vc.choice)
+            .map(|(_, v, _)| {
+                let ident = &v.ident;
+                let field = &v.fields.iter().next().expect("Choice variant had no field");
+                let field_type = &field.ty;
+                quote!(
+                    if let Ok(val) = #field_type::decode(decoder) {
+                        return Ok(#name::#ident (val));
+                    }
+                )
+            });
+        let error = format!(
             "Decoding field of type `{}`: Invalid `CHOICE` discriminant.",
             name.to_string(),
         );
-        Some(quote! {
-            fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
+        let no_matching_tag_arm = quote!(
+            #(#choice_variant_trials)*
+            return Err(#crate_root::de::Error::custom(#error))
+        );
+
+        let decode_impl = if non_choice_tags.is_empty() {
+            no_matching_tag_arm
+        } else {
+            quote! {
                 #(
-                    const #tags: #crate_root::Tag = #tag_consts;
+                    const #non_choice_tags: #crate_root::Tag = #non_choice_tag_consts;
                 )*
 
                 let tag = decoder.peek_tag()?;
                 Ok(match tag {
-                    #(#tags2 => #fields,)*
-                    _ => return Err(#crate_root::de::Error::custom(#match_fail_error)),
+                    #(#non_choice_tags => #fields,)*
+                    _ => { #no_matching_tag_arm },
                 })
+            }
+        };
+        Some(quote! {
+            fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
+                #decode_impl
             }
         })
     } else {
