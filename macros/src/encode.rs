@@ -92,7 +92,11 @@ pub fn derive_enum_impl(
             encoder.encode_enumerated(tag, *self as isize).map(drop)
         }
     } else {
-        let error = crate::CHOICE_ERROR_MESSAGE;
+        let error = format!(
+            "Encoding field of type `{}`: {}",
+            name.to_string(),
+            crate::CHOICE_ERROR_MESSAGE
+        );
         quote! {
             Err::<(), _>(#crate_root::enc::Error::custom(#error))
         }
