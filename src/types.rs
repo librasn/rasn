@@ -50,6 +50,10 @@ pub trait AsnType {
     /// **Note** When implementing `CHOICE` types, this should be set to
     /// `Tag::EOC` to represent that's invalid for use.
     const TAG: Tag;
+
+    /// Whether or not this type is a CHOICE. This provides the correct handling for struct fields
+    /// and newtype variants that contain this type.
+    const CHOICE: bool = false;
 }
 
 macro_rules! asn_type {

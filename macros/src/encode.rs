@@ -105,8 +105,7 @@ pub fn derive_enum_impl(
     let encode = if config.choice {
         let variants = container.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
-            let variant_config = VariantConfig::new(&v, &config);
-            let tag = variant_config.tag(i);
+            let tag = VariantConfig::new(&v, &config).tag(i);
 
             match &v.fields {
                 syn::Fields::Named(_) => {
@@ -127,11 +126,15 @@ pub fn derive_enum_impl(
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
-                    if variant_config.choice {
-                        quote!(#name::#ident(value) => { #crate_root::Encode::encode(value, encoder).map(drop) })
-                    } else {
-                        quote!(#name::#ident(value) => { #crate_root::Encode::encode_with_tag(value, encoder, #tag).map(drop) })
-                    }
+                    let field = v.fields.iter().next().unwrap();
+                    let ty = &field.ty;
+                    quote!(
+                        #name::#ident(value) => if <#ty as #crate_root::AsnType>::CHOICE {
+                            #crate_root::Encode::encode(value, encoder).map(drop)
+                        } else {
+                            #crate_root::Encode::encode_with_tag(value, encoder, #tag).map(drop)
+                        }
+                    )
                 }
                 syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(#tag).map(drop) }),
             }

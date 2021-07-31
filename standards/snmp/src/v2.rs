@@ -66,7 +66,6 @@ pub struct VarBind {
 #[derive(AsnType, Debug, Clone, Decode, Encode)]
 #[rasn(choice)]
 pub enum VarBindValue {
-    #[rasn(choice)]
     Value(ObjectSyntax),
     Unspecified,
     #[rasn(tag(0))]

@@ -125,109 +125,128 @@ pub fn derive_enum_impl(
 
     let decode = if config.choice {
         // To handle CHOICE enums that have newtype variants which themselves contain CHOICE enums,
-        // the decode is split into two phases:
+        // simple direct tag dispatch does not work because the contained type will potentially
+        // match an arbitrary number of tags. Thus, the decode is split into two phases:
         //
-        // - Dispatch on tag matching for all variants not marked #[rasn(choice)]. For struct
-        //   variants, the tag is SEQUENCE. For unit variants, they are either explicitly tagged,
-        //   or one untagged unit variant is allowed for "not present". Finally, for
-        //   non-explicitly-tagged newtype variants, the tag of the contained type is used.
-        // - For newtype variants that contain a CHOICE enum, direct tag dispatch does not work
-        //   because the contained type will potentially match an arbitrary number of tags. Thus,
-        //   if tag dispatch fails, and there are any newtype variants marked #[rasn(choice)], just
-        //   speculatively try to decode as each such variant, and fail only if none of them are
-        //   able to decode anything.
+        // - First, dispatch on tag matching. For newtype variants, the pattern arm is guarded by
+        //   the value of `!<ContainedType as AsnType>::CHOICE`, which is const. This has the
+        //   effect of compiling out the match arm if the newtype variant contains a choice enum.
+        // - Then, in the fall-through arm, for every newtype variant, a speculative attempt
+        //   to decode as the contained type is inserted, guarded by an if with the complimentary
+        //   const condition `<ContainedType as AsnType>::CHOICE`. This compiles out if the newtype
+        //   variant does *not* contain a choice enum.
+        // - Decoding fails only if both tag dispatch fails, and if none of the newtype variants
+        //   that contain a match enum are able to decode anything.
 
-        let all_variants_with_config = container
+        let variants_with_config = container
             .variants
             .iter()
             .enumerate()
             .map(|(i, v)| (i, v, VariantConfig::new(&v, config)))
             .collect::<Vec<_>>();
 
-        let non_choice_variants_with_config = all_variants_with_config
-            .iter()
-            .filter(|(_, _, vc)| !vc.choice)
-            .collect::<Vec<_>>();
+        let tag_consts = variants_with_config.iter().map(|(i, _, vc)| vc.tag(*i));
 
-        let non_choice_tag_consts = non_choice_variants_with_config
-            .iter()
-            .map(|(i, _, vc)| vc.tag(*i));
-        let non_choice_tags = non_choice_variants_with_config
+        let tags = variants_with_config
             .iter()
             .map(|(i, _, _)| quote::format_ident!("TAG_{}", i))
             .collect::<Vec<_>>();
 
-        let fields = non_choice_variants_with_config
-            .iter()
-            .map(|(i, v, variant_config)| {
-                let tag = variant_config.tag(*i);
-                let ident = &v.ident;
-                match &v.fields {
-                    syn::Fields::Unit => quote!({ decoder.decode_null(#tag)?; #name::#ident}),
-                    _ => {
-                        let is_newtype = match &v.fields {
-                            syn::Fields::Unnamed(_) => true,
-                            _ => false,
-                        };
-
-                        let decode_fields = v.fields.iter().map(|f| {
-                            let ident = f.ident.as_ref().map(|i| quote!(#i :));
-                            if variant_config.choice {
-                                quote!(#ident <_>::decode(decoder)?)
+        let tag_match_arms = variants_with_config.iter().map(|(i, v, variant_config)| {
+            let tag = variant_config.tag(*i);
+            let ident = &v.ident;
+            let pat = quote::format_ident!("TAG_{}", i);
+            match &v.fields {
+                syn::Fields::Unit => {
+                    quote!(
+                        #pat => { decoder.decode_null(#tag)?; #name::#ident }
+                    )
+                }
+                syn::Fields::Unnamed(_) => {
+                    let field = v
+                        .fields
+                        .iter()
+                        .next()
+                        .expect("Newtype variant had no field");
+                    let ty = &field.ty;
+                    // The pattern guard being inserted here is const, so this arm will get
+                    // compiled out if the variant's contained type is a choice enum, and
+                    // complementary code in the fall-through branch will decode the variant
+                    // instead.
+                    quote!(
+                        #pat if !<#ty as #crate_root::AsnType>::CHOICE => {
+                            #name::#ident ( <_>::decode_with_tag(decoder, #tag)? )
+                        }
+                    )
+                }
+                syn::Fields::Named(_) => {
+                    let decode_fields = v.fields.iter().map(|f| {
+                        let ident = f
+                            .ident
+                            .as_ref()
+                            .expect("Struct variant field had no identifier");
+                        let ty = &f.ty;
+                        // Similarly, the if condition here is const, controlled by type of
+                        // each field in this struct variant, so only the correct branch is
+                        // compiled.
+                        quote!(
+                            #ident : if <#ty as #crate_root::AsnType>::CHOICE {
+                                <_>::decode(decoder)?
                             } else {
-                                quote!(#ident <_>::decode_with_tag(decoder, #tag)?)
+                                <_>::decode_with_tag(decoder, #tag)?
                             }
-                        });
+                        )
+                    });
+                    quote!(
+                        #pat => {
+                            #name::#ident { #(#decode_fields),* }
+                        }
+                    )
+                }
+            }
+        });
 
-                        if is_newtype {
-                            quote!(#name::#ident ( #(#decode_fields),* ))
-                        } else {
-                            quote!(#name::#ident { #(#decode_fields),* })
+        let newtype_variant_trials = variants_with_config.iter().filter_map(|(_, v, _)| {
+            if let syn::Fields::Unnamed(_) = &v.fields {
+                let ident = &v.ident;
+                let field = &v
+                    .fields
+                    .iter()
+                    .next()
+                    .expect("Newtype variant had no field");
+                let ty = &field.ty;
+                // And finally, this if condition is const and complimentary to the pattern guard
+                // inserted above.
+                Some(quote!(
+                    if <#ty as #crate_root::AsnType>::CHOICE {
+                        if let Ok(val) = #ty::decode(decoder) {
+                            return Ok(#name::#ident (val));
                         }
                     }
-                }
-            });
-
-        let choice_variant_trials = all_variants_with_config
-            .iter()
-            .filter(|(_, _, vc)| vc.choice)
-            .map(|(_, v, _)| {
-                let ident = &v.ident;
-                let field = &v.fields.iter().next().expect("Choice variant had no field");
-                let field_type = &field.ty;
-                quote!(
-                    if let Ok(val) = #field_type::decode(decoder) {
-                        return Ok(#name::#ident (val));
-                    }
-                )
-            });
+                ))
+            } else {
+                None
+            }
+        });
         let error = format!(
             "Decoding field of type `{}`: Invalid `CHOICE` discriminant.",
             name.to_string(),
         );
-        let no_matching_tag_arm = quote!(
-            #(#choice_variant_trials)*
-            return Err(#crate_root::de::Error::custom(#error))
-        );
 
-        let decode_impl = if non_choice_tags.is_empty() {
-            no_matching_tag_arm
-        } else {
-            quote! {
+        Some(quote! {
+            fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
                 #(
-                    const #non_choice_tags: #crate_root::Tag = #non_choice_tag_consts;
+                    const #tags: #crate_root::Tag = #tag_consts;
                 )*
 
                 let tag = decoder.peek_tag()?;
                 Ok(match tag {
-                    #(#non_choice_tags => #fields,)*
-                    _ => { #no_matching_tag_arm },
+                    #(#tag_match_arms)*
+                    _ => {
+                        #(#newtype_variant_trials)*
+                        return Err(#crate_root::de::Error::custom(#error))
+                    },
                 })
-            }
-        };
-        Some(quote! {
-            fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-                #decode_impl
             }
         })
     } else {

@@ -93,6 +93,14 @@ pub fn derive_enum_impl(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    let choice_const = if config.choice {
+        quote!(
+            const CHOICE: bool = true;
+        )
+    } else {
+        quote!()
+    };
+
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
         impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
@@ -101,6 +109,7 @@ pub fn derive_enum_impl(
 
                 #tag
             };
+            #choice_const
         }
 
     })
