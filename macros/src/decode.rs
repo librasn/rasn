@@ -175,6 +175,10 @@ pub fn derive_enum_impl(
             }
         });
 
+        let match_fail_error = format!(
+            "Decoding field of type `{}`: Invalid `CHOICE` discriminant.",
+            name.to_string(),
+        );
         Some(quote! {
             fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
                 #(
@@ -183,7 +187,7 @@ pub fn derive_enum_impl(
 
                 #(#variants)*
 
-                Err(#crate_root::de::Error::custom("Invalid `CHOICE` discriminant."))
+                Err(#crate_root::de::Error::custom(#match_fail_error))
             }
         })
     } else {
