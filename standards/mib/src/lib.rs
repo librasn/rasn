@@ -227,7 +227,13 @@ pub mod interfaces {
         pub specific: Specific,
     }
 
-    smi::common_impls!(Entry, Opaque, ReadWrite, Current, [1, 3, 6, 1, 2, 1, 2, 2, 1]);
+    smi::common_impls!(
+        Entry,
+        Opaque,
+        ReadWrite,
+        Current,
+        [1, 3, 6, 1, 2, 1, 2, 2, 1]
+    );
 
     impl core::convert::TryFrom<Opaque> for Entry {
         type Error = rasn::ber::de::Error;
@@ -246,39 +252,38 @@ pub mod interfaces {
     }
 
     impl rasn::Decode for Entry {
-        fn decode_with_tag<D: rasn::Decoder>(
-            decoder: &mut D,
-            tag: Tag,
-        ) -> Result<Self, D::Error> {
-            Opaque::decode_with_tag(decoder, tag)
-                .and_then(|opaque| {
-                    let decoder = &mut rasn::ber::de::Decoder::new(opaque.as_ref(), rasn::ber::de::DecoderOptions::ber());
+        fn decode_with_tag<D: rasn::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+            Opaque::decode_with_tag(decoder, tag).and_then(|opaque| {
+                let decoder = &mut rasn::ber::de::Decoder::new(
+                    opaque.as_ref(),
+                    rasn::ber::de::DecoderOptions::ber(),
+                );
 
-                    Ok(Self {
-                        index: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        descr: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        r#type: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        mtu: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        speed: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        phys_address: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        admin_status: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        oper_status: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        last_change: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        in_octets: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        in_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        in_n_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        in_discards: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        in_errors: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        in_unknown_protos: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        out_octets: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        out_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        out_n_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        out_discards: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        out_errors: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        out_q_len: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                        specific: <_>::decode(decoder).unwrap_or_default(),
-                    })
+                Ok(Self {
+                    index: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    descr: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    r#type: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    mtu: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    speed: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    phys_address: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    admin_status: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    oper_status: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    last_change: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    in_octets: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    in_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    in_n_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    in_discards: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    in_errors: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    in_unknown_protos: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    out_octets: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    out_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    out_n_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    out_discards: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    out_errors: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    out_q_len: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    specific: <_>::decode(decoder).unwrap_or_default(),
                 })
+            })
         }
     }
 

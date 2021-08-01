@@ -28,7 +28,6 @@ macro_rules! common_impls {
     };
 }
 
-
 #[doc(hidden)]
 #[macro_export]
 macro_rules! delegate_impls {

@@ -26,4 +26,4 @@ pub mod v2;
 #[doc(hidden)]
 pub use rasn;
 
-pub use object_type::{ObjectType, Access, Status};
+pub use object_type::{Access, ObjectType, Status};

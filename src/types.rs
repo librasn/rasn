@@ -21,7 +21,7 @@ pub use self::{
     oid::{ConstOid, ObjectIdentifier, Oid},
     open::Open,
     prefix::{Explicit, Implicit},
-    tag::{Class, Tag},
+    tag::{Class, Tag, TagTree},
 };
 
 ///  Alias for `bitvec::BitVec` mapped to ASN.1'a `BIT STRING`.
@@ -48,8 +48,9 @@ pub trait AsnType {
     /// The associated tag for the type.
     ///
     /// **Note** When implementing `CHOICE` types, this should be set to
-    /// `Tag::EOC` to represent that's invalid for use.
+    /// `Tag::EOC` and instead set the `TAG_TREE` constant.
     const TAG: Tag;
+    const TAG_TREE: TagTree = TagTree::Choice(&[]);
 }
 
 macro_rules! asn_type {

@@ -24,13 +24,11 @@ where
     }
 }
 
-
 /// A trait representing either a `v1` or `v2` SMI syntax.
 pub trait SmiSyntax {}
 
 impl SmiSyntax for crate::v1::ObjectSyntax {}
 impl SmiSyntax for crate::v2::ObjectSyntax {}
-
 
 /// The current access provided to the object.
 #[derive(Debug, Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]

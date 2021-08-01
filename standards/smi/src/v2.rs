@@ -1,7 +1,7 @@
 //! Version 2 (RFC 2578)
 
-use core::convert::TryInto;
 use alloc::string::ToString;
+use core::convert::TryInto;
 
 use chrono::TimeZone;
 
@@ -169,7 +169,6 @@ from_impls! {
     impl IpAddress => ApplicationSyntax: (value) -> ApplicationSyntax::Address(value);
     impl crate::v1::NetworkAddress => ApplicationSyntax: (crate::v1::NetworkAddress::Internet(value)) -> ApplicationSyntax::Address(value);
 }
-
 
 try_from_impls_v2! {
     impl OctetString => ObjectSyntax::Simple(SimpleSyntax::String(value)) => value;

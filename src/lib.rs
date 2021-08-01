@@ -257,7 +257,7 @@
 //! }
 //! ```
 
-#![no_std]
+// #![no_std]
 #[deny(missing_docs)]
 extern crate alloc;
 
@@ -275,7 +275,7 @@ pub mod der;
 pub use self::{
     de::{Decode, Decoder},
     enc::{Encode, Encoder},
-    types::{AsnType, Tag},
+    types::{AsnType, Tag, TagTree},
 };
 
 #[doc(hidden)]

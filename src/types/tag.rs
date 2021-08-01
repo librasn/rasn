@@ -1,5 +1,106 @@
 pub(crate) use self::consts::*;
 
+#[derive(Debug)]
+pub enum TagTree {
+    Leaf(Tag),
+    Choice(&'static [TagTree]),
+}
+
+impl TagTree {
+    pub const fn is_unique(tags: &'static [Self]) -> bool {
+        let mut index = 0;
+
+        while index < tags.len() {
+            match &tags[index] {
+                TagTree::Choice(inner_tags) => {
+                    if !Self::is_unique(inner_tags) {
+                        return false;
+                    }
+
+                    let mut inner_index = 0;
+                    while inner_index < inner_tags.len() {
+                        if Self::tree_contains(
+                            &inner_tags[inner_index],
+                            konst::slice::slice_range(&tags, index + 1, tags.len()),
+                        ) {
+                            return false;
+                        }
+
+                        inner_index += 1;
+                    }
+                }
+
+                TagTree::Leaf(tag) => {
+                    // We're at the last element so there's nothing more to
+                    // compare to.
+                    if index + 1 == tags.len() {
+                        return true;
+                    }
+
+                    if Self::tag_contains(
+                        tag,
+                        konst::slice::slice_range(&tags, index + 1, tags.len()),
+                    ) {
+                        return false;
+                    }
+                }
+            }
+
+            index += 1;
+        }
+
+        true
+    }
+
+    const fn tree_contains(needle: &TagTree, tags: &'static [TagTree]) -> bool {
+        match needle {
+            TagTree::Choice(inner_tags) => {
+                let mut inner_index = 0;
+                while inner_index < inner_tags.len() {
+                    if Self::tree_contains(&inner_tags[inner_index], tags) {
+                        return true;
+                    }
+
+                    inner_index += 1;
+                }
+                false
+            }
+
+            TagTree::Leaf(tag) => {
+                if Self::tag_contains(tag, tags) {
+                    return true;
+                }
+
+                false
+            }
+        }
+    }
+
+    const fn tag_contains(needle: &Tag, tags: &'static [TagTree]) -> bool {
+        let mut index = 0;
+
+        while index < tags.len() {
+            match &tags[index] {
+                TagTree::Choice(tags) => {
+                    if Self::tag_contains(needle, tags) {
+                        return true;
+                    }
+                }
+
+                TagTree::Leaf(tag) => {
+                    if tag.const_eq(&needle) {
+                        return true;
+                    }
+                }
+            }
+
+            index += 1;
+        }
+
+        false
+    }
+}
+
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
     Universal = 0,
@@ -112,7 +213,7 @@ impl Tag {
             let needle = &set[index];
             let mut after = index + 1;
             while after < set.len() {
-                if needle.const_eq(set[after]) && !needle.const_eq(Tag::EOC) {
+                if needle.const_eq(&set[after]) && !needle.const_eq(&Tag::EOC) {
                     return false;
                 } else {
                     after += 1;
@@ -125,7 +226,8 @@ impl Tag {
         true
     }
 
-    pub(crate) const fn const_eq(self, rhs: Self) -> bool {
+    #[doc(hidden)]
+    pub const fn const_eq(self, rhs: &Self) -> bool {
         self.class as u8 == rhs.class as u8 && self.value == rhs.value
     }
 }
@@ -133,6 +235,58 @@ impl Tag {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const EXPECTED: &'static [TagTree] = &[
+        TagTree::Leaf(Tag::EOC),
+        TagTree::Leaf(Tag::BIT_STRING),
+        TagTree::Choice(&[
+            TagTree::Leaf(Tag::new(Class::Application, 0)),
+            TagTree::Leaf(Tag::new(Class::Application, 1)),
+        ]),
+        TagTree::Choice(&[
+            TagTree::Leaf(Tag::new(Class::Context, 0)),
+            TagTree::Leaf(Tag::new(Class::Context, 2)),
+        ]),
+        TagTree::Leaf(Tag::new(Class::Private, 0)),
+        TagTree::Leaf(Tag::new(Class::Private, 1)),
+    ];
+
+    const INVALID_FLAT: &'static [TagTree] = &[
+        TagTree::Leaf(Tag::BIT_STRING),
+        TagTree::Leaf(Tag::new(Class::Application, 0)),
+        TagTree::Leaf(Tag::new(Class::Application, 0)),
+        TagTree::Leaf(Tag::new(Class::Context, 0)),
+        TagTree::Leaf(Tag::new(Class::Context, 0)),
+        TagTree::Leaf(Tag::new(Class::Private, 0)),
+        TagTree::Leaf(Tag::new(Class::Private, 0)),
+    ];
+
+    const INVALID_NESTED: &'static [TagTree] = &[
+        TagTree::Leaf(Tag::EOC),
+        TagTree::Leaf(Tag::BIT_STRING),
+        TagTree::Choice(&[
+            TagTree::Leaf(Tag::new(Class::Application, 0)),
+            TagTree::Leaf(Tag::new(Class::Application, 1)),
+        ]),
+        TagTree::Choice(&[
+            TagTree::Choice(&[TagTree::Leaf(Tag::new(Class::Application, 0))]),
+            TagTree::Leaf(Tag::new(Class::Application, 0)),
+            TagTree::Leaf(Tag::new(Class::Context, 2)),
+        ]),
+        TagTree::Leaf(Tag::new(Class::Private, 1)),
+        TagTree::Leaf(Tag::new(Class::Private, 1)),
+    ];
+
+    #[test]
+    fn is_unique() {
+        let _ = EXPECTED;
+        let _ = INVALID_FLAT;
+        let _ = INVALID_NESTED;
+
+        crate::sa::const_assert!(TagTree::is_unique(EXPECTED));
+        crate::sa::const_assert!(!TagTree::is_unique(INVALID_FLAT));
+        crate::sa::const_assert!(!TagTree::is_unique(INVALID_NESTED));
+    }
 
     #[test]
     fn canonical_ordering() {

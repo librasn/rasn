@@ -42,6 +42,7 @@ bitvec = { version = "0.22.3", default-features = false, features = ["alloc"] }
 rasn-derive = { version = "0.3.0", path = "macros", optional = true }
 chrono = { version = "0.4.19", default-features = false, features = ["alloc"] }
 static_assertions = "1.1.0"
+konst = "0.2.5"
 
 [dev-dependencies]
 criterion = "0.3.4"

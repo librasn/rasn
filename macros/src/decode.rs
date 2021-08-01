@@ -13,6 +13,7 @@ pub fn derive_struct_impl(
 
     for (i, field) in container.fields.iter().enumerate() {
         let lhs = field.ident.as_ref().map(|i| quote!(#i :));
+        let ty = &field.ty;
         let field_config = FieldConfig::new(field, config);
 
         let or_else = match field_config.default {
@@ -20,17 +21,15 @@ pub fn derive_struct_impl(
             Some(None) => quote! { .unwrap_or_default() },
             None => quote!(?),
         };
+        let tag = field_config.tag(i);
 
-        if field_config.choice {
-            list.push(proc_macro2::TokenStream::from(
-                quote!(#lhs <_>::decode(decoder) #or_else),
-            ));
-        } else {
-            let tag = field_config.tag(i);
-            list.push(proc_macro2::TokenStream::from(
-                quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else),
-            ));
-        }
+        list.push(quote! {
+            #lhs if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
+                <_>::decode(decoder)
+            } else {
+                <_>::decode_with_tag(decoder, #tag)
+            } #or_else
+        });
     }
 
     let fields = match container.fields {
@@ -125,7 +124,6 @@ pub fn derive_enum_impl(
             .iter()
             .enumerate()
             .map(|(i, _)| quote::format_ident!("TAG_{}", i));
-        let tags2 = tags.clone();
 
         let tag_consts = container
             .variants
@@ -133,11 +131,11 @@ pub fn derive_enum_impl(
             .enumerate()
             .map(|(i, v)| VariantConfig::new(&v, config).tag(i));
 
-        let fields = container.variants.iter().enumerate().map(|(i, v)| {
+        let variants = container.variants.iter().enumerate().map(|(i, v)| {
             let tag = VariantConfig::new(&v, config).tag(i);
             let ident = &v.ident;
             match &v.fields {
-                syn::Fields::Unit => quote!({ decoder.decode_null(#tag)?; #name::#ident}),
+                syn::Fields::Unit => quote!(if let Ok(()) = decoder.decode_null(#tag) { return Ok(#name::#ident) }),
                 _ => {
                     let is_newtype = match &v.fields {
                         syn::Fields::Unnamed(_) => true,
@@ -150,9 +148,9 @@ pub fn derive_enum_impl(
                     });
 
                     if is_newtype {
-                        quote!(#name::#ident ( #(#decode_fields),* ))
+                        quote!(if let Ok(value) = (|decoder: &mut D| Ok::<_, D::Error>(#name::#ident ( #(#decode_fields),* )))(decoder) { return Ok(value) })
                     } else {
-                        quote!(#name::#ident { #(#decode_fields),* })
+                        quote!(if let Ok(value) = (|decoder: &mut D| Ok::<_, D::Error>(#name::#ident { #(#decode_fields),* }))(decoder) { return Ok(value) })
                     }
                 }
             }
@@ -164,11 +162,9 @@ pub fn derive_enum_impl(
                     const #tags: #crate_root::Tag = #tag_consts;
                 )*
 
-                let tag = decoder.peek_tag()?;
-                Ok(match tag {
-                    #(#tags2 => #fields,)*
-                    _ => return Err(#crate_root::de::Error::custom("Invalid `CHOICE` discriminant.")),
-                })
+                #(#variants)*
+
+                Err(#crate_root::de::Error::custom("Invalid `CHOICE` discriminant."))
             }
         })
     } else {

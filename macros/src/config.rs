@@ -144,6 +144,16 @@ impl Config {
             }),
         }
     }
+
+    fn tag_tree_for_ty(&self, ty: &syn::Type) -> proc_macro2::TokenStream {
+        let crate_root = &self.crate_root;
+
+        quote!(if !<#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
+            #crate_root::TagTree::Leaf(<#ty as #crate_root::AsnType>::TAG)
+        } else {
+            <#ty as #crate_root::AsnType>::TAG_TREE
+        })
+    }
 }
 
 #[derive(Debug)]
@@ -192,9 +202,49 @@ impl<'a> VariantConfig<'a> {
         if let Some(Tag { class, value }) = &self.tag {
             quote!(#crate_root::Tag::new(#class, #value))
         } else if self.container_config.automatic_tagging {
-            quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context))
+            quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
+        } else if self.variant.fields.len() == 1 {
+            quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
         } else {
             Tag::from_fields(&self.variant.fields, crate_root)
+        }
+    }
+
+    pub fn tag_tree(&self, context: usize) -> proc_macro2::TokenStream {
+        let crate_root = &self.container_config.crate_root;
+        if let Some(Tag { class, value }) = &self.tag {
+            quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#class, #value)),)
+        } else if self.container_config.automatic_tagging {
+            quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32)),)
+        } else {
+            let field_tags = self
+                .variant
+                .fields
+                .iter()
+                .enumerate()
+                .map(|(i, f)| FieldConfig::new(f, self.container_config).tag_tree(i));
+
+            match self.variant.fields {
+                syn::Fields::Unit => {
+                    quote!(#crate_root::TagTree::Leaf(<() as #crate_root::AsnType>::TAG),)
+                }
+                syn::Fields::Named(_) => {
+                    quote!({
+                        const FIELD_TAG_TREE: &'static [#crate_root::TagTree] = &[#(#field_tags,)*];
+                        #crate_root::sa::const_assert!(#crate_root::TagTree::is_unique(FIELD_TAG_TREE));
+                        #crate_root::TagTree::Leaf(#crate_root::Tag::SEQUENCE)
+                    },)
+                }
+                syn::Fields::Unnamed(_) => {
+                    if self.variant.fields.iter().count() != 1 {
+                        panic!("Tuple-style enum variants must contain only a single field, switch to struct-style variants for multiple fields.");
+                    } else {
+                        let ty = &self.variant.fields.iter().next().unwrap().ty;
+
+                        quote!(<#ty as #crate_root::AsnType>::TAG_TREE,)
+                    }
+                }
+            }
         }
     }
 }
@@ -231,8 +281,14 @@ impl<'a> FieldConfig<'a> {
                     choice = true;
                 } else if path.is_ident("default") {
                     default = Some(match item {
-                        syn::Meta::List(list) => list.nested.iter().cloned().filter_map(unested_meta).map(|m| m.path().clone()).next(),
-                        _ => None
+                        syn::Meta::List(list) => list
+                            .nested
+                            .iter()
+                            .cloned()
+                            .filter_map(unested_meta)
+                            .map(|m| m.path().clone())
+                            .next(),
+                        _ => None,
                     });
                 }
             }
@@ -259,6 +315,22 @@ impl<'a> FieldConfig<'a> {
         } else {
             let ty = &self.field.ty;
             quote!(<#ty as #crate_root::AsnType>::TAG)
+        }
+    }
+
+    pub fn tag_tree(&self, context: usize) -> proc_macro2::TokenStream {
+        let crate_root = &self.container_config.crate_root;
+        let ty = &self.field.ty;
+
+        if let Some(Tag { class, value }) = &self.tag {
+            if self.container_config.automatic_tagging {
+                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tagging)]`")
+            }
+            quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#class, #value)))
+        } else if self.container_config.automatic_tagging {
+            quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32)))
+        } else {
+            self.container_config.tag_tree_for_ty(ty)
         }
     }
 }

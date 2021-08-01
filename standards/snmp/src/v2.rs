@@ -1,9 +1,6 @@
 //! Version 2 (RFC 3416)
 
-use rasn::{
-    types::Integer,
-    AsnType, Decode, Encode,
-};
+use rasn::{types::Integer, AsnType, Decode, Encode};
 
 pub use smi::v2::{IpAddress, ObjectName, ObjectSyntax, TimeTicks};
 
@@ -74,13 +71,12 @@ pub enum VarBindValue {
     NoSuchInstance,
     #[rasn(tag(2))]
     EndOfMibView,
-
 }
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec;
     use super::*;
+    use alloc::vec;
     use rasn::types::ObjectIdentifier;
 
     #[test]
@@ -108,35 +104,25 @@ mod tests {
         let data = rasn::ber::encode(&request).unwrap();
 
         rasn::ber::decode::<GetBulkRequest>(&data).unwrap();
-        assert_eq!(data, vec![
-            // [5] IMPLICIT SEEQUENCE
-            0xA5, 0x39,
-            // INTEGER
-            0x02, 0x04, 0x54, 0x52, 0x5d, 0x76,
-            // INTEGER
-            0x02, 0x01, 0x01,
-            // INTEGER
-            0x02, 0x01, 0x02,
-            // SEQUENCE
-            0x30, 0x2b,
-            // SEQUENCE
-            0x30, 0x0b,
-            // OBJECT IDENTIFIER
-            0x06, 0x07, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x03,
-            // NULL
-            0x05, 0x00,
-            // SEQUENCE
-            0x30, 0x0d,
-            // OBJECT IDENTIFIER
-            0x06, 0x09, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x04, 0x16, 0x01, 0x02,
-            // NULL
-            0x05, 0x00,
-            // SEQUENCE
-            0x30, 0x0d,
-            // OBJECT IDENTIFIER
-            0x06, 0x09, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x04, 0x16, 0x01, 0x04,
-            // NULL
-            0x05, 0x00,
-        ]);
+        assert_eq!(
+            data,
+            vec![
+                // [5] IMPLICIT SEEQUENCE
+                0xA5, 0x39, // INTEGER
+                0x02, 0x04, 0x54, 0x52, 0x5d, 0x76, // INTEGER
+                0x02, 0x01, 0x01, // INTEGER
+                0x02, 0x01, 0x02, // SEQUENCE
+                0x30, 0x2b, // SEQUENCE
+                0x30, 0x0b, // OBJECT IDENTIFIER
+                0x06, 0x07, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x01, 0x03, // NULL
+                0x05, 0x00, // SEQUENCE
+                0x30, 0x0d, // OBJECT IDENTIFIER
+                0x06, 0x09, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x04, 0x16, 0x01, 0x02, // NULL
+                0x05, 0x00, // SEQUENCE
+                0x30, 0x0d, // OBJECT IDENTIFIER
+                0x06, 0x09, 0x2b, 0x06, 0x01, 0x02, 0x01, 0x04, 0x16, 0x01, 0x04, // NULL
+                0x05, 0x00,
+            ]
+        );
     }
 }

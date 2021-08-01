@@ -1,8 +1,8 @@
-use rasn::{Decode, Encode, types::*};
+use rasn::{types::*, Decode, Encode};
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(choice)]
-enum IEC61850SpecificProtocol  {
+enum IEC61850SpecificProtocol {
     GoosePdu(IECGoosePdu),
 }
 
@@ -10,11 +10,11 @@ enum IEC61850SpecificProtocol  {
 #[rasn(tag(application, 1))]
 struct IECGoosePdu {
     #[rasn(tag(0))]
-    gocb_ref : VisibleString,
+    gocb_ref: VisibleString,
     #[rasn(tag(1))]
     time_allowed_to_live: Integer,
     #[rasn(tag(2))]
-    dat_set : VisibleString,
+    dat_set: VisibleString,
     #[rasn(tag(3))]
     go_id: Option<VisibleString>,
     #[rasn(tag(4))]
@@ -72,7 +72,7 @@ enum Data {
     MMSString(MMSString),
     #[rasn(tag(17))]
     UtcTime(UtcTime),
- }
+}
 
 type DataSequence = Vec<Data>;
 
@@ -86,10 +86,10 @@ type TimeOfDay = OctetString;
 
 #[test]
 fn it_works() {
-    let data = IECGoosePdu {
-        gocb_ref : String::from("").into(),
+    let data = IEC61850SpecificProtocol::GoosePdu(IECGoosePdu {
+        gocb_ref: String::from("").into(),
         time_allowed_to_live: 200.into(),
-        dat_set : String::from("").into(),
+        dat_set: String::from("").into(),
         go_id: Some(String::from("events").into()),
         t: UtcTime::from(vec![]),
         st_num: 1.into(),
@@ -103,7 +103,8 @@ fn it_works() {
             Data::Boolean(true),
             Data::Integer(200.into()),
         ],
-    };
+    });
+
     let bin = rasn::ber::encode(&data).unwrap();
     assert_eq!(data, rasn::ber::decode(&bin).unwrap());
 }

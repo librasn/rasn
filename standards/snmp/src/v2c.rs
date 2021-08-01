@@ -1,5 +1,8 @@
 //! Version 2, Community Version (RFC 1901)
-use rasn::{AsnType, Decode, Encode, types::{Integer, OctetString}};
+use rasn::{
+    types::{Integer, OctetString},
+    AsnType, Decode, Encode,
+};
 
 #[derive(AsnType, Debug, Clone, Decode, Encode)]
 pub struct Message<T> {
