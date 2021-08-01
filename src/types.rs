@@ -47,10 +47,13 @@ pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
 pub trait AsnType {
     /// The associated tag for the type.
     ///
-    /// **Note** When implementing `CHOICE` types, this should be set to
-    /// `Tag::EOC` and instead set the `TAG_TREE` constant.
+    /// **Note** When implementing CHOICE types, this should be set to
+    /// [`Tag::EOC`] and instead set the [`Self::TAG_TREE`] constant to contain
+    /// all variants.
     const TAG: Tag;
-    const TAG_TREE: TagTree = TagTree::Choice(&[]);
+    /// The root of this type's tree of tag's if it a CHOICE type, otherwise its
+    /// `Leaf` that points [`Self::TAG`].
+    const TAG_TREE: TagTree = TagTree::Leaf(Self::TAG);
 }
 
 macro_rules! asn_type {

@@ -1,111 +1,15 @@
 pub(crate) use self::consts::*;
 
-#[derive(Debug)]
-pub enum TagTree {
-    Leaf(Tag),
-    Choice(&'static [TagTree]),
-}
-
-impl TagTree {
-    pub const fn is_unique(tags: &'static [Self]) -> bool {
-        let mut index = 0;
-
-        while index < tags.len() {
-            match &tags[index] {
-                TagTree::Choice(inner_tags) => {
-                    if !Self::is_unique(inner_tags) {
-                        return false;
-                    }
-
-                    let mut inner_index = 0;
-                    while inner_index < inner_tags.len() {
-                        if Self::tree_contains(
-                            &inner_tags[inner_index],
-                            konst::slice::slice_range(&tags, index + 1, tags.len()),
-                        ) {
-                            return false;
-                        }
-
-                        inner_index += 1;
-                    }
-                }
-
-                TagTree::Leaf(tag) => {
-                    // We're at the last element so there's nothing more to
-                    // compare to.
-                    if index + 1 == tags.len() {
-                        return true;
-                    }
-
-                    if Self::tag_contains(
-                        tag,
-                        konst::slice::slice_range(&tags, index + 1, tags.len()),
-                    ) {
-                        return false;
-                    }
-                }
-            }
-
-            index += 1;
-        }
-
-        true
-    }
-
-    const fn tree_contains(needle: &TagTree, tags: &'static [TagTree]) -> bool {
-        match needle {
-            TagTree::Choice(inner_tags) => {
-                let mut inner_index = 0;
-                while inner_index < inner_tags.len() {
-                    if Self::tree_contains(&inner_tags[inner_index], tags) {
-                        return true;
-                    }
-
-                    inner_index += 1;
-                }
-                false
-            }
-
-            TagTree::Leaf(tag) => {
-                if Self::tag_contains(tag, tags) {
-                    return true;
-                }
-
-                false
-            }
-        }
-    }
-
-    const fn tag_contains(needle: &Tag, tags: &'static [TagTree]) -> bool {
-        let mut index = 0;
-
-        while index < tags.len() {
-            match &tags[index] {
-                TagTree::Choice(tags) => {
-                    if Self::tag_contains(needle, tags) {
-                        return true;
-                    }
-                }
-
-                TagTree::Leaf(tag) => {
-                    if tag.const_eq(&needle) {
-                        return true;
-                    }
-                }
-            }
-
-            index += 1;
-        }
-
-        false
-    }
-}
-
+/// The class of tag identifying its category.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
+    /// Types defined in X.680.
     Universal = 0,
+    /// Application specific types.
     Application,
+    /// Context specific types (e.g. fields in a struct)
     Context,
+    /// Private types.
     Private,
 }
 
@@ -129,11 +33,13 @@ impl Class {
     }
 }
 
-/// An abstract representation of the tag octets used in BER, CER, and
-/// DER to identify .
+/// An abstract representation of an ASN.1 tag that uniquely identifies a type
+/// within a ASN.1 module for codecs.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Tag {
+    /// The class of the tag.
     pub class: Class,
+    /// The sub-class of the tag.
     pub value: u32,
 }
 
@@ -156,7 +62,6 @@ macro_rules! consts {
                 impl crate::types::AsnType for $name {
                     const TAG: Tag = Tag::$name;
                 }
-
             )+
         }
 
@@ -205,18 +110,60 @@ impl Tag {
         self
     }
 
-    /// Checks that a slice of tags is a distinct set in a way that is `const`
-    /// compatible.
-    pub const fn is_distinct_set(set: &[Self]) -> bool {
+    #[doc(hidden)]
+    pub const fn const_eq(self, rhs: &Self) -> bool {
+        self.class as u8 == rhs.class as u8 && self.value == rhs.value
+    }
+}
+
+/// The root or node in tree reprensenting all of potential tags in a ASN.1 type.
+/// For most types this is only ever one level deep, except for CHOICE enums
+/// which will contain a set of nodes, that either point to a `Leaf` or another
+/// level of `Choice`.
+#[derive(Debug)]
+pub enum TagTree {
+    Leaf(Tag),
+    Choice(&'static [TagTree]),
+}
+
+impl TagTree {
+    /// Checks whether a given set of nodes only contains unique entries.
+    pub const fn is_unique(nodes: &'static [Self]) -> bool {
         let mut index = 0;
-        while index < set.len() {
-            let needle = &set[index];
-            let mut after = index + 1;
-            while after < set.len() {
-                if needle.const_eq(&set[after]) && !needle.const_eq(&Tag::EOC) {
-                    return false;
-                } else {
-                    after += 1;
+
+        while index < nodes.len() {
+            match &nodes[index] {
+                TagTree::Choice(inner_tags) => {
+                    if !Self::is_unique(inner_tags) {
+                        return false;
+                    }
+
+                    let mut inner_index = 0;
+                    while inner_index < inner_tags.len() {
+                        if Self::tree_contains(
+                            &inner_tags[inner_index],
+                            konst::slice::slice_range(&nodes, index + 1, nodes.len()),
+                        ) {
+                            return false;
+                        }
+
+                        inner_index += 1;
+                    }
+                }
+
+                TagTree::Leaf(tag) => {
+                    // We're at the last element so there's nothing more to
+                    // compare to.
+                    if index + 1 == nodes.len() {
+                        return true;
+                    }
+
+                    if Self::tag_contains(
+                        tag,
+                        konst::slice::slice_range(&nodes, index + 1, nodes.len()),
+                    ) {
+                        return false;
+                    }
                 }
             }
 
@@ -226,9 +173,54 @@ impl Tag {
         true
     }
 
-    #[doc(hidden)]
-    pub const fn const_eq(self, rhs: &Self) -> bool {
-        self.class as u8 == rhs.class as u8 && self.value == rhs.value
+    /// Whether any `Leaf` in `needle` matches any `Leaf`s in `nodes`.
+    const fn tree_contains(needle: &TagTree, nodes: &'static [TagTree]) -> bool {
+        match needle {
+            TagTree::Choice(inner_tags) => {
+                let mut inner_index = 0;
+                while inner_index < inner_tags.len() {
+                    if Self::tree_contains(&inner_tags[inner_index], nodes) {
+                        return true;
+                    }
+
+                    inner_index += 1;
+                }
+                false
+            }
+
+            TagTree::Leaf(tag) => {
+                if Self::tag_contains(tag, nodes) {
+                    return true;
+                }
+
+                false
+            }
+        }
+    }
+
+    /// Whether `needle` matches any `Leaf`s in `nodes`.
+    const fn tag_contains(needle: &Tag, nodes: &'static [TagTree]) -> bool {
+        let mut index = 0;
+
+        while index < nodes.len() {
+            match &nodes[index] {
+                TagTree::Choice(nodes) => {
+                    if Self::tag_contains(needle, nodes) {
+                        return true;
+                    }
+                }
+
+                TagTree::Leaf(tag) => {
+                    if tag.const_eq(&needle) {
+                        return true;
+                    }
+                }
+            }
+
+            index += 1;
+        }
+
+        false
     }
 }
 

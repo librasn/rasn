@@ -26,13 +26,6 @@ pub fn derive_struct_impl(
         .enumerate()
         .map(|(i, f)| (i, FieldConfig::new(f, config)))
         .group_by(|(_, config)| config.field.ty == config.container_config.option_type.path);
-    let tag_tree = field_groups
-        .into_iter()
-        .filter_map(|(key, fields)| key.then(|| fields))
-        .map(|fields| {
-            let tag_tree = fields.map(|(i, f)| f.tag_tree(i));
-            quote!(#(#tag_tree),*)
-        });
 
     let all_optional_tags_are_unique = field_groups
         .into_iter()
@@ -54,9 +47,7 @@ pub fn derive_struct_impl(
             const TAG_TREE: #crate_root::TagTree = {
                 #(#all_optional_tags_are_unique)*
 
-                const TAG_TREE: &'static [#crate_root::TagTree] = &[#(#tag_tree)*];
-
-                #crate_root::TagTree::Choice(TAG_TREE)
+                #crate_root::TagTree::Leaf(<Self as #crate_root::AsnType>::TAG)
             };
         }
     })
@@ -94,7 +85,7 @@ pub fn derive_enum_impl(
             }
         }
     } else {
-        quote!(#crate_root::TagTree::Choice(&[]))
+        quote!(#crate_root::TagTree::Leaf(#tag))
     };
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -103,7 +94,6 @@ pub fn derive_enum_impl(
         #[automatically_derived]
         impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
             const TAG: #crate_root::Tag = {
-
                 #tag
             };
             const TAG_TREE: #crate_root::TagTree = {
