@@ -142,7 +142,7 @@ impl TagTree {
                     while inner_index < inner_tags.len() {
                         if Self::tree_contains(
                             &inner_tags[inner_index],
-                            konst::slice::slice_range(&nodes, index + 1, nodes.len()),
+                            konst::slice::slice_from(&nodes, index + 1),
                         ) {
                             return false;
                         }
@@ -160,7 +160,7 @@ impl TagTree {
 
                     if Self::tag_contains(
                         tag,
-                        konst::slice::slice_range(&nodes, index + 1, nodes.len()),
+                        konst::slice::slice_from(&nodes, index + 1),
                     ) {
                         return false;
                     }
