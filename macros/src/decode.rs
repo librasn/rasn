@@ -132,25 +132,40 @@ pub fn derive_enum_impl(
             .map(|(i, v)| VariantConfig::new(&v, config).tag(i));
 
         let variants = container.variants.iter().enumerate().map(|(i, v)| {
-            let tag = VariantConfig::new(&v, config).tag(i);
+            let variant_config = VariantConfig::new(&v, config);
+            let variant_tag = variant_config.tag(i);
             let ident = &v.ident;
             match &v.fields {
-                syn::Fields::Unit => quote!(if let Ok(()) = decoder.decode_null(#tag) { return Ok(#name::#ident) }),
-                _ => {
-                    let is_newtype = match &v.fields {
-                        syn::Fields::Unnamed(_) => true,
-                        _ => false,
-                    };
-
+                syn::Fields::Unit => quote!(if let Ok(()) = decoder.decode_null(#variant_tag) { return Ok(#name::#ident) }),
+                syn::Fields::Unnamed(_) => {
+                    if v.fields.len() != 1 {
+                        panic!("Tuple struct variants should contain only a single element.");
+                    }
+                    if config.automatic_tagging || variant_config.tag.is_some() {
+                        quote!(if let Ok(value) = <_>::decode_with_tag(decoder, #variant_tag).map(#name::#ident) { return Ok(value) })
+                    } else {
+                        quote!(if let Ok(value) = <_>::decode(decoder).map(#name::#ident) { return Ok(value) })
+                    }
+                },
+                syn::Fields::Named(_) => {
                     let decode_fields = v.fields.iter().map(|f| {
+                        let field_config = FieldConfig::new(&f, config);
                         let ident = f.ident.as_ref().map(|i| quote!(#i :));
-                        quote!(#ident <_>::decode_with_tag(decoder, #tag)?)
+                        if config.automatic_tagging || field_config.tag.is_some() {
+                            quote!(#ident <_>::decode_with_tag(decoder, #variant_tag)?)
+                        } else {
+                            quote!(#ident <_>::decode(decoder)?)
+                        }
                     });
 
-                    if is_newtype {
-                        quote!(if let Ok(value) = (|decoder: &mut D| Ok::<_, D::Error>(#name::#ident ( #(#decode_fields),* )))(decoder) { return Ok(value) })
-                    } else {
-                        quote!(if let Ok(value) = (|decoder: &mut D| Ok::<_, D::Error>(#name::#ident { #(#decode_fields),* }))(decoder) { return Ok(value) })
+                    quote! {
+                        let decode_fn = |decoder: &mut D| {
+                            decoder.decode_sequence(#variant_tag, |decoder| {
+                                Ok::<_, D::Error>(#name::#ident { #(#decode_fields),* })
+                            })
+                        };
+
+                        if let Ok(value) = (decode_fn)(decoder) { return Ok(value) }
                     }
                 }
             }

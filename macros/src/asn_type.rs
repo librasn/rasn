@@ -43,11 +43,10 @@ pub fn derive_struct_impl(
     proc_macro2::TokenStream::from(quote! {
         #[automatically_derived]
         impl #impl_generics  #crate_root::AsnType for #name #ty_generics #where_clause {
-            const TAG: #crate_root::Tag = #tag;
-            const TAG_TREE: #crate_root::TagTree = {
+            const TAG: #crate_root::Tag = {
                 #(#all_optional_tags_are_unique)*
 
-                #crate_root::TagTree::Leaf(<Self as #crate_root::AsnType>::TAG)
+                #tag
             };
         }
     })

@@ -48,9 +48,9 @@ pub enum NetworkAddress {
     Internet(IpAddress),
 }
 
-#[derive(AsnType, Encode, Decode, Debug, Clone, Copy, PartialEq, PartialOrd, Hash, Eq, Ord)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
 #[rasn(delegate, tag(application, 0))]
-pub struct IpAddress(pub [u8; 4]);
+pub struct IpAddress(pub OctetString);
 
 #[derive(AsnType, Encode, Decode, Debug, Clone, Copy, PartialEq, PartialOrd, Hash, Eq, Ord)]
 #[rasn(delegate, tag(application, 1))]

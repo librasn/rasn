@@ -203,8 +203,6 @@ impl<'a> VariantConfig<'a> {
             quote!(#crate_root::Tag::new(#class, #value))
         } else if self.container_config.automatic_tagging {
             quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
-        } else if self.variant.fields.len() == 1 {
-            quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
         } else {
             Tag::from_fields(&self.variant.fields, crate_root)
         }
@@ -212,10 +210,9 @@ impl<'a> VariantConfig<'a> {
 
     pub fn tag_tree(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
-        if let Some(Tag { class, value }) = &self.tag {
-            quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#class, #value)),)
-        } else if self.container_config.automatic_tagging {
-            quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32)),)
+        if self.tag.is_some() || self.container_config.automatic_tagging {
+            let tag = self.tag(context);
+            quote!(#crate_root::TagTree::Leaf(#tag),)
         } else {
             let field_tags = self
                 .variant
