@@ -123,18 +123,6 @@ pub fn derive_enum_impl(
     };
 
     let decode = if config.choice {
-        let tags = container
-            .variants
-            .iter()
-            .enumerate()
-            .map(|(i, _)| quote::format_ident!("TAG_{}", i));
-
-        let tag_consts = container
-            .variants
-            .iter()
-            .enumerate()
-            .map(|(i, v)| VariantConfig::new(&v, config).tag(i));
-
         let variants = container.variants.iter().enumerate().map(|(i, v)| {
             let variant_config = VariantConfig::new(&v, config);
             let variant_tag = variant_config.tag(i);
@@ -181,12 +169,7 @@ pub fn derive_enum_impl(
         );
         Some(quote! {
             fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-                #(
-                    const #tags: #crate_root::Tag = #tag_consts;
-                )*
-
                 #(#variants)*
-
                 Err(#crate_root::de::Error::custom(#match_fail_error))
             }
         })
