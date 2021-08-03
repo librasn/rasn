@@ -111,7 +111,11 @@ pub fn derive_enum_impl(
 
         }
     } else {
-        let error = crate::CHOICE_ERROR_MESSAGE;
+        let error = format!(
+            "Decoding field of type `{}`: {}",
+            name.to_string(),
+            crate::CHOICE_ERROR_MESSAGE
+        );
 
         quote! {
             Err(#crate_root::de::Error::custom(#error))
@@ -119,18 +123,6 @@ pub fn derive_enum_impl(
     };
 
     let decode = if config.choice {
-        let tags = container
-            .variants
-            .iter()
-            .enumerate()
-            .map(|(i, _)| quote::format_ident!("TAG_{}", i));
-
-        let tag_consts = container
-            .variants
-            .iter()
-            .enumerate()
-            .map(|(i, v)| VariantConfig::new(&v, config).tag(i));
-
         let variants = container.variants.iter().enumerate().map(|(i, v)| {
             let variant_config = VariantConfig::new(&v, config);
             let variant_tag = variant_config.tag(i);
@@ -171,15 +163,14 @@ pub fn derive_enum_impl(
             }
         });
 
+        let match_fail_error = format!(
+            "Decoding field of type `{}`: Invalid `CHOICE` discriminant.",
+            name.to_string(),
+        );
         Some(quote! {
             fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-                #(
-                    const #tags: #crate_root::Tag = #tag_consts;
-                )*
-
                 #(#variants)*
-
-                Err(#crate_root::de::Error::custom("Invalid `CHOICE` discriminant."))
+                Err(#crate_root::de::Error::custom(#match_fail_error))
             }
         })
     } else {
