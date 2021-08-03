@@ -134,11 +134,10 @@ pub fn derive_enum_impl(
                         panic!("Tuple struct variants should contain only a single element.");
                     }
                     if config.automatic_tagging || variant_config.tag.is_some() {
+                        let ty = v.fields.iter().next().unwrap();
                         quote! {
-                            let result = if #variant_tag.const_eq(&#crate_root::Tag::EOC) {
-                                decoder.decode_sequence(#variant_tag, |decoder| {
-                                    <_>::decode_with_tag(decoder, #variant_tag).map(#name::#ident)
-                                })
+                            let result = if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
+                                decoder.decode_explicit_prefix(#variant_tag).map(#name::#ident)
                             } else {
                                 <_>::decode_with_tag(decoder, #variant_tag).map(#name::#ident)
                             };

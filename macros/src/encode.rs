@@ -138,12 +138,11 @@ pub fn derive_enum_impl(
                         panic!("Tuple variants must contain only a single element.");
                     }
                     if variant_config.tag.is_some() || config.automatic_tagging {
+                        let ty = v.fields.iter().next().unwrap();
                         quote! {
                             #name::#ident(value) => {
-                                if #variant_tag.const_eq(&#crate_root::Tag::EOC) {
-                                    encoder.encode_sequence(#variant_tag, |encoder| {
-                                        <_>::encode(value, encoder).map(drop)
-                                    }).map(drop)
+                                if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
+                                    encoder.encode_explicit_prefix(#variant_tag, value).map(drop)
                                 } else {
                                     #crate_root::Encode::encode_with_tag(value, encoder, #variant_tag).map(drop)
                                 }
