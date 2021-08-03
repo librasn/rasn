@@ -250,7 +250,6 @@ impl<'a> VariantConfig<'a> {
 pub struct FieldConfig<'a> {
     pub field: &'a syn::Field,
     pub container_config: &'a Config,
-    pub choice: bool,
     pub tag: Option<Tag>,
     pub default: Option<Option<syn::Path>>,
 }
@@ -259,7 +258,6 @@ impl<'a> FieldConfig<'a> {
     pub fn new(field: &'a syn::Field, container_config: &'a Config) -> Self {
         let mut default = None;
         let mut tag = None;
-        let mut choice = false;
         let mut iter = field
             .attrs
             .iter()
@@ -274,8 +272,6 @@ impl<'a> FieldConfig<'a> {
                 let path = item.path();
                 if path.is_ident("tag") {
                     tag = Tag::from_meta(item);
-                } else if path.is_ident("choice") {
-                    choice = true;
                 } else if path.is_ident("default") {
                     default = Some(match item {
                         syn::Meta::List(list) => list
@@ -294,7 +290,6 @@ impl<'a> FieldConfig<'a> {
         Self {
             field,
             container_config,
-            choice,
             tag,
             default,
         }

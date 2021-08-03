@@ -106,7 +106,7 @@ pub fn derive_enum_impl(
         let variants = container.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
             let variant_config = VariantConfig::new(&v, &config);
-            let tag = variant_config.tag(i);
+            let variant_tag = variant_config.tag(i);
 
             match &v.fields {
                 syn::Fields::Named(_) => {
@@ -127,7 +127,7 @@ pub fn derive_enum_impl(
                     });
 
                     quote!(#name::#ident { #(#idents),* } => {
-                        encoder.encode_sequence(#tag, |encoder| {
+                        encoder.encode_sequence(#variant_tag, |encoder| {
                             #(#fields)*
                             Ok(())
                         })
@@ -138,12 +138,22 @@ pub fn derive_enum_impl(
                         panic!("Tuple variants must contain only a single element.");
                     }
                     if variant_config.tag.is_some() || config.automatic_tagging {
-                        quote!(#name::#ident(value) => { #crate_root::Encode::encode_with_tag(value, encoder, #tag).map(drop) })
+                        quote! {
+                            #name::#ident(value) => {
+                                if #variant_tag.const_eq(&#crate_root::Tag::EOC) {
+                                    encoder.encode_sequence(#variant_tag, |encoder| {
+                                        <_>::encode(value, encoder).map(drop)
+                                    }).map(drop)
+                                } else {
+                                    #crate_root::Encode::encode_with_tag(value, encoder, #variant_tag).map(drop)
+                                }
+                            }
+                        }
                     } else {
                         quote!(#name::#ident(value) => { #crate_root::Encode::encode(value, encoder).map(drop) })
                     }
                 }
-                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(#tag).map(drop) }),
+                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(#variant_tag).map(drop) }),
             }
         });
 
