@@ -114,6 +114,12 @@ impl Tag {
     pub const fn const_eq(self, rhs: &Self) -> bool {
         self.class as u8 == rhs.class as u8 && self.value == rhs.value
     }
+
+    /// Returns whether `Tag` is defined as `Tag::EOC`, and thus is an invalid
+    /// tag and must be CHOICE structure.
+    pub const fn is_choice(&self) -> bool {
+        self.const_eq(&Tag::EOC)
+    }
 }
 
 /// The root or node in tree reprensenting all of potential tags in a ASN.1 type.

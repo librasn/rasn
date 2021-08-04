@@ -23,13 +23,23 @@ pub fn derive_struct_impl(
         };
         let tag = field_config.tag(i);
 
-        list.push(quote! {
-            #lhs if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
-                <_>::decode(decoder)
-            } else {
-                <_>::decode_with_tag(decoder, #tag)
-            } #or_else
-        });
+        if field_config.tag.is_some() {
+            list.push(quote! {
+                #lhs if <#ty as #crate_root::AsnType>::TAG.is_choice() {
+                    decoder.decode_explicit_prefix(#tag)
+                } else {
+                    <_>::decode_with_tag(decoder, #tag)
+                } #or_else
+            });
+        } else {
+            list.push(quote! {
+                #lhs if <#ty as #crate_root::AsnType>::TAG.is_choice() {
+                    <_>::decode(decoder)
+                } else {
+                    <_>::decode_with_tag(decoder, #tag)
+                } #or_else
+            });
+        }
     }
 
     let fields = match container.fields {
