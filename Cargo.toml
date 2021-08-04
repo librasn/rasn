@@ -48,3 +48,4 @@ konst = {version = "0.2.5", default-features = false}
 criterion = "0.3.4"
 iai = "0.1.1"
 once_cell = "1.8.0"
+base64 = "0.13"

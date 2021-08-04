@@ -98,6 +98,20 @@ pub fn parse_encoded_number(input: &[u8]) -> IResult<&[u8], Integer> {
     Ok((input, concat_number(body, end[0])))
 }
 
+pub fn parse_base128_number(input: &[u8]) -> IResult<&[u8], Integer> {
+    let (input, body) = nom::bytes::streaming::take_while(|i| i & 0x80 != 0)(input)?;
+    let (input, end) = nom::bytes::streaming::take(1usize)(input)?;
+
+    let mut number = Integer::from(0);
+    for byte in body.iter() {
+        number <<= 7usize;
+        number |= Integer::from(byte & 0x7F);
+    }
+    number <<= 7usize;
+    number |= Integer::from(end[0]);
+    Ok((input, number))
+}
+
 fn parse_initial_octet(input: &[u8]) -> IResult<&[u8], Identifier> {
     let (input, octet) = nom::bytes::streaming::take(1usize)(input)?;
     let initial_octet = octet[0];

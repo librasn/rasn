@@ -63,6 +63,28 @@ impl Encoder {
         }
     }
 
+    pub(super) fn encode_as_base128(&self, number: u32, buffer: &mut Vec<u8>) {
+        const WIDTH: u8 = 7;
+        const SEVEN_BITS: u8 = 0x7F;
+        const EIGHTH_BIT: u8 = 0x80;
+
+        if number < EIGHTH_BIT as u32 {
+            buffer.push(number as u8);
+        } else {
+            let mut n: u8;
+            let mut bits_left = 35;
+            let mut cont = false;
+            while bits_left > 0 {
+                bits_left -= WIDTH;
+                n = ((number >> bits_left) as u8) & SEVEN_BITS;
+                if n > 0 || cont {
+                    buffer.push(if bits_left > 0 { EIGHTH_BIT } else { 0 } | (n & SEVEN_BITS));
+                    cont = true;
+                }
+            }
+        }
+    }
+
     /// Encodes the identifier of a type in BER/CER/DER. An identifier consists
     /// of a "class", encoding bit, and tag number. If our tag number is
     /// greater than 30 we to encode the number as stream of a 7 bit integers
@@ -224,14 +246,14 @@ impl crate::Encoder for Encoder {
         let first = oid[0];
         let second = oid[1];
 
-        if first > 1 {
+        if first > 2 {
             return Err(error::Error::InvalidObjectIdentifier);
         }
 
         self.encode_seven_bit_integer((first * 40) + second, &mut bytes);
 
         for component in oid.iter().skip(2) {
-            self.encode_seven_bit_integer(*component, &mut bytes);
+            self.encode_as_base128(*component, &mut bytes);
         }
 
         Ok(self.encode_value(tag, &bytes))
@@ -351,5 +373,49 @@ mod tests {
             &[0x80, 0],
             &*crate::ber::encode(&<Explicit<C0, _>>::new(None::<()>)).unwrap()
         );
+    }
+
+    #[test]
+    fn encoding_oid() {
+        fn oid_to_bytes(oid: &[u32]) -> Vec<u8> {
+            use crate::Encoder;
+            let mut enc = self::Encoder::new(EncoderOptions::ber());
+            enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, oid)
+                .unwrap();
+            enc.output
+        }
+
+        // example from https://stackoverflow.com/questions/5929050/how-does-asn-1-encode-an-object-identifier
+        assert_eq!(
+            &vec![0x06, 0x08, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x30, 0x01],
+            &oid_to_bytes(&[1, 3, 6, 1, 5, 5, 7, 48, 1])
+        );
+
+        // example from https://docs.microsoft.com/en-us/windows/win32/seccertenroll/about-object-identifier
+        assert_eq!(
+            &vec![0x06, 0x09, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x15, 0x14],
+            &oid_to_bytes(&[1, 3, 6, 1, 4, 1, 311, 21, 20])
+        );
+    }
+
+    #[test]
+    fn base128_test() {
+        fn encode(n: u32) -> Vec<u8> {
+            let enc = self::Encoder::new(EncoderOptions::ber());
+            let mut buffer: Vec<u8> = vec![];
+            enc.encode_as_base128(n, &mut buffer);
+            buffer
+        }
+
+        assert_eq!(&vec![0x0], &encode(0x0));
+        assert_eq!(&vec![0x7F], &encode(0x7F));
+        assert_eq!(&vec![0x81, 0x00], &encode(0x80));
+        assert_eq!(&vec![0xC0, 0x00], &encode(0x2000));
+        assert_eq!(&vec![0xFF, 0x7F], &encode(0x3FFF));
+        assert_eq!(&vec![0x81, 0x80, 0x00], &encode(0x4000));
+        assert_eq!(&vec![0xFF, 0xFF, 0x7F], &encode(0x001FFFFF));
+        assert_eq!(&vec![0x81, 0x80, 0x80, 0x00], &encode(0x00200000));
+        assert_eq!(&vec![0xC0, 0x80, 0x80, 0x00], &encode(0x08000000));
+        assert_eq!(&vec![0xFF, 0xFF, 0xFF, 0x7F], &encode(0x0FFFFFFF));
     }
 }
