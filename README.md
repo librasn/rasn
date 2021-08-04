@@ -66,36 +66,39 @@ struct Person {
 When modelling an ASN.1 data type, there are three traits we'll need to implement. `Decode` and `Encode` for converting to and from encoding rules, and the shared `AsnType` trait; which defines some associated data needed to be given to the encoder and decoder. Currently the only thing we have define is the tag to use to identify our type.
 
 ```rust
+# struct Person;
 use rasn::{AsnType, Tag};
 
 impl AsnType for Person {
     // Default tag for sequences.
     const TAG: Tag = Tag::SEQUENCE;
-} 
+}
 ```
 
 Next is the `Decode` and `Encode` traits. These are mirrors of each other and both have one provided method (`decode`/`encode`) and one required method (`decode_with_tag`/`encode_with_tag`). Since in ASN.1 nearly every type can be implicitly tagged allowing anyone to override the tag associated with the type, having `*_with_tag` as a required method requires the implementer to correctly handle this case, and the provided methods simply calls `*_with_tag` with the type's associated `AsnType::TAG`. Let's look at what the codec implementation of `Person` looks like.
 
 ```rust
-use rasn::{Decode, Decoder, Encode, Encoder, Tag};
+# struct Person { name: Utf8String, age: Integer }
+# impl rasn::AsnType for Person { const TAG: Tag = Tag::SEQUENCE; }
+use rasn::{Decode, Decoder, Encode, Encoder, Tag, types::{Integer, Utf8String}};
 
 impl Decode for Person {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        // Returns a decoder that contains the data inside the sequence.
-        let mut sequence = decoder.decode_sequence(tag)?;
-        let age = Integer::decode(&mut sequence)?;
-        let name = String::decode(&mut sequence)?;
-        
-        Ok(Self { age, name })
+        // Accepts a closure that decodes the contents of the sequence.
+        decoder.decode_sequence(tag, |decoder| {
+            let age = Integer::decode(decoder)?;
+            let name = Utf8String::decode(decoder)?;
+            Ok(Self { age, name })
+        })
     }
 }
 
 impl Encode for Person {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        // Creates another Encoder and calls your closure with it.
-        encoder.encode_sequence(tag, |sequence| {
-            self.age.encode(sequence)?;
-            self.name.encode(sequence)?;
+        // Accepts a closure that encodes the contents of the sequence.
+        encoder.encode_sequence(tag, |encoder| {
+            self.age.encode(encoder)?;
+            self.name.encode(encoder)?;
             Ok(())
         })?;
 
@@ -104,11 +107,11 @@ impl Encode for Person {
 }
 ```
 
-That's it!  We've just created a new ASN.1 that be encoded and decoded to BER, CER, and DER; and nowhere did we have to check the tag, the length, or whether the string was primitive or constructed encoded. All those nasty encoding rules details are completely abstracted away so your type only has handle how to map to and from ASN.1's data model. 
+That's it!  We've just created a new ASN.1 that be encoded and decoded to BER, CER, and DER; and nowhere did we have to check the tag, the length, or whether the string was primitive or constructed encoded. All those nasty encoding rules details are completely abstracted away so your type only has handle how to map to and from ASN.1's data model.
 
 With all the actual conversion code isolated to the codec implementations you can know that your model is always safe to use. The API has also been designed to prevent you from making common logic errors that can lead to invalid encoding. For example; if we look back our `Encode` implementation, and what if we forgot to use the encoder we were given in `encode_sequence` and tired to use the parent instead?
 
-```rust
+```text
 error[E0501]: cannot borrow `*encoder` as mutable because previous closure requires unique access
    --> tests/derive.rs:122:9
     |
@@ -144,7 +147,7 @@ So far we've shown how rasn's API takes steps to be safe and protect from accide
 
 Included with rasn is a set of derive macros that enable you to have your ASN.1 model implementation implemented declaratively. The `Encode` and `Decode` macros will essentially auto-generate the implementations we showed earlier, but the real magic is the `AsnType` derive macro. Thanks to the `static-assertations` crate and recent developments in `const fn`; the `AsnType` derive will not only generate your `AsnType` implementation, it will also generate a check that asserts that every field or variant has a distinct tag at *compile-time*. This means now if for some reason we made a change to one of the types in person, we don't have re-check that our model is still valid, the compiler takes care of that for us.
 
-```rust
+```rust,no_compile
 // Invalid
 #[derive(rasn::AsnType)]
 struct Person {
@@ -155,7 +158,7 @@ struct Person {
 
 We'll now get the following error trying to compile the above definition.
 
-```
+```text
 error[E0080]: evaluation of constant value failed
   --> tests/derive.rs:80:14
    |
@@ -166,13 +169,14 @@ error[E0080]: evaluation of constant value failed
 ```
 
 While not the most obvious error message at the moment, validating your model at compile-time enables you to work on ASN.1 code without fear that you're unintentionally changing something in the background. I bet you're wondering now though, how we are supposed to have a struct with two strings for fields? The answer is thankfully pretty simple, you just add `#[rasn(tag)]` attribute to override the tags of one or more of the types. However we can actually go further, because in ASN.1 there's the concept of having `AUTOMATIC TAGS` which essentially tells your ASN.1 compiler to automatically generate distinct tags for your ASN.1 definition. Now with rasn you can do that in Rust! Applying `#[rasn(automatic_tags)]` to the container  automatically generate tags will apply the same automatic tagging transformation you'd expect from an ASN.1 compiler.
+
 ```rust
 use rasn::AsnType;
 
 // Valid
 #[derive(AsnType)]
 struct Person {
-    #[rasn(tag(context, 0)] // or just #[rasn(tag(0))]
+    #[rasn(tag(context, 0))] // or just #[rasn(tag(0))]
     age: Option<String>,
     name: Option<String>,
 }
@@ -180,7 +184,7 @@ struct Person {
 // Also valid
 #[derive(AsnType)]
 #[rasn(automatic_tags)]
-struct Person {
+struct Person2 {
     age: Option<String>,
     name: Option<String>,
 }
@@ -190,4 +194,4 @@ struct Person {
 While rasn is starting out relatively full featured, there are still plenty of missing features and types. The main limitation that exists currently, is the lack of support for constraints. In ASN.1 you can arbitrarily put constraints on types (e.g. array always of length 4, or a number between 1–10). There are encoding rules that take advantage of these constraints to save space, and you can't currently you can't communicate those constraints to a codec in a safe abstract fashion. So this means for example you wouldn't be able to implement a Packed Encoding Rules (PER) codec that handles constraints correctly. I want to eventually support constraints and PER directly, but it still requires a lot of design work to be thought through first.
 
 ## Disclaimer
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIM ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANT-ABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTUOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+The software is provided "as is" and the authors disclaim all warranties with regard to this software including all implied warranties of merchant-ability and fitness. In no event shall the authors be liable for any special, direct, indirect, or consequential damages or any damages whatsoever resulting from loss of use, data or profits, whether in an action of contract, negligence or other tortuous action, arising out of or in connection with the use or performance of this software.

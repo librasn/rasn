@@ -133,7 +133,7 @@ pub fn derive_enum_impl(
                     if v.fields.len() != 1 {
                         panic!("Tuple struct variants should contain only a single element.");
                     }
-                    if config.automatic_tagging || variant_config.tag.is_some() {
+                    if config.automatic_tags || variant_config.tag.is_some() {
                         let ty = v.fields.iter().next().unwrap();
                         quote! {
                             let result = if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
@@ -154,7 +154,7 @@ pub fn derive_enum_impl(
                     let decode_fields = v.fields.iter().map(|f| {
                         let field_config = FieldConfig::new(&f, config);
                         let ident = f.ident.as_ref().map(|i| quote!(#i :));
-                        if config.automatic_tagging || field_config.tag.is_some() {
+                        if config.automatic_tags || field_config.tag.is_some() {
                             quote!(#ident <_>::decode_with_tag(decoder, #variant_tag)?)
                         } else {
                             quote!(#ident <_>::decode(decoder)?)

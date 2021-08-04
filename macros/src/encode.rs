@@ -17,7 +17,7 @@ pub fn derive_struct_impl(
             .map(|name| quote!(#name))
             .unwrap_or_else(|| quote!(#i));
 
-        if field_config.tag.is_some() || config.automatic_tagging {
+        if field_config.tag.is_some() || config.automatic_tags {
             list.push(proc_macro2::TokenStream::from(
                 quote!(self.#field.encode_with_tag(encoder, #tag)?;),
             ));
@@ -137,7 +137,7 @@ pub fn derive_enum_impl(
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
-                    if variant_config.tag.is_some() || config.automatic_tagging {
+                    if variant_config.tag.is_some() || config.automatic_tags {
                         let ty = v.fields.iter().next().unwrap();
                         quote! {
                             #name::#ident(value) => {
