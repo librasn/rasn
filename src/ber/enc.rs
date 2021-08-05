@@ -396,6 +396,12 @@ mod tests {
             &vec![0x06, 0x09, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x15, 0x14],
             &oid_to_bytes(&[1, 3, 6, 1, 4, 1, 311, 21, 20])
         );
+
+        // commonName (X.520 DN component)
+        assert_eq!(
+            &vec![0x06, 0x03, 0x55, 0x04, 0x03],
+            &oid_to_bytes(&[2, 5, 4, 3])
+        );
     }
 
     #[test]
