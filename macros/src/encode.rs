@@ -7,33 +7,9 @@ pub fn derive_struct_impl(
     config: &Config,
 ) -> proc_macro2::TokenStream {
     let crate_root = &config.crate_root;
-    let mut list = vec![];
-
-    for (i, field) in container.fields.iter().enumerate() {
-        let field_config = FieldConfig::new(field, config);
-        let tag = field_config.tag(i);
-        let i = syn::Index::from(i);
-        let ty = &field.ty;
-        let field = field
-            .ident
-            .as_ref()
-            .map(|name| quote!(#name))
-            .unwrap_or_else(|| quote!(#i));
-
-        if field_config.tag.is_some() || config.automatic_tags {
-            list.push(proc_macro2::TokenStream::from(
-                quote!(if <#ty as #crate_root::AsnType>::TAG.is_choice() {
-                    encoder.encode_explicit_prefix(#tag, &self.#field)?;
-                } else {
-                    self.#field.encode_with_tag(encoder, #tag)?;
-                })
-            ));
-        } else {
-            list.push(proc_macro2::TokenStream::from(
-                quote!(self.#field.encode(encoder)?;),
-            ));
-        }
-    }
+    let list = container.fields.iter().enumerate().map(|(i, f)| {
+        FieldConfig::new(&f, config).encode(true, i)
+    });
 
     for param in generics.type_params_mut() {
         param.colon_token = Some(Default::default());
@@ -120,15 +96,8 @@ pub fn derive_enum_impl(
                         quote!(#ident)
                     });
 
-                    let fields = v.fields.iter().map(|f| {
-                        let field_config = FieldConfig::new(&f, config);
-                        let ident = f.ident.as_ref().unwrap();
-                        if field_config.tag.is_some() {
-                            let tag = field_config.tag(i);
-                            quote!(#crate_root::Encode::encode_with_tag(#ident, encoder, #tag)?;)
-                        } else {
-                            quote!(#crate_root::Encode::encode(#ident, encoder)?;)
-                        }
+                    let fields = v.fields.iter().enumerate().map(|(i, f)| {
+                        FieldConfig::new(&f, config).encode(false, i)
                     });
 
                     quote!(#name::#ident { #(#idents),* } => {
