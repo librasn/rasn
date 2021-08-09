@@ -295,26 +295,6 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
-    pub fn encode(&self, this: bool, context: usize) -> proc_macro2::TokenStream {
-        let crate_root = &self.container_config.crate_root;
-        let this = this.then(|| quote!(self.));
-        let ident = &self.field.ident;
-        let tag = self.tag(context);
-
-        if self.tag.is_some() || self.container_config.automatic_tags {
-            let ty = &self.field.ty;
-            quote! {
-                if <#ty as #crate_root::AsnType>::TAG.is_choice() {
-                    encoder.encode_explicit_prefix(#tag, &#this #ident).map(drop)?;
-                } else {
-                    #crate_root::Encode::encode_with_tag(&#this #ident, encoder, #tag).map(drop)?;
-                }
-            }
-        } else {
-            quote!(#crate_root::Encode::encode(&#this #ident, encoder).map(drop)?;)
-        }
-    }
-
     pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         if let Some(Tag { class, value }) = &self.tag {
