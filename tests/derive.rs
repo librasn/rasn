@@ -41,7 +41,6 @@ fn choice() {
 
     #[derive(AsnType, Clone, Debug, Encode, Decode, PartialEq)]
     struct ChoiceField {
-        #[rasn(choice)]
         choice: VecChoice,
     }
 

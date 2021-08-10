@@ -56,7 +56,6 @@ pub struct BulkPdu {
 #[derive(AsnType, Debug, Clone, Decode, Encode)]
 pub struct VarBind {
     pub name: ObjectName,
-    #[rasn(choice)]
     pub value: VarBindValue,
 }
 

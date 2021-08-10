@@ -16,12 +16,17 @@ pub trait Decode: Sized + AsnType {
     /// The default implementation will call `Decode::decode_with_tag` with
     /// your types associated `AsnType::TAG`. You should only ever need to
     /// implement this if you have a type that *cannot* be implicitly tagged,
-    /// such as a `CHOICE` type.
+    /// such as a `CHOICE` type, which case you want to implement the decoding
+    /// in `decode`.
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
         Self::decode_with_tag(decoder, Self::TAG)
     }
 
     /// Decode this value implicitly tagged with `tag` from a given ASN.1 decoder.
+    ///
+    /// **Note** For `CHOICE` and other types that cannot be implicitly tagged
+    /// this will **explicitly tag** the value, for all other types, it will
+    /// **implicitly** tag the value.
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error>;
 }
 
