@@ -8,7 +8,7 @@ pub struct Config {
     pub crate_root: Path,
     pub enumerated: bool,
     pub choice: bool,
-    pub automatic_tagging: bool,
+    pub automatic_tags: bool,
     pub option_type: OptionalEnum,
     pub delegate: bool,
     pub tag: Option<Tag>,
@@ -19,7 +19,7 @@ impl Config {
         let mut choice = false;
         let mut crate_root = None;
         let mut enumerated = false;
-        let mut automatic_tagging = false;
+        let mut automatic_tags = false;
         let mut tag = None;
         let mut option = None;
         let mut delegate = false;
@@ -48,8 +48,8 @@ impl Config {
                     enumerated = true;
                 } else if path.is_ident("choice") {
                     choice = true;
-                } else if path.is_ident("automatic_tagging") {
-                    automatic_tagging = true;
+                } else if path.is_ident("automatic_tags") {
+                    automatic_tags = true;
                 } else if path.is_ident("option_type") {
                     if let syn::Meta::List(list) = item {
                         let filter_into_paths = |nm: &_| match nm {
@@ -131,7 +131,7 @@ impl Config {
         };
 
         Self {
-            automatic_tagging,
+            automatic_tags,
             choice,
             enumerated,
             tag,
@@ -201,7 +201,7 @@ impl<'a> VariantConfig<'a> {
         let crate_root = &self.container_config.crate_root;
         if let Some(Tag { class, value }) = &self.tag {
             quote!(#crate_root::Tag::new(#class, #value))
-        } else if self.container_config.automatic_tagging {
+        } else if self.container_config.automatic_tags {
             quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
         } else {
             Tag::from_fields(&self.variant.fields, crate_root)
@@ -210,7 +210,7 @@ impl<'a> VariantConfig<'a> {
 
     pub fn tag_tree(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
-        if self.tag.is_some() || self.container_config.automatic_tagging {
+        if self.tag.is_some() || self.container_config.automatic_tags {
             let tag = self.tag(context);
             quote!(#crate_root::TagTree::Leaf(#tag),)
         } else {
@@ -298,11 +298,11 @@ impl<'a> FieldConfig<'a> {
     pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         if let Some(Tag { class, value }) = &self.tag {
-            if self.container_config.automatic_tagging {
-                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tagging)]`")
+            if self.container_config.automatic_tags {
+                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
             }
             quote!(#crate_root::Tag::new(#class, #value))
-        } else if self.container_config.automatic_tagging {
+        } else if self.container_config.automatic_tags {
             quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
         } else {
             let ty = &self.field.ty;
@@ -315,11 +315,11 @@ impl<'a> FieldConfig<'a> {
         let ty = &self.field.ty;
 
         if let Some(Tag { class, value }) = &self.tag {
-            if self.container_config.automatic_tagging {
-                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tagging)]`")
+            if self.container_config.automatic_tags {
+                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
             }
             quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#class, #value)))
-        } else if self.container_config.automatic_tagging {
+        } else if self.container_config.automatic_tags {
             quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32)))
         } else {
             self.container_config.tag_tree_for_ty(ty)

@@ -6,20 +6,27 @@ pub fn derive_struct_impl(
     container: syn::DataStruct,
     config: &Config,
 ) -> proc_macro2::TokenStream {
+    let crate_root = &config.crate_root;
     let mut list = vec![];
+
     for (i, field) in container.fields.iter().enumerate() {
         let field_config = FieldConfig::new(field, config);
         let tag = field_config.tag(i);
         let i = syn::Index::from(i);
+        let ty = &field.ty;
         let field = field
             .ident
             .as_ref()
             .map(|name| quote!(#name))
             .unwrap_or_else(|| quote!(#i));
 
-        if field_config.tag.is_some() || config.automatic_tagging {
+        if field_config.tag.is_some() || config.automatic_tags {
             list.push(proc_macro2::TokenStream::from(
-                quote!(self.#field.encode_with_tag(encoder, #tag)?;),
+                quote!(if <#ty as #crate_root::AsnType>::TAG.is_choice() {
+                    encoder.encode_explicit_prefix(#tag, &self.#field)?;
+                } else {
+                    self.#field.encode_with_tag(encoder, #tag)?;
+                })
             ));
         } else {
             list.push(proc_macro2::TokenStream::from(
@@ -27,8 +34,6 @@ pub fn derive_struct_impl(
             ));
         }
     }
-
-    let crate_root = &config.crate_root;
 
     for param in generics.type_params_mut() {
         param.colon_token = Some(Default::default());
@@ -92,13 +97,8 @@ pub fn derive_enum_impl(
             encoder.encode_enumerated(tag, *self as isize).map(drop)
         }
     } else {
-        let error = format!(
-            "Encoding field of type `{}`: {}",
-            name.to_string(),
-            crate::CHOICE_ERROR_MESSAGE
-        );
         quote! {
-            Err::<(), _>(#crate_root::enc::Error::custom(#error))
+            encoder.encode_explicit_prefix(tag, self).map(drop)
         }
     };
 
@@ -137,11 +137,11 @@ pub fn derive_enum_impl(
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
-                    if variant_config.tag.is_some() || config.automatic_tagging {
+                    if variant_config.tag.is_some() || config.automatic_tags {
                         let ty = v.fields.iter().next().unwrap();
                         quote! {
                             #name::#ident(value) => {
-                                if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
+                                if <#ty as #crate_root::AsnType>::TAG.is_choice() {
                                     encoder.encode_explicit_prefix(#variant_tag, value).map(drop)
                                 } else {
                                     #crate_root::Encode::encode_with_tag(value, encoder, #variant_tag).map(drop)

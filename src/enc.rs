@@ -12,12 +12,17 @@ pub trait Encode: AsnType {
     /// The default implementation will call `Encode::encode_with_tag` with
     /// your types associated `AsnType::TAG`. You should only ever need to
     /// implement this if you have a type that *cannot* be implicitly tagged,
-    /// such as a `CHOICE` type.
+    /// such as a `CHOICE` type, in which case you want to implement encoding
+    /// in `encode`.
     fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.encode_with_tag(encoder, Self::TAG)
     }
 
-    /// Encode this value implicitly tagged with `tag` into the given `Decoder`.
+    /// Encode this value with `tag` into the given `Encoder`.
+    ///
+    /// **Note** For `CHOICE` and other types that cannot be implicitly tagged
+    /// this will **explicitly tag** the value, for all other types, it will
+    /// **implicitly** tag the value.
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error>;
 }
 

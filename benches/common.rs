@@ -15,7 +15,6 @@ pub struct Bench {
     j: Vec<()>,
     // k: Set
     // l: SetOf<()>,
-    #[rasn(choice)]
     m: BenchChoice,
     n: Utf8String,
     o: UtcTime,

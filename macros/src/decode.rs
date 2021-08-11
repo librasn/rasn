@@ -23,13 +23,23 @@ pub fn derive_struct_impl(
         };
         let tag = field_config.tag(i);
 
-        list.push(quote! {
-            #lhs if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
-                <_>::decode(decoder)
-            } else {
-                <_>::decode_with_tag(decoder, #tag)
-            } #or_else
-        });
+        if field_config.tag.is_some() {
+            list.push(quote! {
+                #lhs if <#ty as #crate_root::AsnType>::TAG.is_choice() {
+                    decoder.decode_explicit_prefix(#tag)
+                } else {
+                    <_>::decode_with_tag(decoder, #tag)
+                } #or_else
+            });
+        } else {
+            list.push(quote! {
+                #lhs if <#ty as #crate_root::AsnType>::TAG.is_choice() {
+                    <_>::decode(decoder)
+                } else {
+                    <_>::decode_with_tag(decoder, #tag)
+                } #or_else
+            });
+        }
     }
 
     let fields = match container.fields {
@@ -111,14 +121,8 @@ pub fn derive_enum_impl(
 
         }
     } else {
-        let error = format!(
-            "Decoding field of type `{}`: {}",
-            name.to_string(),
-            crate::CHOICE_ERROR_MESSAGE
-        );
-
         quote! {
-            Err(#crate_root::de::Error::custom(#error))
+            decoder.decode_explicit_prefix(tag)
         }
     };
 
@@ -133,7 +137,7 @@ pub fn derive_enum_impl(
                     if v.fields.len() != 1 {
                         panic!("Tuple struct variants should contain only a single element.");
                     }
-                    if config.automatic_tagging || variant_config.tag.is_some() {
+                    if config.automatic_tags || variant_config.tag.is_some() {
                         let ty = v.fields.iter().next().unwrap();
                         quote! {
                             let result = if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
@@ -154,7 +158,7 @@ pub fn derive_enum_impl(
                     let decode_fields = v.fields.iter().map(|f| {
                         let field_config = FieldConfig::new(&f, config);
                         let ident = f.ident.as_ref().map(|i| quote!(#i :));
-                        if config.automatic_tagging || field_config.tag.is_some() {
+                        if config.automatic_tags || field_config.tag.is_some() {
                             quote!(#ident <_>::decode_with_tag(decoder, #variant_tag)?)
                         } else {
                             quote!(#ident <_>::decode(decoder)?)
