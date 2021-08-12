@@ -4,7 +4,7 @@
 //! ASN.1's terminology.
 
 mod instance;
-mod oid;
+pub(crate) mod oid;
 mod open;
 mod prefix;
 mod tag;
@@ -34,7 +34,7 @@ pub type PrintableString = Implicit<tag::PRINTABLE_STRING, Utf8String>;
 pub type VisibleString = Implicit<tag::VISIBLE_STRING, Utf8String>;
 ///  `String` alias that matches `BmpString` BER's encoding rules.
 pub type BmpString = Implicit<tag::BMP_STRING, Utf8String>;
-///  Alias to `Vec<T>`.
+///  Alias to `alloc::collections::BTreeSet<T>`.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
 ///  `UniversalString` string alias that matches BER's encoding rules.
 pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;

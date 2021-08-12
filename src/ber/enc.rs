@@ -5,7 +5,11 @@ use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
 
 use super::Identifier;
 use crate::{
-    types::{self, Tag},
+    types::{
+        self,
+        oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
+        Tag,
+    },
     Encode,
 };
 
@@ -246,11 +250,11 @@ impl crate::Encoder for Encoder {
         let first = oid[0];
         let second = oid[1];
 
-        if first > 2 {
+        if first > MAX_OID_FIRST_OCTET || second > MAX_OID_SECOND_OCTET {
             return Err(error::Error::InvalidObjectIdentifier);
         }
 
-        self.encode_seven_bit_integer((first * 40) + second, &mut bytes);
+        self.encode_seven_bit_integer((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
 
         for component in oid.iter().skip(2) {
             self.encode_as_base128(*component, &mut bytes);
