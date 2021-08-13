@@ -4,14 +4,14 @@ use crate::{AsnType, Tag};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Explicit<T, V> {
     _tag: core::marker::PhantomData<T>,
-    pub(crate) value: V,
+    pub value: V,
 }
 
 /// A newtype wrapper that will implicitly tag its value with `T`'s tag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Implicit<T, V> {
     _tag: core::marker::PhantomData<T>,
-    pub(crate) value: V,
+    pub value: V,
 }
 
 macro_rules! tag_kind {
