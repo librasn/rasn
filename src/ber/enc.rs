@@ -2,7 +2,7 @@ mod config;
 mod error;
 
 use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
-use alloc::vec;
+
 use super::Identifier;
 use crate::{
     types::{
@@ -327,6 +327,7 @@ impl crate::Encoder for Encoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
     #[derive(Clone, Copy, Hash, Debug, PartialEq)]
     struct C0;
