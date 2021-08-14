@@ -137,10 +137,8 @@ mod tests {
 
         assert_eq!(iso.clone(), decode(&encode(&iso).unwrap()).unwrap());
         assert_eq!(us_ansi.clone(), decode(&encode(&us_ansi).unwrap()).unwrap());
-        let bytes = encode(&pkcs).unwrap();
-        assert_eq!(pkcs.clone(), decode(&bytes).unwrap());
-
         assert_eq!(rsa.clone(), decode(&encode(&rsa).unwrap()).unwrap());
+        assert_eq!(pkcs.clone(), decode(&encode(&pkcs).unwrap()).unwrap());
         assert_eq!(random.clone(), decode(&encode(&random).unwrap()).unwrap());
     }
 

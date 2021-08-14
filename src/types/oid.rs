@@ -1,8 +1,11 @@
 use alloc::vec::Vec;
 use core::ops;
 
+pub(crate) const MAX_OID_FIRST_OCTET: u32 = 2;
+pub(crate) const MAX_OID_SECOND_OCTET: u32 = 39;
+
 const fn is_valid_oid(slice: &[u32]) -> bool {
-    slice.len() >= 2 && slice[0] < 2
+    slice.len() >= 2 && slice[0] <= MAX_OID_FIRST_OCTET && slice[1] <= MAX_OID_SECOND_OCTET
 }
 
 /// A temporary workaround for [`Oid`] not currently being `const` compatible.
@@ -48,7 +51,6 @@ impl PartialEq<Oid> for ConstOid {
 pub struct Oid([u32]);
 
 impl Oid {
-
     /// Creates a new reference to a object identifier from `slice`.
     ///
     /// Returns `None` if `vec` contains less than two components or the first

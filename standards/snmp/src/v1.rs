@@ -116,7 +116,7 @@ mod tests {
                     // OID -> Trap::enterprise
                     0x06, 0x0c,
                         // 1.3.6.1.4.1.11779.1.42.3.7.8
-                        0x2b, 0x06, 0x01, 0x04, 0x01, 0x83, 0x5c, 0x01,
+                        0x2b, 0x06, 0x01, 0x04, 0x01, 0xDC, 0x03, 0x01,
                         0x2a, 0x03, 0x07, 0x08,
                     // OCTET STRING -> Trap::agent_addr 
                     0x40, 0x04,
@@ -149,7 +149,7 @@ mod tests {
                             // OID -> VarBind::name
                             0x06, 0x0c,
                                 // 1.3.6.1.4.1.11779.1.42.2.1.7
-                                0x2b, 0x06, 0x01, 0x04, 0x01, 0x83, 0x5c, 0x01,
+                                0x2b, 0x06, 0x01, 0x04, 0x01, 0xDC, 0x03, 0x01,
                                 0x2a, 0x02, 0x01, 0x07,
                             // application tag 2 -> Gauge
                             0x42, 0x01,

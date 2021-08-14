@@ -171,7 +171,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let mut buffer = alloc::vec![first, second];
 
         while !contents.is_empty() {
-            let (c, number) = parser::parse_encoded_number(contents).map_err(error::map_nom_err)?;
+            let (c, number) = parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
             contents = c;
             buffer.push(
                 number
