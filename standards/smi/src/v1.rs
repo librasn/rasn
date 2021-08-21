@@ -16,14 +16,14 @@ pub const ENTERPRISES: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_
 
 pub type ObjectName = ObjectIdentifier;
 
-#[derive(Debug, Clone, AsnType, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum ObjectSyntax {
     Simple(SimpleSyntax),
     ApplicationWide(ApplicationSyntax),
 }
 
-#[derive(Debug, Clone, AsnType, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum SimpleSyntax {
     Number(Integer),
@@ -32,7 +32,7 @@ pub enum SimpleSyntax {
     Empty,
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum ApplicationSyntax {
     Address(NetworkAddress),
@@ -42,25 +42,25 @@ pub enum ApplicationSyntax {
     Arbitrary(Opaque),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, AsnType, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum NetworkAddress {
     Internet(IpAddress),
 }
 
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Hash, Eq, Ord)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(delegate, tag(application, 0))]
 pub struct IpAddress(pub OctetString);
 
-#[derive(AsnType, Encode, Decode, Debug, Clone, Copy, PartialEq, PartialOrd, Hash, Eq, Ord)]
+#[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(delegate, tag(application, 1))]
 pub struct Counter(pub u32);
 
-#[derive(AsnType, Encode, Decode, Debug, Clone, Copy, PartialEq, PartialOrd, Hash, Eq, Ord)]
+#[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(delegate, tag(application, 2))]
 pub struct Gauge(pub u32);
 
-#[derive(AsnType, Encode, Decode, Debug, Clone, Copy, PartialEq, PartialOrd, Hash, Eq, Ord)]
+#[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(delegate, tag(application, 3))]
 pub struct TimeTicks(pub u32);
 

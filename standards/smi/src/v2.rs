@@ -46,13 +46,13 @@ pub const SNMP_MODULES: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET
 const FULL_DATE_FORMAT: &str = "%Y%m%d%H%MZ";
 const SHORT_DATE_FORMAT: &str = "%y%m%d%H%MZ";
 
-#[derive(Debug, Clone, AsnType, Decode, Encode, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum ObjectSyntax {
     Simple(SimpleSyntax),
     ApplicationWide(ApplicationSyntax),
 }
-#[derive(Debug, Clone, AsnType, Decode, Encode, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum SimpleSyntax {
     Integer(Integer),
@@ -60,7 +60,7 @@ pub enum SimpleSyntax {
     ObjectId(ObjectIdentifier),
 }
 
-#[derive(Debug, Clone, AsnType, Decode, Encode, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum ApplicationSyntax {
     Address(IpAddress),
@@ -71,7 +71,7 @@ pub enum ApplicationSyntax {
     Unsigned(Unsigned32),
 }
 
-#[derive(AsnType, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(universal, 4))]
 pub struct ExtUtcTime(pub chrono::DateTime<chrono::Utc>);
 

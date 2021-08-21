@@ -6,7 +6,7 @@ use rasn::{
 };
 use smi::v1::{NetworkAddress, ObjectName, ObjectSyntax, TimeTicks};
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Message<T> {
     pub version: Integer,
     pub community: OctetString,
@@ -17,7 +17,7 @@ impl<T> Message<T> {
     pub const VERSION_1: u64 = 0;
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum Pdus {
     GetRequest(GetRequest),
@@ -27,29 +27,29 @@ pub enum Pdus {
     Trap(Trap),
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(0))]
 #[rasn(delegate)]
 pub struct GetRequest(pub Pdu);
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(1))]
 #[rasn(delegate)]
 pub struct GetNextRequest(pub Pdu);
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(2))]
 #[rasn(delegate)]
 pub struct GetResponse(pub Pdu);
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(3))]
 #[rasn(delegate)]
 pub struct SetRequest(pub Pdu);
 
 pub type VarBindList = alloc::vec::Vec<VarBind>;
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Pdu {
     pub request_id: Integer,
     pub error_status: Integer,
@@ -66,7 +66,7 @@ impl Pdu {
     pub const ERROR_STATUS_GEN_ERR: u64 = 5;
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(context, 4))]
 pub struct Trap {
     pub enterprise: ObjectIdentifier,
@@ -77,7 +77,7 @@ pub struct Trap {
     pub variable_bindings: VarBindList,
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct VarBind {
     pub name: ObjectName,
     pub value: ObjectSyntax,

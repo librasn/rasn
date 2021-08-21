@@ -10,7 +10,7 @@ pub type Response = crate::v1::GetResponse;
 pub type SetRequest = crate::v1::SetRequest;
 pub type VarBindList = alloc::vec::Vec<VarBind>;
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum Pdus {
     GetRequest(GetRequest),
@@ -22,22 +22,22 @@ pub enum Pdus {
     Trap(Trap),
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(5))]
 #[rasn(delegate)]
 pub struct GetBulkRequest(pub BulkPdu);
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(6))]
 #[rasn(delegate)]
 pub struct InformRequest(pub Pdu);
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(7))]
 #[rasn(delegate)]
 pub struct Trap(pub Pdu);
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Pdu {
     pub request_id: i32,
     pub error_status: Integer,
@@ -45,7 +45,7 @@ pub struct Pdu {
     pub variable_bindings: VarBindList,
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct BulkPdu {
     pub request_id: i32,
     pub non_repeaters: u32,
@@ -53,13 +53,13 @@ pub struct BulkPdu {
     pub variable_bindings: VarBindList,
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct VarBind {
     pub name: ObjectName,
     pub value: VarBindValue,
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum VarBindValue {
     Value(ObjectSyntax),
