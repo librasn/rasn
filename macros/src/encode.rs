@@ -137,19 +137,16 @@ pub fn derive_enum_impl(
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
-                    if variant_config.tag.is_some() || config.automatic_tags {
-                        let ty = v.fields.iter().next().unwrap();
-                        quote! {
-                            #name::#ident(value) => {
-                                if <#ty as #crate_root::AsnType>::TAG.is_choice() {
-                                    encoder.encode_explicit_prefix(#variant_tag, value).map(drop)
-                                } else {
-                                    #crate_root::Encode::encode_with_tag(value, encoder, #variant_tag).map(drop)
-                                }
-                            }
-                        }
+                    let encode_operation = if variant_config.tag.is_some() || config.automatic_tags {
+                        quote!(#crate_root::Encode::encode_with_tag(value, encoder, #variant_tag))
                     } else {
-                        quote!(#name::#ident(value) => { #crate_root::Encode::encode(value, encoder).map(drop) })
+                        quote!(#crate_root::Encode::encode(value, encoder))
+                    };
+
+                    quote! {
+                        #name::#ident(value) => {
+                            #encode_operation.map(drop)
+                        }
                     }
                 }
                 syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(#variant_tag).map(drop) }),

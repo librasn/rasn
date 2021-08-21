@@ -57,20 +57,10 @@ impl<'input> Decoder<'input> {
             None => error::IndefiniteLengthNotAllowed.fail(),
         }
     }
-
-    pub(crate) fn peek_identifier(&self) -> Result<Identifier> {
-        let (_, identifier) =
-            self::parser::parse_identifier_octet(self.input).map_err(error::map_nom_err)?;
-        Ok(identifier)
-    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
     type Error = Error;
-
-    fn peek_tag(&self) -> Result<Tag> {
-        Ok(self.peek_identifier()?.tag)
-    }
 
     fn decode_any(&mut self, tag: Tag) -> Result<Vec<u8>> {
         let (input, (_, contents)) = self::parser::parse_value(&self.config, self.input, tag)?;

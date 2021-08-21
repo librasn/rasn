@@ -174,18 +174,6 @@ mod tests {
     }
 
     #[test]
-    fn explicit_empty_tag() {
-        use crate::types::Explicit;
-        type EmptyTag = Explicit<C0, Option<()>>;
-
-        let value = EmptyTag::new(None::<()>);
-        let data = &[0x80, 0][..];
-
-        assert_eq!(data, &*crate::ber::encode(&value).unwrap());
-        assert_eq!(value, crate::ber::decode::<EmptyTag>(data).unwrap());
-    }
-
-    #[test]
     fn implicit_tagged_constructed() {
         use crate::types::Implicit;
         type ImpVec = Implicit<C0, Vec<i32>>;

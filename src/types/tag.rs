@@ -205,7 +205,7 @@ impl TagTree {
     }
 
     /// Whether `needle` matches any `Leaf`s in `nodes`.
-    const fn tag_contains(needle: &Tag, nodes: &'static [TagTree]) -> bool {
+    pub(crate) const fn tag_contains(needle: &Tag, nodes: &'static [TagTree]) -> bool {
         let mut index = 0;
 
         while index < nodes.len() {

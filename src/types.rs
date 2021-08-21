@@ -96,6 +96,7 @@ asn_type! {
 
 impl<T: AsnType> AsnType for Box<T> {
     const TAG: Tag = T::TAG;
+    const TAG_TREE: TagTree = T::TAG_TREE;
 }
 
 impl<T: AsnType> AsnType for alloc::vec::Vec<T> {
@@ -104,6 +105,7 @@ impl<T: AsnType> AsnType for alloc::vec::Vec<T> {
 
 impl<T: AsnType> AsnType for Option<T> {
     const TAG: Tag = T::TAG;
+    const TAG_TREE: TagTree = T::TAG_TREE;
 }
 
 impl<T> AsnType for SetOf<T> {

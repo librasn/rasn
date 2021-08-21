@@ -106,11 +106,17 @@ impl Encode for () {
 }
 
 impl<E: Encode> Encode for Option<E> {
+    fn encode<EN: Encoder>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
+        match self {
+            Some(value) => E::encode(&value, encoder),
+            None => Ok(()),
+        }
+    }
+
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-        if let Some(inner) = &self {
-            Ok(Encode::encode_with_tag(inner, encoder, tag)?)
-        } else {
-            Ok(())
+        match self {
+            Some(value) => E::encode_with_tag(&value, encoder, tag),
+            None => Ok(()),
         }
     }
 }
@@ -199,6 +205,16 @@ impl Encode for types::UtcTime {
 impl Encode for types::GeneralizedTime {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         encoder.encode_generalized_time(tag, self).map(drop)
+    }
+}
+
+impl<E: Encode> Encode for alloc::boxed::Box<E> {
+    fn encode<EN: Encoder>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
+        E::encode(&*self, encoder)
+    }
+
+    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+        E::encode_with_tag(&*self, encoder, tag)
     }
 }
 

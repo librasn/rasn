@@ -132,26 +132,23 @@ pub fn derive_enum_impl(
             let variant_tag = variant_config.tag(i);
             let ident = &v.ident;
             match &v.fields {
-                syn::Fields::Unit => quote!(if let Ok(()) = decoder.decode_null(#variant_tag) { return Ok(#name::#ident) }),
+                syn::Fields::Unit => quote!(if let Ok(()) = <()>::decode_with_tag(decoder, #variant_tag) { return Ok(#name::#ident) }),
                 syn::Fields::Unnamed(_) => {
                     if v.fields.len() != 1 {
                         panic!("Tuple struct variants should contain only a single element.");
                     }
-                    if config.automatic_tags || variant_config.tag.is_some() {
-                        let ty = v.fields.iter().next().unwrap();
-                        quote! {
-                            let result = if <#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
-                                decoder.decode_explicit_prefix(#variant_tag).map(#name::#ident)
-                            } else {
-                                <_>::decode_with_tag(decoder, #variant_tag).map(#name::#ident)
-                            };
 
-                            if let Ok(value) = result {
-                                return Ok(value)
-                            }
-                        }
+                    let decode_operation = if config.automatic_tags || variant_config.tag.is_some() {
+                        quote!(<_>::decode_with_tag(decoder, #variant_tag))
                     } else {
-                        quote!(if let Ok(value) = <_>::decode(decoder).map(#name::#ident) { return Ok(value) })
+                        quote!(<_>::decode(decoder))
+                    };
+
+                    quote!{
+                        match #decode_operation.map(#name::#ident) {
+                            Ok(value) => return Ok(value),
+                            _ => {}
+                        }
                     }
                 },
                 syn::Fields::Named(_) => {
@@ -182,9 +179,10 @@ pub fn derive_enum_impl(
             "Decoding field of type `{}`: Invalid `CHOICE` discriminant.",
             name.to_string(),
         );
+
         Some(quote! {
             fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-                #(#variants)*
+                #(#variants);*
                 Err(#crate_root::de::Error::custom(#match_fail_error))
             }
         })
