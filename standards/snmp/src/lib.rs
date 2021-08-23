@@ -1,8 +1,8 @@
 //! # Simple Network Management Protocol
 //! `rasn-snmp` implementation of the protocol data types from IETF RFCs 1157,
-//! 1901, and 3416. This does not provide an implementation of an agent or proxy,
-//! but provides the data types needed to build your own agent or proxy
-//! implementation.
+//! 1901, 3412, and 3416. This does not provide an implementation of an agent
+//! or proxy, but provides the data types needed to build your own agent or
+//! proxy implementation.
 //!
 //! This library in combination with it's sibling crates [`rasn`], [`rasn-smi`],
 //! and [`rasn-mib`] allow you to decode, and encode SNMP protocol messages
@@ -38,3 +38,4 @@ extern crate alloc;
 pub mod v1;
 pub mod v2;
 pub mod v2c;
+pub mod v3;
