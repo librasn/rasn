@@ -13,7 +13,6 @@ pub fn derive_struct_impl(
         let field_config = FieldConfig::new(field, config);
         let tag = field_config.tag(i);
         let i = syn::Index::from(i);
-        let ty = &field.ty;
         let field = field
             .ident
             .as_ref()
@@ -22,11 +21,7 @@ pub fn derive_struct_impl(
 
         if field_config.tag.is_some() || config.automatic_tags {
             list.push(proc_macro2::TokenStream::from(
-                quote!(if <#ty as #crate_root::AsnType>::TAG.is_choice() {
-                    encoder.encode_explicit_prefix(#tag, &self.#field)?;
-                } else {
-                    self.#field.encode_with_tag(encoder, #tag)?;
-                })
+                quote!(self.#field.encode_with_tag(encoder, #tag)?;)
             ));
         } else {
             list.push(proc_macro2::TokenStream::from(

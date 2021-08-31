@@ -97,11 +97,11 @@ impl Decode for () {
 
 impl<D: Decode> Decode for Option<D> {
     fn decode<DE: Decoder>(decoder: &mut DE) -> Result<Self, DE::Error> {
-        D::decode(decoder).map(Some)
+        Ok(D::decode(decoder).ok())
     }
 
     fn decode_with_tag<DE: Decoder>(decoder: &mut DE, tag: Tag) -> Result<Self, DE::Error> {
-        D::decode_with_tag(decoder, tag).map(Some)
+        Ok(D::decode_with_tag(decoder, tag).ok())
     }
 }
 

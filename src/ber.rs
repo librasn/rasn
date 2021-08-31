@@ -184,4 +184,16 @@ mod tests {
         assert_eq!(data, &*crate::ber::encode(&value).unwrap());
         assert_eq!(value, crate::ber::decode::<ImpVec>(data).unwrap());
     }
+
+    #[test]
+     fn explicit_empty_tag() {
+         use crate::types::Explicit;
+         type EmptyTag = Explicit<C0, Option<()>>;
+
+         let value = EmptyTag::new(None::<()>);
+         let data = &[0x80, 0][..];
+
+         assert_eq!(data, &*crate::ber::encode(&value).unwrap());
+         assert_eq!(value, crate::ber::decode::<EmptyTag>(data).unwrap());
+     }
 }

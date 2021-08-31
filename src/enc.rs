@@ -108,14 +108,14 @@ impl Encode for () {
 impl<E: Encode> Encode for Option<E> {
     fn encode<EN: Encoder>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
         match self {
-            Some(value) => E::encode(&value, encoder),
+            Some(value) => value.encode(encoder),
             None => Ok(()),
         }
     }
 
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         match self {
-            Some(value) => E::encode_with_tag(&value, encoder, tag),
+            Some(value) => value.encode_with_tag(encoder, tag),
             None => Ok(()),
         }
     }
