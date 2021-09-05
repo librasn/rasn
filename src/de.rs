@@ -35,7 +35,7 @@ pub trait Decoder: Sized {
     type Error: Error;
 
     /// Decode a unknown ASN.1 value identified by `tag` from the available input.
-    fn decode_any(&mut self, tag: Tag) -> Result<Vec<u8>, Self::Error>;
+    fn decode_any(&mut self) -> Result<types::Any, Self::Error>;
     /// Decode a `BIT STRING` identified by `tag` from the available input.
     fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString, Self::Error>;
     /// Decode a `BOOL` identified by `tag` from the available input.
@@ -68,15 +68,6 @@ pub trait Decoder: Sized {
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime, Self::Error>;
     /// Decode a `GeneralizedTime` identified by `tag` from the available input.
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime, Self::Error>;
-
-    /// Decode a `OBJECT IDENTIFIER` identified by `tag` from the available input.
-    /// This is a specialisation of [`Self::decode_object_identifier`] for
-    /// formats where you can zero copy the input.
-    fn decode_oid<'de>(&'de mut self, _tag: Tag) -> Result<&'de types::Oid, Self::Error> {
-        Err(Self::Error::custom(
-            "This format does not support losslessly decoding object identifiers.",
-        ))
-    }
 }
 
 /// A generic error that can occur while decoding ASN.1.
@@ -188,6 +179,12 @@ impl Decode for types::UtcTime {
 impl Decode for types::GeneralizedTime {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_generalized_time(tag)
+    }
+}
+
+impl Decode for types::Any {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        decoder.decode_any()
     }
 }
 

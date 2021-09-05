@@ -43,14 +43,14 @@ impl<'input> Decoder<'input> {
 
     pub(crate) fn parse_value(&mut self, tag: Tag) -> Result<(Identifier, Option<&'input [u8]>)> {
         let (input, (identifier, contents)) =
-            self::parser::parse_value(&self.config, self.input, tag)?;
+            self::parser::parse_value(&self.config, self.input, Some(tag))?;
         self.input = input;
         Ok((identifier, contents))
     }
 
     pub(crate) fn parse_primitive_value(&mut self, tag: Tag) -> Result<(Identifier, &'input [u8])> {
         let (input, (identifier, contents)) =
-            self::parser::parse_value(&self.config, self.input, tag)?;
+            self::parser::parse_value(&self.config, self.input, Some(tag))?;
         self.input = input;
         match contents {
             Some(contents) => Ok((identifier, contents)),
@@ -62,14 +62,13 @@ impl<'input> Decoder<'input> {
 impl<'input> crate::Decoder for Decoder<'input> {
     type Error = Error;
 
-    fn decode_any(&mut self, tag: Tag) -> Result<Vec<u8>> {
-        let (input, (_, contents)) = self::parser::parse_value(&self.config, self.input, tag)?;
+    fn decode_any(&mut self) -> Result<types::Any> {
+        let (input, _) = self::parser::parse_value(&self.config, self.input, None)?;
+        let diff = self.input.len() - input.len();
+        let contents = &self.input[..diff];
         self.input = input;
 
-        Ok(match contents {
-            Some(c) => c.to_vec(),
-            None => input.to_vec(),
-        })
+        Ok(types::Any { contents: contents.to_vec() })
     }
 
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {

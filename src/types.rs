@@ -3,11 +3,12 @@
 //! are defined to represent various ASN.1 data types, and renamed to use
 //! ASN.1's terminology.
 
+mod any;
 mod instance;
-pub(crate) mod oid;
 mod open;
 mod prefix;
 mod tag;
+pub(crate) mod oid;
 
 use alloc::boxed::Box;
 
@@ -17,6 +18,7 @@ pub use ::{
 };
 
 pub use self::{
+    any::Any,
     instance::InstanceOf,
     oid::{ConstOid, ObjectIdentifier, Oid},
     open::Open,
@@ -118,4 +120,9 @@ impl<T: AsnType, const N: usize> AsnType for [T; N] {
 
 impl<T> AsnType for &'_ [T] {
     const TAG: Tag = Tag::SEQUENCE;
+}
+
+impl AsnType for Any {
+    const TAG: Tag = Tag::EOC;
+    const TAG_TREE: TagTree = TagTree::Choice(&[]);
 }

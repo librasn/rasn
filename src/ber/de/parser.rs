@@ -12,10 +12,14 @@ use crate::{
 pub(crate) fn parse_value<'config, 'input>(
     config: &'config DecoderOptions,
     input: &'input [u8],
-    tag: Tag,
+    tag: Option<Tag>,
 ) -> super::Result<(&'input [u8], (Identifier, Option<&'input [u8]>))> {
     let (input, identifier) = parse_identifier_octet(input).map_err(error::map_nom_err)?;
-    error::assert_tag(tag, identifier.tag)?;
+
+    if let Some(tag) = tag {
+        error::assert_tag(tag, identifier.tag)?;
+    }
+
     let (input, contents) =
         parse_contents(config, identifier, input).map_err(error::map_nom_err)?;
 
@@ -31,7 +35,7 @@ pub(crate) fn parse_encoded_value<'config, 'input, RV>(
 where
     RV: Appendable,
 {
-    let (input, (identifier, contents)) = parse_value(config, slice, tag)?;
+    let (input, (identifier, contents)) = parse_value(config, slice, Some(tag))?;
 
     if identifier.is_primitive() {
         Ok((input, (primitive_callback)(contents.unwrap())?))
@@ -238,7 +242,7 @@ mod tests {
         let (_, (_, contents)) = parse_value(
             &BER_OPTIONS,
             [0x1, 0x81, 0x2, 0xF0, 0xF0][..].into(),
-            Tag::BOOL,
+            Tag::BOOL.into(),
         )
         .unwrap();
 
@@ -252,7 +256,7 @@ mod tests {
         let mut value = alloc::vec![0x1, 0x82, 0x1, 0x0];
         value.extend_from_slice(&full_buffer);
 
-        let (_, (_, contents)) = parse_value(&BER_OPTIONS, (&*value).into(), Tag::BOOL).unwrap();
+        let (_, (_, contents)) = parse_value(&BER_OPTIONS, (&*value).into(), Tag::BOOL.into()).unwrap();
 
         assert_eq!(contents.unwrap(), &full_buffer[..]);
     }
@@ -260,8 +264,8 @@ mod tests {
     #[test]
     fn value_indefinite_length_form() {
         let bytes = [0x30, 0x80, 0xf0, 0xf0, 0xf0, 0xf0, 0, 0][..].into();
-        assert!(parse_value(&BER_OPTIONS, bytes, Tag::SEQUENCE).is_ok());
-        assert!(parse_value(&DER_OPTIONS, bytes, Tag::SEQUENCE).is_err());
-        assert!(parse_value(&CER_OPTIONS, bytes, Tag::SEQUENCE).is_ok());
+        assert!(parse_value(&BER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_ok());
+        assert!(parse_value(&DER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_err());
+        assert!(parse_value(&CER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_ok());
     }
 }
