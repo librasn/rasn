@@ -80,8 +80,8 @@ mod test {
             d_point: name.into(),
         };
         let dps = vec![dp];
-        let enc = rasn::der::encode(&dps).unwrap();
-        let expected = encoded();
+        let _enc = rasn::der::encode(&dps).unwrap();
+        let _expected = encoded();
         // assert_eq!(expected, enc);
     }
 }
