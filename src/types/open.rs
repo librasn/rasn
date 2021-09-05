@@ -10,7 +10,7 @@ pub enum Open {
     BmpString(BmpString),
     Bool(bool),
     GeneralizedTime(GeneralizedTime),
-    IA5String(IA5String),
+    Ia5String(Ia5String),
     Integer(Integer),
     Null,
     OctetString(OctetString),

@@ -5,11 +5,11 @@ use rasn::{de::Decode, types::*, *};
 pub enum GeneralName {
     //Rfc822Name(Ia5String),
     #[rasn(tag(context, 2))]
-    DnsName(IA5String),
+    DnsName(Ia5String),
     //DirectoryName(Name),
     //EdiPartyName(EdiPartyName),
     #[rasn(tag(context, 6))]
-    Uri(IA5String),
+    Uri(Ia5String),
     //IpAddress(OctetString),
     //RegisteredId(Oid),
 }

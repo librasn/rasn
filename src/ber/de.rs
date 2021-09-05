@@ -423,11 +423,11 @@ mod tests {
 
     #[test]
     fn sequence() {
-        use types::IA5String;
+        use types::Ia5String;
         // Taken from examples in 8.9 of X.690.
         #[derive(Debug, PartialEq)]
         struct Foo {
-            name: IA5String,
+            name: Ia5String,
             ok: bool,
         }
 
@@ -441,7 +441,7 @@ mod tests {
                 tag: Tag,
             ) -> Result<Self, D::Error> {
                 decoder.decode_sequence(tag, |sequence| {
-                    let name: IA5String = IA5String::decode(sequence)?;
+                    let name: Ia5String = Ia5String::decode(sequence)?;
                     let ok: bool = bool::decode(sequence)?;
                     Ok(Self { name, ok })
                 })
@@ -454,7 +454,7 @@ mod tests {
         };
         let bytes = &[
             0x30, 0x0A, // TAG + LENGTH
-            0x16, 0x05, 0x53, 0x6d, 0x69, 0x74, 0x68, // IA5String "Smith"
+            0x16, 0x05, 0x53, 0x6d, 0x69, 0x74, 0x68, // Ia5String "Smith"
             0x01, 0x01, 0xff, // BOOL True
         ];
 

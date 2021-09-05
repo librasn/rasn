@@ -28,14 +28,16 @@ pub use self::{
 
 ///  Alias for `bitvec::BitVec` mapped to ASN.1'a `BIT STRING`.
 pub type BitString = bitvec::vec::BitVec<bitvec::order::Msb0, u8>;
-///  `IA5String` string alias that matches BER's encoding rules.
-pub type IA5String = Implicit<tag::IA5_STRING, Utf8String>;
+///  `Ia5String` string alias that matches BER's encoding rules.
+pub type Ia5String = Implicit<tag::IA5_STRING, Utf8String>;
 ///  `PrintableString` string alias that matches BER's encoding rules.
 pub type PrintableString = Implicit<tag::PRINTABLE_STRING, Utf8String>;
 ///  `VisibleString` string alias that matches BER's encoding rules.
 pub type VisibleString = Implicit<tag::VISIBLE_STRING, Utf8String>;
 ///  `String` alias that matches `BmpString` BER's encoding rules.
 pub type BmpString = Implicit<tag::BMP_STRING, Utf8String>;
+///  `String` alias that matches `TeletexString` BER's encoding rules.
+pub type TeletexString = Implicit<tag::TELETEX_STRING, Utf8String>;
 ///  Alias to `alloc::collections::BTreeSet<T>`.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
 ///  `UniversalString` string alias that matches BER's encoding rules.
