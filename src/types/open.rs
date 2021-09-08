@@ -3,7 +3,7 @@ use crate::{Decode, Encode};
 
 /// An "open" type representing any valid ASN.1 type.
 #[derive(AsnType, Debug, Clone, PartialEq, Decode, Encode)]
-#[rasn(crate_root="crate")]
+#[rasn(crate_root = "crate")]
 #[rasn(choice)]
 pub enum Open {
     BitString(BitString),

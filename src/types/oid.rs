@@ -236,7 +236,6 @@ impl PartialEq<[u32]> for ObjectIdentifier {
     }
 }
 
-
 macro_rules! oids {
     ($($name:ident => $($num:literal),+ $(,)?);+ $(;)?) => {
         impl Oid {

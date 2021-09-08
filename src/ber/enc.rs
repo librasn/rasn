@@ -304,7 +304,7 @@ impl crate::Encoder for Encoder {
     fn encode_set_of<E: Encode>(
         &mut self,
         tag: Tag,
-        values: &types::SetOf<E>
+        values: &types::SetOf<E>,
     ) -> Result<Self::Ok, Self::Error> {
         let mut sequence_encoder = Self::new(self.config);
 
@@ -450,9 +450,14 @@ mod tests {
             types::BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
 
         let primitive_encoded = &[0x03, 0x07, 0x04, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..];
-        let any = types::Any { contents: primitive_encoded.into() };
+        let any = types::Any {
+            contents: primitive_encoded.into(),
+        };
 
         assert_eq!(primitive_encoded, super::super::encode(&bitstring).unwrap());
-        assert_eq!(super::super::encode(&bitstring).unwrap(), super::super::encode(&any).unwrap());
+        assert_eq!(
+            super::super::encode(&bitstring).unwrap(),
+            super::super::encode(&any).unwrap()
+        );
     }
 }

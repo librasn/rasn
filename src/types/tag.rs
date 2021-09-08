@@ -164,10 +164,7 @@ impl TagTree {
                         return true;
                     }
 
-                    if Self::tag_contains(
-                        tag,
-                        konst::slice::slice_from(&nodes, index + 1),
-                    ) {
+                    if Self::tag_contains(tag, konst::slice::slice_from(&nodes, index + 1)) {
                         return false;
                     }
                 }

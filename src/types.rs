@@ -5,10 +5,10 @@
 
 mod any;
 mod instance;
+pub(crate) mod oid;
 mod open;
 mod prefix;
 mod tag;
-pub(crate) mod oid;
 
 use alloc::boxed::Box;
 

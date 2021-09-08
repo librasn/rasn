@@ -68,7 +68,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let contents = &self.input[..diff];
         self.input = input;
 
-        Ok(types::Any { contents: contents.to_vec() })
+        Ok(types::Any {
+            contents: contents.to_vec(),
+        })
     }
 
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {
@@ -522,7 +524,9 @@ mod tests {
     fn any() {
         let expected = &[0x1A, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73];
         assert_eq!(
-            Any { contents: expected.to_vec() },
+            Any {
+                contents: expected.to_vec()
+            },
             decode(expected).unwrap()
         );
     }
