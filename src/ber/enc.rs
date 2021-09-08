@@ -200,8 +200,8 @@ impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = error::Error;
 
-    fn encode_any(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_value(tag, value))
+    fn encode_any(&mut self, value: &types::Any) -> Result<Self::Ok, Self::Error> {
+        Ok(self.output.extend_from_slice(&value.contents))
     }
 
     fn encode_bit_string(
@@ -442,5 +442,17 @@ mod tests {
         assert_eq!(&vec![0x81, 0x80, 0x80, 0x00], &encode(0x00200000));
         assert_eq!(&vec![0xC0, 0x80, 0x80, 0x00], &encode(0x08000000));
         assert_eq!(&vec![0xFF, 0xFF, 0xFF, 0x7F], &encode(0x0FFFFFFF));
+    }
+
+    #[test]
+    fn any() {
+        let bitstring =
+            types::BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
+
+        let primitive_encoded = &[0x03, 0x07, 0x04, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..];
+        let any = types::Any { contents: primitive_encoded.into() };
+
+        assert_eq!(primitive_encoded, super::super::encode(&bitstring).unwrap());
+        assert_eq!(super::super::encode(&bitstring).unwrap(), super::super::encode(&any).unwrap());
     }
 }

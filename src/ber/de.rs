@@ -517,4 +517,13 @@ mod tests {
             0x50, 0x10, 0x10, 0x10,
         ]);
     }
+
+    #[test]
+    fn any() {
+        let expected = &[0x1A, 0x05, 0x4A, 0x6F, 0x6E, 0x65, 0x73];
+        assert_eq!(
+            Any { contents: expected.to_vec() },
+            decode(expected).unwrap()
+        );
+    }
 }

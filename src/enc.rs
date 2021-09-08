@@ -32,7 +32,7 @@ pub trait Encoder {
     type Error: Error;
 
     /// Encode an unknown ASN.1 value.
-    fn encode_any(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error>;
+    fn encode_any(&mut self, value: &types::Any) -> Result<Self::Ok, Self::Error>;
     /// Encode a `BIT STRING` value.
     fn encode_bit_string(
         &mut self,
@@ -210,6 +210,12 @@ impl Encode for types::UtcTime {
 impl Encode for types::GeneralizedTime {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         encoder.encode_generalized_time(tag, self).map(drop)
+    }
+}
+
+impl Encode for types::Any {
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
+        encoder.encode_any(self).map(drop)
     }
 }
 

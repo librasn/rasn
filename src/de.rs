@@ -185,7 +185,7 @@ impl Decode for types::GeneralizedTime {
 }
 
 impl Decode for types::Any {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, _: Tag) -> Result<Self, D::Error> {
         decoder.decode_any()
     }
 }
