@@ -46,6 +46,8 @@ pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
 pub type UtcTime = chrono::DateTime<chrono::Utc>;
 ///  Alias for `chrono::DateTime<FixedOffset>`.
 pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
+///  Represents a `SEQUENCE OF` type.
+pub type SequenceOf<T> = alloc::vec::Vec<T>;
 
 /// A trait representing any type that can represented in ASN.1.
 pub trait AsnType {
