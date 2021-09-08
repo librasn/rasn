@@ -323,7 +323,13 @@ impl crate::Encoder for Encoder {
         let mut encoder = Self::new(self.config);
         value.encode(&mut encoder)?;
 
-        Ok(self.encode_value(tag, &encoder.output))
+        // If the resulting encoding is constructed, then encode it
+        // as constructed.
+        Ok(if !encoder.output.is_empty() && encoder.output[0] & 0x80 != 0 {
+            self.encode_constructed(tag, &encoder.output)
+        } else {
+            self.encode_value(tag, &encoder.output)
+        })
     }
 
     fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>

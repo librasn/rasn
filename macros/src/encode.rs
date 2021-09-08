@@ -133,7 +133,7 @@ pub fn derive_enum_impl(
                         panic!("Tuple variants must contain only a single element.");
                     }
                     let encode_operation = if variant_config.tag.is_some() || config.automatic_tags {
-                        quote!(#crate_root::Encode::encode_with_tag(value, encoder, #variant_tag))
+                        quote!(#crate_root::Encode::encode_with_tag(value, encoder, dbg!(#variant_tag)))
                     } else {
                         quote!(#crate_root::Encode::encode(value, encoder))
                     };

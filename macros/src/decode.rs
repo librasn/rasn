@@ -13,7 +13,6 @@ pub fn derive_struct_impl(
 
     for (i, field) in container.fields.iter().enumerate() {
         let lhs = field.ident.as_ref().map(|i| quote!(#i :));
-        let ty = &field.ty;
         let field_config = FieldConfig::new(field, config);
 
         let or_else = match field_config.default {
@@ -23,22 +22,10 @@ pub fn derive_struct_impl(
         };
         let tag = field_config.tag(i);
 
-        if field_config.tag.is_some() {
-            list.push(quote! {
-                #lhs if <#ty as #crate_root::AsnType>::TAG.is_choice() {
-                    decoder.decode_explicit_prefix(#tag)
-                } else {
-                    <_>::decode_with_tag(decoder, #tag)
-                } #or_else
-            });
+        if field_config.tag.is_some() || config.automatic_tags {
+            list.push(quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else));
         } else {
-            list.push(quote! {
-                #lhs if <#ty as #crate_root::AsnType>::TAG.is_choice() {
-                    <_>::decode(decoder)
-                } else {
-                    <_>::decode_with_tag(decoder, #tag)
-                } #or_else
-            });
+            list.push(quote!(#lhs <_>::decode(decoder) #or_else));
         }
     }
 
