@@ -1,4 +1,4 @@
-use super::{AsnType, Class, Explicit, ObjectIdentifier, Tag};
+use super::{AsnType, Class, ObjectIdentifier, Tag};
 
 /// An instance of a defined object class.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,11 +17,7 @@ impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
     fn decode_with_tag<D: crate::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_sequence(tag, |sequence| {
             let type_id = ObjectIdentifier::decode(sequence)?;
-            struct C0;
-            impl AsnType for C0 {
-                const TAG: Tag = Tag::new(Class::Context, 0);
-            }
-            let value = <Explicit<C0, T>>::decode(sequence)?.value;
+            let value = sequence.decode_explicit_prefix(Tag::new(Class::Context, 0))?;
 
             Ok(Self { type_id, value })
         })
