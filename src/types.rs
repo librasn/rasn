@@ -112,7 +112,7 @@ impl<T: AsnType> AsnType for Option<T> {
     const TAG_TREE: TagTree = T::TAG_TREE;
 }
 
-impl<T> AsnType for SetOf<T> {
+impl<T> AsnType for alloc::collections::BTreeSet<T> {
     const TAG: Tag = Tag::SET;
 }
 

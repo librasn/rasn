@@ -78,6 +78,11 @@ pub trait Encoder {
         tag: Tag,
         value: &[E],
     ) -> Result<Self::Ok, Self::Error>;
+    fn encode_set_of<E: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &types::SetOf<E>,
+    ) -> Result<Self::Ok, Self::Error>;
     /// Encode a `UtcTime` value.
     fn encode_utc_time(
         &mut self,
@@ -221,6 +226,12 @@ impl<E: Encode> Encode for alloc::boxed::Box<E> {
 impl<E: Encode> Encode for alloc::vec::Vec<E> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         encoder.encode_sequence_of(tag, self).map(drop)
+    }
+}
+
+impl<E: Encode> Encode for alloc::collections::BTreeSet<E> {
+    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+        encoder.encode_set_of(tag, self).map(drop)
     }
 }
 

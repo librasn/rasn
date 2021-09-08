@@ -58,6 +58,8 @@ pub trait Decoder: Sized {
         F: FnOnce(&mut Self) -> Result<D, Self::Error>;
     /// Decode a `SEQUENCE OF D` where `D: Decode` identified by `tag` from the available input.
     fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>, Self::Error>;
+    /// Decode a `SET OF D` where `D: Decode` identified by `tag` from the available input.
+    fn decode_set_of<D: Decode + Ord>(&mut self, tag: Tag) -> Result<types::SetOf<D>, Self::Error>;
     /// Decode a `OCTET STRING` identified by `tag` from the available input.
     fn decode_octet_string(&mut self, tag: Tag) -> Result<Vec<u8>, Self::Error>;
     /// Decode a `UTF8 STRING` identified by `tag` from the available input.
@@ -191,6 +193,12 @@ impl Decode for types::Any {
 impl<T: Decode> Decode for alloc::vec::Vec<T> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         decoder.decode_sequence_of(tag)
+    }
+}
+
+impl<T: Decode + Ord> Decode for alloc::collections::BTreeSet<T> {
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        decoder.decode_set_of(tag)
     }
 }
 

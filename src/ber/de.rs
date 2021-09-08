@@ -252,6 +252,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
+    fn decode_set_of<D: Decode + Ord>(&mut self, tag: Tag) -> Result<types::SetOf<D>, Self::Error> {
+        self.decode_sequence(tag, |decoder| {
+            let mut items = types::SetOf::new();
+
+            while let Ok(item) = D::decode(decoder) {
+                items.insert(item);
+            }
+
+            Ok(items)
+        })
+    }
+
     fn decode_sequence<D, F: FnOnce(&mut Self) -> Result<D>>(
         &mut self,
         tag: Tag,

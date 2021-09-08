@@ -301,6 +301,20 @@ impl crate::Encoder for Encoder {
         Ok(self.encode_constructed(tag, &sequence_encoder.output))
     }
 
+    fn encode_set_of<E: Encode>(
+        &mut self,
+        tag: Tag,
+        values: &types::SetOf<E>
+    ) -> Result<Self::Ok, Self::Error> {
+        let mut sequence_encoder = Self::new(self.config);
+
+        for value in values {
+            value.encode(&mut sequence_encoder)?;
+        }
+
+        Ok(self.encode_constructed(tag, &sequence_encoder.output))
+    }
+
     fn encode_explicit_prefix<V: Encode>(
         &mut self,
         tag: Tag,
