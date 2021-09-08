@@ -4,7 +4,7 @@
 [![Lines Of Code](https://tokei.rs/b1/github/XAMPPRocky/rasn?category=code)](https://github.com/XAMPPRocky/tokei)
 [![Documentation](https://docs.rs/rasn/badge.svg)](https://docs.rs/rasn/)
 
-Welcome to the `rasn` (pronounced "raisin"), a safe `#[no_std]` ASN.1 codec framework.
+Welcome to `rasn` (pronounced "raisin"), a safe `#[no_std]` ASN.1 codec framework.
 That enables you to safely create, share, and handle ASN.1 data types from and to different encoding rules. If you are unfamiliar with ASN.1 and encoding formats like BER/DER, I would recommend reading [*"A Warm Welcome to ASN.1 and DER"*][lenc] by Let's Encrypt as a quick introduction before continuing. In short it is an Interface Description Language (and data model) with a set of encoding formats (called rules) for that model. It was originally designed in the late 1980s and is used throughout the industry especially in telecommunications and cryptography.
 
 [ghs]: https://github.com/sponsors/XAMPPRocky
