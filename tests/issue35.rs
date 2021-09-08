@@ -13,10 +13,10 @@ struct Message {
 #[derive(Debug, AsnType, Decode, Encode)]
 #[rasn(choice)]
 enum BODY {
-    #[rasn(tag(context, 100))]
+    #[rasn(tag(context, 3000))]
     Request(Request),
 
-    #[rasn(tag(context, 200))]
+    #[rasn(tag(context, 3001))]
     Response(Response),
 }
 
@@ -35,7 +35,7 @@ struct Response {
 #[test]
 fn it_works() {
     assert_eq!(
-        vec![0x30, 0x0B, 0x80, 0x01, 0x01, 0xA1, 0x06, 0xBF, 0x64, 0x03, 0x80, 0x01, 0x01],
+        vec![0x30, 0x0C, 0x80, 0x01, 0x01, 0xA1, 0x07, 0xBF, 0x97, 0x38, 0x03, 0x80, 0x01, 0x01],
         rasn::der::encode(&Message {
             id: 1,
             body: BODY::Request(Request { num: 1 }),

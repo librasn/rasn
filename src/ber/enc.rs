@@ -124,7 +124,7 @@ impl Encoder {
 
         if tag_number >= FIVE_BITS {
             let mut buffer = alloc::vec![tag_byte | FIVE_BITS as u8];
-            self.encode_seven_bit_integer(tag_number, &mut buffer);
+            self.encode_as_base128(tag_number, &mut buffer);
             ByteOrBytes::Many(buffer)
         } else {
             tag_byte |= tag_number as u8;
@@ -379,13 +379,6 @@ mod tests {
             ident_to_bytes(Identifier::from_tag(
                 Tag::new(crate::types::Class::Private, 127),
                 true,
-            ))
-        );
-        assert_eq!(
-            &[0b1101_1111, 0xFF, 0xFF, 0x3][..],
-            ident_to_bytes(Identifier::from_tag(
-                Tag::new(crate::types::Class::Private, 65535),
-                false,
             ))
         );
     }
