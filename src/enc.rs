@@ -91,6 +91,8 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
     /// Encode a `Utf8String` value.
     fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error>;
+    fn encode_set<F>(&mut self, tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+        where F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>;
 }
 
 /// A generic error that occurred while trying to encode ASN.1.

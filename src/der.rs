@@ -14,5 +14,5 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, crate:
 
     value.encode(&mut enc)?;
 
-    Ok(enc.output)
+    Ok(enc.output())
 }

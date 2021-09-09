@@ -19,7 +19,7 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::E
 
     value.encode(&mut enc)?;
 
-    Ok(enc.output)
+    Ok(enc.output())
 }
 
 #[cfg(test)]

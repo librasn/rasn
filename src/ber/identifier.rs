@@ -1,7 +1,7 @@
 use crate::types::{Class, Tag};
 
 /// A BER Identifier.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Identifier {
     /// The ASN.1 tag.
     pub tag: Tag,
