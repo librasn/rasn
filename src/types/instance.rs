@@ -1,7 +1,7 @@
 use super::{AsnType, Class, ObjectIdentifier, Tag};
 
 /// An instance of a defined object class.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct InstanceOf<T> {
     /// The OID identifying T's real type.
     pub type_id: ObjectIdentifier,

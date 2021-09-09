@@ -38,6 +38,8 @@ pub type VisibleString = Implicit<tag::VISIBLE_STRING, Utf8String>;
 pub type BmpString = Implicit<tag::BMP_STRING, Utf8String>;
 ///  `String` alias that matches `TeletexString` BER's encoding rules.
 pub type TeletexString = Implicit<tag::TELETEX_STRING, Utf8String>;
+///  `String` alias that matches `TeletexString` BER's encoding rules.
+pub type NumericString = Implicit<tag::NUMERIC_STRING, Utf8String>;
 ///  Alias to `alloc::collections::BTreeSet<T>`.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
 ///  `UniversalString` string alias that matches BER's encoding rules.
