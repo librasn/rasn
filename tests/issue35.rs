@@ -1,7 +1,6 @@
 use rasn::AsnType;
 use rasn::Decode;
 use rasn::Encode;
-use std::error::Error;
 
 #[derive(Debug, AsnType, Decode, Encode)]
 #[rasn(automatic_tags)]
