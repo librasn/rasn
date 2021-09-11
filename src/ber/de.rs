@@ -285,6 +285,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if streaming {
             self.input = inner.input;
             self.parse_eoc()?;
+        } else if !inner.input.is_empty() {
+            return Err(Error::UnexpectedExtraData { length: inner.input.len() })
         }
 
         Ok(result)
@@ -292,6 +294,22 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D> {
         self.decode_sequence(tag, D::decode)
+    }
+
+    fn decode_set<FIELDS, SET, F>(&mut self, tag: Tag, decode_fn: F) -> Result<SET, Self::Error>
+        where SET: Decode,
+              FIELDS: Decode,
+              F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>
+    {
+        self.decode_sequence(tag, |decoder| {
+            let mut fields = Vec::new();
+
+            while let Ok(value) = FIELDS::decode(decoder) {
+                fields.push(value);
+            }
+
+            (decode_fn)(fields)
+        })
     }
 }
 

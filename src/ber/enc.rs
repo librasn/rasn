@@ -204,11 +204,10 @@ impl Encoder {
             }
 
             self.output.extend_from_slice(END_OF_CONTENTS);
+            self.encode_to_set(tag);
         } else {
             self.encode_primitive(tag, value);
         }
-
-        self.encode_to_set(tag);
 
         Ok(())
     }

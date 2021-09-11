@@ -47,6 +47,8 @@ pub enum Error {
     InvalidDate,
     #[snafu(display("Error in Parser\n{}", msg))]
     Parser { msg: alloc::string::String },
+    #[snafu(display("Unexpected extra data found: length `{}` bytes", length))]
+    UnexpectedExtraData { length: usize },
     #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
     MismatchedTag { expected: Tag, actual: Tag },
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
@@ -57,6 +59,8 @@ pub enum Error {
     IntegerOverflow { max_width: u32 },
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
     InvalidBitString { bits: u8 },
+    #[snafu(display("Expected required field `{}`", name))]
+    MissingField { name: &'static str },
     #[snafu(display("{}", msg))]
     Custom { msg: alloc::string::String },
 }
@@ -74,5 +78,9 @@ impl crate::de::Error for Error {
 
     fn exceeds_max_length(length: usize) -> Self {
         Self::ExceedsMaxLength { length }
+    }
+
+    fn missing_field(name: &'static str) -> Self {
+        Self::MissingField { name }
     }
 }

@@ -175,7 +175,6 @@ mod tests {
 
     #[test]
     fn implicit_tagged_constructed() {
-        use crate::types::Implicit;
         type ImpVec = Implicit<C0, Vec<i32>>;
 
         let value = ImpVec::new(vec![1, 2]);
@@ -187,7 +186,6 @@ mod tests {
 
     #[test]
     fn explicit_empty_tag() {
-        use crate::types::Explicit;
         type EmptyTag = Explicit<C0, Option<()>>;
 
         let value = EmptyTag::new(None::<()>);
@@ -195,5 +193,73 @@ mod tests {
 
         assert_eq!(data, &*crate::ber::encode(&value).unwrap());
         assert_eq!(value, crate::ber::decode::<EmptyTag>(data).unwrap());
+    }
+
+
+    #[test]
+    fn set() {
+        #[derive(Debug, PartialEq)]
+        struct Set {
+            age: u32,
+            name: Utf8String,
+        }
+
+        impl AsnType for Set {
+            const TAG: Tag = Tag::SET;
+        }
+
+        let example = Set { age: 1, name: "Jane".into() };
+        let age_then_name = [0x31, 0x9, 0x2, 0x1, 0x1, 0xC, 0x4, 0x4a, 0x61, 0x6e, 0x65];
+        let name_then_age = [0x31, 0x9, 0xC, 0x4, 0x4a, 0x61, 0x6e, 0x65, 0x2, 0x1, 0x1];
+
+        assert_eq!(
+            &age_then_name[..],
+            crate::ber::encode(&example).unwrap()
+        );
+
+        assert_eq!(crate::ber::decode::<Set>(&age_then_name).unwrap(), crate::ber::decode::<Set>(&name_then_age).unwrap());
+
+        impl crate::Decode for Set {
+            fn decode_with_tag<D: crate::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+                use crate::de::Error;
+
+                #[derive(crate::AsnType, crate::Decode)]
+                #[rasn(crate_root="crate")]
+                #[rasn(choice)]
+                pub enum Fields {
+                    Age(u32),
+                    Name(Utf8String),
+                }
+
+                decoder.decode_set::<Fields, _, _>(tag, |fields| {
+                    let mut age = None;
+                    let mut name = None;
+
+                    for field in fields {
+                        match field {
+                            Fields::Age(value) => age = value.into(),
+                            Fields::Name(value) => name = value.into(),
+                        }
+                    }
+
+                    Ok(Self {
+                        age: age.ok_or_else(|| D::Error::missing_field("age"))?,
+                        name: name.ok_or_else(|| D::Error::missing_field("name"))?,
+                    })
+                })
+            }
+        }
+
+        impl crate::Encode for Set {
+            fn encode_with_tag<EN: crate::Encoder>(&self, encoder: &mut EN, tag: crate::Tag) -> Result<(), EN::Error> {
+                encoder.encode_set(tag, |encoder| {
+                    self.age.encode(encoder)?;
+                    self.name.encode(encoder)?;
+                    Ok(())
+                })?;
+
+                Ok(())
+            }
+        }
     }
 }

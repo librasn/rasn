@@ -70,6 +70,16 @@ pub trait Decoder: Sized {
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime, Self::Error>;
     /// Decode a `GeneralizedTime` identified by `tag` from the available input.
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime, Self::Error>;
+    /// Decode a `SET` identified by `tag` from the available input. Decoding
+    /// `SET`s works a little different than other methods, as you need to
+    /// provide two types `SET` and `SET`, `SET` represents the complete type,
+    /// and `FIELDS` must represent a `CHOICE` with a variant for each field
+    /// from `SET`. As with `SET`s the field order is not guarenteed, so you'll
+    /// have map from `Vec<FIELDS>` to `SET` in `decode_operation`.
+    fn decode_set<FIELDS, SET, F>(&mut self, tag: Tag, decode_operation: F) -> Result<SET, Self::Error>
+        where SET: Decode,
+              FIELDS: Decode,
+              F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
 }
 
 /// A generic error that can occur while decoding ASN.1.
@@ -80,6 +90,8 @@ pub trait Error: core::fmt::Display {
     fn incomplete(needed: Needed) -> Self;
     /// Creates a new error about exceeding the maximum allowed data for a type.
     fn exceeds_max_length(length: usize) -> Self;
+    /// Creates a new error about a missing field.
+    fn missing_field(name: &'static str) -> Self;
 }
 
 impl Decode for () {
