@@ -92,6 +92,11 @@ pub trait Error: core::fmt::Display {
     fn exceeds_max_length(length: usize) -> Self;
     /// Creates a new error about a missing field.
     fn missing_field(name: &'static str) -> Self;
+    /// Creates a new error about being unable to match any variant in a choice.
+    fn no_valid_choice(name: &'static str) -> Self;
+    /// Creates a new error about being unable to decode a field in a compound
+    /// type, such as a set or sequence.
+    fn field_error<D: core::fmt::Display>(name: &'static str, error: D) -> Self;
 }
 
 impl Decode for () {

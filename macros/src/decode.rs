@@ -11,30 +11,6 @@ pub fn derive_struct_impl(
     let mut list = vec![];
     let crate_root = &config.crate_root;
 
-    for (i, field) in container.fields.iter().enumerate() {
-        let lhs = field.ident.as_ref().map(|i| quote!(#i :));
-        let field_config = FieldConfig::new(field, config);
-
-        let or_else = match field_config.default {
-            Some(Some(ref path)) => quote! { .unwrap_or_else(#path) },
-            Some(None) => quote! { .unwrap_or_default() },
-            None => quote!(?),
-        };
-        let tag = field_config.tag(i);
-
-        if field_config.tag.is_some() || config.automatic_tags {
-            list.push(quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else));
-        } else {
-            list.push(quote!(#lhs <_>::decode(decoder) #or_else));
-        }
-    }
-
-    let fields = match container.fields {
-        Fields::Named(_) => quote!({ #(#list),* }),
-        Fields::Unnamed(_) => quote!(( #(#list),* )),
-        Fields::Unit => quote!(),
-    };
-
     for param in generics.type_params_mut() {
         param.colon_token = Some(Default::default());
         param.bounds = {
@@ -124,6 +100,33 @@ pub fn derive_struct_impl(
             })
         }
     } else {
+        for (i, field) in container.fields.iter().enumerate() {
+            let lhs = field.ident.as_ref().map(|i| quote!(#i :));
+            let field_config = FieldConfig::new(field, config);
+
+            let or_else = match field_config.default {
+                Some(Some(ref path)) => quote! { .unwrap_or_else(#path) },
+                Some(None) => quote! { .unwrap_or_default() },
+                None => {
+                    let ident = syn::LitStr::new(&field.ident.as_ref().map(|ident| ident.to_string()).unwrap_or_else(|| i.to_string()), proc_macro2::Span::call_site());
+                    quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error))?)
+                }
+            };
+            let tag = field_config.tag(i);
+
+            if field_config.tag.is_some() || config.automatic_tags {
+                list.push(quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else));
+            } else {
+                list.push(quote!(#lhs <_>::decode(decoder) #or_else));
+            }
+        }
+
+        let fields = match container.fields {
+            Fields::Named(_) => quote!({ #(#list),* }),
+            Fields::Unnamed(_) => quote!(( #(#list),* )),
+            Fields::Unit => quote!(),
+        };
+
         quote! {
             decoder.decode_sequence(tag, |decoder| {
                 Ok(Self #fields)
@@ -193,11 +196,14 @@ pub fn derive_enum_impl(
                 syn::Fields::Named(_) => {
                     let decode_fields = v.fields.iter().map(|f| {
                         let field_config = FieldConfig::new(&f, config);
-                        let ident = f.ident.as_ref().map(|i| quote!(#i :));
+                        let ident = f.ident.as_ref().map(|i| i.to_string());
+                        let ident = ident.as_deref().map(|ident| syn::LitStr::new(ident, proc_macro2::Span::call_site()));
+                        let lhs = f.ident.as_ref().map(|i| quote!(#i :));
+                        let map_field_error = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error)));
                         if config.automatic_tags || field_config.tag.is_some() {
-                            quote!(#ident <_>::decode_with_tag(decoder, #variant_tag)?)
+                            quote!(#lhs <_>::decode_with_tag(decoder, #variant_tag) #map_field_error?)
                         } else {
-                            quote!(#ident <_>::decode(decoder)?)
+                            quote!(#lhs <_>::decode(decoder) #map_field_error?)
                         }
                     });
 
@@ -214,15 +220,11 @@ pub fn derive_enum_impl(
             }
         });
 
-        let match_fail_error = format!(
-            "Decoding field of type `{}`: Invalid `CHOICE` discriminant.",
-            name.to_string(),
-        );
-
+        let name = syn::LitStr::new(&name.to_string(), proc_macro2::Span::call_site());
         Some(quote! {
             fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
                 #(#variants);*
-                Err(#crate_root::de::Error::custom(#match_fail_error))
+                Err(#crate_root::de::Error::no_valid_choice(#name))
             }
         })
     } else {

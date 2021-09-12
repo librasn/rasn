@@ -61,6 +61,10 @@ pub enum Error {
     InvalidBitString { bits: u8 },
     #[snafu(display("Expected required field `{}`", name))]
     MissingField { name: &'static str },
+    #[snafu(display("No valid `CHOICE` variant for `{}`", name))]
+    NoValidChoice { name: &'static str },
+    #[snafu(display("Field `{}`: {}", name, error))]
+    FieldError { name: &'static str, error: alloc::string::String },
     #[snafu(display("{}", msg))]
     Custom { msg: alloc::string::String },
 }
@@ -82,5 +86,13 @@ impl crate::de::Error for Error {
 
     fn missing_field(name: &'static str) -> Self {
         Self::MissingField { name }
+    }
+
+    fn field_error<D: core::fmt::Display>(name: &'static str, error: D) -> Self {
+        Self::FieldError { name, error: alloc::string::ToString::to_string(&error) }
+    }
+
+    fn no_valid_choice(name: &'static str) -> Self {
+        Self::NoValidChoice { name }
     }
 }
