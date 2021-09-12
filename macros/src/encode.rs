@@ -60,8 +60,14 @@ pub fn derive_struct_impl(
         let ty = &container.fields.iter().next().unwrap().ty;
         quote!(<#ty as #crate_root::Encode>::encode_with_tag(&self.0, encoder, tag))
     } else {
+        let operation = if config.set {
+            quote!(encode_set)
+        } else {
+            quote!(encode_sequence)
+        };
+
         quote! {
-            encoder.encode_sequence(tag, |encoder| {
+            encoder.#operation(tag, |encoder| {
                 #(#list)*
 
                 Ok(())

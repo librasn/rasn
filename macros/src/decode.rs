@@ -68,6 +68,61 @@ pub fn derive_struct_impl(
         quote! {
             <#ty as #crate_root::Decode>::decode_with_tag(decoder, tag).map(Self)
         }
+    } else if config.set {
+        let field_names = container.fields.iter().map(|field| field.ident.clone());
+        let field_names2 = field_names.clone();
+        let field_names3 = field_names.clone();
+        let required_field_names = container.fields.iter().filter(|field| !FieldConfig::new(field, config).is_option_type()).map(|field| field.ident.clone());
+        let (field_type_names, field_type_defs): (Vec<_>, Vec<_>) = container.fields.iter().enumerate().map(|(i, field)| {
+            let ty = config.option_type.map_to_inner_type(&field.ty).unwrap_or(&field.ty);
+            let tag = FieldConfig::new(field, config).tag(i);
+            let name = quote::format_ident!("Field{}", i);
+
+            (name.clone(), quote! {
+                #[derive(#crate_root::Decode, #crate_root::Encode)]
+                #[rasn(delegate)]
+                pub struct #name(#ty);
+
+                impl #crate_root::AsnType for #name {
+                    const TAG: Tag = #tag;
+                }
+            })
+        }).unzip();
+
+        let choice_name = quote::format_ident!("{}Fields", name);
+
+        let choice_def = quote! {
+            #[derive(#crate_root::AsnType, #crate_root::Decode, #crate_root::Encode)]
+            #[rasn(choice)]
+            enum #choice_name {
+                #(#field_type_names(#field_type_names)),*
+            }
+        };
+
+        let set_init = match container.fields {
+            syn::Fields::Unit => quote!(),
+            syn::Fields::Unnamed(_) => quote!(( #(#field_names3),* )),
+            syn::Fields::Named(_) => quote!({ #(#field_names3),* }),
+        };
+
+        quote! {
+            #choice_def
+            #(#field_type_defs)*
+
+            decoder.decode_set::<#choice_name, _, _>(tag, |fields| {
+                #(let mut #field_names = None;)*
+
+                for field in fields {
+                    match field {
+                        #(#choice_name::#field_type_names(value) => { #field_names2 = Some(value.0) })*
+                    }
+                }
+
+                #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field("#required_field_names"))?;)*
+
+                Ok(Self #set_init)
+            })
+        }
     } else {
         quote! {
             decoder.decode_sequence(tag, |decoder| {
@@ -132,10 +187,7 @@ pub fn derive_enum_impl(
                     };
 
                     quote!{
-                        match #decode_operation.map(#name::#ident) {
-                            Ok(value) => return Ok(value),
-                            _ => {}
-                        }
+                        if let Ok(value) = #decode_operation.map(#name::#ident) { return Ok(value) }
                     }
                 },
                 syn::Fields::Named(_) => {

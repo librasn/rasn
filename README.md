@@ -147,7 +147,7 @@ So far we've shown how rasn's API takes steps to be safe and protect from accide
 
 Included with rasn is a set of derive macros that enable you to have your ASN.1 model implementation implemented declaratively. The `Encode` and `Decode` macros will essentially auto-generate the implementations we showed earlier, but the real magic is the `AsnType` derive macro. Thanks to the `static-assertations` crate and recent developments in `const fn`; the `AsnType` derive will not only generate your `AsnType` implementation, it will also generate a check that asserts that every field or variant has a distinct tag at *compile-time*. This means now if for some reason we made a change to one of the types in person, we don't have re-check that our model is still valid, the compiler takes care of that for us.
 
-```rust,no_compile
+```no_compile
 // Invalid
 #[derive(rasn::AsnType)]
 struct Person {

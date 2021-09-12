@@ -195,7 +195,6 @@ mod tests {
         assert_eq!(value, crate::ber::decode::<EmptyTag>(data).unwrap());
     }
 
-
     #[test]
     fn set() {
         #[derive(Debug, PartialEq)]

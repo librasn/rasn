@@ -8,6 +8,7 @@ pub struct Config {
     pub crate_root: Path,
     pub enumerated: bool,
     pub choice: bool,
+    pub set: bool,
     pub automatic_tags: bool,
     pub option_type: OptionalEnum,
     pub delegate: bool,
@@ -17,6 +18,7 @@ pub struct Config {
 impl Config {
     pub fn from_attributes(input: &syn::DeriveInput) -> Self {
         let mut choice = false;
+        let mut set = false;
         let mut crate_root = None;
         let mut enumerated = false;
         let mut automatic_tags = false;
@@ -48,6 +50,8 @@ impl Config {
                     enumerated = true;
                 } else if path.is_ident("choice") {
                     choice = true;
+                } else if path.is_ident("set") {
+                    set = true;
                 } else if path.is_ident("automatic_tags") {
                     automatic_tags = true;
                 } else if path.is_ident("option_type") {
@@ -83,8 +87,12 @@ impl Config {
             _ => false,
         };
 
-        if is_enum && ((choice && enumerated) || (!choice && !enumerated)) {
-            panic!("A Rust enum must be marked either `choice` OR `enumerated`")
+        if !is_enum && (choice || enumerated) {
+            panic!("Structs cannot be annotated with `#[rasn(choice)]` or `#[rasn(enumerated)]`.");
+        } else if is_enum && set {
+            panic!("Enums cannot be annotated with `#[rasn(set)]`.");
+        } else if is_enum && ((choice && enumerated) || (!choice && !enumerated)) {
+            panic!("Enums must be annotated with either `#[rasn(choice)]` OR `#[rasn(enumerated)]`.")
         }
 
         let mut invalid_delegate = false;
@@ -103,16 +111,10 @@ impl Config {
         }
 
         let option_type = {
-            let (path, some_variant, none_variant) = option.unwrap_or((None, None, None));
+            let (path, some_variant, none_variant) = option.unwrap_or_else(|| (None, None, None));
 
             OptionalEnum {
-                path: syn::TypePath {
-                    path: path.unwrap_or_else(|| {
-                        Path::from(syn::Ident::new("Option", proc_macro2::Span::call_site()))
-                    }),
-                    qself: None,
-                }
-                .into(),
+                path: path.and_then(|path| path.get_ident().cloned()).unwrap_or_else(|| syn::Ident::new("Option", proc_macro2::Span::call_site())),
                 some_variant: syn::TypePath {
                     path: some_variant.unwrap_or_else(|| {
                         Path::from(syn::Ident::new("Some", proc_macro2::Span::call_site()))
@@ -133,6 +135,7 @@ impl Config {
         Self {
             automatic_tags,
             choice,
+            set,
             enumerated,
             tag,
             option_type,
@@ -158,9 +161,38 @@ impl Config {
 
 #[derive(Debug)]
 pub struct OptionalEnum {
-    pub path: syn::Type,
+    pub path: syn::Ident,
     pub some_variant: syn::Type,
     pub none_variant: syn::Type,
+}
+
+impl OptionalEnum {
+    pub(crate) fn is_option_type(&self, ty: &syn::Type) -> bool {
+        match ty {
+            syn::Type::Path(path) => path.path.segments.last().map_or(false, |segment| segment.ident == self.path),
+            _ => false,
+        }
+    }
+
+    pub(crate) fn map_to_inner_type<'ty>(&self, ty: &'ty syn::Type) -> Option<&'ty syn::Type> {
+        match ty {
+            syn::Type::Path(path) => {
+                path.path.segments.last().filter(|segment| segment.ident == self.path)
+                    .and_then(|segment| {
+                        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                            args.args.first().and_then(|arg| if let syn::GenericArgument::Type(ty) = arg {
+                                Some(ty)
+                            } else {
+                                None
+                            })
+                        } else {
+                            None
+                        }
+                    })
+            }
+            _ => None,
+        }
+    }
 }
 
 pub struct VariantConfig<'a> {
@@ -199,7 +231,7 @@ impl<'a> VariantConfig<'a> {
 
     pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
-        if let Some(Tag { class, value }) = &self.tag {
+        if let Some(Tag { class, value, .. }) = &self.tag {
             quote!(#crate_root::Tag::new(#class, #value))
         } else if self.container_config.automatic_tags {
             quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
@@ -297,7 +329,7 @@ impl<'a> FieldConfig<'a> {
 
     pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
-        if let Some(Tag { class, value }) = &self.tag {
+        if let Some(Tag { class, value, .. }) = &self.tag {
             if self.container_config.automatic_tags {
                 panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
             }
@@ -314,16 +346,16 @@ impl<'a> FieldConfig<'a> {
         let crate_root = &self.container_config.crate_root;
         let ty = &self.field.ty;
 
-        if let Some(Tag { class, value }) = &self.tag {
-            if self.container_config.automatic_tags {
-                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
-            }
-            quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#class, #value)))
-        } else if self.container_config.automatic_tags {
-            quote!(#crate_root::TagTree::Leaf(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32)))
+        if self.tag.is_some() || self.container_config.automatic_tags {
+            let tag = self.tag(context);
+            quote!(#crate_root::TagTree::Leaf(#tag))
         } else {
             self.container_config.tag_tree_for_ty(ty)
         }
+    }
+
+    pub fn is_option_type(&self) -> bool {
+        self.container_config.option_type.is_option_type(&self.field.ty)
     }
 }
 
