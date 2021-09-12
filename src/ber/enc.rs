@@ -1,7 +1,7 @@
 mod config;
 mod error;
 
-use alloc::{borrow::ToOwned, collections::VecDeque, vec::Vec};
+use alloc::{borrow::ToOwned, collections::VecDeque, string::ToString, vec::Vec};
 
 use super::Identifier;
 use crate::{
@@ -322,7 +322,7 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, value.to_rfc2822().as_bytes()))
+        Ok(self.encode_primitive(tag, value.naive_utc().format("%y%m%d%H%M%SZ").to_string().as_bytes()))
     }
 
     fn encode_generalized_time(
@@ -330,7 +330,7 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, value.to_rfc3339().as_bytes()))
+        Ok(self.encode_primitive(tag, value.naive_utc().format("%Y%m%d%H%M%SZ").to_string().as_bytes()))
     }
 
     fn encode_sequence_of<E: Encode>(

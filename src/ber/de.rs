@@ -229,17 +229,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
         let string = self.decode_utf8_string(tag)?;
-        types::GeneralizedTime::parse_from_rfc3339(&string)
+        chrono::NaiveDateTime::parse_from_str(&string, "%Y%m%d%H%M%SZ")
             .ok()
             .context(error::InvalidDate)
+            .map(|date| types::GeneralizedTime::from_utc(date, chrono::FixedOffset::east(0)))
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
         let string = self.decode_utf8_string(tag)?;
-        types::GeneralizedTime::parse_from_rfc2822(&string)
-            .map(types::UtcTime::from)
+        chrono::NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
             .ok()
             .context(error::InvalidDate)
+            .map(|date| types::UtcTime::from_utc(date, chrono::Utc))
     }
 
     fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>, Self::Error> {
