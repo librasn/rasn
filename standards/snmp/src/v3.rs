@@ -21,7 +21,7 @@ pub use crate::v2::{
 /// The SNMPv3 message format, corresponding to the SNMP version 3 Message Processing Model.
 ///
 /// [RFC 3412 § 6](https://datatracker.ietf.org/doc/html/rfc3412#section-6)
-#[derive(AsnType, Debug, Clone)]
+#[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Message {
     /// Identifies the layout of the SNMPv3 Message.
     ///
@@ -74,14 +74,14 @@ impl From<NestedMessage> for Message {
 }
 
 /// A helper type to allow a BER-encoded message to be nested in an OCTET STRING field.
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(universal, 4))]
 struct Nested<T>(T);
 
 /// The actual encoding for `Message`, with `security_parameters` nested in an OCTET STRING field.
 /// The `Encode` and `Decode` impls for `Message` are defined in terms of converting to and from
 /// `NestedMessage` prior to encode/decode.
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 struct NestedMessage {
     version: Integer,
     global_data: HeaderData,
@@ -101,7 +101,7 @@ impl From<Message> for NestedMessage {
 }
 
 /// Administrative data about a `Message`.
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct HeaderData {
     /// The message ID.
     ///
@@ -141,7 +141,7 @@ pub struct HeaderData {
 /// security model in use to produce a plaintext `ScopedPdu`.
 ///
 /// [RFC 3412 § 6.7](https://datatracker.ietf.org/doc/html/rfc3412#section-6.7)
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum ScopedPduData {
     CleartextPdu(ScopedPdu),
@@ -154,7 +154,7 @@ pub enum ScopedPduData {
 /// accessible within the specified context.
 ///
 /// [RFC 3412 § 6.8](https://datatracker.ietf.org/doc/html/rfc3412#section-6.8)
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct ScopedPdu {
     /// Uniquely identifies, within an administrative domain, an SNMP entity that may realize an
     /// instance of a context with a particular contextName.
@@ -179,7 +179,7 @@ pub struct ScopedPdu {
 /// The security parameters encoding for User-based Security Model.
 ///
 /// [RFC 3414 § 2.4](https://datatracker.ietf.org/doc/html/rfc3414#section-2.4)
-#[derive(AsnType, Debug, Clone, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct USMSecurityParameters {
     /// The `snmpEngineID` of the authoritative SNMP engine involved in the exchange of the
     /// message.
