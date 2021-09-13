@@ -20,8 +20,7 @@ pub(crate) fn parse_value<'config, 'input>(
         error::assert_tag(tag, identifier.tag)?;
     }
 
-    let (input, contents) =
-        parse_contents(config, identifier, input).map_err(error::map_nom_err)?;
+    let (input, contents) = parse_contents(config, identifier, input).map_err(error::map_nom_err)?;
 
     Ok((input, (identifier, contents)))
 }

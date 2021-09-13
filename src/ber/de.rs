@@ -7,10 +7,7 @@ use alloc::{borrow::ToOwned, vec::Vec};
 use snafu::*;
 
 use super::identifier::Identifier;
-use crate::{
-    types::{self, Tag},
-    Decode,
-};
+use crate::{Decode, de::Error as _, types::{self, Tag}};
 
 pub use self::{config::DecoderOptions, error::Error};
 
@@ -56,6 +53,39 @@ impl<'input> Decoder<'input> {
             Some(contents) => Ok((identifier, contents)),
             None => error::IndefiniteLengthNotAllowed.fail(),
         }
+    }
+
+    /// Parses a constructed ASN.1 value, checking the `tag`, and optionally
+    /// checking if the identifier is marked as encoded. This should be true
+    /// in all cases except explicit prefixes.
+    fn parse_constructed_contents<D, F>(&mut self, tag: Tag, check_identifier: bool, decode_fn: F) -> Result<D>
+        where F: FnOnce(&mut Self) -> Result<D>
+    {
+        let (identifier, contents) = self.parse_value(tag)?;
+
+        error::assert_tag(tag, identifier.tag)?;
+
+        if check_identifier && identifier.is_primitive() {
+            return Err(Error::custom("Invalid constructed identifier"))
+        }
+
+        let (streaming, contents) = match contents {
+            Some(contents) => (false, contents),
+            None => (true, self.input),
+        };
+
+        let mut inner = Self::new(contents, self.config);
+
+        let result = (decode_fn)(&mut inner)?;
+
+        if streaming {
+            self.input = inner.input;
+            self.parse_eoc()?;
+        } else if !inner.input.is_empty() {
+            return Err(Error::UnexpectedExtraData { length: inner.input.len() })
+        }
+
+        Ok(result)
     }
 }
 
@@ -272,29 +302,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         decode_fn: F,
     ) -> Result<D> {
-        let contents = self.parse_value(tag)?.1;
-
-        let (streaming, contents) = match contents {
-            Some(contents) => (false, contents),
-            None => (true, self.input),
-        };
-
-        let mut inner = Self::new(contents, self.config);
-
-        let result = (decode_fn)(&mut inner)?;
-
-        if streaming {
-            self.input = inner.input;
-            self.parse_eoc()?;
-        } else if !inner.input.is_empty() {
-            return Err(Error::UnexpectedExtraData { length: inner.input.len() })
-        }
-
-        Ok(result)
+        self.parse_constructed_contents(tag, true, decode_fn)
     }
 
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D> {
-        self.decode_sequence(tag, D::decode)
+        self.parse_constructed_contents(tag, false, D::decode)
     }
 
     fn decode_set<FIELDS, SET, F>(&mut self, tag: Tag, decode_fn: F) -> Result<SET, Self::Error>

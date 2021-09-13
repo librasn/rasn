@@ -20,8 +20,7 @@ pub(crate) fn assert_length(expected: usize, actual: usize) -> super::Result<()>
 pub(crate) fn map_nom_err(error: nom::Err<nom::error::Error<&[u8]>>) -> Error {
     let msg = match error {
         nom::Err::Incomplete(needed) => return Error::Incomplete { needed },
-        nom::Err::Failure(c) => alloc::format!("Parsing Failure: {:?}", c),
-        nom::Err::Error(c) => alloc::format!("Parsing Error: {:?}", c),
+        err => alloc::format!("Parsing Failure: {}", err),
     };
 
     Error::Parser { msg }
@@ -45,7 +44,7 @@ pub enum Error {
     InvalidUtf8,
     #[snafu(display("Invalid Date"))]
     InvalidDate,
-    #[snafu(display("Error in Parser\n{}", msg))]
+    #[snafu(display("Error in Parser"))]
     Parser { msg: alloc::string::String },
     #[snafu(display("Unexpected extra data found: length `{}` bytes", length))]
     UnexpectedExtraData { length: usize },
