@@ -108,7 +108,7 @@ pub fn derive_struct_impl(
                 Some(Some(ref path)) => quote! { .unwrap_or_else(#path) },
                 Some(None) => quote! { .unwrap_or_default() },
                 None => {
-                    let ident = syn::LitStr::new(&field.ident.as_ref().map(|ident| ident.to_string()).unwrap_or_else(|| i.to_string()), proc_macro2::Span::call_site());
+                    let ident = format!("{}.{}", name, field.ident.as_ref().map(|ident| ident.to_string()).unwrap_or_else(|| i.to_string()));
                     quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error))?)
                 }
             };
@@ -194,11 +194,10 @@ pub fn derive_enum_impl(
                     }
                 },
                 syn::Fields::Named(_) => {
-                    let decode_fields = v.fields.iter().map(|f| {
-                        let field_config = FieldConfig::new(&f, config);
-                        let ident = f.ident.as_ref().map(|i| i.to_string());
-                        let ident = ident.as_deref().map(|ident| syn::LitStr::new(ident, proc_macro2::Span::call_site()));
-                        let lhs = f.ident.as_ref().map(|i| quote!(#i :));
+                    let decode_fields = v.fields.iter().enumerate().map(|(i, field)| {
+                        let field_config = FieldConfig::new(&field, config);
+                        let lhs = field.ident.as_ref().map(|i| quote!(#i :));
+                        let ident = format!("{}.{}", name, field.ident.as_ref().map(|ident| ident.to_string()).unwrap_or_else(|| i.to_string()));
                         let map_field_error = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error)));
                         if config.automatic_tags || field_config.tag.is_some() {
                             quote!(#lhs <_>::decode_with_tag(decoder, #variant_tag) #map_field_error?)
