@@ -1,4 +1,5 @@
 use rasn::{ber, cer, der, types};
+use pretty_assertions::assert_eq;
 
 #[test]
 fn arith1() {
@@ -241,13 +242,11 @@ fn flip5() {
     let data = &*include_bytes!("data/flip5.bin");
 
     if let Ok(value) = ber::decode::<types::Open>(data) {
-        let encoded = &ber::encode(&value).unwrap();
-        assert_eq!(value, ber::decode(&encoded).unwrap());
+        assert_eq!(value, ber::decode(&ber::encode(&value).unwrap()).unwrap());
     }
 
     if let Ok(value) = cer::decode::<types::Open>(data) {
-        let encoded = &cer::encode(&value).unwrap();
-        assert_eq!(value, cer::decode(&encoded).unwrap());
+        assert_eq!(value, cer::decode(&cer::encode(&value).unwrap()).unwrap());
     }
 
     if let Ok(value) = der::decode::<types::Open>(data) {

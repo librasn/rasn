@@ -72,7 +72,16 @@ where
 }
 
 pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier> {
+    use nom::error::ParseError;
+
     let (input, identifier) = parse_initial_octet(input)?;
+
+    if identifier.tag == Tag::EOC {
+        return Err(nom::Err::Failure(<_>::from_error_kind(
+                input,
+                nom::error::ErrorKind::Eof,
+        )));
+    }
 
     let (input, tag) = if identifier.tag.value >= 0x1f {
         let (input, tag) = parse_encoded_number(input)?;
@@ -80,7 +89,6 @@ pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier>
         match tag.to_u32() {
             Some(value) => (input, value),
             None => {
-                use nom::error::ParseError;
                 return Err(nom::Err::Failure(<_>::from_error_kind(
                     input,
                     nom::error::ErrorKind::TooLarge,
