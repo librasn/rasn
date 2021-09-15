@@ -101,6 +101,10 @@ consts! {
 }
 
 impl Tag {
+    /// The `Tag` constant to use to represent `CHOICE` type's `AsnType::TAG`.
+    pub const CHOICE: Self = Self::EOC;
+
+    /// Create a new tag from `class` and `value`.
     pub const fn new(class: Class, value: u32) -> Self {
         Self { class, value }
     }
@@ -118,7 +122,7 @@ impl Tag {
     /// Returns whether `Tag` is defined as `Tag::EOC`, and thus is an invalid
     /// tag and must be CHOICE structure.
     pub const fn is_choice(&self) -> bool {
-        self.const_eq(&Tag::EOC)
+        self.const_eq(&Tag::CHOICE)
     }
 }
 
@@ -232,7 +236,7 @@ mod tests {
     use super::*;
 
     const EXPECTED: &'static [TagTree] = &[
-        TagTree::Leaf(Tag::EOC),
+        TagTree::Leaf(Tag::CHOICE),
         TagTree::Leaf(Tag::BIT_STRING),
         TagTree::Choice(&[
             TagTree::Leaf(Tag::new(Class::Application, 0)),
@@ -257,7 +261,7 @@ mod tests {
     ];
 
     const INVALID_NESTED: &'static [TagTree] = &[
-        TagTree::Leaf(Tag::EOC),
+        TagTree::Leaf(Tag::CHOICE),
         TagTree::Leaf(Tag::BIT_STRING),
         TagTree::Choice(&[
             TagTree::Leaf(Tag::new(Class::Application, 0)),
@@ -286,7 +290,7 @@ mod tests {
     #[test]
     fn canonical_ordering() {
         let mut tags = [
-            Tag::EOC,
+            Tag::CHOICE,
             Tag::new(Class::Application, 0),
             Tag::BIT_STRING,
             Tag::new(Class::Application, 1),
@@ -296,7 +300,7 @@ mod tests {
             Tag::new(Class::Context, 0),
         ];
         let expected = [
-            Tag::EOC,
+            Tag::CHOICE,
             Tag::BIT_STRING,
             Tag::new(Class::Application, 0),
             Tag::new(Class::Application, 1),
