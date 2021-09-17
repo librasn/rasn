@@ -1,4 +1,4 @@
-//! # Types
+//! # ASN.1 Data Types
 //! The `types` modules is a collection of Rust types and data structures that
 //! are defined to represent various ASN.1 data types, and renamed to use
 //! ASN.1's terminology.
@@ -26,29 +26,29 @@ pub use self::{
     tag::{Class, Tag, TagTree},
 };
 
-///  Alias for `bitvec::BitVec` mapped to ASN.1'a `BIT STRING`.
+///  The `BIT STRING` type.
 pub type BitString = bitvec::vec::BitVec<bitvec::order::Msb0, u8>;
-///  `Ia5String` string alias that matches BER's encoding rules.
+///  The `Ia5String` type.
 pub type Ia5String = Implicit<tag::IA5_STRING, Utf8String>;
-///  `PrintableString` string alias that matches BER's encoding rules.
+///  The `PrintableString` type.
 pub type PrintableString = Implicit<tag::PRINTABLE_STRING, Utf8String>;
-///  `VisibleString` string alias that matches BER's encoding rules.
+///  The `VisibleString` type.
 pub type VisibleString = Implicit<tag::VISIBLE_STRING, Utf8String>;
-///  `String` alias that matches `BmpString` BER's encoding rules.
+///  The `BmpString` type.
 pub type BmpString = Implicit<tag::BMP_STRING, Utf8String>;
-///  `String` alias that matches `TeletexString` BER's encoding rules.
-pub type TeletexString = Implicit<tag::TELETEX_STRING, Utf8String>;
-///  `String` alias that matches `TeletexString` BER's encoding rules.
+///  The `TeletexString` type.
+pub type TeletexString = Implicit<tag::TELETEX_STRING, OctetString>;
+///  The `NumericString` type.
 pub type NumericString = Implicit<tag::NUMERIC_STRING, Utf8String>;
-///  Alias to `alloc::collections::BTreeSet<T>`.
+///  The `SET OF` type.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
-///  `UniversalString` string alias that matches BER's encoding rules.
+///  The `UniversalString` type.
 pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
-///  Alias for `chrono::DateTime<Utc>`.
+///  The `UTCTime` type.
 pub type UtcTime = chrono::DateTime<chrono::Utc>;
-///  Alias for `chrono::DateTime<FixedOffset>`.
+///  The `GeneralizedTime` type.
 pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
-///  Represents a `SEQUENCE OF` type.
+///  The `SEQUENCE OF` type.
 pub type SequenceOf<T> = alloc::vec::Vec<T>;
 
 /// A trait representing any type that can represented in ASN.1.
