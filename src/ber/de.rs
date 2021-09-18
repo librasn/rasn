@@ -7,7 +7,15 @@ use alloc::{borrow::ToOwned, vec::Vec};
 use snafu::*;
 
 use super::identifier::Identifier;
-use crate::{Decode, de::Error as _, types::{self, Tag}};
+use crate::{
+    de::Error as _,
+    types::{
+        self,
+        oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
+        Tag,
+    },
+    Decode,
+};
 
 pub use self::{config::DecoderOptions, error::Error};
 
@@ -58,15 +66,21 @@ impl<'input> Decoder<'input> {
     /// Parses a constructed ASN.1 value, checking the `tag`, and optionally
     /// checking if the identifier is marked as encoded. This should be true
     /// in all cases except explicit prefixes.
-    fn parse_constructed_contents<D, F>(&mut self, tag: Tag, check_identifier: bool, decode_fn: F) -> Result<D>
-        where F: FnOnce(&mut Self) -> Result<D>
+    fn parse_constructed_contents<D, F>(
+        &mut self,
+        tag: Tag,
+        check_identifier: bool,
+        decode_fn: F,
+    ) -> Result<D>
+    where
+        F: FnOnce(&mut Self) -> Result<D>,
     {
         let (identifier, contents) = self.parse_value(tag)?;
 
         error::assert_tag(tag, identifier.tag)?;
 
         if check_identifier && identifier.is_primitive() {
-            return Err(Error::custom("Invalid constructed identifier"))
+            return Err(Error::custom("Invalid constructed identifier"));
         }
 
         let (streaming, contents) = match contents {
@@ -82,7 +96,9 @@ impl<'input> Decoder<'input> {
             self.input = inner.input;
             self.parse_eoc()?;
         } else if !inner.input.is_empty() {
-            return Err(Error::UnexpectedExtraData { length: inner.input.len() })
+            return Err(Error::UnexpectedExtraData {
+                length: inner.input.len(),
+            });
         }
 
         Ok(result)
@@ -182,13 +198,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
         use num_traits::ToPrimitive;
         let contents = self.parse_primitive_value(tag)?.1;
         let (mut contents, root_octets) =
-            parser::parse_encoded_number(contents).map_err(error::map_nom_err)?;
-        let second = (&root_octets % 40u8)
+            parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
+        let the_number = root_octets
             .to_u32()
             .context(error::IntegerOverflow { max_width: 32u32 })?;
-        let first = ((root_octets - second) / 40u8)
-            .to_u32()
-            .context(error::IntegerOverflow { max_width: 32u32 })?;
+        let first: u32;
+        let second: u32;
+        const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
+        if the_number > MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD + MAX_OID_SECOND_OCTET {
+            first = MAX_OID_FIRST_OCTET;
+            second = the_number - MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD;
+        } else {
+            second = the_number % MAX_OID_THRESHOLD;
+            first = (the_number - second) / MAX_OID_THRESHOLD;
+        }
         let mut buffer = alloc::vec![first, second];
 
         while !contents.is_empty() {
@@ -310,9 +333,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_set<FIELDS, SET, F>(&mut self, tag: Tag, decode_fn: F) -> Result<SET, Self::Error>
-        where SET: Decode,
-              FIELDS: Decode,
-              F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>
+    where
+        SET: Decode,
+        FIELDS: Decode,
+        F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
         self.decode_sequence(tag, |decoder| {
             let mut fields = Vec::new();
@@ -560,5 +584,15 @@ mod tests {
             },
             decode(expected).unwrap()
         );
+    }
+
+    #[test]
+    fn decoding_oid() {
+        let mut decoder =
+            super::Decoder::new(&[0x06, 0x03, 0x88, 0x37, 0x01], DecoderOptions::der());
+        let oid = decoder.decode_object_identifier(Tag::OBJECT_IDENTIFIER);
+        assert!(oid.is_ok());
+        let oid = oid.unwrap();
+        assert_eq!(ObjectIdentifier::new_unchecked([2, 999, 1].to_vec()), oid);
     }
 }

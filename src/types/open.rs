@@ -2,7 +2,7 @@ use super::*;
 use crate::{Decode, Encode};
 
 /// An "open" type representing any valid ASN.1 type.
-#[derive(AsnType, Debug, Clone, PartialEq, Decode, Encode)]
+#[derive(AsnType, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Decode, Encode)]
 #[rasn(crate_root = "crate")]
 #[rasn(choice)]
 pub enum Open {
@@ -18,5 +18,6 @@ pub enum Open {
     UniversalString(UniversalString),
     UtcTime(UtcTime),
     VisibleString(VisibleString),
+    ObjectIdentifier(ObjectIdentifier),
     InstanceOf(alloc::boxed::Box<InstanceOf<Open>>),
 }

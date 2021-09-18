@@ -48,10 +48,12 @@ impl Encoder {
     /// Consumes the encoder and returns the output of the encoding.
     pub fn output(self) -> Vec<u8> {
         if self.is_set_encoding {
-            self.set_buffer.into_values().fold(Vec::new(), |mut acc, mut field| {
-                acc.append(&mut field);
-                acc
-            })
+            self.set_buffer
+                .into_values()
+                .fold(Vec::new(), |mut acc, mut field| {
+                    acc.append(&mut field);
+                    acc
+                })
         } else {
             self.output
         }
@@ -71,6 +73,8 @@ impl Encoder {
         }
     }
 
+    // Since some refactoring and bug fixing, used in tests only, but should be usefull in the future
+    #[cfg(test)]
     pub(super) fn encode_seven_bit_integer(&self, mut number: u32, buffer: &mut Vec<u8>) {
         const WIDTH: u8 = 7;
         const SEVEN_BITS: u8 = (1 << 7) - 1;
@@ -232,7 +236,8 @@ impl Encoder {
     /// the output by the tag of each value.
     fn encode_to_set(&mut self, tag: Tag) {
         if self.is_set_encoding {
-            self.set_buffer.insert(tag, core::mem::take(&mut self.output));
+            self.set_buffer
+                .insert(tag, core::mem::take(&mut self.output));
         }
     }
 }
@@ -243,7 +248,9 @@ impl crate::Encoder for Encoder {
 
     fn encode_any(&mut self, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
-            return Err(crate::enc::Error::custom("Cannot encode `ANY` types in `SET` fields."))
+            return Err(crate::enc::Error::custom(
+                "Cannot encode `ANY` types in `SET` fields.",
+            ));
         }
 
         Ok(self.output.extend_from_slice(&value.contents))
@@ -296,11 +303,11 @@ impl crate::Encoder for Encoder {
         let first = oid[0];
         let second = oid[1];
 
-        if first > MAX_OID_FIRST_OCTET || second > MAX_OID_SECOND_OCTET {
+        if first > MAX_OID_FIRST_OCTET {
             return Err(error::Error::InvalidObjectIdentifier);
         }
 
-        self.encode_seven_bit_integer((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
+        self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
 
         for component in oid.iter().skip(2) {
             self.encode_as_base128(*component, &mut bytes);
@@ -322,7 +329,14 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, value.naive_utc().format("%y%m%d%H%M%SZ").to_string().as_bytes()))
+        Ok(self.encode_primitive(
+            tag,
+            value
+                .naive_utc()
+                .format("%y%m%d%H%M%SZ")
+                .to_string()
+                .as_bytes(),
+        ))
     }
 
     fn encode_generalized_time(
@@ -330,7 +344,14 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, value.naive_utc().format("%Y%m%d%H%M%SZ").to_string().as_bytes()))
+        Ok(self.encode_primitive(
+            tag,
+            value
+                .naive_utc()
+                .format("%Y%m%d%H%M%SZ")
+                .to_string()
+                .as_bytes(),
+        ))
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -371,11 +392,13 @@ impl crate::Encoder for Encoder {
 
         // If the resulting encoding is constructed, then encode it
         // as constructed.
-        Ok(if !encoder.output.is_empty() && encoder.output[0] & 0x80 != 0 {
-            self.encode_constructed(tag, &encoder.output)
-        } else {
-            self.encode_primitive(tag, &encoder.output)
-        })
+        Ok(
+            if !encoder.output.is_empty() && encoder.output[0] & 0x80 != 0 {
+                self.encode_constructed(tag, &encoder.output)
+            } else {
+                self.encode_primitive(tag, &encoder.output)
+            },
+        )
     }
 
     fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
@@ -477,6 +500,12 @@ mod tests {
             &vec![0x06, 0x03, 0x55, 0x04, 0x03],
             &oid_to_bytes(&[2, 5, 4, 3])
         );
+
+        // example oid
+        assert_eq!(
+            &vec![0x06, 0x03, 0x88, 0x37, 0x01],
+            &oid_to_bytes(&[2, 999, 1])
+        );
     }
 
     #[test]
@@ -519,7 +548,10 @@ mod tests {
 
     #[test]
     fn set() {
-        use crate::{Encoder as _, types::{AsnType, Implicit}};
+        use crate::{
+            types::{AsnType, Implicit},
+            Encoder as _,
+        };
 
         struct C0;
         struct C1;
@@ -547,12 +579,14 @@ mod tests {
 
         let output = {
             let mut encoder = Encoder::new_set(EncoderOptions::ber());
-            encoder.encode_set(Tag::SET, |encoder| {
-                field3.encode(encoder)?;
-                field2.encode(encoder)?;
-                field1.encode(encoder)?;
-                Ok(())
-            }).unwrap();
+            encoder
+                .encode_set(Tag::SET, |encoder| {
+                    field3.encode(encoder)?;
+                    field2.encode(encoder)?;
+                    field1.encode(encoder)?;
+                    Ok(())
+                })
+                .unwrap();
 
             encoder.output()
         };
