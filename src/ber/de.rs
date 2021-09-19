@@ -588,6 +588,8 @@ mod tests {
 
     #[test]
     fn decoding_oid() {
+        use crate::Decoder;
+
         let mut decoder =
             super::Decoder::new(&[0x06, 0x03, 0x88, 0x37, 0x01], DecoderOptions::der());
         let oid = decoder.decode_object_identifier(Tag::OBJECT_IDENTIFIER);

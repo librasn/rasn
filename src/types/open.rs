@@ -13,11 +13,11 @@ pub enum Open {
     Ia5String(Ia5String),
     Integer(Integer),
     Null,
+    ObjectIdentifier(ObjectIdentifier),
     OctetString(OctetString),
     PrintableString(PrintableString),
     UniversalString(UniversalString),
     UtcTime(UtcTime),
     VisibleString(VisibleString),
-    ObjectIdentifier(ObjectIdentifier),
     InstanceOf(alloc::boxed::Box<InstanceOf<Open>>),
 }
