@@ -369,13 +369,7 @@ impl crate::Encoder for Encoder {
         let mut encoder = Self::new(self.config);
         value.encode(&mut encoder)?;
 
-        // If the resulting encoding is constructed, then encode it
-        // as constructed.
-        Ok(if !encoder.output.is_empty() && encoder.output[0] & 0x80 != 0 {
-            self.encode_constructed(tag, &encoder.output)
-        } else {
-            self.encode_primitive(tag, &encoder.output)
-        })
+        Ok(self.encode_constructed(tag, &encoder.output))
     }
 
     fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
@@ -445,7 +439,7 @@ mod tests {
         use crate::types::Explicit;
 
         assert_eq!(
-            &[0x80, 0],
+            &[0xA0, 0],
             &*crate::ber::encode(&<Explicit<C0, _>>::new(None::<()>)).unwrap()
         );
     }
