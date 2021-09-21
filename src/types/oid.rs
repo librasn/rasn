@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use core::ops;
 
 pub(crate) const MAX_OID_FIRST_OCTET: u32 = 2;
@@ -108,7 +107,7 @@ impl alloc::borrow::ToOwned for Oid {
     type Owned = ObjectIdentifier;
 
     fn to_owned(&self) -> Self::Owned {
-        Self::Owned::new_unchecked(self.0.to_owned())
+        Self::Owned::new_unchecked(self.0.to_owned().into())
     }
 }
 
@@ -159,15 +158,16 @@ impl ops::DerefMut for Oid {
 /// A global unique identifier that identifies an concept, such as a
 /// organisation, or encoding rules. The "owned" version of [`Oid`].
 #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-pub struct ObjectIdentifier(Vec<u32>);
+pub struct ObjectIdentifier(alloc::borrow::Cow<'static, [u32]>);
 
 impl ObjectIdentifier {
     /// Creates a new object identifier from `vec`.
     ///
     /// Returns `None` if `vec` contains less than two components or the first
     /// component is greater than 1.
-    pub fn new(vec: Vec<u32>) -> Option<Self> {
-        is_valid_oid(&vec).then(|| Self(vec))
+    pub fn new(arcs: impl Into<alloc::borrow::Cow<'static, [u32]>>) -> Option<Self> {
+        let arcs = arcs.into();
+        is_valid_oid(&arcs).then(|| Self(arcs))
     }
 
     /// Creates a new object identifier from `vec`.
@@ -175,7 +175,7 @@ impl ObjectIdentifier {
     /// # Safety
     /// This allows you to create potentially invalid object identifiers which
     /// may affect encoding validity.
-    pub const fn new_unchecked(vec: Vec<u32>) -> Self {
+    pub const fn new_unchecked(vec: alloc::borrow::Cow<'static, [u32]>) -> Self {
         Self(vec)
     }
 }
@@ -208,7 +208,7 @@ impl ops::Deref for ObjectIdentifier {
 
 impl ops::DerefMut for ObjectIdentifier {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        Oid::new_unchecked_mut(&mut self.0)
+        Oid::new_unchecked_mut(self.0.to_mut())
     }
 }
 
@@ -478,7 +478,7 @@ mod test {
 
     #[test]
     fn transmute() {
-        let mut oid = ObjectIdentifier::new_unchecked(alloc::vec![1, 3, 6]);
+        let mut oid = ObjectIdentifier::new_unchecked(alloc::vec![1, 3, 6].into());
 
         assert_eq!([1u32, 3, 6][..], *oid);
         oid.reverse();

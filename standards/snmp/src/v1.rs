@@ -178,20 +178,20 @@ mod tests {
             data: Trap {
                 enterprise: ObjectIdentifier::new_unchecked(vec![
                     1, 3, 6, 1, 4, 1, 11779, 1, 42, 3, 7, 8,
-                ]),
+                ].into()),
                 agent_addr: NetworkAddress::Internet(IpAddress([10, 11, 12, 13][..].into())),
                 generic_trap: 6.into(),
                 specific_trap: 2.into(),
                 time_stamp: TimeTicks(11_932),
                 variable_bindings: vec![
                     VarBind {
-                        name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3]),
+                        name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3].into()),
                         value: TimeTicks(11_932).into(),
                     },
                     VarBind {
                         name: ObjectIdentifier::new_unchecked(vec![
                             1, 3, 6, 1, 4, 1, 11779, 1, 42, 2, 1, 7,
-                        ]),
+                        ].into()),
                         value: Gauge(1).into(),
                     },
                 ],
