@@ -424,6 +424,7 @@ impl crate::Encoder for Encoder {
 mod tests {
     use super::*;
     use alloc::vec;
+    use alloc::borrow::ToOwned;
 
     #[derive(Clone, Copy, Hash, Debug, PartialEq)]
     struct C0;
