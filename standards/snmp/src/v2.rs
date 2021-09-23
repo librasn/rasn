@@ -90,11 +90,15 @@ mod tests {
                     value: VarBindValue::Unspecified,
                 },
                 VarBind {
-                    name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 4, 0x16, 1, 2].into()),
+                    name: ObjectIdentifier::new_unchecked(
+                        vec![1, 3, 6, 1, 2, 1, 4, 0x16, 1, 2].into(),
+                    ),
                     value: VarBindValue::Unspecified,
                 },
                 VarBind {
-                    name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 4, 0x16, 1, 4].into()),
+                    name: ObjectIdentifier::new_unchecked(
+                        vec![1, 3, 6, 1, 2, 1, 4, 0x16, 1, 4].into(),
+                    ),
                     value: VarBindValue::Unspecified,
                 },
             ],
