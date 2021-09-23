@@ -48,22 +48,37 @@ pub fn derive_struct_impl(
         let field_names = container.fields.iter().map(|field| field.ident.clone());
         let field_names2 = field_names.clone();
         let field_names3 = field_names.clone();
-        let required_field_names = container.fields.iter().filter(|field| !FieldConfig::new(field, config).is_option_type()).map(|field| field.ident.clone());
-        let (field_type_names, field_type_defs): (Vec<_>, Vec<_>) = container.fields.iter().enumerate().map(|(i, field)| {
-            let ty = config.option_type.map_to_inner_type(&field.ty).unwrap_or(&field.ty);
-            let tag = FieldConfig::new(field, config).tag(i);
-            let name = quote::format_ident!("Field{}", i);
+        let required_field_names = container
+            .fields
+            .iter()
+            .filter(|field| !FieldConfig::new(field, config).is_option_type())
+            .map(|field| field.ident.clone());
+        let (field_type_names, field_type_defs): (Vec<_>, Vec<_>) = container
+            .fields
+            .iter()
+            .enumerate()
+            .map(|(i, field)| {
+                let ty = config
+                    .option_type
+                    .map_to_inner_type(&field.ty)
+                    .unwrap_or(&field.ty);
+                let tag = FieldConfig::new(field, config).tag(i);
+                let name = quote::format_ident!("Field{}", i);
 
-            (name.clone(), quote! {
-                #[derive(#crate_root::Decode, #crate_root::Encode)]
-                #[rasn(delegate)]
-                pub struct #name(#ty);
+                (
+                    name.clone(),
+                    quote! {
+                        #[derive(#crate_root::Decode, #crate_root::Encode)]
+                        #[rasn(delegate)]
+                        pub struct #name(#ty);
 
-                impl #crate_root::AsnType for #name {
-                    const TAG: Tag = #tag;
-                }
+                        impl #crate_root::AsnType for #name {
+                            const TAG: Tag = #tag;
+                        }
+                    },
+                )
             })
-        }).unzip();
+            .unzip();
 
         let choice_name = quote::format_ident!("{}Fields", name);
 
@@ -101,24 +116,9 @@ pub fn derive_struct_impl(
         }
     } else {
         for (i, field) in container.fields.iter().enumerate() {
-            let lhs = field.ident.as_ref().map(|i| quote!(#i :));
             let field_config = FieldConfig::new(field, config);
 
-            let or_else = match field_config.default {
-                Some(Some(ref path)) => quote! { .unwrap_or_else(#path) },
-                Some(None) => quote! { .unwrap_or_default() },
-                None => {
-                    let ident = format!("{}.{}", name, field.ident.as_ref().map(|ident| ident.to_string()).unwrap_or_else(|| i.to_string()));
-                    quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error))?)
-                }
-            };
-            let tag = field_config.tag(i);
-
-            if field_config.tag.is_some() || config.automatic_tags {
-                list.push(quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else));
-            } else {
-                list.push(quote!(#lhs <_>::decode(decoder) #or_else));
-            }
+            list.push(field_config.decode(&name, i));
         }
 
         let fields = match container.fields {
@@ -172,52 +172,11 @@ pub fn derive_enum_impl(
     };
 
     let decode = if config.choice {
-        let variants = container.variants.iter().enumerate().map(|(i, v)| {
-            let variant_config = VariantConfig::new(&v, config);
-            let variant_tag = variant_config.tag(i);
-            let ident = &v.ident;
-            match &v.fields {
-                syn::Fields::Unit => quote!(if let Ok(()) = <()>::decode_with_tag(decoder, #variant_tag) { return Ok(#name::#ident) }),
-                syn::Fields::Unnamed(_) => {
-                    if v.fields.len() != 1 {
-                        panic!("Tuple struct variants should contain only a single element.");
-                    }
-
-                    let decode_operation = if config.automatic_tags || variant_config.tag.is_some() {
-                        quote!(<_>::decode_with_tag(decoder, #variant_tag))
-                    } else {
-                        quote!(<_>::decode(decoder))
-                    };
-
-                    quote!{
-                        if let Ok(value) = #decode_operation.map(#name::#ident) { return Ok(value) }
-                    }
-                },
-                syn::Fields::Named(_) => {
-                    let decode_fields = v.fields.iter().enumerate().map(|(i, field)| {
-                        let field_config = FieldConfig::new(&field, config);
-                        let lhs = field.ident.as_ref().map(|i| quote!(#i :));
-                        let ident = format!("{}.{}", name, field.ident.as_ref().map(|ident| ident.to_string()).unwrap_or_else(|| i.to_string()));
-                        let map_field_error = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error)));
-                        if config.automatic_tags || field_config.tag.is_some() {
-                            quote!(#lhs <_>::decode_with_tag(decoder, #variant_tag) #map_field_error?)
-                        } else {
-                            quote!(#lhs <_>::decode(decoder) #map_field_error?)
-                        }
-                    });
-
-                    quote! {
-                        let decode_fn = |decoder: &mut D| {
-                            decoder.decode_sequence(#variant_tag, |decoder| {
-                                Ok::<_, D::Error>(#name::#ident { #(#decode_fields),* })
-                            })
-                        };
-
-                        if let Ok(value) = (decode_fn)(decoder) { return Ok(value) }
-                    }
-                }
-            }
-        });
+        let variants = container
+            .variants
+            .iter()
+            .enumerate()
+            .map(|(i, v)| VariantConfig::new(v, config).decode(&name, i));
 
         let name = syn::LitStr::new(&name.to_string(), proc_macro2::Span::call_site());
         Some(quote! {

@@ -92,7 +92,9 @@ impl Config {
         } else if is_enum && set {
             panic!("Enums cannot be annotated with `#[rasn(set)]`.");
         } else if is_enum && ((choice && enumerated) || (!choice && !enumerated)) {
-            panic!("Enums must be annotated with either `#[rasn(choice)]` OR `#[rasn(enumerated)]`.")
+            panic!(
+                "Enums must be annotated with either `#[rasn(choice)]` OR `#[rasn(enumerated)]`."
+            )
         }
 
         let mut invalid_delegate = false;
@@ -114,7 +116,9 @@ impl Config {
             let (path, some_variant, none_variant) = option.unwrap_or_else(|| (None, None, None));
 
             OptionalEnum {
-                path: path.and_then(|path| path.get_ident().cloned()).unwrap_or_else(|| syn::Ident::new("Option", proc_macro2::Span::call_site())),
+                path: path
+                    .and_then(|path| path.get_ident().cloned())
+                    .unwrap_or_else(|| syn::Ident::new("Option", proc_macro2::Span::call_site())),
                 some_variant: syn::TypePath {
                     path: some_variant.unwrap_or_else(|| {
                         Path::from(syn::Ident::new("Some", proc_macro2::Span::call_site()))
@@ -169,27 +173,35 @@ pub struct OptionalEnum {
 impl OptionalEnum {
     pub(crate) fn is_option_type(&self, ty: &syn::Type) -> bool {
         match ty {
-            syn::Type::Path(path) => path.path.segments.last().map_or(false, |segment| segment.ident == self.path),
+            syn::Type::Path(path) => path
+                .path
+                .segments
+                .last()
+                .map_or(false, |segment| segment.ident == self.path),
             _ => false,
         }
     }
 
     pub(crate) fn map_to_inner_type<'ty>(&self, ty: &'ty syn::Type) -> Option<&'ty syn::Type> {
         match ty {
-            syn::Type::Path(path) => {
-                path.path.segments.last().filter(|segment| segment.ident == self.path)
-                    .and_then(|segment| {
-                        if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                            args.args.first().and_then(|arg| if let syn::GenericArgument::Type(ty) = arg {
+            syn::Type::Path(path) => path
+                .path
+                .segments
+                .last()
+                .filter(|segment| segment.ident == self.path)
+                .and_then(|segment| {
+                    if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                        args.args.first().and_then(|arg| {
+                            if let syn::GenericArgument::Type(ty) = arg {
                                 Some(ty)
                             } else {
                                 None
-                            })
-                        } else {
-                            None
-                        }
-                    })
-            }
+                            }
+                        })
+                    } else {
+                        None
+                    }
+                }),
             _ => None,
         }
     }
@@ -226,6 +238,59 @@ impl<'a> VariantConfig<'a> {
             variant,
             container_config,
             tag,
+        }
+    }
+
+    pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+        let tag = self.tag(context);
+        let ident = &self.variant.ident;
+
+        let encode = match &self.variant.fields {
+            syn::Fields::Unit => {
+                quote!(if let Ok(()) = <()>::decode_with_tag(decoder, #tag) { return Ok(#name::#ident) })
+            }
+            syn::Fields::Unnamed(_) => {
+                if self.variant.fields.len() != 1 {
+                    panic!("Tuple struct variants should contain only a single element.");
+                }
+
+                let decode_operation = if self.container_config.automatic_tags || self.tag.is_some()
+                {
+                    quote!(<_>::decode_with_tag(decoder, #tag))
+                } else {
+                    quote!(<_>::decode(decoder))
+                };
+
+                quote! {
+                    if let Ok(value) = #decode_operation.map(#name::#ident) { return Ok(value) }
+                }
+            }
+            syn::Fields::Named(_) => {
+                let decode_fields = self.variant.fields.iter().enumerate().map(|(i, field)| {
+                    let field_config = FieldConfig::new(&field, self.container_config);
+                    field_config.decode(&name, i)
+                });
+
+                quote! {
+                    let decode_fn = |decoder: &mut D| {
+                        decoder.decode_sequence(#tag, |decoder| {
+                            Ok::<_, D::Error>(#name::#ident { #(#decode_fields),* })
+                        })
+                    };
+
+                    if let Ok(value) = (decode_fn)(decoder) { return Ok(value) }
+                }
+            }
+        };
+
+        if self.tag.as_ref().map_or(false, |tag| tag.explicit) {
+            quote! {
+                decoder.decode_sequence(#tag, |decoder| {
+                    #encode
+                })
+            }
+        } else {
+            encode
         }
     }
 
@@ -327,6 +392,76 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
+    pub fn encode(&self, context: usize, use_self: bool) -> proc_macro2::TokenStream {
+        let this = use_self.then(|| quote!(self.));
+        let tag = self.tag(context);
+        let i = syn::Index::from(context);
+        let field = self
+            .field
+            .ident
+            .as_ref()
+            .map(|name| quote!(#name))
+            .unwrap_or_else(|| quote!(#i));
+
+        let encode_op = if self.tag.is_some() || self.container_config.automatic_tags {
+            if self.tag.as_ref().map_or(false, |tag| tag.explicit) {
+                quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;)
+            } else {
+                quote!(#this #field.encode_with_tag(encoder, #tag)?;)
+            }
+        } else {
+            quote!(#this #field.encode(encoder)?;)
+        };
+
+        if self.default.is_some() {
+            let default_fn = match self.default.as_ref().unwrap() {
+                Some(path) => quote!(#path),
+                None => quote!(<_>::default()),
+            };
+
+            quote! {
+                if #this #field != #default_fn {
+                    #encode_op
+                }
+            }
+        } else {
+            encode_op
+        }
+    }
+
+    pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+        let crate_root = &self.container_config.crate_root;
+        let or_else = match self.default {
+            Some(Some(ref path)) => quote! { .unwrap_or_else(#path) },
+            Some(None) => quote! { .unwrap_or_default() },
+            None => {
+                let ident = format!(
+                    "{}.{}",
+                    name,
+                    self.field
+                        .ident
+                        .as_ref()
+                        .map(|ident| ident.to_string())
+                        .unwrap_or_else(|| context.to_string())
+                );
+                quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error))?)
+            }
+        };
+
+        let lhs = self.field.ident.as_ref().map(|i| quote!(#i :));
+        let tag = self.tag(context);
+
+        if self.tag.is_some() || self.container_config.automatic_tags {
+            if self.tag.as_ref().map_or(false, |tag| tag.explicit) {
+                quote!(#lhs decoder.decode_explicit_prefix(#tag) #or_else)
+            } else {
+                quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else)
+            }
+        } else {
+            quote!(#lhs <_>::decode(decoder) #or_else)
+        }
+    }
+
     pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         if let Some(Tag { class, value, .. }) = &self.tag {
@@ -355,7 +490,9 @@ impl<'a> FieldConfig<'a> {
     }
 
     pub fn is_option_type(&self) -> bool {
-        self.container_config.option_type.is_option_type(&self.field.ty)
+        self.container_config
+            .option_type
+            .is_option_type(&self.field.ty)
     }
 }
 
