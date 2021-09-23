@@ -63,7 +63,10 @@ pub enum Error {
     #[snafu(display("No valid `CHOICE` variant for `{}`", name))]
     NoValidChoice { name: &'static str },
     #[snafu(display("Field `{}`: {}", name, error))]
-    FieldError { name: &'static str, error: alloc::string::String },
+    FieldError {
+        name: &'static str,
+        error: alloc::string::String,
+    },
     #[snafu(display("{}", msg))]
     Custom { msg: alloc::string::String },
 }
@@ -88,7 +91,10 @@ impl crate::de::Error for Error {
     }
 
     fn field_error<D: core::fmt::Display>(name: &'static str, error: D) -> Self {
-        Self::FieldError { name, error: alloc::string::ToString::to_string(&error) }
+        Self::FieldError {
+            name,
+            error: alloc::string::ToString::to_string(&error),
+        }
     }
 
     fn no_valid_choice(name: &'static str) -> Self {

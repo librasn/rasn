@@ -1,7 +1,7 @@
 mod config;
 mod error;
 
-use alloc::{borrow::ToOwned, collections::VecDeque, string::ToString, vec::Vec};
+use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 
 use super::Identifier;
 use crate::{
@@ -48,10 +48,12 @@ impl Encoder {
     /// Consumes the encoder and returns the output of the encoding.
     pub fn output(self) -> Vec<u8> {
         if self.is_set_encoding {
-            self.set_buffer.into_values().fold(Vec::new(), |mut acc, mut field| {
-                acc.append(&mut field);
-                acc
-            })
+            self.set_buffer
+                .into_values()
+                .fold(Vec::new(), |mut acc, mut field| {
+                    acc.append(&mut field);
+                    acc
+                })
         } else {
             self.output
         }
@@ -157,9 +159,9 @@ impl Encoder {
         }
     }
 
-    fn encode_length(&mut self, identifier: Identifier, len: usize, value: &[u8]) {
+    fn encode_length(&mut self, identifier: Identifier, value: &[u8]) {
         if identifier.is_primitive() || !self.config.encoding_rules.is_cer() {
-            let len_bytes = self.encode_definite_length(len);
+            let len_bytes = self.encode_definite_length(value.len());
             self.append_byte_or_bytes(len_bytes);
             self.output.extend_from_slice(value);
         } else {
@@ -187,10 +189,14 @@ impl Encoder {
         }
     }
 
+    fn encode_octet_string_(&mut self, tag: Tag, value: &[u8]) -> Result<(), Error> {
+        self.encode_string(tag, Tag::OCTET_STRING, value)
+    }
+
     /// "STRING" types in ASN.1 BER (OCTET STRING, UTF8 STRING) are either
     /// primitive encoded, or in certain variants like CER they are constructed
     /// encoded containing primitive encoded chunks.
-    fn encode_string(&mut self, tag: Tag, value: &[u8]) -> Result<(), Error> {
+    fn encode_string(&mut self, tag: Tag, nested_tag: Tag, value: &[u8]) -> Result<(), Error> {
         let max_string_length = self.config.encoding_rules.max_string_length();
 
         if value.len() > max_string_length {
@@ -200,7 +206,7 @@ impl Encoder {
             self.output.push(START_OF_CONTENTS);
 
             for chunk in value.chunks(max_string_length) {
-                self.encode_primitive(Tag::OCTET_STRING, chunk);
+                self.encode_primitive(nested_tag, chunk);
             }
 
             self.output.extend_from_slice(END_OF_CONTENTS);
@@ -224,7 +230,7 @@ impl Encoder {
     fn encode_value(&mut self, identifier: Identifier, value: &[u8]) {
         let ident_bytes = self.encode_identifier(identifier);
         self.append_byte_or_bytes(ident_bytes);
-        self.encode_length(identifier, value.len(), value);
+        self.encode_length(identifier, value);
         self.encode_to_set(identifier.tag);
     }
 
@@ -232,7 +238,8 @@ impl Encoder {
     /// the output by the tag of each value.
     fn encode_to_set(&mut self, tag: Tag) {
         if self.is_set_encoding {
-            self.set_buffer.insert(tag, core::mem::take(&mut self.output));
+            self.set_buffer
+                .insert(tag, core::mem::take(&mut self.output));
         }
     }
 }
@@ -243,7 +250,9 @@ impl crate::Encoder for Encoder {
 
     fn encode_any(&mut self, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
-            return Err(crate::enc::Error::custom("Cannot encode `ANY` types in `SET` fields."))
+            return Err(crate::enc::Error::custom(
+                "Cannot encode `ANY` types in `SET` fields.",
+            ));
         }
 
         Ok(self.output.extend_from_slice(&value.contents))
@@ -257,13 +266,15 @@ impl crate::Encoder for Encoder {
         if value.not_any() {
             Ok(self.encode_primitive(tag, &[]))
         } else {
-            let bytes = value.as_raw_slice().to_owned();
+            let bit_length = value.len();
+            let bytes = value.clone().into_vec();
             let mut deque = VecDeque::from(bytes);
             while deque.back().map_or(false, |i| *i == 0) {
                 deque.pop_back();
             }
-            deque.push_front(deque.back().map(|i| i.trailing_zeros() as u8).unwrap_or(0));
-            Ok(self.encode_primitive(tag, &Vec::from(deque)))
+
+            deque.push_front((deque.len() * 8).saturating_sub(bit_length) as u8);
+            self.encode_string(tag, Tag::BIT_STRING, &Vec::from(deque))
         }
     }
 
@@ -310,11 +321,11 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error> {
-        self.encode_string(tag, value)
+        self.encode_octet_string_(tag, value)
     }
 
     fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error> {
-        self.encode_string(tag, value.as_bytes())
+        self.encode_octet_string_(tag, value.as_bytes())
     }
 
     fn encode_utc_time(
@@ -322,7 +333,14 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, value.naive_utc().format("%y%m%d%H%M%SZ").to_string().as_bytes()))
+        Ok(self.encode_primitive(
+            tag,
+            value
+                .naive_utc()
+                .format("%y%m%d%H%M%SZ")
+                .to_string()
+                .as_bytes(),
+        ))
     }
 
     fn encode_generalized_time(
@@ -330,7 +348,14 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, value.naive_utc().format("%Y%m%d%H%M%SZ").to_string().as_bytes()))
+        Ok(self.encode_primitive(
+            tag,
+            value
+                .naive_utc()
+                .format("%Y%m%d%H%M%SZ")
+                .to_string()
+                .as_bytes(),
+        ))
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -411,7 +436,7 @@ mod tests {
         let bitstring =
             types::BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
 
-        let primitive_encoded = &[0x03, 0x07, 0x04, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..];
+        let primitive_encoded = &[0x03, 0x07, 0x00, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..];
 
         assert_eq!(primitive_encoded, super::super::encode(&bitstring).unwrap());
     }
@@ -499,7 +524,7 @@ mod tests {
         let bitstring =
             types::BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
 
-        let primitive_encoded = &[0x03, 0x07, 0x04, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..];
+        let primitive_encoded = &[0x03, 0x07, 0x00, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..];
         let any = types::Any {
             contents: primitive_encoded.into(),
         };
@@ -513,7 +538,10 @@ mod tests {
 
     #[test]
     fn set() {
-        use crate::{Encoder as _, types::{AsnType, Implicit}};
+        use crate::{
+            types::{AsnType, Implicit},
+            Encoder as _,
+        };
 
         struct C0;
         struct C1;
@@ -541,12 +569,14 @@ mod tests {
 
         let output = {
             let mut encoder = Encoder::new_set(EncoderOptions::ber());
-            encoder.encode_set(Tag::SET, |encoder| {
-                field3.encode(encoder)?;
-                field2.encode(encoder)?;
-                field1.encode(encoder)?;
-                Ok(())
-            }).unwrap();
+            encoder
+                .encode_set(Tag::SET, |encoder| {
+                    field3.encode(encoder)?;
+                    field2.encode(encoder)?;
+                    field1.encode(encoder)?;
+                    Ok(())
+                })
+                .unwrap();
 
             encoder.output()
         };

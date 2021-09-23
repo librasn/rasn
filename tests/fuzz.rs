@@ -1,5 +1,5 @@
-use rasn::{ber, cer, der, types};
 use pretty_assertions::assert_eq;
+use rasn::{ber, cer, der, types};
 
 #[test]
 fn arith1() {

@@ -7,7 +7,11 @@ use alloc::{borrow::ToOwned, vec::Vec};
 use snafu::*;
 
 use super::identifier::Identifier;
-use crate::{Decode, de::Error as _, types::{self, Tag}};
+use crate::{
+    de::Error as _,
+    types::{self, Tag},
+    Decode,
+};
 
 pub use self::{config::DecoderOptions, error::Error};
 
@@ -58,15 +62,21 @@ impl<'input> Decoder<'input> {
     /// Parses a constructed ASN.1 value, checking the `tag`, and optionally
     /// checking if the identifier is marked as encoded. This should be true
     /// in all cases except explicit prefixes.
-    fn parse_constructed_contents<D, F>(&mut self, tag: Tag, check_identifier: bool, decode_fn: F) -> Result<D>
-        where F: FnOnce(&mut Self) -> Result<D>
+    fn parse_constructed_contents<D, F>(
+        &mut self,
+        tag: Tag,
+        check_identifier: bool,
+        decode_fn: F,
+    ) -> Result<D>
+    where
+        F: FnOnce(&mut Self) -> Result<D>,
     {
         let (identifier, contents) = self.parse_value(tag)?;
 
         error::assert_tag(tag, identifier.tag)?;
 
         if check_identifier && identifier.is_primitive() {
-            return Err(Error::custom("Invalid constructed identifier"))
+            return Err(Error::custom("Invalid constructed identifier"));
         }
 
         let (streaming, contents) = match contents {
@@ -82,7 +92,9 @@ impl<'input> Decoder<'input> {
             self.input = inner.input;
             self.parse_eoc()?;
         } else if !inner.input.is_empty() {
-            return Err(Error::UnexpectedExtraData { length: inner.input.len() })
+            return Err(Error::UnexpectedExtraData {
+                length: inner.input.len(),
+            });
         }
 
         Ok(result)
@@ -310,9 +322,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_set<FIELDS, SET, F>(&mut self, tag: Tag, decode_fn: F) -> Result<SET, Self::Error>
-        where SET: Decode,
-              FIELDS: Decode,
-              F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>
+    where
+        SET: Decode,
+        FIELDS: Decode,
+        F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
         self.decode_sequence(tag, |decoder| {
             let mut fields = Vec::new();

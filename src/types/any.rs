@@ -29,3 +29,9 @@ impl AsRef<[u8]> for Any {
         self.contents.as_ref()
     }
 }
+
+impl From<Vec<u8>> for Any {
+    fn from(value: Vec<u8>) -> Self {
+        Any::new(value)
+    }
+}

@@ -76,10 +76,15 @@ pub trait Decoder: Sized {
     /// and `FIELDS` must represent a `CHOICE` with a variant for each field
     /// from `SET`. As with `SET`s the field order is not guarenteed, so you'll
     /// have map from `Vec<FIELDS>` to `SET` in `decode_operation`.
-    fn decode_set<FIELDS, SET, F>(&mut self, tag: Tag, decode_operation: F) -> Result<SET, Self::Error>
-        where SET: Decode,
-              FIELDS: Decode,
-              F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
+    fn decode_set<FIELDS, SET, F>(
+        &mut self,
+        tag: Tag,
+        decode_operation: F,
+    ) -> Result<SET, Self::Error>
+    where
+        SET: Decode,
+        FIELDS: Decode,
+        F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
 }
 
 /// A generic error that can occur while decoding ASN.1.
