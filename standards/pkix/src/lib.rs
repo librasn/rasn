@@ -1,3 +1,14 @@
+//! # Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile
+//!
+//! `rasn-pkix` is an implementation of the data types defined in IETF
+//! [RFC 5280] also known PKIX. This does not provide an implementation of a
+//! certificate generator, but provides a shared implementation of the data
+//! types used decode and encode certificates.
+//!
+//! [RFC 5280]: https://datatracker.ietf.org/doc/html/rfc5280
+
+#![cfg_attr(not(test), no_std)]
+
 use rasn::{types::*, Decode, Encode};
 
 pub type InvalidityDate = GeneralizedTime;
@@ -15,12 +26,11 @@ pub type SkipCerts = Integer;
 pub type BaseDistance = Integer;
 pub type CrlDistributionPoints = SequenceOf<DistributionPoint>;
 pub type GeneralSubtrees = SequenceOf<GeneralSubtree>;
-pub type SubjectDirectoryAttributes = Vec<Attribute>;
+pub type SubjectDirectoryAttributes = SequenceOf<Attribute>;
 pub type GeneralNames = SequenceOf<GeneralName>;
 pub type SubjectAltName = GeneralNames;
 pub type PolicyMappings = SequenceOf<PolicyMapping>;
 pub type CpsUri = Ia5String;
-pub type PolicyQualifierInfo = InstanceOf<Any>;
 pub type CertPolicyId = ObjectIdentifier;
 pub type CertificatePolicies = SequenceOf<PolicyInformation>;
 pub type KeyUsage = BitString;
@@ -60,32 +70,86 @@ pub type TeletexOrganisationalUnitName = TeletexString;
 pub type PdsName = PrintableString;
 pub type TerminalType = u8;
 pub type BuiltInDomainDefinedAttributes = SequenceOf<BuiltInDomainDefinedAttribute>;
+pub type KeyIdentifier = OctetString;
+pub type SubjectKeyIdentifier = KeyIdentifier;
+pub type PolicyQualifierId = ObjectIdentifier;
 
+/// An X.509 certificate
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Certificate {
+    /// Certificate information.
     pub tbs_certificate: TbsCertificate,
+    /// contains the identifier for the cryptographic algorithm used by the CA
+    /// to sign this certificate.
     pub signature_algorithm: AlgorithmIdentifier,
-    pub signature: BitString,
+    /// Contains a digital signature computed upon the ASN.1 DER encoded
+    /// `tbs_certificate`.  The ASN.1 DER encoded tbsCertificate is used as the
+    /// input to the signature function. The details of this process are
+    /// specified for each of the algorithms listed in [RFC3279], [RFC4055],
+    /// and [RFC4491].
+    pub signature_value: BitString,
 }
 
+/// Information associated with the subject of the certificate and the CA that
+/// issued it.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TbsCertificate {
+    /// The version of the encoded certificate.
     #[rasn(tag(explicit(0)), default)]
     pub version: Version,
+    /// The serial number MUST be a positive integer assigned by the CA to each
+    /// certificate.  It MUST be unique for each certificate issued by a given
+    /// CA (i.e., the issuer name and serial number identify a unique
+    /// certificate).  CAs MUST force the serialNumber to be a
+    /// non-negative integer.
+    ///
+    /// Given the uniqueness requirements above, serial numbers can be expected
+    /// to contain long integers.  Certificate users MUST be able to handle
+    /// serialNumber values up to 20 octets.  Conforming CAs MUST NOT use
+    /// serialNumber values longer than 20 octets.
+    ///
+    /// Note: Non-conforming CAs may issue certificates with serial numbers that
+    /// are negative or zero.  Certificate users SHOULD be prepared to
+    /// gracefully handle such certificates.
     pub serial_number: CertificateSerialNumber,
+    /// The algorithm identifier for the algorithm used by the CA to sign
+    /// the certificate.
+    ///
+    /// This field MUST contain the same algorithm identifier as the
+    /// [`Certificate.signature_algorithm`].  The contents of the optional
+    /// parameters field will vary according to the algorithm identified.
+    /// [RFC3279], [RFC4055], and [RFC4491] list supported signature algorithms,
+    /// but other signature algorithms MAY also be supported.
     pub signature: AlgorithmIdentifier,
+    /// The entity that has signed and issued the certificate. The issuer field
+    /// MUST contain a non-empty distinguished name (DN).
     pub issuer: Name,
+    /// The time interval during which the CA warrants that it will maintain
+    /// information about the status of the certificate.
     pub validity: Validity,
+    /// The entity associated with the public key stored in the subject public
+    /// key field.
     pub subject: Name,
+    /// The public key and identifies the algorithm with which the key is used
+    /// (e.g., RSA, DSA, or Diffie-Hellman).
     pub subject_public_key_info: SubjectPublicKeyInfo,
     #[rasn(tag(1))]
     pub issuer_unique_id: Option<UniqueIdentifier>,
     #[rasn(tag(2))]
     pub subject_unique_id: Option<UniqueIdentifier>,
-    #[rasn(tag(3))]
+    /// Extensions to the certificate.
+    #[rasn(tag(explicit(3)))]
     pub extensions: Option<Extensions>,
 }
 
+/// The version of a encoded certificate.
+///
+/// When extensions are used, as expected in this profile, version MUST be 3
+/// (value is 2).  If no extensions are present, but a UniqueIdentifier is
+/// present, the version SHOULD be 2 (value is 1); however, the version MAY
+/// be 3.  If only basic fields are present, the version SHOULD be 1 (the
+/// value is omitted from the certificate as the default value); however,
+/// the version MAY be 2 or 3.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct Version(u64);
@@ -102,6 +166,7 @@ impl Default for Version {
     }
 }
 
+/// The validity period of the certificate.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Validity {
     pub not_before: Time,
@@ -121,6 +186,24 @@ pub struct SubjectPublicKeyInfo {
     pub subject_public_key: BitString,
 }
 
+/// Identifying the public key corresponding to the private key used to sign a
+/// certificate.
+///
+/// This extension is used where an issuer has multiple signing keys (either due
+/// to multiple concurrent key pairs or due to changeover).  The identification
+/// MAY be based on either the key identifier (the subject key identifier in the
+/// issuer's certificate) or the issuer name and serial number.
+#[derive(AsnType, Default, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+pub struct AuthorityKeyIdentifier {
+    #[rasn(tag(0))]
+    pub key_identifier: Option<KeyIdentifier>,
+    #[rasn(tag(1))]
+    pub authority_cert_issuer: Option<GeneralNames>,
+    #[rasn(tag(2))]
+    pub authority_cert_serial_number: Option<CertificateSerialNumber>,
+}
+
+/// Extension to an X.509 certificate.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Extension {
     pub extn_id: ObjectIdentifier,
@@ -129,6 +212,7 @@ pub struct Extension {
     pub extn_value: OctetString,
 }
 
+/// A signed list of revoked certificates.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct CertificateList {
     pub tbs_cert_list: TbsCertList,
@@ -136,6 +220,7 @@ pub struct CertificateList {
     pub signature: BitString,
 }
 
+/// A list of revoked certificates.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TbsCertList {
     pub version: Version,
@@ -143,7 +228,7 @@ pub struct TbsCertList {
     pub issuer: Name,
     pub this_update: Time,
     pub next_update: Option<Time>,
-    pub revoked_certificates: Vec<RevokedCerificate>,
+    pub revoked_certificates: SequenceOf<RevokedCerificate>,
     #[rasn(tag(0))]
     pub crl_extensions: Option<Extensions>,
 }
@@ -284,7 +369,7 @@ pub struct PdsParameter {
 pub enum ExtendedNetworkAddress {
     E1634Address(E1634Address),
     #[rasn(tag(0))]
-    PsapAddress(PresentationAddress)
+    PsapAddress(PresentationAddress),
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
@@ -321,14 +406,20 @@ pub enum Name {
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Attribute {
-    r#type: AttributeType,
-    pub value: SetOf<AttributeValue>,
+    pub r#type: AttributeType,
+    pub value: AttributeValue,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PolicyInformation {
     pub policy_identifier: CertPolicyId,
-    pub policy_qualifiers: Vec<PolicyQualifierInfo>,
+    pub policy_qualifiers: Option<SequenceOf<PolicyQualifierInfo>>,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PolicyQualifierInfo {
+    pub id: PolicyQualifierId,
+    pub qualifier: Any,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
@@ -340,7 +431,7 @@ pub struct UserNotice {
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NoticeReference {
     pub organisation: DisplayText,
-    pub notice_numbers: Vec<Integer>,
+    pub notice_numbers: SequenceOf<Integer>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
@@ -431,7 +522,7 @@ pub struct PolicyConstraints {
     pub inhibit_policy_mapping: Option<SkipCerts>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DistributionPoint {
     #[rasn(tag(0))]
     pub distribution_point: Option<DistributionPointName>,
@@ -490,9 +581,72 @@ pub struct IssuingDistributionPoint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn time() {
-        rasn::der::decode::<Time>(&[0x17, 0x0D, 0x31, 0x38, 0x30, 0x32, 0x30, 0x39, 0x31, 0x32, 0x33, 0x32, 0x30, 0x37, 0x5A]).unwrap();
+        rasn::der::decode::<Time>(&[
+            0x17, 0x0D, 0x31, 0x38, 0x30, 0x32, 0x30, 0x39, 0x31, 0x32, 0x33, 0x32, 0x30, 0x37,
+            0x5A,
+        ])
+        .unwrap();
+    }
+
+    #[test]
+    fn algorithm_identifier() {
+        let expected_de = AlgorithmIdentifier {
+            algorithm: ObjectIdentifier::new_unchecked((&[1, 2, 840, 113549, 1, 1, 1][..]).into()),
+            parameters: Some(Any::new(rasn::der::encode(&()).unwrap())),
+        };
+
+        let expected_enc = &[
+            0x30, 0x0D, 0x06, 0x09, 0x2A, 0x86, 0x48, 0x86, 0xF7, 0x0D, 0x01, 0x01, 0x01, 0x05,
+            0x00,
+        ][..];
+
+        assert_eq!(expected_enc, rasn::der::encode(&expected_de).unwrap());
+        assert_eq!(expected_de, rasn::der::decode(&expected_enc).unwrap());
+    }
+
+    extern crate alloc;
+    #[test]
+    fn certificate_policies() {
+        let expected_de: CertificatePolicies = alloc::vec![
+            PolicyInformation {
+                policy_identifier: ObjectIdentifier::new_unchecked(
+                    (&[2, 23, 140, 1, 2, 1][..]).into()
+                ),
+                policy_qualifiers: None,
+            },
+            PolicyInformation {
+                policy_identifier: ObjectIdentifier::new_unchecked(
+                    (&[1, 3, 6, 1, 4, 1, 44947, 1, 1, 1][..]).into()
+                ),
+                policy_qualifiers: Some(alloc::vec![PolicyQualifierInfo {
+                    id: ObjectIdentifier::new_unchecked((&[1, 3, 6, 1, 5, 5, 7, 2, 1][..]).into()),
+                    qualifier: Any::new(
+                        rasn::der::encode(&Ia5String::from(alloc::string::String::from(
+                            "http://cps.root-x1.letsencrypt.org"
+                        )))
+                        .unwrap()
+                    ),
+                }]),
+            }
+        ];
+
+        let expected_enc = &[
+            0x30, 0x4B, 0x30, 0x08, 0x06, 0x06, 0x67, 0x81, 0x0C, 0x01, 0x02, 0x01, 0x30, 0x3F,
+            0x06, 0x0B, 0x2B, 0x06, 0x01, 0x04, 0x01, 0x82, 0xDF, 0x13, 0x01, 0x01, 0x01, 0x30,
+            0x30, 0x30, 0x2E, 0x06, 0x08, 0x2B, 0x06, 0x01, 0x05, 0x05, 0x07, 0x02, 0x01, 0x16,
+            0x22, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x63, 0x70, 0x73, 0x2E, 0x72, 0x6F,
+            0x6F, 0x74, 0x2D, 0x78, 0x31, 0x2E, 0x6C, 0x65, 0x74, 0x73, 0x65, 0x6E, 0x63, 0x72,
+            0x79, 0x70, 0x74, 0x2E, 0x6F, 0x72, 0x67,
+        ][..];
+
+        assert_eq!(expected_enc, rasn::der::encode(&expected_de).unwrap());
+        assert_eq!(
+            expected_de,
+            rasn::der::decode::<CertificatePolicies>(&expected_enc).unwrap()
+        );
     }
 }

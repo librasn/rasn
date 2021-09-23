@@ -39,4 +39,3 @@ fn splice() {
     let encoded = rasn::der::encode(&value).unwrap();
     assert_eq!(value, rasn::der::decode(&encoded).unwrap());
 }
-
