@@ -324,8 +324,9 @@ impl<'a> VariantConfig<'a> {
                 }
                 syn::Fields::Named(_) => {
                     quote!({
-                        const FIELD_TAG_TREE: &'static [#crate_root::TagTree] = &[#(#field_tags,)*];
-                        #crate_root::sa::const_assert!(#crate_root::TagTree::is_unique(FIELD_TAG_TREE));
+                        const FIELD_LIST: &'static [#crate_root::TagTree] = &[#(#field_tags,)*];
+                        const FIELD_TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(FIELD_LIST);
+                        #crate_root::sa::const_assert!(FIELD_TAG_TREE.is_unique());
                         #crate_root::TagTree::Leaf(#crate_root::Tag::SEQUENCE)
                     },)
                 }
