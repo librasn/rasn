@@ -4,3 +4,9 @@
 pub struct Any {
     pub(crate) contents: alloc::vec::Vec<u8>,
 }
+
+impl Any {
+    pub fn new(contents: alloc::vec::Vec<u8>) -> Self {
+        Self { contents }
+    }
+}
