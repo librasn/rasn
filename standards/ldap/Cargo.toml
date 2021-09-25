@@ -1,17 +1,11 @@
 [package]
-name = "rasn-pkix"
+name = "rasn-ldap"
 version = "0.3.1"
 edition = "2018"
-description = "Data types for handling Management Information Base objects."
+description = "Data types for Lightweight Directory Access Protocol."
 license = "Apache-2.0/MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 rasn = { path = "../..", version = "0.3.0" }
-
-[dev-dependencies]
-bitvec = "0.22.3"
-chrono = "0.4.19"
-pem = "0.8.3"
-pretty_assertions = "0.7.2"

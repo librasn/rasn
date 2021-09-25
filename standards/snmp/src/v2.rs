@@ -86,15 +86,19 @@ mod tests {
             max_repetitions: 2,
             variable_bindings: vec![
                 VarBind {
-                    name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3]),
+                    name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3].into()),
                     value: VarBindValue::Unspecified,
                 },
                 VarBind {
-                    name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 4, 0x16, 1, 2]),
+                    name: ObjectIdentifier::new_unchecked(
+                        vec![1, 3, 6, 1, 2, 1, 4, 0x16, 1, 2].into(),
+                    ),
                     value: VarBindValue::Unspecified,
                 },
                 VarBind {
-                    name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 4, 0x16, 1, 4]),
+                    name: ObjectIdentifier::new_unchecked(
+                        vec![1, 3, 6, 1, 2, 1, 4, 0x16, 1, 4].into(),
+                    ),
                     value: VarBindValue::Unspecified,
                 },
             ],

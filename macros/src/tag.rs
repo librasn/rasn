@@ -46,34 +46,36 @@ impl Tag {
         let mut explicit = false;
         match item {
             syn::Meta::List(list) => match list.nested.iter().count() {
-                1 => {
-                    match &list.nested[0] {
-                        syn::NestedMeta::Lit(lit) => tag = Some((Class::Context, lit.clone())),
-                        syn::NestedMeta::Meta(meta) => {
-                            let list = match meta {
+                1 => match &list.nested[0] {
+                    syn::NestedMeta::Lit(lit) => tag = Some((Class::Context, lit.clone())),
+                    syn::NestedMeta::Meta(meta) => {
+                        let list = match meta {
                                 syn::Meta::List(list) => list,
                                 _ => panic!("Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`."),
                             };
 
-                            if !list.path.is_ident(&syn::Ident::new("explicit", proc_macro2::Span::call_site())) {
-                                panic!("Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`.");
-                            }
+                        if !list
+                            .path
+                            .is_ident(&syn::Ident::new("explicit", proc_macro2::Span::call_site()))
+                        {
+                            panic!("Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`.");
+                        }
 
-                            match list.nested.first() {
-                                Some(syn::NestedMeta::Meta(meta)) => {
-                                    let Self { class, value, .. } = Self::from_meta(&meta).expect("Invalid tag literal found in `explicit`.");
-                                    explicit = true;
-                                    tag = Some((class, value));
-                                }
-                                Some(syn::NestedMeta::Lit(lit)) => {
-                                    explicit = true;
-                                    tag = Some((Class::Context, lit.clone()));
-                                }
-                                _ => panic!("Expected meta items inside `explicit`"),
+                        match list.nested.first() {
+                            Some(syn::NestedMeta::Meta(meta)) => {
+                                let Self { class, value, .. } = Self::from_meta(&meta)
+                                    .expect("Invalid tag literal found in `explicit`.");
+                                explicit = true;
+                                tag = Some((class, value));
                             }
+                            Some(syn::NestedMeta::Lit(lit)) => {
+                                explicit = true;
+                                tag = Some((Class::Context, lit.clone()));
+                            }
+                            _ => panic!("Expected meta items inside `explicit`"),
                         }
                     }
-                }
+                },
                 2 => {
                     let mut iter = list.nested.iter().take(2).fuse();
                     let class = iter.next().unwrap();
@@ -92,7 +94,11 @@ impl Tag {
             _ => panic!("The `#[rasn(tag)]`attribute must be a list."),
         }
 
-        tag.map(|(class, value)| Self { class, value, explicit })
+        tag.map(|(class, value)| Self {
+            class,
+            value,
+            explicit,
+        })
     }
 
     pub fn from_fields(fields: &syn::Fields, crate_root: &syn::Path) -> proc_macro2::TokenStream {

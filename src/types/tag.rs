@@ -137,14 +137,21 @@ pub enum TagTree {
 }
 
 impl TagTree {
+    pub const fn is_unique(&self) -> bool {
+        match self {
+            Self::Choice(tree) => Self::is_unique_set(tree),
+            Self::Leaf(_) => true,
+        }
+    }
+
     /// Checks whether a given set of nodes only contains unique entries.
-    pub const fn is_unique(nodes: &'static [Self]) -> bool {
+    pub(crate) const fn is_unique_set(nodes: &'static [Self]) -> bool {
         let mut index = 0;
 
         while index < nodes.len() {
             match &nodes[index] {
                 TagTree::Choice(inner_tags) => {
-                    if !Self::is_unique(inner_tags) {
+                    if !Self::is_unique_set(inner_tags) {
                         return false;
                     }
 
@@ -235,7 +242,7 @@ impl TagTree {
 mod tests {
     use super::*;
 
-    const EXPECTED: &'static [TagTree] = &[
+    const EXPECTED: TagTree = TagTree::Choice(&[
         TagTree::Leaf(Tag::CHOICE),
         TagTree::Leaf(Tag::BIT_STRING),
         TagTree::Choice(&[
@@ -248,9 +255,9 @@ mod tests {
         ]),
         TagTree::Leaf(Tag::new(Class::Private, 0)),
         TagTree::Leaf(Tag::new(Class::Private, 1)),
-    ];
+    ]);
 
-    const INVALID_FLAT: &'static [TagTree] = &[
+    const INVALID_FLAT: TagTree = TagTree::Choice(&[
         TagTree::Leaf(Tag::BIT_STRING),
         TagTree::Leaf(Tag::new(Class::Application, 0)),
         TagTree::Leaf(Tag::new(Class::Application, 0)),
@@ -258,9 +265,9 @@ mod tests {
         TagTree::Leaf(Tag::new(Class::Context, 0)),
         TagTree::Leaf(Tag::new(Class::Private, 0)),
         TagTree::Leaf(Tag::new(Class::Private, 0)),
-    ];
+    ]);
 
-    const INVALID_NESTED: &'static [TagTree] = &[
+    const INVALID_NESTED: TagTree = TagTree::Choice(&[
         TagTree::Leaf(Tag::CHOICE),
         TagTree::Leaf(Tag::BIT_STRING),
         TagTree::Choice(&[
@@ -274,7 +281,7 @@ mod tests {
         ]),
         TagTree::Leaf(Tag::new(Class::Private, 1)),
         TagTree::Leaf(Tag::new(Class::Private, 1)),
-    ];
+    ]);
 
     #[test]
     fn is_unique() {
@@ -282,9 +289,9 @@ mod tests {
         let _ = INVALID_FLAT;
         let _ = INVALID_NESTED;
 
-        crate::sa::const_assert!(TagTree::is_unique(EXPECTED));
-        crate::sa::const_assert!(!TagTree::is_unique(INVALID_FLAT));
-        crate::sa::const_assert!(!TagTree::is_unique(INVALID_NESTED));
+        crate::sa::const_assert!(EXPECTED.is_unique());
+        crate::sa::const_assert!(!INVALID_FLAT.is_unique());
+        crate::sa::const_assert!(!INVALID_NESTED.is_unique());
     }
 
     #[test]

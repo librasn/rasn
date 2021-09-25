@@ -147,12 +147,18 @@ mod tests {
         const DATA: &[u8] = &[0, 0xD0];
         let small = BitString::from_vec(DATA.to_owned());
         let bits = BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
+        let padding_test = BitString::from_element(0x42);
+        let padding_expected: &[u8] = &[0x03, 02, 0x00, 0x42];
+        let trailing_test = bitvec::bitvec![bitvec::prelude::Msb0, u8; 1, 0, 0, 0, 0, 1, 1];
+        let trailing_expected: &[u8] = &[0x03, 02, 0x01, 0x86];
 
         assert_eq!(
             small,
             decode::<BitString>(&encode(&small).unwrap()).unwrap()
         );
         assert_eq!(bits, decode::<BitString>(&encode(&bits).unwrap()).unwrap());
+        assert_eq!(padding_expected, encode(&padding_test).unwrap());
+        assert_eq!(trailing_expected, encode(&trailing_test).unwrap());
     }
 
     #[test]
@@ -189,7 +195,7 @@ mod tests {
         type EmptyTag = Explicit<C0, Option<()>>;
 
         let value = EmptyTag::new(None::<()>);
-        let data = &[0x80, 0][..];
+        let data = &[0xA0, 0][..];
 
         assert_eq!(data, &*crate::ber::encode(&value).unwrap());
         assert_eq!(value, crate::ber::decode::<EmptyTag>(data).unwrap());
@@ -207,23 +213,29 @@ mod tests {
             const TAG: Tag = Tag::SET;
         }
 
-        let example = Set { age: 1, name: "Jane".into() };
+        let example = Set {
+            age: 1,
+            name: "Jane".into(),
+        };
         let age_then_name = [0x31, 0x9, 0x2, 0x1, 0x1, 0xC, 0x4, 0x4a, 0x61, 0x6e, 0x65];
         let name_then_age = [0x31, 0x9, 0xC, 0x4, 0x4a, 0x61, 0x6e, 0x65, 0x2, 0x1, 0x1];
 
+        assert_eq!(&age_then_name[..], crate::ber::encode(&example).unwrap());
+
         assert_eq!(
-            &age_then_name[..],
-            crate::ber::encode(&example).unwrap()
+            crate::ber::decode::<Set>(&age_then_name).unwrap(),
+            crate::ber::decode::<Set>(&name_then_age).unwrap()
         );
 
-        assert_eq!(crate::ber::decode::<Set>(&age_then_name).unwrap(), crate::ber::decode::<Set>(&name_then_age).unwrap());
-
         impl crate::Decode for Set {
-            fn decode_with_tag<D: crate::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+            fn decode_with_tag<D: crate::Decoder>(
+                decoder: &mut D,
+                tag: Tag,
+            ) -> Result<Self, D::Error> {
                 use crate::de::Error;
 
                 #[derive(crate::AsnType, crate::Decode)]
-                #[rasn(crate_root="crate")]
+                #[rasn(crate_root = "crate")]
                 #[rasn(choice)]
                 pub enum Fields {
                     Age(u32),
@@ -250,7 +262,11 @@ mod tests {
         }
 
         impl crate::Encode for Set {
-            fn encode_with_tag<EN: crate::Encoder>(&self, encoder: &mut EN, tag: crate::Tag) -> Result<(), EN::Error> {
+            fn encode_with_tag<EN: crate::Encoder>(
+                &self,
+                encoder: &mut EN,
+                tag: crate::Tag,
+            ) -> Result<(), EN::Error> {
                 encoder.encode_set(tag, |encoder| {
                     self.age.encode(encoder)?;
                     self.name.encode(encoder)?;

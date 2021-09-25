@@ -7,28 +7,12 @@ pub fn derive_struct_impl(
     config: &Config,
 ) -> proc_macro2::TokenStream {
     let crate_root = &config.crate_root;
-    let mut list = vec![];
-
-    for (i, field) in container.fields.iter().enumerate() {
-        let field_config = FieldConfig::new(field, config);
-        let tag = field_config.tag(i);
-        let i = syn::Index::from(i);
-        let field = field
-            .ident
-            .as_ref()
-            .map(|name| quote!(#name))
-            .unwrap_or_else(|| quote!(#i));
-
-        if field_config.tag.is_some() || config.automatic_tags {
-            list.push(proc_macro2::TokenStream::from(
-                quote!(self.#field.encode_with_tag(encoder, #tag)?;)
-            ));
-        } else {
-            list.push(proc_macro2::TokenStream::from(
-                quote!(self.#field.encode(encoder)?;),
-            ));
-        }
-    }
+    let list: Vec<_> = container
+        .fields
+        .iter()
+        .enumerate()
+        .map(|(i, field)| FieldConfig::new(field, config).encode(i, true))
+        .collect();
 
     for param in generics.type_params_mut() {
         param.colon_token = Some(Default::default());
@@ -116,15 +100,9 @@ pub fn derive_enum_impl(
                         quote!(#ident)
                     });
 
-                    let fields = v.fields.iter().map(|f| {
+                    let fields = v.fields.iter().enumerate().map(|(i, f)| {
                         let field_config = FieldConfig::new(&f, config);
-                        let ident = f.ident.as_ref().unwrap();
-                        if field_config.tag.is_some() {
-                            let tag = field_config.tag(i);
-                            quote!(#crate_root::Encode::encode_with_tag(#ident, encoder, #tag)?;)
-                        } else {
-                            quote!(#crate_root::Encode::encode(#ident, encoder)?;)
-                        }
+                        field_config.encode(i, false)
                     });
 
                     quote!(#name::#ident { #(#idents),* } => {
@@ -138,7 +116,8 @@ pub fn derive_enum_impl(
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
-                    let encode_operation = if variant_config.tag.is_some() || config.automatic_tags {
+                    let encode_operation = if variant_config.tag.is_some() || config.automatic_tags
+                    {
                         quote!(#crate_root::Encode::encode_with_tag(value, encoder, #variant_tag))
                     } else {
                         quote!(#crate_root::Encode::encode(value, encoder))
@@ -150,7 +129,9 @@ pub fn derive_enum_impl(
                         }
                     }
                 }
-                syn::Fields::Unit => quote!(#name::#ident => { encoder.encode_null(#variant_tag).map(drop) }),
+                syn::Fields::Unit => {
+                    quote!(#name::#ident => { encoder.encode_null(#variant_tag).map(drop) })
+                }
             }
         });
 

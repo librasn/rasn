@@ -60,12 +60,12 @@ pub enum MessageEnum {
 fn it_works() {
     let data = ProtocolMessages::Message(MessagePDU {
         message_id: 0.into(),
-        message_num: None, 
-        message_status: MessageStatus{
+        message_num: None,
+        message_status: MessageStatus {
             message_class: MessageClass::Test1(0.into()),
             status_id: None,
             status_enum: None,
-        }
+        },
     });
 
     let bin = rasn::ber::encode(&data).unwrap();

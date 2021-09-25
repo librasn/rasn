@@ -118,14 +118,14 @@ mod tests {
                         // 1.3.6.1.4.1.11779.1.42.3.7.8
                         0x2b, 0x06, 0x01, 0x04, 0x01, 0xDC, 0x03, 0x01,
                         0x2a, 0x03, 0x07, 0x08,
-                    // OCTET STRING -> Trap::agent_addr 
+                    // OCTET STRING -> Trap::agent_addr
                     0x40, 0x04,
                         // NetworkAddress:Internet(IpAddress(10.11.12.13))
                         0x0a, 0x0b, 0x0c, 0x0d,
-                    // INTEGER -> Trap::generic_trap 
+                    // INTEGER -> Trap::generic_trap
                     0x02, 0x01,
                         0x06,
-                    // INTEGER -> Trap::specific_trap 
+                    // INTEGER -> Trap::specific_trap
                     0x02, 0x01,
                         0x02,
                     // application tag 3 -> TimeTicks
@@ -169,29 +169,28 @@ mod tests {
         assert_eq!(decode_msg.data.generic_trap, 6.into());
         assert_eq!(decode_msg.data.specific_trap, 2.into());
         assert_eq!(decode_msg.data.time_stamp, TimeTicks(11_932));
-        // TODO: Currently this incorectly decodes as an empty vector.
         assert_eq!(decode_msg.data.variable_bindings.len(), 2);
 
         let encode_msg = Message {
             version: 0.into(),
             community: "public".into(),
             data: Trap {
-                enterprise: ObjectIdentifier::new_unchecked(vec![
-                    1, 3, 6, 1, 4, 1, 11779, 1, 42, 3, 7, 8,
-                ]),
+                enterprise: ObjectIdentifier::new_unchecked(
+                    vec![1, 3, 6, 1, 4, 1, 11779, 1, 42, 3, 7, 8].into(),
+                ),
                 agent_addr: NetworkAddress::Internet(IpAddress([10, 11, 12, 13][..].into())),
                 generic_trap: 6.into(),
                 specific_trap: 2.into(),
                 time_stamp: TimeTicks(11_932),
                 variable_bindings: vec![
                     VarBind {
-                        name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3]),
+                        name: ObjectIdentifier::new_unchecked(vec![1, 3, 6, 1, 2, 1, 1, 3].into()),
                         value: TimeTicks(11_932).into(),
                     },
                     VarBind {
-                        name: ObjectIdentifier::new_unchecked(vec![
-                            1, 3, 6, 1, 4, 1, 11779, 1, 42, 2, 1, 7,
-                        ]),
+                        name: ObjectIdentifier::new_unchecked(
+                            vec![1, 3, 6, 1, 4, 1, 11779, 1, 42, 2, 1, 7].into(),
+                        ),
                         value: Gauge(1).into(),
                     },
                 ],

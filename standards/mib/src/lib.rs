@@ -566,7 +566,7 @@ pub mod interfaces {
 
         impl Default for Specific {
             fn default() -> Self {
-                Self(ObjectIdentifier::new_unchecked(vec![0, 0]))
+                Self(ObjectIdentifier::new_unchecked(vec![0, 0].into()))
             }
         }
     }

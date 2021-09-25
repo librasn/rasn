@@ -16,3 +16,14 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, crate:
 
     Ok(enc.output())
 }
+
+/// Creates a new DER encoder that can be used to encode any value.
+pub fn encode_scope(
+    encode_fn: impl FnOnce(&mut crate::ber::enc::Encoder) -> Result<(), crate::ber::enc::Error>,
+) -> Result<alloc::vec::Vec<u8>, crate::ber::enc::Error> {
+    let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::der());
+
+    (encode_fn)(&mut enc)?;
+
+    Ok(enc.output())
+}

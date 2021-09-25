@@ -20,7 +20,8 @@ pub(crate) fn parse_value<'config, 'input>(
         error::assert_tag(tag, identifier.tag)?;
     }
 
-    let (input, contents) = parse_contents(config, identifier, input).map_err(error::map_nom_err)?;
+    let (input, contents) =
+        parse_contents(config, identifier, input).map_err(error::map_nom_err)?;
 
     Ok((input, (identifier, contents)))
 }
@@ -78,8 +79,8 @@ pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier>
 
     if identifier.tag == Tag::EOC {
         return Err(nom::Err::Failure(<_>::from_error_kind(
-                input,
-                nom::error::ErrorKind::Eof,
+            input,
+            nom::error::ErrorKind::Eof,
         )));
     }
 

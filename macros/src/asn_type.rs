@@ -34,8 +34,9 @@ pub fn derive_struct_impl(
         .map(|fields| {
             let tag_tree = fields.map(|(i, f)| f.tag_tree(i));
             quote!({
-                const TAG_TREE: &'static [#crate_root::TagTree] = &[#(#tag_tree),*];
-                #crate_root::sa::const_assert!(#crate_root::TagTree::is_unique(TAG_TREE));
+                const LIST: &'static [#crate_root::TagTree] = &[#(#tag_tree),*];
+                const TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(LIST);
+                #crate_root::sa::const_assert!(TAG_TREE.is_unique());
             })
         });
 
@@ -80,8 +81,10 @@ pub fn derive_enum_impl(
 
         quote! {
             {
-                const VARIANT_TAG_TREE: &'static [#crate_root::TagTree] = &[#(#field_tags)*];
-                #crate_root::TagTree::Choice(VARIANT_TAG_TREE)
+                const VARIANT_LIST: &'static [#crate_root::TagTree] = &[#(#field_tags)*];
+                const VARIANT_TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(VARIANT_LIST);
+                #crate_root::sa::const_assert!(VARIANT_TAG_TREE.is_unique());
+                VARIANT_TAG_TREE
             }
         }
     } else {
@@ -96,10 +99,10 @@ pub fn derive_enum_impl(
                 #tag
             };
             const TAG_TREE: #crate_root::TagTree = {
-                const TAG_TREE: &'static [#crate_root::TagTree] = &[#tag_tree];
-                #crate_root::sa::const_assert!(#crate_root::TagTree::is_unique(TAG_TREE));
-
-                #crate_root::TagTree::Choice(TAG_TREE)
+                const LIST: &'static [#crate_root::TagTree] = &[#tag_tree];
+                const TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(LIST);
+                #crate_root::sa::const_assert!(TAG_TREE.is_unique());
+                TAG_TREE
             };
         }
 
