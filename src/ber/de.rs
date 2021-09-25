@@ -595,6 +595,6 @@ mod tests {
         let oid = decoder.decode_object_identifier(Tag::OBJECT_IDENTIFIER);
         assert!(oid.is_ok());
         let oid = oid.unwrap();
-        assert_eq!(ObjectIdentifier::new_unchecked([2, 999, 1].to_vec()), oid);
+        assert_eq!(ObjectIdentifier::new([2, 999, 1].to_vec()).unwrap(), oid);
     }
 }

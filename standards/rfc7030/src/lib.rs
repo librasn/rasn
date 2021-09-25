@@ -25,7 +25,7 @@ struct Attribute {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
+    use std::{borrow::Cow, collections::BTreeSet};
 
     use super::*;
 
@@ -33,37 +33,37 @@ mod tests {
     fn csr_attributes_encode() {
         let data = vec![
             // ecdsaWithSHA256 (ANSI X9.62 ECDSA algorithm with SHA256)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 2, 840, 10045, 4, 3, 2,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 2, 840, 10045, 4, 3, 2],
+            ))),
             // commonName (X.520 DN component)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                2, 5, 4, 3,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![2, 5, 4, 3],
+            ))),
             // emailAddress (PKCS #9. Deprecated, use an altName extension instead)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 2, 840, 113549, 1, 9, 1,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 2, 840, 113549, 1, 9, 1],
+            ))),
             // challengePassword (PKCS #9)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 2, 840, 113549, 1, 9, 7,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 2, 840, 113549, 1, 9, 7],
+            ))),
             // ocsp (PKIX)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 3, 6, 1, 5, 5, 7, 48, 1,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 3, 6, 1, 5, 5, 7, 48, 1],
+            ))),
             // requestClientInfo (Microsoft attribute)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 3, 6, 1, 4, 1, 311, 21, 20,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 3, 6, 1, 4, 1, 311, 21, 20],
+            ))),
             // 1.2.840.113549.1.1.5 (sha1WithRsaEncryption)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 2, 840, 113549, 1, 1, 5,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 2, 840, 113549, 1, 1, 5],
+            ))),
             AttrOrOid::Attribute(Attribute {
-                r#type: rasn::types::ObjectIdentifier::new_unchecked(vec![
+                r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![
                     1, 3, 6, 1, 5, 5, 7, 48, 1,
-                ]),
+                ])),
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
@@ -105,19 +105,21 @@ mod tests {
     fn csr_attributes_decode_1() {
         let data = vec![
             // challengePassword (PKCS #9)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 2, 840, 113549, 1, 9, 7,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 2, 840, 113549, 1, 9, 7],
+            ))),
             // ecPublicKey (ANSI X9.62 public key type)
             AttrOrOid::Attribute(Attribute {
-                r#type: rasn::types::ObjectIdentifier::new_unchecked(vec![1, 2, 840, 10045, 2, 1]),
+                r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![
+                    1, 2, 840, 10045, 2, 1,
+                ])),
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
                         // secp384r1 (SECG (Certicom) named elliptic curve)
-                        rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(vec![
-                            1, 3, 132, 0, 34,
-                        ]))
+                        rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
+                            Cow::from(vec![1, 3, 132, 0, 34]),
+                        ))
                         .unwrap(),
                     ));
                     b
@@ -125,24 +127,24 @@ mod tests {
             }),
             AttrOrOid::Attribute(Attribute {
                 // extensionRequest (PKCS #9 via CRMF)
-                r#type: rasn::types::ObjectIdentifier::new_unchecked(vec![
+                r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![
                     1, 2, 840, 113549, 1, 9, 14,
-                ]),
+                ])),
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(vec![
-                            1, 3, 6, 1, 1, 1, 1, 22,
-                        ]))
+                        rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
+                            Cow::from(vec![1, 3, 6, 1, 1, 1, 1, 22]),
+                        ))
                         .unwrap(),
                     ));
                     b
                 })(),
             }),
             // ecdsaWithSHA384 (ANSI X9.62 ECDSA algorithm with SHA384)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 2, 840, 10045, 4, 3, 3,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 2, 840, 10045, 4, 3, 3],
+            ))),
         ];
 
         let data_bin = rasn::der::encode(&data).unwrap();
@@ -158,12 +160,12 @@ mod tests {
     #[test]
     fn csr_attributes_decode_2() {
         let data = vec![
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 3, 6, 1, 1, 1, 1, 22,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 3, 6, 1, 1, 1, 1, 22],
+            ))),
             // ecPublicKey (ANSI X9.62 public key type)
             AttrOrOid::Attribute(Attribute {
-                r#type: rasn::types::ObjectIdentifier::new_unchecked(vec![2, 999, 1]),
+                r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![2, 999, 1])),
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
@@ -176,23 +178,23 @@ mod tests {
                 })(),
             }),
             // challengePassword (PKCS #9)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 2, 840, 113549, 1, 9, 7,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 2, 840, 113549, 1, 9, 7],
+            ))),
             AttrOrOid::Attribute(Attribute {
-                r#type: rasn::types::ObjectIdentifier::new_unchecked(vec![2, 999, 2]),
+                r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![2, 999, 2])),
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(vec![
-                            2, 999, 3,
-                        ]))
+                        rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
+                            Cow::from(vec![2, 999, 3]),
+                        ))
                         .unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(vec![
-                            2, 999, 4,
-                        ]))
+                        rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
+                            Cow::from(vec![2, 999, 4]),
+                        ))
                         .unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(
@@ -205,13 +207,13 @@ mod tests {
                 })(),
             }),
             // brainpoolP384r1 (ECC Brainpool Standard Curves and Curve Generation)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                1, 3, 36, 3, 3, 2, 8, 1, 1, 11,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![1, 3, 36, 3, 3, 2, 8, 1, 1, 11],
+            ))),
             // sha-384 (NIST Algorithm)
-            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(vec![
-                2, 16, 840, 1, 101, 3, 4, 2, 2,
-            ])),
+            AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
+                vec![2, 16, 840, 1, 101, 3, 4, 2, 2],
+            ))),
         ];
 
         let data_bin = rasn::der::encode(&data).unwrap();
