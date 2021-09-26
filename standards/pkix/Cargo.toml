@@ -8,9 +8,10 @@ license = "Apache-2.0/MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rasn = { path = "../..", version = "0.3.0" }
+rasn = { path = "../..", version = "0.3.1" }
 
 [dev-dependencies]
+base64 = "0.13"
 bitvec = "0.22.3"
 chrono = "0.4.19"
 pem = "0.8.3"

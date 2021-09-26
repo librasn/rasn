@@ -7,21 +7,37 @@ Attribute ::= SEQUENCE {
         values SET SIZE(0..MAX) OF ANY }
 */
 
-#[cfg(test)]
-type CsrAttrs = Vec<AttrOrOid>;
+extern crate alloc;
+pub type CsrAttrs = alloc::vec::Vec<AttrOrOid>;
 
 #[derive(rasn::AsnType, rasn::Decode, rasn::Encode, Debug, PartialEq, Clone)]
 #[rasn(choice)]
-enum AttrOrOid {
+pub enum AttrOrOid {
     Oid(rasn::types::ObjectIdentifier),
     Attribute(Attribute),
 }
 
 #[derive(rasn::AsnType, rasn::Decode, rasn::Encode, Debug, PartialEq, Clone)]
-struct Attribute {
-    r#type: rasn::types::ObjectIdentifier,
-    values: rasn::types::SetOf<rasn::types::Any>,
+pub struct Attribute {
+    pub r#type: rasn::types::ObjectIdentifier,
+    pub values: rasn::types::SetOf<rasn::types::Any>,
 }
+
+/*
+-- Asymmetric Decrypt Key Identifier Attribute
+
+   aa-asymmDecryptKeyID ATTRIBUTE ::=
+       { TYPE AsymmetricDecryptKeyIdentifier
+         IDENTIFIED BY id-aa-asymmDecryptKeyID }
+
+   id-aa-asymmDecryptKeyID OBJECT IDENTIFIER ::= { iso(1)
+       member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
+       smime(16) aa(2) 54 }
+
+   AsymmetricDecryptKeyIdentifier ::= OCTET STRING
+*/
+
+pub type AsymmetricDecryptKeyIdentifier = rasn::types::OctetString;
 
 #[cfg(test)]
 mod tests {

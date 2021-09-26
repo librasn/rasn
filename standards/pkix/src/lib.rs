@@ -11,6 +11,8 @@
 
 use rasn::{types::*, Decode, Encode};
 
+pub mod rfc7030;
+
 pub type InvalidityDate = GeneralizedTime;
 pub type CertificateIssuer = GeneralNames;
 pub type CrlNumber = Integer;
