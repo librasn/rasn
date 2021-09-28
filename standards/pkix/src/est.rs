@@ -9,8 +9,6 @@
 
 use rasn::prelude::*;
 
-use crate::Attribute;
-
 /// The identifier of the secret key to be used by the server to encrypt the
 /// private key.
 pub type AsymmetricDecryptKeyIdentifier = rasn::types::OctetString;
@@ -29,9 +27,17 @@ pub enum AttrOrOid {
     Attribute(Attribute),
 }
 
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Clone)]
+pub struct Attribute {
+    pub r#type: ObjectIdentifier,
+    pub values: SetOf<Any>,
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{borrow::Cow, collections::BTreeSet};
+    extern crate alloc;
+
+    use alloc::{vec, borrow::Cow, collections::BTreeSet, string::ToString};
 
     use super::*;
 
@@ -223,16 +229,10 @@ mod tests {
         ];
 
         let data_bin = rasn::der::encode(&data).unwrap();
-        println!("Encoded data (raw): {:x?}", &data_bin);
-        let data_b64_bin = base64::encode(&data_bin);
-        println!("Encoded data (b64): {}", &data_b64_bin);
-
         let txt = "MHwGBysGAQEBARYwIgYDiDcBMRsTGVBhcnNlIFNFVCBhcyAyLjk5OS4xIGRhdGEGCSqGSIb3DQEJBzAsBgOINwIxJQYDiDcDBgOINwQTGVBhcnNlIFNFVCBhcyAyLjk5OS4yIGRhdGEGCSskAwMCCAEBCwYJYIZIAWUDBAIC";
         let bin = base64::decode(&txt).unwrap();
-        println!("Encoded data (raw): {:x?}", &bin);
         assert_eq!(data_bin, bin);
         let decoded_data = rasn::der::decode::<CsrAttrs>(&bin);
-        println!("Result from decode {:?}", &decoded_data);
         assert!(decoded_data.is_ok());
         let decoded_data = decoded_data.unwrap();
         assert_eq!(decoded_data, data);
