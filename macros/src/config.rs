@@ -155,7 +155,7 @@ impl Config {
     fn tag_tree_for_ty(&self, ty: &syn::Type) -> proc_macro2::TokenStream {
         let crate_root = &self.crate_root;
 
-        quote!(if !<#ty as #crate_root::AsnType>::TAG.const_eq(&#crate_root::Tag::EOC) {
+        quote!(if !<#ty as #crate_root::AsnType>::TAG.is_choice() {
             #crate_root::TagTree::Leaf(<#ty as #crate_root::AsnType>::TAG)
         } else {
             <#ty as #crate_root::AsnType>::TAG_TREE
