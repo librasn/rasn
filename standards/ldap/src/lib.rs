@@ -5,6 +5,9 @@
 //! implementation to build your own clients and servers.
 //!
 //! [RFC 4511]: https://datatracker.ietf.org/doc/html/rfc4511
+//! [RFC 4513]: https://datatracker.ietf.org/doc/html/rfc4513
+//! [RFC 4517]: https://datatracker.ietf.org/doc/html/rfc4517
+//! [RFC 4512]: https://datatracker.ietf.org/doc/html/rfc4512
 
 #![no_std]
 
@@ -48,7 +51,7 @@ pub type AttributeDescription = LdapString;
 /// An encoded attribute value. The attribute value is encoded according to the
 /// LDAP-specific encoding definition of its corresponding syntax.  The
 /// LDAP-specific encoding definitions for different syntaxes and attribute
-/// types may be found in other documents and in particular [RFC4517].
+/// types may be found in other documents and in particular [RFC 4517].
 pub type AttributeValue = OctetString;
 /// The value to compare in the assertion. The syntax of the `AssertionValue`
 /// depends on the context of the LDAP operation being performed.
@@ -197,8 +200,6 @@ pub struct Control {
 /// The Bind operation should be thought of as the "authenticate" operation.
 /// Operational, authentication, and security-related semantics of this
 /// operation are given in [RFC 4513].
-///
-/// [rfc 4513]: https://datatracker.ietf.org/doc/html/rfc4513
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[non_exhaustive]
 #[rasn(tag(application, 0))]
@@ -524,9 +525,7 @@ pub struct ModifyRequest {
     /// definition and Directory Information Tree (DIT) content rule), the
     /// resulting entry after the entire list of modifications is performed
     /// **must** conform to the requirements of the directory model and
-    /// controlling schema. See [RFC4512]
-    ///
-    /// [rfc4512]: https://datatracker.ietf.org/doc/html/rfc4512
+    /// controlling schema. See [RFC 4512]
     pub changes: SequenceOf<ModifyRequestChanges>,
 }
 

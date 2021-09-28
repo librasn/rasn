@@ -6,6 +6,9 @@
 //! implementation of the underlying data types used decode and
 //! encode certificates from DER.
 //!
+//! [RFC 3279]: https://datatracker.ietf.org/doc/html/rfc3279
+//! [RFC 4055]: https://datatracker.ietf.org/doc/html/rfc4055
+//! [RFC 4491]: https://datatracker.ietf.org/doc/html/rfc4491
 //! [RFC 5280]: https://datatracker.ietf.org/doc/html/rfc5280
 
 #![no_std]
@@ -88,8 +91,9 @@ pub struct Certificate {
     /// Contains a digital signature computed upon the ASN.1 DER encoded
     /// `tbs_certificate`.  The ASN.1 DER encoded tbsCertificate is used as the
     /// input to the signature function. The details of this process are
-    /// specified for each of the algorithms listed in [RFC3279], [RFC4055],
-    /// and [RFC4491].
+    /// specified for each of the algorithms listed in [RFC 3279], [RFC 4055],
+    /// and [RFC 4491].
+    ///
     pub signature_value: BitString,
 }
 
@@ -121,7 +125,7 @@ pub struct TbsCertificate {
     /// This field MUST contain the same algorithm identifier as the
     /// [`Certificate.signature_algorithm`].  The contents of the optional
     /// parameters field will vary according to the algorithm identified.
-    /// [RFC3279], [RFC4055], and [RFC4491] list supported signature algorithms,
+    /// [RFC 3279], [RFC 4055], and [RFC 4491] list supported signature algorithms,
     /// but other signature algorithms MAY also be supported.
     pub signature: AlgorithmIdentifier,
     /// The entity that has signed and issued the certificate. The issuer field
