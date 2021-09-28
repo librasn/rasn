@@ -2,12 +2,13 @@
 //!
 //! `rasn-pkix` is an implementation of the data types defined in IETF
 //! [RFC 5280] also known PKIX. This does not provide an implementation of a
-//! certificate generator, but provides a shared implementation of the data
-//! types used decode and encode certificates.
+//! PKIX certificate generator or validator, `rasn-pkix` provides a
+//! implementation of the underlying data types used decode and
+//! encode certificates from DER.
 //!
 //! [RFC 5280]: https://datatracker.ietf.org/doc/html/rfc5280
 
-#![cfg_attr(not(test), no_std)]
+#![no_std]
 
 use rasn::{types::*, Decode, Encode};
 
@@ -583,7 +584,6 @@ pub struct IssuingDistributionPoint {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pretty_assertions::assert_eq;
 
     #[test]
     fn time() {

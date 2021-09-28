@@ -26,5 +26,15 @@ fn asn1tools(c: &mut Criterion) {
     bench_encoding_rules!(cer);
 }
 
-criterion_group!(codec, asn1tools);
+fn x509(c: &mut Criterion) {
+    use x509_parser::prelude::*;
+
+    let data: &[u8] = include_bytes!("../standards/pkix/tests/data/letsencrypt-x3.crt");
+    let mut group = c.benchmark_group("Certificate");
+    group.bench_function("rasn", |b| b.iter(|| black_box(rasn::der::decode::<rasn_pkix::Certificate>(data).unwrap())));
+    group.bench_function("x509_parser", |b| b.iter(|| black_box(X509Certificate::from_der(data))));
+    group.finish();
+}
+
+criterion_group!(codec, x509, asn1tools);
 criterion_main!(codec);
