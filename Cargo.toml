@@ -33,7 +33,7 @@ path = "benches/iai.rs"
 harness = false
 
 [dependencies]
-nom = { version = "7.0.0-alpha1", default-features = false, features = ["alloc"] }
+nom = { version = "7.0.0", default-features = false, features = ["alloc"] }
 num-bigint = { version = "0.4.0", default-features = false }
 num-traits = { version = "0.2.14", default-features = false }
 snafu = { version = "0.6.10", default-features = false }

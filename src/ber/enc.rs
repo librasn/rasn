@@ -73,6 +73,8 @@ impl Encoder {
         }
     }
 
+    // Since some refactoring and bug fixing, used in tests only, but should be usefull in the future
+    #[cfg(test)]
     pub(super) fn encode_seven_bit_integer(&self, mut number: u32, buffer: &mut Vec<u8>) {
         const WIDTH: u8 = 7;
         const SEVEN_BITS: u8 = (1 << 7) - 1;
@@ -307,11 +309,11 @@ impl crate::Encoder for Encoder {
         let first = oid[0];
         let second = oid[1];
 
-        if first > MAX_OID_FIRST_OCTET || second > MAX_OID_SECOND_OCTET {
+        if first > MAX_OID_FIRST_OCTET {
             return Err(error::Error::InvalidObjectIdentifier);
         }
 
-        self.encode_seven_bit_integer((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
+        self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
 
         for component in oid.iter().skip(2) {
             self.encode_as_base128(*component, &mut bytes);
@@ -423,8 +425,8 @@ impl crate::Encoder for Encoder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloc::vec;
     use alloc::borrow::ToOwned;
+    use alloc::vec;
 
     #[derive(Clone, Copy, Hash, Debug, PartialEq)]
     struct C0;
@@ -496,6 +498,12 @@ mod tests {
         assert_eq!(
             &vec![0x06, 0x03, 0x55, 0x04, 0x03],
             &oid_to_bytes(&[2, 5, 4, 3])
+        );
+
+        // example oid
+        assert_eq!(
+            &vec![0x06, 0x03, 0x88, 0x37, 0x01],
+            &oid_to_bytes(&[2, 999, 1])
         );
     }
 

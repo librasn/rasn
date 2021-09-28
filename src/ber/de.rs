@@ -9,7 +9,11 @@ use snafu::*;
 use super::identifier::Identifier;
 use crate::{
     de::Error as _,
-    types::{self, Tag},
+    types::{
+        self,
+        oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
+        Tag,
+    },
     Decode,
 };
 
@@ -194,13 +198,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
         use num_traits::ToPrimitive;
         let contents = self.parse_primitive_value(tag)?.1;
         let (mut contents, root_octets) =
-            parser::parse_encoded_number(contents).map_err(error::map_nom_err)?;
-        let second = (&root_octets % 40u8)
+            parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
+        let the_number = root_octets
             .to_u32()
             .context(error::IntegerOverflow { max_width: 32u32 })?;
-        let first = ((root_octets - second) / 40u8)
-            .to_u32()
-            .context(error::IntegerOverflow { max_width: 32u32 })?;
+        let first: u32;
+        let second: u32;
+        const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
+        if the_number > MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD + MAX_OID_SECOND_OCTET {
+            first = MAX_OID_FIRST_OCTET;
+            second = the_number - MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD;
+        } else {
+            second = the_number % MAX_OID_THRESHOLD;
+            first = (the_number - second) / MAX_OID_THRESHOLD;
+        }
         let mut buffer = alloc::vec![first, second];
 
         while !contents.is_empty() {
@@ -573,5 +584,17 @@ mod tests {
             },
             decode(expected).unwrap()
         );
+    }
+
+    #[test]
+    fn decoding_oid() {
+        use crate::Decoder;
+
+        let mut decoder =
+            super::Decoder::new(&[0x06, 0x03, 0x88, 0x37, 0x01], DecoderOptions::der());
+        let oid = decoder.decode_object_identifier(Tag::OBJECT_IDENTIFIER);
+        assert!(oid.is_ok());
+        let oid = oid.unwrap();
+        assert_eq!(ObjectIdentifier::new([2, 999, 1].to_vec()).unwrap(), oid);
     }
 }

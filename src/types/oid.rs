@@ -4,7 +4,7 @@ pub(crate) const MAX_OID_FIRST_OCTET: u32 = 2;
 pub(crate) const MAX_OID_SECOND_OCTET: u32 = 39;
 
 const fn is_valid_oid(slice: &[u32]) -> bool {
-    slice.len() >= 2 && slice[0] <= MAX_OID_FIRST_OCTET && slice[1] <= MAX_OID_SECOND_OCTET
+    slice.len() >= 2 && slice[0] <= MAX_OID_FIRST_OCTET
 }
 
 /// A temporary workaround for [`Oid`] not currently being `const` compatible.
