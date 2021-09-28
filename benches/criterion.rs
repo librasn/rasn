@@ -31,8 +31,12 @@ fn x509(c: &mut Criterion) {
 
     let data: &[u8] = include_bytes!("../standards/pkix/tests/data/letsencrypt-x3.crt");
     let mut group = c.benchmark_group("Certificate");
-    group.bench_function("rasn", |b| b.iter(|| black_box(rasn::der::decode::<rasn_pkix::Certificate>(data).unwrap())));
-    group.bench_function("x509_parser", |b| b.iter(|| black_box(X509Certificate::from_der(data))));
+    group.bench_function("rasn", |b| {
+        b.iter(|| black_box(rasn::der::decode::<rasn_pkix::Certificate>(data).unwrap()))
+    });
+    group.bench_function("x509_parser", |b| {
+        b.iter(|| black_box(X509Certificate::from_der(data)))
+    });
     group.finish();
 }
 
