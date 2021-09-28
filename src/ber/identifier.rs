@@ -34,10 +34,14 @@ impl Identifier {
         }
     }
 
+    /// Returns whether the identifier is for a type that is using
+    /// "constructed" encoding.
     pub fn is_constructed(&self) -> bool {
         self.is_constructed
     }
 
+    /// Returns whether the identifier is for a type that is using
+    /// "primitive" encoding.
     pub fn is_primitive(&self) -> bool {
         !self.is_constructed()
     }

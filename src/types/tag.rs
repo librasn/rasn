@@ -28,6 +28,7 @@ impl Class {
         }
     }
 
+    /// Returns whether the given class is universal.
     pub fn is_universal(self) -> bool {
         self == Class::Universal
     }
@@ -45,6 +46,7 @@ pub struct Tag {
 
 macro_rules! consts {
     ($($name:ident = $value:expr),+) => {
+        #[allow(missing_docs)]
         impl Tag {
             $(
                 pub const $name: Tag = Tag::new(Class::Universal, $value);
@@ -109,6 +111,7 @@ impl Tag {
         Self { class, value }
     }
 
+    /// Set the value of the tag.
     pub fn set_value(mut self, value: u32) -> Self {
         self.value = value;
         self
@@ -132,11 +135,14 @@ impl Tag {
 /// level of `Choice`.
 #[derive(Debug)]
 pub enum TagTree {
+    /// The end of branch in the tree.
     Leaf(Tag),
+    /// A branch in the tree.
     Choice(&'static [TagTree]),
 }
 
 impl TagTree {
+    /// Returns whether a given `TagTree` only contains unique entries.
     pub const fn is_unique(&self) -> bool {
         match self {
             Self::Choice(tree) => Self::is_unique_set(tree),
@@ -159,7 +165,7 @@ impl TagTree {
                     while inner_index < inner_tags.len() {
                         if Self::tree_contains(
                             &inner_tags[inner_index],
-                            konst::slice::slice_from(&nodes, index + 1),
+                            konst::slice::slice_from(nodes, index + 1),
                         ) {
                             return false;
                         }
@@ -175,7 +181,7 @@ impl TagTree {
                         return true;
                     }
 
-                    if Self::tag_contains(tag, konst::slice::slice_from(&nodes, index + 1)) {
+                    if Self::tag_contains(tag, konst::slice::slice_from(nodes, index + 1)) {
                         return false;
                     }
                 }
@@ -225,7 +231,7 @@ impl TagTree {
                 }
 
                 TagTree::Leaf(tag) => {
-                    if tag.const_eq(&needle) {
+                    if tag.const_eq(needle) {
                         return true;
                     }
                 }

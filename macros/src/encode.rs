@@ -60,13 +60,14 @@ pub fn derive_struct_impl(
     };
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    proc_macro2::TokenStream::from(quote! {
+
+    quote! {
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
             fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> Result<(), EN::Error> {
                 #encode_impl
             }
         }
-    })
+    }
 }
 
 pub fn derive_enum_impl(
@@ -90,7 +91,7 @@ pub fn derive_enum_impl(
     let encode = if config.choice {
         let variants = container.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
-            let variant_config = VariantConfig::new(&v, &config);
+            let variant_config = VariantConfig::new(v, config);
             let variant_tag = variant_config.tag(i);
 
             match &v.fields {
@@ -101,7 +102,7 @@ pub fn derive_enum_impl(
                     });
 
                     let fields = v.fields.iter().enumerate().map(|(i, f)| {
-                        let field_config = FieldConfig::new(&f, config);
+                        let field_config = FieldConfig::new(f, config);
                         field_config.encode(i, false)
                     });
 
@@ -173,7 +174,7 @@ pub fn derive_enum_impl(
     }
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    proc_macro2::TokenStream::from(quote! {
+    quote! {
         #[automatically_derived]
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
             fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> Result<(), EN::Error> {
@@ -182,5 +183,5 @@ pub fn derive_enum_impl(
 
             #encode
         }
-    })
+    }
 }

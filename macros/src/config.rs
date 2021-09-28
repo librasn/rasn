@@ -82,10 +82,7 @@ impl Config {
             }
         }
 
-        let is_enum = match input.data {
-            syn::Data::Enum(_) => true,
-            _ => false,
-        };
+        let is_enum = matches!(input.data, syn::Data::Enum(_));
 
         if !is_enum && (choice || enumerated) {
             panic!("Structs cannot be annotated with `#[rasn(choice)]` or `#[rasn(enumerated)]`.");
@@ -102,9 +99,8 @@ impl Config {
         if is_enum && delegate {
             invalid_delegate = true;
         } else if delegate {
-            match &input.data {
-                syn::Data::Struct(data) => invalid_delegate = data.fields.len() != 1,
-                _ => (),
+            if let syn::Data::Struct(data) = &input.data {
+                invalid_delegate = data.fields.len() != 1;
             }
         }
 
@@ -113,7 +109,7 @@ impl Config {
         }
 
         let option_type = {
-            let (path, some_variant, none_variant) = option.unwrap_or_else(|| (None, None, None));
+            let (path, some_variant, none_variant) = option.unwrap_or((None, None, None));
 
             OptionalEnum {
                 path: path
@@ -267,8 +263,8 @@ impl<'a> VariantConfig<'a> {
             }
             syn::Fields::Named(_) => {
                 let decode_fields = self.variant.fields.iter().enumerate().map(|(i, field)| {
-                    let field_config = FieldConfig::new(&field, self.container_config);
-                    field_config.decode(&name, i)
+                    let field_config = FieldConfig::new(field, self.container_config);
+                    field_config.decode(name, i)
                 });
 
                 quote! {

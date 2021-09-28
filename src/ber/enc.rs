@@ -1,3 +1,5 @@
+//! # Encoding BER.
+
 mod config;
 mod error;
 
@@ -19,6 +21,7 @@ pub use error::Error;
 const START_OF_CONTENTS: u8 = 0x80;
 const END_OF_CONTENTS: &[u8] = &[0, 0];
 
+/// A BER and variants encoder. Capable of encoding to BER, CER, and DER.
 pub struct Encoder {
     output: Vec<u8>,
     config: EncoderOptions,
@@ -26,7 +29,14 @@ pub struct Encoder {
     set_buffer: alloc::collections::BTreeMap<Tag, Vec<u8>>,
 }
 
+/// A convenience type around results needing to return one or many bytes.
+enum ByteOrBytes {
+    Single(u8),
+    Many(Vec<u8>),
+}
+
 impl Encoder {
+    /// Creates a new instance from the given `config`.
     pub fn new(config: EncoderOptions) -> Self {
         Self {
             config,
@@ -36,7 +46,9 @@ impl Encoder {
         }
     }
 
-    fn new_set(config: EncoderOptions) -> Self {
+    /// Creates a new instance from the given `config`, and uses SET encoding
+    /// logic, ensuring that all messages are encoded in order by tag.
+    pub fn new_set(config: EncoderOptions) -> Self {
         Self {
             config,
             is_set_encoding: true,
@@ -58,41 +70,11 @@ impl Encoder {
             self.output
         }
     }
-}
 
-enum ByteOrBytes {
-    Single(u8),
-    Many(Vec<u8>),
-}
-
-impl Encoder {
     fn append_byte_or_bytes(&mut self, bytes: ByteOrBytes) {
         match bytes {
             ByteOrBytes::Single(b) => self.output.push(b),
             ByteOrBytes::Many(mut bs) => self.output.append(&mut bs),
-        }
-    }
-
-    // Since some refactoring and bug fixing, used in tests only, but should be usefull in the future
-    #[cfg(test)]
-    pub(super) fn encode_seven_bit_integer(&self, mut number: u32, buffer: &mut Vec<u8>) {
-        const WIDTH: u8 = 7;
-        const SEVEN_BITS: u8 = (1 << 7) - 1;
-        const EIGHTH_BIT: u8 = 0x80;
-
-        if number == 0 {
-            buffer.push(0);
-        } else {
-            while number > 0 {
-                let seven_bits = number as u8 & SEVEN_BITS;
-                let encoded = seven_bits | EIGHTH_BIT;
-                buffer.push(encoded);
-                number >>= WIDTH;
-            }
-
-            if let Some(last) = buffer.last_mut() {
-                *last &= 0x7f;
-            }
         }
     }
 
@@ -257,7 +239,9 @@ impl crate::Encoder for Encoder {
             ));
         }
 
-        Ok(self.output.extend_from_slice(&value.contents))
+        self.output.extend_from_slice(&value.contents);
+
+        Ok(())
     }
 
     fn encode_bit_string(
@@ -266,7 +250,8 @@ impl crate::Encoder for Encoder {
         value: &types::BitString,
     ) -> Result<Self::Ok, Self::Error> {
         if value.not_any() {
-            Ok(self.encode_primitive(tag, &[]))
+            self.encode_primitive(tag, &[]);
+            Ok(())
         } else {
             let bit_length = value.len();
             let bytes = value.clone().into_vec();
@@ -281,7 +266,8 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, &[if value { 0xff } else { 0x00 }]))
+        self.encode_primitive(tag, &[if value { 0xff } else { 0x00 }]);
+        Ok(())
     }
 
     fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error> {
@@ -293,11 +279,13 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::Integer,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, &value.to_signed_bytes_be()))
+        self.encode_primitive(tag, &value.to_signed_bytes_be());
+        Ok(())
     }
 
     fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(tag, &[]))
+        self.encode_primitive(tag, &[]);
+        Ok(())
     }
 
     fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32]) -> Result<Self::Ok, Self::Error> {
@@ -319,7 +307,9 @@ impl crate::Encoder for Encoder {
             self.encode_as_base128(*component, &mut bytes);
         }
 
-        Ok(self.encode_primitive(tag, &bytes))
+        self.encode_primitive(tag, &bytes);
+
+        Ok(())
     }
 
     fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error> {
@@ -335,14 +325,16 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(
+        self.encode_primitive(
             tag,
             value
                 .naive_utc()
                 .format("%y%m%d%H%M%SZ")
                 .to_string()
                 .as_bytes(),
-        ))
+        );
+
+        Ok(())
     }
 
     fn encode_generalized_time(
@@ -350,14 +342,16 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
-        Ok(self.encode_primitive(
+        self.encode_primitive(
             tag,
             value
                 .naive_utc()
                 .format("%Y%m%d%H%M%SZ")
                 .to_string()
                 .as_bytes(),
-        ))
+        );
+
+        Ok(())
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -371,7 +365,9 @@ impl crate::Encoder for Encoder {
             value.encode(&mut sequence_encoder)?;
         }
 
-        Ok(self.encode_constructed(tag, &sequence_encoder.output))
+        self.encode_constructed(tag, &sequence_encoder.output);
+
+        Ok(())
     }
 
     fn encode_set_of<E: Encode>(
@@ -385,7 +381,9 @@ impl crate::Encoder for Encoder {
             value.encode(&mut sequence_encoder)?;
         }
 
-        Ok(self.encode_constructed(tag, &sequence_encoder.output))
+        self.encode_constructed(tag, &sequence_encoder.output);
+
+        Ok(())
     }
 
     fn encode_explicit_prefix<V: Encode>(
@@ -395,8 +393,9 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         let mut encoder = Self::new(self.config);
         value.encode(&mut encoder)?;
+        self.encode_constructed(tag, &encoder.output);
 
-        Ok(self.encode_constructed(tag, &encoder.output))
+        Ok(())
     }
 
     fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
@@ -407,7 +406,9 @@ impl crate::Encoder for Encoder {
 
         (encoder_scope)(&mut encoder)?;
 
-        Ok(self.encode_constructed(tag, &encoder.output))
+        self.encode_constructed(tag, &encoder.output);
+
+        Ok(())
     }
 
     fn encode_set<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
@@ -418,7 +419,9 @@ impl crate::Encoder for Encoder {
 
         (encoder_scope)(&mut encoder)?;
 
-        Ok(self.encode_constructed(tag, &encoder.output()))
+        self.encode_constructed(tag, &encoder.output());
+
+        Ok(())
     }
 }
 

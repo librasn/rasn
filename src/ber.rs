@@ -44,27 +44,6 @@ mod tests {
     }
 
     #[test]
-    fn seven_bit_integers() {
-        use num_traits::ToPrimitive;
-        macro_rules! test {
-            ($($num:literal == $expected:expr),*) => {
-                $(
-                let enc = enc::Encoder::new(enc::EncoderOptions::ber());
-                let mut output = Vec::new();
-                enc.encode_seven_bit_integer($num, &mut output);
-                assert_eq!($expected, &*output);
-                assert_eq!($num, de::parser::parse_encoded_number(&*output).unwrap().1.to_u32().unwrap());
-                )*
-            }
-        }
-
-        test! {
-            840 == &[200, 6],
-            113549 == &[141, 247, 6]
-        }
-    }
-
-    #[test]
     fn bool() {
         assert_eq!(true, decode(&encode(&true).unwrap()).unwrap());
         assert_eq!(false, decode(&encode(&false).unwrap()).unwrap());

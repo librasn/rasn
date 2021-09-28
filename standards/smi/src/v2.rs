@@ -172,7 +172,7 @@ from_impls! {
 
 try_from_impls_v2! {
     impl OctetString => ObjectSyntax::Simple(SimpleSyntax::String(value)) => value;
-    impl rasn::types::Integer => ObjectSyntax::Simple(SimpleSyntax::Integer(value)) => value.into();
+    impl rasn::types::Integer => ObjectSyntax::Simple(SimpleSyntax::Integer(value)) => value;
     impl u8 => ObjectSyntax::Simple(SimpleSyntax::Integer(value)) => value.try_into().map_err(|_| InvalidVariant)?;
     impl u16 => ObjectSyntax::Simple(SimpleSyntax::Integer(value)) => value.try_into().map_err(|_| InvalidVariant)?;
     impl u32 => ObjectSyntax::Simple(SimpleSyntax::Integer(value)) => value.try_into().map_err(|_| InvalidVariant)?;

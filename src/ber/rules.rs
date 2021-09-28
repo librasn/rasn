@@ -7,38 +7,23 @@ pub enum EncodingRules {
 
 impl EncodingRules {
     pub fn is_ber(self) -> bool {
-        match self {
-            Self::Ber => true,
-            _ => false,
-        }
+        matches!(self, Self::Ber)
     }
 
     pub fn is_cer(self) -> bool {
-        match self {
-            Self::Cer => true,
-            _ => false,
-        }
+        matches!(self, Self::Cer)
     }
 
     pub fn is_der(self) -> bool {
-        match self {
-            Self::Der => true,
-            _ => false,
-        }
+        matches!(self, Self::Der)
     }
 
     pub fn allows_constructed_strings(self) -> bool {
-        match self {
-            Self::Ber => true,
-            _ => false,
-        }
+        matches!(self, Self::Ber | Self::Cer)
     }
 
     pub fn allows_indefinite(self) -> bool {
-        match self {
-            Self::Der => false,
-            _ => true,
-        }
+        matches!(self, Self::Ber | Self::Cer)
     }
 
     pub fn max_string_length(self) -> usize {

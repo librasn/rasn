@@ -105,7 +105,11 @@ pub fn derive_struct_impl(
 
                 for field in fields {
                     match field {
-                        #(#choice_name::#field_type_names(value) => { #field_names2 = Some(value.0) })*
+                        #(#choice_name::#field_type_names(value) => {
+                            if #field_names2.replace(value.0).is_some() {
+                                return Err(rasn::de::Error::duplicate_field(stringify!(#field_names2)))
+                            }
+                        })*
                     }
                 }
 
@@ -134,13 +138,13 @@ pub fn derive_struct_impl(
         }
     };
 
-    proc_macro2::TokenStream::from(quote! {
+    quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
             fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
                 #decode_impl
             }
         }
-    })
+    }
 }
 
 pub fn derive_enum_impl(
@@ -218,7 +222,8 @@ pub fn derive_enum_impl(
     }
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    proc_macro2::TokenStream::from(quote! {
+
+    quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
             fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
                 #decode_with_tag
@@ -226,5 +231,5 @@ pub fn derive_enum_impl(
 
             #decode
         }
-    })
+    }
 }

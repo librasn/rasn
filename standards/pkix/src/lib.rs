@@ -13,6 +13,8 @@
 
 #![no_std]
 
+extern crate alloc;
+
 pub mod est;
 
 use rasn::{types::*, Decode, Encode};
@@ -494,8 +496,9 @@ pub enum GeneralName {
     Rfc822Name(Ia5String),
     #[rasn(tag(2))]
     DnsName(Ia5String),
+    // Boxed because it's 368 bytes, and the next largest enum variant is 64.
     #[rasn(tag(3))]
-    X400Address(OrAddress),
+    X400Address(alloc::boxed::Box<OrAddress>),
     #[rasn(tag(4))]
     DirectoryName(Name),
     #[rasn(tag(5))]

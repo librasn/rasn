@@ -4,6 +4,7 @@ use crate::{AsnType, Tag};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Explicit<T, V> {
     _tag: core::marker::PhantomData<T>,
+    /// The inner value.
     pub value: V,
 }
 
@@ -11,6 +12,7 @@ pub struct Explicit<T, V> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Implicit<T, V> {
     _tag: core::marker::PhantomData<T>,
+    /// The inner value.
     pub value: V,
 }
 
@@ -19,6 +21,7 @@ macro_rules! tag_kind {
         $(
 
             impl<T, V> $name<T, V>{
+                /// Create a wrapper from `value`.
                 pub fn new(value: V) -> Self {
                     Self {
                         value,

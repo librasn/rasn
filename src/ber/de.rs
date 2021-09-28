@@ -1,3 +1,5 @@
+//! # Decoding BER
+
 mod config;
 mod error;
 pub(super) mod parser;
@@ -23,24 +25,19 @@ type Result<T, E = Error> = core::result::Result<T, E>;
 
 const EOC: &[u8] = &[0, 0];
 
+/// A BER and variants decoder. Capable of decoding BER, CER, and DER.
 pub struct Decoder<'input> {
     input: &'input [u8],
     config: DecoderOptions,
 }
 
 impl<'input> Decoder<'input> {
+    /// Create a new [`Decoder`] from the given `input` and `config`.
     pub fn new(input: &'input [u8], config: DecoderOptions) -> Self {
         Self { input, config }
     }
 
-    pub fn is_eoc(&mut self) -> bool {
-        self.input.is_empty()
-            || nom::bytes::streaming::tag::<_, _, (_, _)>(EOC)(self.input)
-                .ok()
-                .is_some()
-    }
-
-    pub fn parse_eoc(&mut self) -> Result<()> {
+    fn parse_eoc(&mut self) -> Result<()> {
         let (i, _) = nom::bytes::streaming::tag(EOC)(self.input).map_err(error::map_nom_err)?;
         self.input = i;
         Ok(())
@@ -255,7 +252,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                             Ok(string)
                         }
                     }
-                    _ => return Err(Error::InvalidBitString { bits: unused_bits }),
+                    _ => Err(Error::InvalidBitString { bits: unused_bits }),
                 }
             })?;
 

@@ -13,7 +13,7 @@ pub struct ConstOid(pub &'static [u32]);
 
 impl AsRef<[u32]> for ConstOid {
     fn as_ref(&self) -> &[u32] {
-        self.0.as_ref()
+        self.0
     }
 }
 
@@ -21,7 +21,7 @@ impl ops::Deref for ConstOid {
     type Target = [u32];
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0
     }
 }
 

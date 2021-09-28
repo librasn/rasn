@@ -100,7 +100,7 @@ mod tests {
 
     #[test]
     fn trap() {
-        #[cfg_attr(rustfmt, rustfmt_skip)]
+        #[rustfmt::skip]
         let decode_data = [
             // SEQUENCE -> Message
             0x30, 0x4f,

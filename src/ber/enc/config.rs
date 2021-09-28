@@ -1,5 +1,6 @@
 use crate::ber::EncodingRules;
 
+/// Options for configuring the [`Encoder`][super::Encoder].
 #[derive(Clone, Copy, Debug)]
 pub struct EncoderOptions {
     pub(crate) encoding_rules: EncodingRules,

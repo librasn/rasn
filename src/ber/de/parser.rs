@@ -198,10 +198,7 @@ fn concat_number(body: &[u8], start: u8) -> Integer {
     number
 }
 
-fn take_contents<'config, 'input>(
-    input: &'input [u8],
-    length: u8,
-) -> IResult<&'input [u8], &'input [u8]> {
+fn take_contents(input: &[u8], length: u8) -> IResult<&[u8], &[u8]> {
     match length {
         0xff => nom::error::context("Reserved Length Octet found.", |_| {
             Err(nom::Err::Failure(nom::error::Error::new(
@@ -214,7 +211,7 @@ fn take_contents<'config, 'input>(
         _ => {
             let length = length ^ 0x80;
             let (input, length_slice) = nom::bytes::streaming::take(length)(input)?;
-            let length = Integer::from_bytes_be(num_bigint::Sign::Plus, &length_slice).to_usize();
+            let length = Integer::from_bytes_be(num_bigint::Sign::Plus, length_slice).to_usize();
 
             if let Some(length) = length {
                 nom::bytes::streaming::take(length)(input)

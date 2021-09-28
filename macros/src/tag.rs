@@ -63,7 +63,7 @@ impl Tag {
 
                         match list.nested.first() {
                             Some(syn::NestedMeta::Meta(meta)) => {
-                                let Self { class, value, .. } = Self::from_meta(&meta)
+                                let Self { class, value, .. } = Self::from_meta(meta)
                                     .expect("Invalid tag literal found in `explicit`.");
                                 explicit = true;
                                 tag = Some((class, value));

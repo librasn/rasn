@@ -1,6 +1,5 @@
 #![doc = include_str!("../README.md")]
 #![no_std]
-#[deny(missing_docs)]
 extern crate alloc;
 
 pub mod de;
@@ -20,6 +19,8 @@ pub use self::{
     types::{AsnType, Tag, TagTree},
 };
 
+/// A prelude containing the codec traits and all types defined in the [`types`]
+/// module.
 pub mod prelude {
     pub use crate::{
         de::{Decode, Decoder},

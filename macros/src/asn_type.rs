@@ -13,11 +13,13 @@ pub fn derive_struct_impl(
         .tag
         .as_ref()
         .map(|t| t.to_tokens(crate_root))
-        .or(config.delegate.then(|| {
-            let ty = &container.fields.iter().next().unwrap().ty;
+        .or_else(|| {
+            config.delegate.then(|| {
+                let ty = &container.fields.iter().next().unwrap().ty;
 
-            quote!(<#ty as #crate_root::AsnType>::TAG)
-        }))
+                quote!(<#ty as #crate_root::AsnType>::TAG)
+            })
+        })
         .or_else(|| config.set.then(|| quote!(#crate_root::Tag::SET)))
         .unwrap_or(quote!(#crate_root::Tag::SEQUENCE));
 
@@ -42,7 +44,7 @@ pub fn derive_struct_impl(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    proc_macro2::TokenStream::from(quote! {
+    quote! {
         #[automatically_derived]
         impl #impl_generics  #crate_root::AsnType for #name #ty_generics #where_clause {
             const TAG: #crate_root::Tag = {
@@ -51,7 +53,7 @@ pub fn derive_struct_impl(
                 #tag
             };
         }
-    })
+    }
 }
 
 pub fn derive_enum_impl(
@@ -93,7 +95,7 @@ pub fn derive_enum_impl(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    proc_macro2::TokenStream::from(quote! {
+    quote! {
         impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
             const TAG: #crate_root::Tag = {
                 #tag
@@ -105,6 +107,5 @@ pub fn derive_enum_impl(
                 TAG_TREE
             };
         }
-
-    })
+    }
 }
