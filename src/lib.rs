@@ -20,5 +20,13 @@ pub use self::{
     types::{AsnType, Tag, TagTree},
 };
 
+pub mod prelude {
+    pub use crate::{
+        de::{Decode, Decoder},
+        enc::{Encode, Encoder},
+        types::*,
+    };
+}
+
 #[doc(hidden)]
 pub use static_assertions as sa;
