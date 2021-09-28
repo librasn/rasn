@@ -1,43 +1,33 @@
-/*
-From RFC7030 (https://datatracker.ietf.org/doc/html/rfc7030):
-CsrAttrs ::= SEQUENCE SIZE (0..MAX) OF AttrOrOID
-AttrOrOID ::= CHOICE { oid OBJECT IDENTIFIER, attribute Attribute }
-Attribute ::= SEQUENCE {
-        type  OBJECT IDENTIFIER,
-        values SET SIZE(0..MAX) OF ANY }
-*/
+//! # Enrollment over Secure Transport
+//!
+//! This module implements [RFC 7030]'s data types in certificate enrollment
+//! for clients using Certificate Management over CMS (CMC) messages over a
+//! secure transport. This profile, called Enrollment over Secure Transport
+//! (EST), describes a simple, yet functional, certificate management protocol
+//! targeting Public Key Infrastructure (PKI) clients that need to acquire
+//! client certificates and associated Certification Authority (CA) certificates.
 
-extern crate alloc;
-pub type CsrAttrs = alloc::vec::Vec<AttrOrOid>;
+use rasn::prelude::*;
 
-#[derive(rasn::AsnType, rasn::Decode, rasn::Encode, Debug, PartialEq, Clone)]
+use crate::Attribute;
+
+/// The identifier of the secret key to be used by the server to encrypt the
+/// private key.
+pub type AsymmetricDecryptKeyIdentifier = rasn::types::OctetString;
+/// The main body of a CSR attribute request.
+pub type CsrAttrs = SequenceOf<AttrOrOid>;
+
+/// The OID identifying a `DecryptKeyIdentifier` attribute.
+pub const ASYMMETRIC_DECRYPT_KEY_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS_9_SMIME_AA_ASYMMETRIC_DECRYPT_KEY;
+
+/// Either an OID pointing a specific signature scheme or an attribute for
+/// a particular crypto system.
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Clone)]
 #[rasn(choice)]
 pub enum AttrOrOid {
-    Oid(rasn::types::ObjectIdentifier),
+    Oid(ObjectIdentifier),
     Attribute(Attribute),
 }
-
-#[derive(rasn::AsnType, rasn::Decode, rasn::Encode, Debug, PartialEq, Clone)]
-pub struct Attribute {
-    pub r#type: rasn::types::ObjectIdentifier,
-    pub values: rasn::types::SetOf<rasn::types::Any>,
-}
-
-/*
--- Asymmetric Decrypt Key Identifier Attribute
-
-   aa-asymmDecryptKeyID ATTRIBUTE ::=
-       { TYPE AsymmetricDecryptKeyIdentifier
-         IDENTIFIED BY id-aa-asymmDecryptKeyID }
-
-   id-aa-asymmDecryptKeyID OBJECT IDENTIFIER ::= { iso(1)
-       member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs-9(9)
-       smime(16) aa(2) 54 }
-
-   AsymmetricDecryptKeyIdentifier ::= OCTET STRING
-*/
-
-pub type AsymmetricDecryptKeyIdentifier = rasn::types::OctetString;
 
 #[cfg(test)]
 mod tests {

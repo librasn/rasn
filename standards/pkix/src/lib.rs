@@ -10,9 +10,9 @@
 
 #![no_std]
 
-use rasn::{types::*, Decode, Encode};
+pub mod est;
 
-pub mod rfc7030;
+use rasn::{types::*, Decode, Encode};
 
 pub type InvalidityDate = GeneralizedTime;
 pub type CertificateIssuer = GeneralNames;
@@ -153,7 +153,7 @@ pub struct TbsCertificate {
 /// be 3.  If only basic fields are present, the version SHOULD be 1 (the
 /// value is omitted from the certificate as the default value); however,
 /// the version MAY be 2 or 3.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct Version(u64);
 
@@ -161,6 +161,12 @@ impl Version {
     pub const V1: Self = Self(0);
     pub const V2: Self = Self(1);
     pub const V3: Self = Self(2);
+
+    /// Returns the raw value of the version. Note that the version is
+    /// zero-indexed (v1 is 0, v2 is 1, etc).
+    pub fn raw_value(self) -> u64 {
+        self.0
+    }
 }
 
 impl Default for Version {
@@ -169,14 +175,20 @@ impl Default for Version {
     }
 }
 
+impl core::fmt::Display for Version {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::write!(f, "{}", self.0.saturating_add(1))
+    }
+}
+
 /// The validity period of the certificate.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Validity {
     pub not_before: Time,
     pub not_after: Time,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 #[rasn(choice)]
 pub enum Time {
     Utc(UtcTime),
