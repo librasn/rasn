@@ -1,6 +1,6 @@
 [package]
 name = "rasn-snmp"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2018"
 description = "Data types for handling the Simple Network Management Protocol"
 license = "Apache-2.0/MIT"
@@ -8,5 +8,5 @@ license = "Apache-2.0/MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-smi = { path = "../smi", package = "rasn-smi", version = "0.3.0" }
-rasn = { path = "../..", version = "0.3.0" }
+smi = { path = "../smi", package = "rasn-smi", version = "0.4.0" }
+rasn = { path = "../..", version = "0.4.0" }
