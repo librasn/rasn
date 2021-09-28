@@ -188,6 +188,7 @@ pub struct Validity {
     pub not_after: Time,
 }
 
+/// A general time type.
 #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 #[rasn(choice)]
 pub enum Time {
@@ -195,6 +196,7 @@ pub enum Time {
     General(GeneralizedTime),
 }
 
+/// The subject's public key, and the algorithm used to encode it.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SubjectPublicKeyInfo {
     pub algorithm: AlgorithmIdentifier,
@@ -235,29 +237,44 @@ pub struct CertificateList {
     pub signature: BitString,
 }
 
-/// A list of revoked certificates.
+/// The list of revoked certificates along with associated metadata.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TbsCertList {
+    /// The version of the list.
     pub version: Version,
+    /// The algorithm used in the signature.
     pub signature: AlgorithmIdentifier,
+    /// The authority that issued the certificate list.
     pub issuer: Name,
+    /// The issue date of this list.
     pub this_update: Time,
+    /// When the next update will be available. The update may be available
+    /// sooner than `next_update`, but it will not be issued later.
     pub next_update: Option<Time>,
+    /// The list of revoked certificates.
     pub revoked_certificates: SequenceOf<RevokedCerificate>,
+    /// Extensions to the list.
     #[rasn(tag(0))]
     pub crl_extensions: Option<Extensions>,
 }
 
+/// Identifies a revoked certificate.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RevokedCerificate {
+    /// The ID of the certificate being revoked.
     pub user_certificate: CertificateSerialNumber,
+    /// When the certificate was revoked.
     pub revocation_date: Time,
+    /// Extensions to the revoked entry.
     pub crl_entry_extensions: Option<Extensions>,
 }
 
+/// Identifies what algorithm was used, along with any parameters used as input.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AlgorithmIdentifier {
+    /// The identifier for the algorithm.
     pub algorithm: ObjectIdentifier,
+    /// Parameters for the algorithm, if any.
     pub parameters: Option<Any>,
 }
 
