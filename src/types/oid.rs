@@ -473,6 +473,23 @@ oids! {
     JOINT_ISO_ITU_T_REGISTRATION_PROCEDURES_MODULE_DIRECTORY_DEFS => 2, 17, 1, 2;
 }
 
+// CMS identifiers
+oids! {
+    CMS_CONTENT_INFO => 1, 2, 840, 113549, 1, 9, 16, 1, 6;
+    CMS_CONTENT_TYPE => 1, 2, 840, 113549, 1, 9, 3;
+    CMS_MESSAGE_DIGEST => 1, 2, 840, 113549, 1, 9, 4;
+    CMS_SIGNING_TIME => 1, 2, 840, 113549, 1, 9, 5;
+    CMS_COUNTER_SIGNATURE => 1, 2, 840, 113549, 1, 9, 6;
+
+    // content types
+    CMS_CONTENT_DATA => 1, 2, 840, 113549, 1, 7, 1;
+    CMS_CONTENT_SIGNED_DATA => 1, 2, 840, 113549, 1, 7, 2;
+    CMS_CONTENT_ENVELOPED_DATA => 1, 2, 840, 113549, 1, 7, 3;
+    CMS_CONTENT_DIGESTED_DATA => 1, 2, 840, 113549, 1, 7, 5;
+    CMS_CONTENT_ENCRYPTED_DATA => 1, 2, 840, 113549, 1, 7, 6;
+    CMS_CONTENT_AUTHENTICATED_DATA => 1, 2, 840, 113549, 1, 9, 16, 1, 2;
+}
+
 #[cfg(test)]
 mod test {
     use super::ObjectIdentifier;
