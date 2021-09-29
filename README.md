@@ -32,7 +32,7 @@ Included with the framework is a implementation of the X.690 standard also known
 Rasn also provides implementations for a number of IETF RFCs using the `rasn`
 framework for use out of the box. These crates provide strongly typed
 definitions for the necessary data types. Like `rasn` they are `#[no_std]`,
-transport layer, and encoding rule agnostic.
+as well as being transport layer and encoding rule agnostic.
 
 - [LDAP](https://docs.rs/rasn-ldap)
 - [MIB-II](https://docs.rs/rasn-mib)
