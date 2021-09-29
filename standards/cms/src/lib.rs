@@ -15,38 +15,38 @@ use rasn_pkix::{
 };
 
 /// OID of top-level CMS ContentInfo
-pub const CONTENT_INFO_OID: ConstOid = Oid::CMS_CONTENT_INFO;
+pub const CONTENT_INFO_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CT_CONTENTINFO;
 
 /// OID of CMS ContentType
-pub const CONTENT_TYPE_OID: ConstOid = Oid::CMS_CONTENT_TYPE;
+pub const CONTENT_TYPE_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_CONTENT_TYPE;
 
 /// OID of MessageDigest
-pub const MESSAGE_DIGEST_OID: ConstOid = Oid::CMS_MESSAGE_DIGEST;
+pub const MESSAGE_DIGEST_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_MESSAGE_DIGEST;
 
 /// OID of SigningTime
-pub const SIGNING_TIME_OID: ConstOid = Oid::CMS_SIGNING_TIME;
+pub const SIGNING_TIME_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SIGNING_TIME;
 
 /// OID of CounterSignature
-pub const COUNTER_SIGNATURE_OID: ConstOid = Oid::CMS_COUNTER_SIGNATURE;
+pub const COUNTER_SIGNATURE_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_COUNTER_SIGNATURE;
 
 // content types
 /// OID of Data content type
-pub const CONTENT_DATA_OID: ConstOid = Oid::CMS_CONTENT_DATA;
+pub const CONTENT_DATA_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_DATA;
 
 /// OID of SignedData content type
-pub const CONTENT_SIGNED_DATA_OID: ConstOid = Oid::CMS_CONTENT_SIGNED_DATA;
+pub const CONTENT_SIGNED_DATA_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_SIGNED_DATA;
 
 /// OID of EnvelopedData content type
-pub const CONTENT_ENVELOPED_DATA_OID: ConstOid = Oid::CMS_CONTENT_ENVELOPED_DATA;
+pub const CONTENT_ENVELOPED_DATA_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_ENVELOPED_DATA;
 
 /// OID of DigestedData content type
-pub const CONTENT_DIGESTED_DATA_OID: ConstOid = Oid::CMS_CONTENT_DIGESTED_DATA;
+pub const CONTENT_DIGESTED_DATA_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_DIGESTED_DATA;
 
 /// OID of EncryptedData content type
-pub const CONTENT_ENCRYPTED_DATA_OID: ConstOid = Oid::CMS_CONTENT_ENCRYPTED_DATA;
+pub const CONTENT_ENCRYPTED_DATA_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_ENCRYPTED_DATA;
 
 /// OID of AuthenticatedData content type
-pub const CONTENT_AUTHENTICATED_DATA_OID: ConstOid = Oid::CMS_CONTENT_AUTHENTICATED_DATA;
+pub const CONTENT_AUTHENTICATED_DATA_OID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CT_AUTHENTICATED_DATA;
 
 pub type CmsVersion = Integer;
 pub type ContentType = ObjectIdentifier;
