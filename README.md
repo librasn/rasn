@@ -34,11 +34,12 @@ framework for use out of the box. These crates provide strongly typed
 definitions for the necessary data types. Like `rasn` they are `#[no_std]`,
 as well as being transport layer and encoding rule agnostic.
 
-- [LDAP](https://docs.rs/rasn-ldap)
-- [MIB-II](https://docs.rs/rasn-mib)
-- [PKIX](https://docs.rs/rasn-pkix)
-- [SMI](https://docs.rs/rasn-smi)
-- [SNMP](https://docs.rs/rasn-snmp)
+- [CMS: Cryptographic Message Syntax](https://docs.rs/rasn-cms)
+- [LDAP: Lightweight Directory Access Protocol](https://docs.rs/rasn-ldap)
+- [MIB-II: Management of Information Base](https://docs.rs/rasn-mib)
+- [PKIX: Public Key Infrastructure](https://docs.rs/rasn-pkix)
+- [SMI: Structure of Management Information](https://docs.rs/rasn-smi)
+- [SNMP: Simple Network Management Protocol](https://docs.rs/rasn-snmp)
 
 
 ### Powerful Derive Macros
