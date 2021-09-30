@@ -1,6 +1,6 @@
 [package]
 name = "rasn-cms"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2018"
 description = "Data types for handling Cryptographic Message Syntax."
 license = "Apache-2.0/MIT"
