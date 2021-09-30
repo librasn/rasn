@@ -16,17 +16,17 @@ That enables you to safely create, share, and handle ASN.1 data types from and t
 There are quite a few existing ASN.1 related Rust crates already, however they are currently specific to a single format or even a single standard, this makes it hard to share and re-use standards that are specified in ASN.1. Now with `rasn`'s abstract model you can build and share ASN.1 data types as crates that work with any encoder or decoder regardless of the underlying encoding rules, whether it's BER, CER, DER, or your own custom encoding.
 
 ### `#[no_std]` Support
-Rasn is entirely `#[no_std]`, so you can handle and share the same ASN.1 code with a wide variety of platforms and devices.
+Rasn is entirely `#[no_std]`, so you can share the same ASN.1 implementation on any Rust target platform that can support `alloc`.
 
 ### Rich Data Types
 Rasn currently has support for nearly all of ASN.1's data types. `rasn` uses popular community libraries such as `bitvec`, `bytes`, and `chrono` for some of its data types as well as providing a couple of its own. Check out the [`types`][mod:types] module for what's currently available.
 
-[mod:types]: http://docs.rs/rasn/0.2.0/rasn/types/index.html
+[mod:types]: http://docs.rs/rasn/0.4.1/rasn/types/index.html
 
 ### Safe BER, CER, and DER Codecs
-Included with the framework is a implementation of the X.690 standard also known as the Basic Encoding Rules, Canonical Encoding Rules, and Distinguished Encoding Rules codecs. The encoder and decoder have been written in 100% safe Rust and fuzzed with [American Fuzzy Lop][bun] to ensure that the decoder correctly handles random input, and if valid that the encoder can correctly re-encode that value.
+Included with the framework is a implementation of the X.690 standard also known as the Basic Encoding Rules, Canonical Encoding Rules, and Distinguished Encoding Rules codecs. The encoder and decoder have been written in 100% safe Rust and fuzzed with [American Fuzzy Lop Plus Plus][bun] to ensure that the decoder correctly handles random input, and if valid that the encoder can correctly re-encode that value.
 
-[bun]: https://lcamtuf.coredump.cx/afl/
+[bun]: https://aflplus.plus
 
 ### RFC implementations
 Rasn also provides implementations for a number of IETF RFCs using the `rasn`
