@@ -79,6 +79,17 @@ pub struct LdapMessage {
     pub controls: Option<Controls>,
 }
 
+impl LdapMessage {
+    /// LdapMessage constructor
+    pub fn new(message_id: MessageId, protocol_op: ProtocolOp) -> Self {
+        LdapMessage {
+            message_id,
+            protocol_op,
+            controls: None,
+        }
+    }
+}
+
 /// The kind of operation in the [`LdapMessage`].
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
@@ -114,6 +125,16 @@ pub struct AttributeValueAssertion {
     pub assertion_value: AssertionValue,
 }
 
+impl AttributeValueAssertion {
+    /// AttributeValueAssertion constructor
+    pub fn new(attribute_desc: AttributeDescription, assertion_value: AssertionValue) -> Self {
+        Self {
+            attribute_desc,
+            assertion_value,
+        }
+    }
+}
+
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[non_exhaustive]
 pub struct PartialAttribute {
@@ -121,11 +142,25 @@ pub struct PartialAttribute {
     pub vals: SetOf<AttributeValue>,
 }
 
+impl PartialAttribute {
+    /// PartialAttribute constructor
+    pub fn new(r#type: AttributeDescription, vals: SetOf<AttributeValue>) -> Self {
+        Self { r#type, vals }
+    }
+}
+
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[non_exhaustive]
 pub struct Attribute {
     r#type: AttributeDescription,
     pub vals: SetOf<AttributeValue>,
+}
+
+impl Attribute {
+    /// Attribute constructor
+    pub fn new(r#type: AttributeDescription, vals: SetOf<AttributeValue>) -> Self {
+        Self { r#type, vals }
+    }
 }
 
 /// The envelope for the result of any operation.
@@ -138,6 +173,22 @@ pub struct LdapResult {
     pub diagnostic_message: LdapString,
     #[rasn(tag(3))]
     pub referral: Option<Referral>,
+}
+
+impl LdapResult {
+    /// LdapResult constructor
+    pub fn new(
+        result_code: ResultCode,
+        matched_dn: LdapDn,
+        diagnostic_message: LdapString,
+    ) -> Self {
+        Self {
+            result_code,
+            matched_dn,
+            diagnostic_message,
+            referral: None,
+        }
+    }
 }
 
 #[derive(AsnType, Encode, Decode, Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -194,6 +245,21 @@ pub struct Control {
     pub control_value: Option<OctetString>,
 }
 
+impl Control {
+    /// Control constructor
+    pub fn new(
+        control_type: LdapOid,
+        criticality: bool,
+        control_value: Option<OctetString>,
+    ) -> Self {
+        Self {
+            control_type,
+            criticality,
+            control_value,
+        }
+    }
+}
+
 /// Allow authentication information to be exchanged between the client
 /// and server.
 ///
@@ -221,6 +287,17 @@ pub struct BindRequest {
     pub authentication: AuthenticationChoice,
 }
 
+impl BindRequest {
+    /// BindRequest constructor
+    pub fn new(version: u8, name: LdapDn, authentication: AuthenticationChoice) -> Self {
+        Self {
+            version,
+            name,
+            authentication,
+        }
+    }
+}
+
 /// Information used in authentication.
 ///
 /// This type is extensible. Servers that do not support a choice supplied
@@ -244,6 +321,16 @@ pub struct SaslCredentials {
     pub credentials: Option<OctetString>,
 }
 
+impl SaslCredentials {
+    /// SaslCredentials constructor
+    pub fn new(mechanism: LdapString, credentials: Option<OctetString>) -> Self {
+        Self {
+            mechanism,
+            credentials,
+        }
+    }
+}
+
 /// An indication from the server of the status of the client's request
 /// for authentication.
 ///
@@ -259,6 +346,25 @@ pub struct BindResponse {
     pub referral: Option<Referral>,
     #[rasn(tag(7))]
     pub server_sasl_creds: Option<OctetString>,
+}
+
+impl BindResponse {
+    /// BindResponse constructor
+    pub fn new(
+        result_code: ResultCode,
+        matched_dn: LdapDn,
+        diagnostic_message: LdapString,
+        referral: Option<Referral>,
+        server_sasl_creds: Option<OctetString>,
+    ) -> Self {
+        Self {
+            result_code,
+            matched_dn,
+            diagnostic_message,
+            referral,
+            server_sasl_creds,
+        }
+    }
 }
 
 /// Request to terminate an LDAP session.
@@ -314,6 +420,31 @@ pub struct SearchRequest {
     /// Attributes that are subtypes of listed attributes are
     /// implicitly included.
     pub attributes: AttributeSelection,
+}
+
+impl SearchRequest {
+    /// SearchRequest constructor
+    pub fn new(
+        base_object: LdapDn,
+        scope: SearchRequestScope,
+        deref_aliases: SearchRequestDerefAliases,
+        size_limit: u32,
+        time_limit: u32,
+        types_only: bool,
+        filter: Filter,
+        attributes: AttributeSelection,
+    ) -> Self {
+        Self {
+            base_object,
+            scope,
+            deref_aliases,
+            size_limit,
+            time_limit,
+            types_only,
+            filter,
+            attributes,
+        }
+    }
 }
 
 /// The scope of the search to be performed.
@@ -437,6 +568,13 @@ pub struct SubstringFilter {
     pub substrings: SequenceOf<SubstringChoice>,
 }
 
+impl SubstringFilter {
+    /// SubstringFilter constructor
+    pub fn new(r#type: AttributeDescription, substrings: SequenceOf<SubstringChoice>) -> Self {
+        Self { r#type, substrings }
+    }
+}
+
 /// Which part of the substring to match against.
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
@@ -488,6 +626,23 @@ pub struct MatchingRuleAssertion {
     pub dn_attributes: bool,
 }
 
+impl MatchingRuleAssertion {
+    /// MatchingRuleAssertion constructor
+    pub fn new(
+        matching_rule: Option<MatchingRuleId>,
+        r#type: Option<AttributeDescription>,
+        match_value: AssertionValue,
+        dn_attributes: bool,
+    ) -> Self {
+        Self {
+            matching_rule,
+            r#type,
+            match_value,
+            dn_attributes,
+        }
+    }
+}
+
 /// An entry found during the search.
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(application, 4))]
@@ -497,6 +652,16 @@ pub struct SearchResultEntry {
     pub object_name: LdapDn,
     /// The attributes associated with the object.
     pub attributes: PartialAttributeList,
+}
+
+impl SearchResultEntry {
+    /// SearchResultEntry constructor
+    pub fn new(object_name: LdapDn, attributes: PartialAttributeList) -> Self {
+        Self {
+            object_name,
+            attributes,
+        }
+    }
 }
 
 /// Reference of servers containing the data required to continue the search.
