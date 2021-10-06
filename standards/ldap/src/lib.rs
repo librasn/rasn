@@ -138,7 +138,7 @@ impl AttributeValueAssertion {
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[non_exhaustive]
 pub struct PartialAttribute {
-    r#type: AttributeDescription,
+    pub r#type: AttributeDescription,
     pub vals: SetOf<AttributeValue>,
 }
 
@@ -152,7 +152,7 @@ impl PartialAttribute {
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[non_exhaustive]
 pub struct Attribute {
-    r#type: AttributeDescription,
+    pub r#type: AttributeDescription,
     pub vals: SetOf<AttributeValue>,
 }
 
