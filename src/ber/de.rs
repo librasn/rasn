@@ -29,12 +29,22 @@ const EOC: &[u8] = &[0, 0];
 pub struct Decoder<'input> {
     input: &'input [u8],
     config: DecoderOptions,
+    initial_len: usize,
 }
 
 impl<'input> Decoder<'input> {
     /// Create a new [`Decoder`] from the given `input` and `config`.
     pub fn new(input: &'input [u8], config: DecoderOptions) -> Self {
-        Self { input, config }
+        Self {
+            input,
+            config,
+            initial_len: input.len(),
+        }
+    }
+
+    /// Return a number of the decoded bytes by this decoder
+    pub fn decoded_len(&self) -> usize {
+        self.initial_len - self.input.len()
     }
 
     fn parse_eoc(&mut self) -> Result<()> {
@@ -370,7 +380,18 @@ mod tests {
     }
 
     use super::*;
-    use crate::{ber::decode, types::*};
+    use crate::types::*;
+
+    fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, self::Error> {
+        let mut decoder = self::Decoder::new(input, self::DecoderOptions::ber());
+        match T::decode(&mut decoder) {
+            Ok(result) => {
+                assert_eq!(decoder.decoded_len(), input.len());
+                Ok(result)
+            }
+            Err(e) => Err(e),
+        }
+    }
 
     #[test]
     fn boolean() {
