@@ -1,6 +1,6 @@
 [package]
 name = "rasn-ldap"
-version = "0.4.0"
+version = "0.4.2"
 edition = "2018"
 description = "Data types for Lightweight Directory Access Protocol."
 license = "Apache-2.0/MIT"
