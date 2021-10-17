@@ -411,9 +411,10 @@ impl<'a> FieldConfig<'a> {
         };
 
         if self.default.is_some() {
+            let ty = &self.field.ty;
             let default_fn = match self.default.as_ref().unwrap() {
                 Some(path) => quote!(#path),
-                None => quote!(<_>::default()),
+                None => quote!(<#ty>::default()),
             };
 
             quote! {
