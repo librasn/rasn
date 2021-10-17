@@ -619,6 +619,7 @@ pub struct IssuingDistributionPoint {
 
 #[cfg(test)]
 mod tests {
+    extern crate alloc;
     use super::*;
 
     #[test]
@@ -646,7 +647,6 @@ mod tests {
         assert_eq!(expected_de, rasn::der::decode(&expected_enc).unwrap());
     }
 
-    extern crate alloc;
     #[test]
     fn certificate_policies() {
         let expected_de: CertificatePolicies = alloc::vec![
