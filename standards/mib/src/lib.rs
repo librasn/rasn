@@ -9,6 +9,8 @@
 
 extern crate alloc;
 
+pub mod address_family_numbers;
+
 use alloc::{vec, vec::Vec};
 
 use rasn::types::*;
