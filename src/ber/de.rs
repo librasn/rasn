@@ -14,7 +14,7 @@ use crate::{
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Tag,
+        Constraints, Enumerated, Tag,
     },
     Decode,
 };
@@ -148,17 +148,22 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_enumerated(&mut self, tag: Tag) -> Result<types::Integer> {
-        self.decode_integer(tag)
+    fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E> {
+        E::from_discriminant(
+            self.decode_integer(tag, <_>::default())?
+                .try_into()
+                .map_err(Error::custom)?,
+        )
+        .ok_or_else(|| Error::custom("no valid discriminant"))
     }
 
-    fn decode_integer(&mut self, tag: Tag) -> Result<types::Integer> {
+    fn decode_integer(&mut self, tag: Tag, _: Constraints) -> Result<types::Integer> {
         Ok(types::Integer::from_signed_bytes_be(
             self.parse_primitive_value(tag)?.1,
         ))
     }
 
-    fn decode_octet_string(&mut self, tag: Tag) -> Result<Vec<u8>> {
+    fn decode_octet_string(&mut self, tag: Tag, _: Constraints) -> Result<Vec<u8>> {
         let (identifier, contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
@@ -245,10 +250,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
         crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifierSnafu)
     }
 
-    fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString> {
+    fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(&self.config, self.input, tag, |input| {
-                let unused_bits = if let Some(bits) = input.get(0).copied() {
+                let unused_bits = if let Some(bits) = input.first().copied() {
                     bits
                 } else {
                     return Ok(types::BitString::new());
@@ -291,15 +296,76 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
     }
 
-    fn decode_utf8_string(&mut self, tag: Tag) -> Result<types::Utf8String> {
-        let vec = self.decode_octet_string(tag)?;
+    fn decode_visible_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::VisibleString, Self::Error> {
+        types::VisibleString::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
+    }
+
+    fn decode_ia5_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Ia5String> {
+        types::Ia5String::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
+    }
+
+    fn decode_printable_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::PrintableString> {
+        types::PrintableString::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
+    }
+
+    fn decode_numeric_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::NumericString> {
+        types::NumericString::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
+    }
+
+    fn decode_teletex_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::TeletexString> {
+        types::TeletexString::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
+    }
+
+    fn decode_bmp_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::BmpString> {
+        todo!()
+    }
+
+    fn decode_utf8_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Utf8String> {
+        let vec = self.decode_octet_string(tag, constraints)?;
         types::Utf8String::from_utf8(vec)
             .ok()
             .context(error::InvalidUtf8Snafu)
     }
 
+    fn decode_general_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::GeneralString> {
+        <_>::try_from(self.decode_octet_string(tag, constraints)?).map_err(Error::custom)
+    }
+
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let string = self.decode_utf8_string(tag)?;
+        let string = self.decode_utf8_string(tag, <_>::default())?;
         // Reference https://obj-sys.com/asn1tutorial/node14.html
         // If data contains ., 3 decimal places of seconds are expected
         // If data contains explict Z, result is UTC
@@ -340,6 +406,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 }
             }
         };
+
         chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
             .context(error::InvalidDateSnafu)
@@ -351,7 +418,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
         // Reference https://obj-sys.com/asn1tutorial/node15.html
         // FIXME - should this be DateTime<UTC> rather than NaiveDateTime ?
-        let string = self.decode_utf8_string(tag)?;
+        let string = self.decode_utf8_string(tag, <_>::default())?;
         let format = if string.contains('Z') {
             if string.len() == 11 {
                 "%y%m%d%H%MZ"
@@ -365,14 +432,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 "%y%m%d%H%M%S%z"
             }
         };
+
         chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
             .context(error::InvalidDateSnafu)
             .map(|date| types::UtcTime::from_utc(date, chrono::Utc))
     }
 
-    fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>, Self::Error> {
-        self.decode_sequence(tag, |decoder| {
+    fn decode_sequence_of<D: Decode>(
+        &mut self,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<Vec<D>, Self::Error> {
+        self.parse_constructed_contents(tag, true, |decoder| {
             let mut items = Vec::new();
 
             while let Ok(item) = D::decode(decoder) {
@@ -383,8 +455,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_set_of<D: Decode + Ord>(&mut self, tag: Tag) -> Result<types::SetOf<D>, Self::Error> {
-        self.decode_sequence(tag, |decoder| {
+    fn decode_set_of<D: Decode + Ord>(
+        &mut self,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<types::SetOf<D>, Self::Error> {
+        self.parse_constructed_contents(tag, true, |decoder| {
             let mut items = types::SetOf::new();
 
             while let Ok(item) = D::decode(decoder) {
@@ -407,21 +483,75 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.parse_constructed_contents(tag, false, D::decode)
     }
 
-    fn decode_set<FIELDS, SET, F>(&mut self, tag: Tag, decode_fn: F) -> Result<SET, Self::Error>
+    fn decode_set<FIELDS, SET, D, F>(
+        &mut self,
+        tag: Tag,
+        _decode_fn: D,
+        field_fn: F,
+    ) -> Result<SET, Self::Error>
     where
-        SET: Decode,
+        SET: Decode + crate::types::Constructed,
         FIELDS: Decode,
+        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        self.decode_sequence(tag, |decoder| {
+        self.parse_constructed_contents(tag, true, |decoder| {
             let mut fields = Vec::new();
 
             while let Ok(value) = FIELDS::decode(decoder) {
                 fields.push(value);
             }
 
-            (decode_fn)(fields)
+            (field_fn)(fields)
         })
+    }
+
+    fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {
+        self.decode_optional_with_tag(D::TAG)
+    }
+
+    /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
+    /// Passing the correct tag is required even when used with codecs where
+    /// the tag is not present.
+    fn decode_optional_with_tag<D: Decode>(&mut self, tag: Tag) -> Result<Option<D>, Self::Error> {
+        Ok(D::decode_with_tag(self, tag).ok())
+    }
+
+    fn decode_optional_with_constraints<D: Decode>(
+        &mut self,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error> {
+        Ok(D::decode_with_constraints(self, constraints).ok())
+    }
+
+    fn decode_optional_with_tag_and_constraints<D: Decode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error> {
+        Ok(D::decode_with_tag_and_constraints(self, tag, constraints).ok())
+    }
+
+    fn decode_choice<D>(&mut self, _: Constraints) -> Result<D, Self::Error>
+    where
+        D: crate::types::DecodeChoice,
+    {
+        let (_, identifier) =
+            parser::parse_identifier_octet(self.input).map_err(error::map_nom_err)?;
+        D::from_tag(self, identifier.tag)
+    }
+
+    fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
+    where
+        D: Decode,
+    {
+        <Option<D>>::decode(self)
+    }
+
+    fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
+        &mut self,
+    ) -> Result<Option<D>, Self::Error> {
+        <Option<D>>::decode(self)
     }
 }
 
@@ -504,9 +634,9 @@ mod tests {
         data[2] = 0x01;
         data[3] = 0x01;
         data[4] = 0x01;
-        let mut bigint = types::Integer::from(1);
+        let mut bigint = num_bigint::BigInt::from(1);
         bigint <<= 2048;
-        assert_eq!(bigint, decode(&data).unwrap());
+        assert_eq!(bigint, decode::<num_bigint::BigInt>(&data).unwrap());
     }
 
     #[test]
@@ -632,14 +762,22 @@ mod tests {
             ok: bool,
         }
 
+        impl types::Constructed for Foo {
+            const FIELDS: types::fields::Fields = types::fields::Fields::from_static(&[
+                types::fields::Field::new_required(Ia5String::TAG, Ia5String::TAG_TREE),
+                types::fields::Field::new_required(bool::TAG, bool::TAG_TREE),
+            ]);
+        }
+
         impl types::AsnType for Foo {
             const TAG: Tag = Tag::SEQUENCE;
         }
 
         impl Decode for Foo {
-            fn decode_with_tag<D: crate::Decoder>(
+            fn decode_with_tag_and_constraints<D: crate::Decoder>(
                 decoder: &mut D,
                 tag: Tag,
+                _: Constraints,
             ) -> Result<Self, D::Error> {
                 decoder.decode_sequence(tag, |sequence| {
                     let name: Ia5String = Ia5String::decode(sequence)?;
@@ -650,7 +788,7 @@ mod tests {
         }
 
         let foo = Foo {
-            name: String::from("Smith").into(),
+            name: String::from("Smith").try_into().unwrap(),
             ok: true,
         };
         let bytes = &[
@@ -671,7 +809,7 @@ mod tests {
         type Type5 = Implicit<C2, Type2>;
 
         let jones = String::from("Jones");
-        let jones1 = Type1::from(jones);
+        let jones1 = Type1::try_from(jones).unwrap();
         let jones2 = Type2::from(jones1.clone());
         let jones3 = Type3::from(jones2.clone());
         let jones4 = Type4::from(jones3.clone());

@@ -99,7 +99,7 @@ enum NestedAnonChoiceStruct {
 
 #[test]
 fn automatic_tags() {
-    #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
+    #[derive(AsnType, Debug, Decode, Default, Encode, PartialEq)]
     #[rasn(automatic_tags)]
     struct Bools {
         #[rasn(default)]
@@ -140,4 +140,11 @@ pub enum ExplicitChoice {
     ByName,
     #[rasn(tag(explicit(2)))]
     ByKey,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BasicConstraints {
+    #[rasn(default)]
+    pub ca: bool,
+    pub path_len_constraint: Option<Integer>,
 }

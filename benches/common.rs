@@ -14,7 +14,7 @@ pub struct Bench {
     i: EmptySequence,
     j: Vec<()>,
     // k: Set
-    // l: SetOf<()>,
+    l: SetOf<()>,
     m: BenchChoice,
     n: Utf8String,
     o: UtcTime,
@@ -24,7 +24,7 @@ pub struct Bench {
 #[derive(AsnType, Decode, Encode)]
 pub struct EmptySequence {}
 
-#[derive(AsnType, Clone, Copy, Decode, Encode)]
+#[derive(AsnType, Clone, Copy, Decode, Debug, Encode, PartialEq)]
 #[rasn(enumerated)]
 pub enum BenchEnum {
     A,
@@ -50,7 +50,7 @@ pub fn bench_default() -> Bench {
         i: EmptySequence {},
         j: vec![(); 5],
         // k: {},
-        // l: SetOf::new(),
+        l: SetOf::new(),
         m: BenchChoice::A,
         n: "a".repeat(40),
         o: Utc.ymd(2018, 6, 13).and_hms(11, 1, 59),

@@ -87,6 +87,7 @@ pub struct VarBind {
 mod tests {
     use super::{Message, Trap, VarBind};
     use alloc::{string::String, string::ToString, vec, vec::Vec};
+    use pretty_assertions::assert_eq;
     use rasn::types::ObjectIdentifier;
     use smi::v1::{Gauge, IpAddress, NetworkAddress, TimeTicks};
 

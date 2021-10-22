@@ -10,8 +10,10 @@
 //! - [RFC 3416](https://datatracker.ietf.org/doc/html/rfc3416): Version 2 of the Protocol
 //!   Operations for the Simple Network Management Protocol (SNMP)
 
-use rasn::types::{Integer, OctetString};
-use rasn::{AsnType, Decode, Encode};
+use rasn::{
+    prelude::*,
+    types::{Integer, OctetString},
+};
 
 pub use crate::v2::{
     GetBulkRequest, GetNextRequest, GetRequest, InformRequest, Pdus, Response, SetRequest, Trap,
@@ -44,21 +46,23 @@ pub struct Message {
 }
 
 impl Decode for Message {
-    fn decode_with_tag<D: rasn::Decoder>(
+    fn decode_with_tag_and_constraints<D: rasn::Decoder>(
         decoder: &mut D,
         tag: rasn::Tag,
+        constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        NestedMessage::decode_with_tag(decoder, tag).map(Self::from)
+        NestedMessage::decode_with_tag_and_constraints(decoder, tag, constraints).map(Self::from)
     }
 }
 
 impl Encode for Message {
-    fn encode_with_tag<E: rasn::Encoder>(
+    fn encode_with_tag_and_constraints<E: rasn::Encoder>(
         &self,
         encoder: &mut E,
         tag: rasn::Tag,
+        constraints: Constraints,
     ) -> Result<(), E::Error> {
-        NestedMessage::from(self.clone()).encode_with_tag(encoder, tag)
+        NestedMessage::from(self.clone()).encode_with_tag_and_constraints(encoder, tag, constraints)
     }
 }
 

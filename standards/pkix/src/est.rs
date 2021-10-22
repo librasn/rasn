@@ -36,7 +36,7 @@ pub struct Attribute {
 
 #[cfg(test)]
 mod tests {
-    extern crate alloc;
+    use pretty_assertions::assert_eq;
 
     use alloc::{borrow::Cow, collections::BTreeSet, string::ToString, vec};
 
@@ -80,9 +80,10 @@ mod tests {
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::PrintableString::new(
-                            "And me second".to_string(),
-                        ))
+                        rasn::der::encode(
+                            &rasn::types::PrintableString::try_from("And me second".to_string())
+                                .unwrap(),
+                        )
                         .unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(rasn::der::encode(&false).unwrap()));
@@ -90,9 +91,9 @@ mod tests {
                         rasn::der::encode(&rasn::types::Open::Null).unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::VisibleString::new(
-                            "Me first!".to_string(),
-                        ))
+                        rasn::der::encode(
+                            &rasn::types::VisibleString::try_from("Me first!").unwrap(),
+                        )
                         .unwrap(),
                     ));
                     b
@@ -182,9 +183,12 @@ mod tests {
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::PrintableString::new(
-                            "Parse SET as 2.999.1 data".to_string(),
-                        ))
+                        rasn::der::encode(
+                            &rasn::types::PrintableString::try_from(
+                                "Parse SET as 2.999.1 data".to_string(),
+                            )
+                            .unwrap(),
+                        )
                         .unwrap(),
                     ));
                     b
@@ -211,9 +215,12 @@ mod tests {
                         .unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::PrintableString::new(
-                            "Parse SET as 2.999.2 data".to_string(),
-                        ))
+                        rasn::der::encode(
+                            &rasn::types::PrintableString::try_from(
+                                "Parse SET as 2.999.2 data".to_string(),
+                            )
+                            .unwrap(),
+                        )
                         .unwrap(),
                     ));
                     b
@@ -232,7 +239,7 @@ mod tests {
         let data_bin = rasn::der::encode(&data).unwrap();
         let txt = "MHwGBysGAQEBARYwIgYDiDcBMRsTGVBhcnNlIFNFVCBhcyAyLjk5OS4xIGRhdGEGCSqGSIb3DQEJBzAsBgOINwIxJQYDiDcDBgOINwQTGVBhcnNlIFNFVCBhcyAyLjk5OS4yIGRhdGEGCSskAwMCCAEBCwYJYIZIAWUDBAIC";
         let bin = base64::decode(&txt).unwrap();
-        assert_eq!(data_bin, bin);
+        assert_eq!(bin, data_bin);
         let decoded_data = rasn::der::decode::<CsrAttrs>(&bin);
         assert!(decoded_data.is_ok());
         let decoded_data = decoded_data.unwrap();

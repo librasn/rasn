@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 pub(crate) use self::consts::*;
 
 /// The class of tag identifying its category.
@@ -31,6 +33,17 @@ impl Class {
     /// Returns whether the given class is universal.
     pub fn is_universal(self) -> bool {
         self == Class::Universal
+    }
+}
+
+impl core::fmt::Display for Class {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::Universal => "universal",
+            Self::Application => "application",
+            Self::Context => "context",
+            Self::Private => "private",
+        })
     }
 }
 
@@ -111,6 +124,21 @@ impl Tag {
         Self { class, value }
     }
 
+    /// Create a new `APPLICATION` tag from `value`.
+    pub const fn new_application(value: u32) -> Self {
+        Self::new(Class::Application, value)
+    }
+
+    /// Create a new `CONTEXT` tag from `value`.
+    pub const fn new_context(value: u32) -> Self {
+        Self::new(Class::Context, value)
+    }
+
+    /// Create a new `PRIVATE` tag from `value`.
+    pub const fn new_private(value: u32) -> Self {
+        Self::new(Class::Private, value)
+    }
+
     /// Set the value of the tag.
     pub fn set_value(mut self, value: u32) -> Self {
         self.value = value;
@@ -120,6 +148,11 @@ impl Tag {
     #[doc(hidden)]
     pub const fn const_eq(self, rhs: &Self) -> bool {
         self.class as u8 == rhs.class as u8 && self.value == rhs.value
+    }
+
+    #[doc(hidden)]
+    pub const fn const_less_than(self, rhs: Self) -> bool {
+        (self.class as u8) < (rhs.class as u8) && self.value < rhs.value
     }
 
     /// Returns whether `Tag` is defined as `Tag::EOC`, and thus is an invalid
@@ -133,7 +166,7 @@ impl Tag {
 /// For most types this is only ever one level deep, except for CHOICE enums
 /// which will contain a set of nodes, that either point to a `Leaf` or another
 /// level of `Choice`.
-#[derive(Debug)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TagTree {
     /// The end of branch in the tree.
     Leaf(Tag),
@@ -142,6 +175,31 @@ pub enum TagTree {
 }
 
 impl TagTree {
+    pub const fn empty() -> Self {
+        Self::Choice(&[])
+    }
+
+    pub const fn smallest_tag(&self) -> Tag {
+        match self {
+            Self::Leaf(tag) => *tag,
+            Self::Choice(tree) => {
+                let mut i = 0;
+                let mut tag: Tag = Tag::new_private(u32::MAX);
+
+                while i < tree.len() {
+                    let next_tag = tree[i].smallest_tag();
+                    if next_tag.const_less_than(tag) {
+                        tag = next_tag;
+                    }
+
+                    i += 1;
+                }
+
+                tag
+            }
+        }
+    }
+
     /// Returns whether a given `TagTree` only contains unique entries.
     pub const fn is_unique(&self) -> bool {
         match self {
@@ -219,7 +277,7 @@ impl TagTree {
     }
 
     /// Whether `needle` matches any `Leaf`s in `nodes`.
-    pub(crate) const fn tag_contains(needle: &Tag, nodes: &'static [TagTree]) -> bool {
+    pub const fn tag_contains(needle: &Tag, nodes: &[TagTree]) -> bool {
         let mut index = 0;
 
         while index < nodes.len() {
@@ -241,6 +299,18 @@ impl TagTree {
         }
 
         false
+    }
+}
+
+impl PartialOrd for TagTree {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TagTree {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.smallest_tag().cmp(&other.smallest_tag())
     }
 }
 

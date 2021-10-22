@@ -84,12 +84,19 @@ impl AsnType for Person {
 Next is the `Decode` and `Encode` traits. These are mirrors of each other and both have one provided method (`decode`/`encode`) and one required method (`decode_with_tag`/`encode_with_tag`). Since in ASN.1 nearly every type can be implicitly tagged allowing anyone to override the tag associated with the type, having `*_with_tag` as a required method requires the implementer to correctly handle this case, and the provided methods simply calls `*_with_tag` with the type's associated `AsnType::TAG`. Let's look at what the codec implementation of `Person` looks like.
 
 ```rust
+# use rasn::{AsnType, types::{Constructed, fields::{Field, Fields}}};
 # struct Person { name: Utf8String, age: Integer }
-# impl rasn::AsnType for Person { const TAG: Tag = Tag::SEQUENCE; }
-use rasn::{Decode, Decoder, Encode, Encoder, Tag, types::{Integer, Utf8String}};
+# impl AsnType for Person { const TAG: Tag = Tag::SEQUENCE; }
+# impl Constructed for Person {
+#     const FIELDS: Fields = Fields::from_static(&[
+#          Field::new_required(Utf8String::TAG, Utf8String::TAG_TREE),
+#          Field::new_required(Integer::TAG, Integer::TAG_TREE),
+#     ]);
+# }
+use rasn::{prelude::*, types::{Integer, Utf8String}};
 
 impl Decode for Person {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+    fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints) -> Result<Self, D::Error> {
         // Accepts a closure that decodes the contents of the sequence.
         decoder.decode_sequence(tag, |decoder| {
             let age = Integer::decode(decoder)?;
@@ -100,9 +107,9 @@ impl Decode for Person {
 }
 
 impl Encode for Person {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints) -> Result<(), E::Error> {
         // Accepts a closure that encodes the contents of the sequence.
-        encoder.encode_sequence(tag, |encoder| {
+        encoder.encode_sequence::<Self, _>(tag, |encoder| {
             self.age.encode(encoder)?;
             self.name.encode(encoder)?;
             Ok(())

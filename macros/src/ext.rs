@@ -4,11 +4,8 @@ pub trait TypeExt {
 
 impl TypeExt for syn::Type {
     fn strip_lifetimes(&mut self) {
-        match self {
-            syn::Type::Reference(ref mut reference) => {
-                reference.lifetime = None;
-            }
-            _ => {}
+        if let syn::Type::Reference(ref mut reference) = self {
+            reference.lifetime = None;
         }
     }
 }

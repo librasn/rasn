@@ -117,6 +117,8 @@ pub enum VarBindValue {
 
 #[cfg(test)]
 mod tests {
+    use pretty_assertions::assert_eq;
+
     use super::*;
     use alloc::vec;
     use rasn::types::ObjectIdentifier;

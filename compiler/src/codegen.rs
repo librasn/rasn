@@ -326,7 +326,8 @@ impl Backend for Rust {
 
     fn write_prelude<W: Write>(&mut self, writer: &mut W) -> Result<()> {
         let prelude = mem::replace(&mut self.prelude, HashSet::new());
-        writer.write_all(itertools::join(prelude.iter().map(ToString::to_string), "\n").as_bytes())?;
+        writer
+            .write_all(itertools::join(prelude.iter().map(ToString::to_string), "\n").as_bytes())?;
 
         let consts = mem::replace(&mut self.consts, HashSet::new());
         writer.write_all(

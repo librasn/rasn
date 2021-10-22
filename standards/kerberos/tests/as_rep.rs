@@ -17,19 +17,19 @@ fn as_rep() {
                 0x4f, 0x4d, 0x50, 0x41, 0x4e, 0x59, 0x2e, 0x49, 0x4e, 0x54, 0x75, 0x73, 0x65, 0x72,
             ]),
         }]),
-        crealm: KerberosString::new("COMPANY.INT".to_string()),
+        crealm: KerberosString::try_from("COMPANY.INT".to_string()).unwrap(),
         cname: PrincipalName {
             r#type: 1,
-            string: vec![KerberosString::new(String::from("user"))],
+            string: vec![KerberosString::try_from(String::from("user")).unwrap()],
         },
         ticket: Ticket {
             tkt_vno: Integer::from(5),
-            realm: KerberosString::new("COMPANY.INT".to_string()),
+            realm: KerberosString::try_from("COMPANY.INT".to_string()).unwrap(),
             sname: PrincipalName {
                 r#type: 2,
                 string: vec![
-                    KerberosString::new(String::from("krbtgt")),
-                    KerberosString::new(String::from("COMPANY.INT")),
+                    KerberosString::try_from(String::from("krbtgt")).unwrap(),
+                    KerberosString::try_from(String::from("COMPANY.INT")).unwrap(),
                 ],
             },
             enc_part: EncryptedData {

@@ -166,28 +166,32 @@ pub struct Checksum {
     pub checksum: OctetString,
 }
 
-/// Record that helps a client authenticate to a service.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(explicit(application, 1)))]
-pub struct Ticket {
-    /// The version number for the ticket format.
-    #[rasn(tag(explicit(0)))]
-    pub tkt_vno: Integer,
-    /// The realm that issued a ticket.  It also serves to identify the realm
-    /// part of the server's principal identifier. Since a Kerberos server can
-    /// only issue tickets for servers within its realm, the two will always
-    /// be identical.
-    #[rasn(tag(explicit(1)))]
-    pub realm: Realm,
-    /// All components of the name part of the server's identity, including
-    /// those parts that identify a specific instance of a service.
-    #[rasn(tag(explicit(2)))]
-    pub sname: PrincipalName,
-    /// The encrypted encoding of [EncTicketPart]. It is encrypted in the key
-    /// shared by Kerberos and the end server (the server's secret key), using a
-    /// key usage value of `2`.
-    #[rasn(tag(explicit(3)))]
-    pub enc_part: EncryptedData,
+pub use body::*;
+mod body {
+    use super::*;
+    /// Record that helps a client authenticate to a service.
+    #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    #[rasn(tag(explicit(application, 1)))]
+    pub struct Ticket {
+        /// The version number for the ticket format.
+        #[rasn(tag(explicit(0)))]
+        pub tkt_vno: Integer,
+        /// The realm that issued a ticket.  It also serves to identify the realm
+        /// part of the server's principal identifier. Since a Kerberos server can
+        /// only issue tickets for servers within its realm, the two will always
+        /// be identical.
+        #[rasn(tag(explicit(1)))]
+        pub realm: Realm,
+        /// All components of the name part of the server's identity, including
+        /// those parts that identify a specific instance of a service.
+        #[rasn(tag(explicit(2)))]
+        pub sname: PrincipalName,
+        /// The encrypted encoding of [EncTicketPart]. It is encrypted in the key
+        /// shared by Kerberos and the end server (the server's secret key), using a
+        /// key usage value of `2`.
+        #[rasn(tag(explicit(3)))]
+        pub enc_part: EncryptedData,
+    }
 }
 
 /// The encrypted part of a [Ticket].

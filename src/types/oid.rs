@@ -167,7 +167,7 @@ impl ObjectIdentifier {
     /// component is greater than 1.
     pub fn new(arcs: impl Into<alloc::borrow::Cow<'static, [u32]>>) -> Option<Self> {
         let arcs = arcs.into();
-        is_valid_oid(&arcs).then(|| Self(arcs))
+        is_valid_oid(&arcs).then_some(Self(arcs))
     }
 
     /// Creates a new object identifier from `vec`.
@@ -188,7 +188,7 @@ impl AsRef<[u32]> for ObjectIdentifier {
 
 impl alloc::borrow::Borrow<Oid> for ObjectIdentifier {
     fn borrow(&self) -> &Oid {
-        &*self
+        self
     }
 }
 
@@ -244,7 +244,7 @@ impl PartialEq<ObjectIdentifier> for ConstOid {
 
 impl PartialEq<[u32]> for ObjectIdentifier {
     fn eq(&self, rhs: &[u32]) -> bool {
-        &*self == rhs
+        self == rhs
     }
 }
 
@@ -655,8 +655,15 @@ mod test {
 
     #[test]
     fn equals() {
-        let oid = ObjectIdentifier::new_unchecked(alloc::vec![2, 16, 840, 1, 101, 3, 4, 2, 3].into());
-        assert_eq!(Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512, oid);
-        assert!(Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512 == oid);
+        let oid =
+            ObjectIdentifier::new_unchecked(alloc::vec![2, 16, 840, 1, 101, 3, 4, 2, 3].into());
+        assert_eq!(
+            Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512,
+            oid
+        );
+        assert!(
+            Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512
+                == oid
+        );
     }
 }

@@ -22,14 +22,12 @@ pub struct MessagePDU {
 #[derive(AsnType, Decode, Encode, Debug, PartialEq, Clone)]
 pub struct MessageStatus {
     #[rasn(tag(0))]
-    #[rasn(choice)]
     pub message_class: MessageClass,
 
     #[rasn(tag(1))]
     pub status_id: Option<rasn::types::Integer>,
 
     #[rasn(tag(2))]
-    #[rasn(choice)]
     pub status_enum: Option<MessageEnum>,
 }
 

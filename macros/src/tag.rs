@@ -20,7 +20,7 @@ impl Class {
         }
     }
 
-    pub fn to_ident(&self) -> syn::Ident {
+    pub fn to_ident(self) -> syn::Ident {
         quote::format_ident!(
             "{}",
             match self {
@@ -46,10 +46,15 @@ impl quote::ToTokens for Class {
 }
 
 #[derive(Debug, Clone)]
-pub struct Tag {
-    pub class: Class,
-    pub value: syn::Lit,
-    pub explicit: bool,
+pub enum Tag {
+    Value {
+        class: Class,
+        value: syn::Lit,
+        explicit: bool,
+    },
+    Delegate {
+        ty: syn::Type,
+    },
 }
 
 impl Tag {
@@ -115,33 +120,115 @@ impl Tag {
             _ => panic!("The `#[rasn(tag)]`attribute must be a list."),
         }
 
-        tag.map(|(class, value)| Self {
+        tag.map(|(class, value)| Self::Value {
             class,
             value,
             explicit,
         })
     }
 
-    pub fn from_fields(fields: &syn::Fields, crate_root: &syn::Path) -> proc_macro2::TokenStream {
+    pub fn from_fields(fields: &syn::Fields) -> Self {
         match fields {
-            syn::Fields::Unit => quote!(<() as #crate_root::AsnType>::TAG),
-            syn::Fields::Named(_) => quote!(#crate_root::Tag::SEQUENCE),
+            syn::Fields::Unit => Self::Delegate {
+                ty: syn::TypeTuple {
+                    paren_token: <_>::default(),
+                    elems: <_>::default(),
+                }
+                .into(),
+            },
+            syn::Fields::Named(_) => Self::SEQUENCE(),
             syn::Fields::Unnamed(_) => {
                 if fields.iter().count() != 1 {
                     panic!("Tuple-style enum variants must contain only a single field, switch to struct-style variants for multiple fields.");
                 } else {
-                    let ty = &fields.iter().next().unwrap().ty;
+                    let ty = fields.iter().next().cloned().unwrap().ty;
 
-                    quote!(<#ty as #crate_root::AsnType>::TAG)
+                    Self::Delegate { ty }
                 }
             }
         }
     }
 
-    pub fn to_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
-        let class = &self.class;
-        let value = &self.value;
-
-        quote!(#crate_root::Tag::new(#class, #value))
+    pub fn is_explicit(&self) -> bool {
+        match self {
+            Self::Value { explicit, .. } => *explicit,
+            _ => false,
+        }
     }
+
+    pub fn to_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
+        match self {
+            Self::Value { class, value, .. } => quote!(#crate_root::Tag::new(#class, #value)),
+            Self::Delegate { ty } => quote!(<#ty as #crate_root::AsnType>::TAG),
+        }
+    }
+
+    pub fn to_attribute_tokens(&self) -> proc_macro2::TokenStream {
+        match self {
+            Self::Value {
+                class,
+                value,
+                explicit,
+            } => {
+                let class = class.to_ident();
+                let mut attribute = quote!(#class, #value);
+
+                if *explicit {
+                    attribute = quote!(explicit(#attribute));
+                }
+                quote!(#[rasn(tag(#attribute))])
+            }
+            Self::Delegate { .. } => quote!(#[rasn(delegate)]),
+        }
+    }
+}
+
+macro_rules! consts {
+    ($($name:ident = $value:expr),+) => {
+        #[allow(missing_docs)]
+        impl Tag {
+            $(
+                #[allow(dead_code, non_snake_case)]
+                pub fn $name() -> Tag {
+                    Self::Value {
+                        class: Class::Universal,
+                        value: syn::LitInt::new(stringify!($value), proc_macro2::Span::call_site()).into(),
+                        explicit: false,
+                    }
+                }
+            )+
+        }
+    }
+}
+
+consts! {
+    EOC = 0,
+    BOOL = 1,
+    INTEGER = 2,
+    BIT_STRING = 3,
+    OCTET_STRING = 4,
+    NULL = 5,
+    OBJECT_IDENTIFIER = 6,
+    OBJECT_DESCRIPTOR = 7,
+    EXTERNAL = 8,
+    REAL = 9,
+    ENUMERATED = 10,
+    EMBEDDED_PDV = 11,
+    UTF8_STRING = 12,
+    RELATIVE_OID = 13,
+    SEQUENCE = 16,
+    SET = 17,
+    NUMERIC_STRING = 18,
+    PRINTABLE_STRING = 19,
+    TELETEX_STRING = 20,
+    VIDEOTEX_STRING = 21,
+    IA5_STRING = 22,
+    UTC_TIME = 23,
+    GENERALIZED_TIME = 24,
+    GRAPHIC_STRING = 25,
+    VISIBLE_STRING = 26,
+    GENERAL_STRING = 27,
+    UNIVERSAL_STRING = 28,
+    CHARACTER_STRING = 29,
+    BMP_STRING = 30
 }

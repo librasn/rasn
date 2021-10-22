@@ -19,7 +19,7 @@ pub fn derive_struct_impl(
         if config
             .tag
             .as_ref()
-            .map(|tag| tag.explicit)
+            .map(|tag| tag.is_explicit())
             .unwrap_or_default()
         {
             quote! {
@@ -27,13 +27,16 @@ pub fn derive_struct_impl(
             }
         } else {
             quote! {
-                <#ty as #crate_root::Decode>::decode_with_tag(decoder, tag).map(Self)
+                <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
+                    decoder,
+                    tag,
+                    <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints),
+                ).map(Self)
             }
         }
     } else if config.set {
         let field_names = container.fields.iter().map(|field| field.ident.clone());
         let field_names2 = field_names.clone();
-        let field_names3 = field_names.clone();
         let required_field_names = container
             .fields
             .iter()
@@ -48,8 +51,15 @@ pub fn derive_struct_impl(
                     .option_type
                     .map_to_inner_type(&field.ty)
                     .unwrap_or(&field.ty);
-                let tag_attr = FieldConfig::new(field, config).tag_derive(i);
+                let config = FieldConfig::new(field, config);
+                let tag_attr = config.tag_derive(i);
+                let constraints = config.constraints.attribute_tokens();
                 let name = quote::format_ident!("Field{}", i);
+                let ty = if config.extension_addition || config.extension_addition_group {
+                    quote!(Option<#ty>)
+                } else {
+                    quote!(#ty)
+                };
 
                 (
                     name.clone(),
@@ -57,6 +67,7 @@ pub fn derive_struct_impl(
                         #[derive(#crate_root::AsnType, #crate_root::Decode, #crate_root::Encode)]
                         #[rasn(delegate)]
                         #tag_attr
+                        #constraints
                         pub struct #name(#ty);
                     },
                 )
@@ -75,37 +86,82 @@ pub fn derive_struct_impl(
 
         let set_init = match container.fields {
             syn::Fields::Unit => quote!(),
-            syn::Fields::Unnamed(_) => quote!(( #(#field_names3),* )),
-            syn::Fields::Named(_) => quote!({ #(#field_names3),* }),
+            syn::Fields::Unnamed(_) => quote!(( #(#field_names2),* )),
+            syn::Fields::Named(_) => quote!({ #(#field_names2),* }),
         };
+
+        let (field_const_defs, field_match_arms, field_set_arms): (Vec<_>, Vec<_>, Vec<_>) = itertools::multiunzip(container.fields
+            .iter()
+            .enumerate()
+            .zip(field_type_names.clone())
+            .map(|((context, field), field_name)| {
+                let config = FieldConfig::new(field, config);
+                let tag = config.tag(context);
+                let const_name = quote::format_ident!("{}Const", field_name);
+                let decode_impl = if config.extension_addition {
+                    quote!(#field_name(decoder.decode_extension_addition()?))
+                } else if config.extension_addition_group {
+                    quote!(#field_name(decoder.decode_extension_addition_group()?))
+                } else {
+                    quote!(<_>::decode(decoder)?)
+                };
+                let ident = &field.ident;
+
+                let set_field_impl = if config.extension_addition || config.extension_addition_group {
+                    quote! {
+                        if #ident.is_some() {
+                            return Err(rasn::de::Error::duplicate_field(stringify!(#ident)))
+                        } else {
+                            #ident = value.0;
+                        }
+                    }
+                } else {
+                    quote! {
+                        if #ident.replace(value.0).is_some() {
+                            return Err(rasn::de::Error::duplicate_field(stringify!(#ident)))
+                        }
+                    }
+                };
+
+                (
+                    quote!(const #const_name: Tag = #tag;),
+                    quote!((#context, #const_name) => { #choice_name::#field_name(#decode_impl) }),
+                    quote!(#choice_name::#field_name(value) => { #set_field_impl })
+                )
+            }));
 
         quote! {
             #choice_def
             #(#field_type_defs)*
 
-            decoder.decode_set::<#choice_name, _, _>(tag, |fields| {
-                #(let mut #field_names = None;)*
+            decoder.decode_set::<#choice_name, _, _, _>(tag, |decoder, index, tag| {
+                    #(#field_const_defs)*
 
-                for field in fields {
-                    match field {
-                        #(#choice_name::#field_type_names(value) => {
-                            if #field_names2.replace(value.0).is_some() {
-                                return Err(rasn::de::Error::duplicate_field(stringify!(#field_names2)))
-                            }
-                        })*
+                    Ok(match (index, tag) {
+                        #(#field_match_arms)*
+                        _ => return Err(#crate_root::de::Error::custom("Unknown field provided.")),
+                    })
+                },
+                |fields| {
+                    #(let mut #field_names = None;)*
+
+                    for field in fields {
+                        match field {
+                            #(#field_set_arms)*
+                        }
                     }
+
+                    #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field(stringify!(#required_field_names)))?;)*
+
+                    Ok(Self #set_init)
                 }
-
-                #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field(stringify!(#required_field_names)))?;)*
-
-                Ok(Self #set_init)
-            })
+            )
         }
     } else {
         for (i, field) in container.fields.iter().enumerate() {
             let field_config = FieldConfig::new(field, config);
 
-            list.push(field_config.decode(&name, i));
+            list.push(field_config.decode_field_def(&name, i));
         }
 
         let fields = match container.fields {
@@ -121,30 +177,33 @@ pub fn derive_struct_impl(
         }
     };
 
-    let decode_impl = if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.explicit) {
-        let tag = config.tag_for_struct(&container.fields);
-        map_from_inner_type(
-            tag,
-            &name,
-            &generics,
-            &container.fields,
-            container.semi_token,
-            None,
-            &config,
-        )
-    } else {
-        decode_impl
-    };
+    let decode_impl =
+        if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
+            let tag = config.tag_for_struct(&container.fields);
+            map_from_inner_type(
+                tag,
+                &name,
+                &generics,
+                &container.fields,
+                container.semi_token,
+                None,
+                config,
+                true,
+            )
+        } else {
+            decode_impl
+        };
 
     quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
                 #decode_impl
             }
         }
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn map_from_inner_type(
     tag: proc_macro2::TokenStream,
     name: &syn::Ident,
@@ -153,6 +212,7 @@ pub fn map_from_inner_type(
     semi: Option<syn::Token![;]>,
     outer_name: Option<proc_macro2::TokenStream>,
     config: &Config,
+    is_explicit: bool,
 ) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
     let crate_root = &config.crate_root;
@@ -169,8 +229,14 @@ pub fn map_from_inner_type(
 
     let decode_fields = fields.iter().enumerate().map(|(i, field)| {
         let field_config = FieldConfig::new(field, config);
-        field_config.decode(name, i)
+        field_config.decode_field_def(name, i)
     });
+
+    let decode_op = if is_explicit {
+        quote!(decoder.decode_explicit_prefix::<#inner_name>(#tag)?)
+    } else {
+        quote!(<#inner_name>::decode_with_tag(decoder, #tag)?)
+    };
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
@@ -178,14 +244,14 @@ pub fn map_from_inner_type(
         struct #inner_name #generics #fields #semi
 
         impl #impl_generics #crate_root::Decode for #inner_name #ty_generics #where_clause {
-            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, _: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
                 decoder.decode_sequence(tag, |decoder| {
                     Ok::<_, D::Error>(#inner_name { #(#decode_fields),* })
                 })
             }
         }
 
-        let inner = decoder.decode_explicit_prefix::<#inner_name>(#tag)?;
+        let inner = #decode_op;
 
         Ok(#outer_name { #(#map_from_inner),* })
     }

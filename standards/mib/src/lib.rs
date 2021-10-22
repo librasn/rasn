@@ -248,8 +248,12 @@ pub mod interfaces {
     }
 
     impl rasn::Decode for Entry {
-        fn decode_with_tag<D: rasn::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-            Opaque::decode_with_tag(decoder, tag).and_then(|opaque| {
+        fn decode_with_tag_and_constraints<D: rasn::Decoder>(
+            decoder: &mut D,
+            tag: Tag,
+            constraints: Constraints,
+        ) -> Result<Self, D::Error> {
+            Opaque::decode_with_tag_and_constraints(decoder, tag, constraints).and_then(|opaque| {
                 let decoder = &mut rasn::ber::de::Decoder::new(
                     opaque.as_ref(),
                     rasn::ber::de::DecoderOptions::ber(),
@@ -284,14 +288,15 @@ pub mod interfaces {
     }
 
     impl rasn::Encode for Entry {
-        fn encode_with_tag<EN: rasn::Encoder>(
+        fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
             &self,
             encoder: &mut EN,
             tag: Tag,
+            constraints: Constraints,
         ) -> Result<(), EN::Error> {
             self.to_opaque()
                 .map_err(rasn::enc::Error::custom)?
-                .encode_with_tag(encoder, tag)
+                .encode_with_tag_and_constraints(encoder, tag, constraints)
         }
     }
 

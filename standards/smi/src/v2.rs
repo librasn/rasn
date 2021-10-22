@@ -6,8 +6,8 @@ use core::convert::TryInto;
 use chrono::TimeZone;
 
 use rasn::{
+    prelude::*,
     types::{ConstOid, Integer, ObjectIdentifier, OctetString, Oid, Utf8String},
-    AsnType, Decode, Decoder, Encode, Encoder, Tag,
 };
 
 use crate::v1::InvalidVariant;
@@ -76,15 +76,28 @@ pub enum ApplicationSyntax {
 pub struct ExtUtcTime(pub chrono::DateTime<chrono::Utc>);
 
 impl Encode for ExtUtcTime {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+    fn encode_with_tag_and_constraints<EN: Encoder>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<(), EN::Error> {
         encoder
-            .encode_octet_string(tag, self.0.format(FULL_DATE_FORMAT).to_string().as_bytes())
+            .encode_octet_string(
+                tag,
+                <_>::from(&[constraints::Size::new(constraints::Bounded::single_value(13)).into()]),
+                self.0.format(FULL_DATE_FORMAT).to_string().as_bytes(),
+            )
             .map(drop)
     }
 }
 
 impl Decode for ExtUtcTime {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<Self, D::Error> {
         let bytes = OctetString::decode_with_tag(decoder, tag)?;
         let len = bytes.len();
         let error = || Err(rasn::de::Error::custom("Invalid `ExtUtcTime` encoding"));
