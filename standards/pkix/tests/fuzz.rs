@@ -27,15 +27,15 @@ fn havoc11() {
 #[test]
 fn splice() {
     let data: &[u8] = include_bytes!("data/splice.bin");
-    let value = dbg!(rasn::ber::decode::<rasn_pkix::AlgorithmIdentifier>(data).unwrap());
+    let value = rasn::ber::decode::<rasn_pkix::AlgorithmIdentifier>(data).unwrap();
     let encoded = rasn::ber::encode(&value).unwrap();
     assert_eq!(value, rasn::ber::decode(&encoded).unwrap());
 
-    let value = dbg!(rasn::cer::decode::<rasn_pkix::AlgorithmIdentifier>(data).unwrap());
+    let value = rasn::cer::decode::<rasn_pkix::AlgorithmIdentifier>(data).unwrap();
     let encoded = rasn::cer::encode(&value).unwrap();
     assert_eq!(value, rasn::cer::decode(&encoded).unwrap());
 
-    let value = dbg!(rasn::der::decode::<rasn_pkix::AlgorithmIdentifier>(data).unwrap());
+    let value = rasn::der::decode::<rasn_pkix::AlgorithmIdentifier>(data).unwrap();
     let encoded = rasn::der::encode(&value).unwrap();
     assert_eq!(value, rasn::der::decode(&encoded).unwrap());
 }

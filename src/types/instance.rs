@@ -15,7 +15,7 @@ impl<T> AsnType for InstanceOf<T> {
 
 impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
     fn decode_with_tag<D: crate::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_sequence(tag, |sequence| {
+        decoder.decode_sequence(tag, <_>::default(), |sequence| {
             let type_id = ObjectIdentifier::decode(sequence)?;
             let value = sequence.decode_explicit_prefix(Tag::new(Class::Context, 0))?;
 
@@ -30,11 +30,15 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         encoder: &mut D,
         tag: Tag,
     ) -> Result<(), D::Error> {
-        encoder.encode_sequence(tag, |sequence| {
-            self.type_id.encode(sequence)?;
-            sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
-            Ok(())
-        })?;
+        encoder.encode_sequence(
+            tag,
+            <_>::default(),
+            |sequence| {
+                self.type_id.encode(sequence)?;
+                sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
+                Ok(())
+            },
+        )?;
 
         Ok(())
     }

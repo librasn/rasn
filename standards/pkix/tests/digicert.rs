@@ -16,9 +16,9 @@ fn it_works() {
 fn extensions() {
     let basic_usage = rasn::der::encode_scope(|encoder| {
         use rasn::Encoder;
-        encoder.encode_sequence(Tag::SEQUENCE, |encoder| {
+        encoder.encode_sequence(Tag::SEQUENCE, <_>::default(), |encoder| {
             encoder.encode_bool(Tag::BOOL, true)?;
-            encoder.encode_integer(Tag::INTEGER, &0u32.into())?;
+            encoder.encode_integer(Tag::INTEGER, <_>::default(), &0u32.into())?;
             Ok(())
         })?;
 

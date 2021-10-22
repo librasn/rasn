@@ -327,7 +327,7 @@ impl<'config> VariantConfig<'config> {
                     });
 
                     quote! {
-                        decoder.decode_sequence(#tag, |decoder| {
+                        decoder.decode_sequence(#tag, <_>::default(), |decoder| {
                             Ok::<_, D::Error>(Self::#ident { #(#decode_fields),* })
                         })
                     }
@@ -474,10 +474,16 @@ impl<'a> FieldConfig<'a> {
                     encode
                 }
             } else {
-                quote!(#this #field.encode_with_tag(encoder, #tag)?;)
+                match self.default.is_some() {
+                    true => quote!(encoder.encode_some_with_tag(#tag, &#this #field)?;),
+                    false => quote!(#this #field.encode_with_tag(encoder, #tag)?;),
+                }
             }
         } else {
-            quote!(#this #field.encode(encoder)?;)
+            match self.default.is_some() {
+                true => quote!(encoder.encode_some(&#this #field)?;),
+                false => quote!(#this #field.encode(encoder)?;),
+            }
         };
 
         if self.default.is_some() {

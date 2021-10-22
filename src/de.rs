@@ -3,7 +3,7 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::convert::TryInto;
 
-use crate::types::{self, AsnType, Tag};
+use crate::types::{self, constraints, AsnType, Constraints, Tag};
 
 pub use nom::Needed;
 pub use rasn_derive::Decode;
@@ -37,13 +37,25 @@ pub trait Decoder: Sized {
     /// Decode a unknown ASN.1 value identified by `tag` from the available input.
     fn decode_any(&mut self) -> Result<types::Any, Self::Error>;
     /// Decode a `BIT STRING` identified by `tag` from the available input.
-    fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString, Self::Error>;
+    fn decode_bit_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::BitString, Self::Error>;
     /// Decode a `BOOL` identified by `tag` from the available input.
     fn decode_bool(&mut self, tag: Tag) -> Result<bool, Self::Error>;
     /// Decode an enumerated enum's discriminant identified by `tag` from the available input.
-    fn decode_enumerated(&mut self, tag: Tag) -> Result<types::Integer, Self::Error>;
+    fn decode_enumerated(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Integer, Self::Error>;
     /// Decode a `INTEGER` identified by `tag` from the available input.
-    fn decode_integer(&mut self, tag: Tag) -> Result<types::Integer, Self::Error>;
+    fn decode_integer(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Integer, Self::Error>;
     /// Decode `NULL` identified by `tag` from the available input.
     fn decode_null(&mut self, tag: Tag) -> Result<(), Self::Error>;
     /// Decode a `OBJECT IDENTIFIER` identified by `tag` from the available input.
@@ -53,17 +65,44 @@ pub trait Decoder: Sized {
     ) -> Result<types::ObjectIdentifier, Self::Error>;
     /// Decode a `SEQUENCE` identified by `tag` from the available input. Returning
     /// a new `Decoder` containing the sequence's contents to be decoded.
-    fn decode_sequence<D, F>(&mut self, tag: Tag, decode_fn: F) -> Result<D, Self::Error>
+    fn decode_sequence<D, F>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        decode_fn: F,
+    ) -> Result<D, Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<D, Self::Error>;
     /// Decode a `SEQUENCE OF D` where `D: Decode` identified by `tag` from the available input.
-    fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>, Self::Error>;
+    fn decode_sequence_of<D: Decode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Vec<D>, Self::Error>;
     /// Decode a `SET OF D` where `D: Decode` identified by `tag` from the available input.
-    fn decode_set_of<D: Decode + Ord>(&mut self, tag: Tag) -> Result<types::SetOf<D>, Self::Error>;
+    fn decode_set_of<D: Decode + Ord>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::SetOf<D>, Self::Error>;
     /// Decode a `OCTET STRING` identified by `tag` from the available input.
-    fn decode_octet_string(&mut self, tag: Tag) -> Result<Vec<u8>, Self::Error>;
+    fn decode_octet_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Vec<u8>, Self::Error>;
     /// Decode a `UTF8 STRING` identified by `tag` from the available input.
-    fn decode_utf8_string(&mut self, tag: Tag) -> Result<types::Utf8String, Self::Error>;
+    fn decode_utf8_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Utf8String, Self::Error>;
+    /// Decode a `UTF8 STRING` identified by `tag` from the available input.
+    fn decode_visible_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::VisibleString, Self::Error>;
     /// Decode an ASN.1 value that has been explicitly prefixed with `tag` from the available input.
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D, Self::Error>;
     /// Decode a `UtcTime` identified by `tag` from the available input.
@@ -79,6 +118,7 @@ pub trait Decoder: Sized {
     fn decode_set<FIELDS, SET, F>(
         &mut self,
         tag: Tag,
+        constraints: Constraints,
         decode_operation: F,
     ) -> Result<SET, Self::Error>
     where
@@ -94,7 +134,7 @@ pub trait Error: core::fmt::Display {
     /// Creates a new error about needing more data to finish parsing.
     fn incomplete(needed: Needed) -> Self;
     /// Creates a new error about exceeding the maximum allowed data for a type.
-    fn exceeds_max_length(length: usize) -> Self;
+    fn exceeds_max_length(length: num_bigint::BigUint) -> Self;
     /// Creates a new error about a missing field.
     fn missing_field(name: &'static str) -> Self;
     /// Creates a new error about being unable to match any variant in a choice.
@@ -133,8 +173,14 @@ macro_rules! impl_integers {
         $(
         impl Decode for $int {
             fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-                core::convert::TryInto::try_into(decoder.decode_integer(tag)?)
-                    .map_err(Error::custom)
+                core::convert::TryInto::try_into(
+                    decoder.decode_integer(
+                        tag,
+                        Constraints::from(&[
+                            constraints::Range::new(types::Integer::from(<$int>::MIN), types::Integer::from(<$int>::MAX)).into()
+                        ])
+                    )?
+                ).map_err(Error::custom)
             }
         }
         )+
@@ -168,13 +214,15 @@ impl<T: Decode> Decode for Box<T> {
 
 impl Decode for types::Integer {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_integer(tag)
+        decoder.decode_integer(tag, <_>::default())
     }
 }
 
 impl Decode for types::OctetString {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_octet_string(tag).map(Self::from)
+        decoder
+            .decode_octet_string(tag, <_>::default())
+            .map(Self::from)
     }
 }
 
@@ -186,13 +234,13 @@ impl Decode for types::ObjectIdentifier {
 
 impl Decode for types::BitString {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_bit_string(tag)
+        decoder.decode_bit_string(tag, <_>::default())
     }
 }
 
 impl Decode for types::Utf8String {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_utf8_string(tag)
+        decoder.decode_utf8_string(tag, <_>::default())
     }
 }
 
@@ -216,19 +264,22 @@ impl Decode for types::Any {
 
 impl<T: Decode> Decode for alloc::vec::Vec<T> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_sequence_of(tag)
+        decoder.decode_sequence_of(tag, <_>::default())
     }
 }
 
 impl<T: Decode + Ord> Decode for alloc::collections::BTreeSet<T> {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_set_of(tag)
+        decoder.decode_set_of(tag, <_>::default())
     }
 }
 
 impl<T: Decode + Default, const N: usize> Decode for [T; N] {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        let sequence = decoder.decode_sequence_of(tag)?;
+        let sequence = decoder.decode_sequence_of(
+            tag,
+            Constraints::from(&[constraints::Range::single_value(N).into()]),
+        )?;
 
         sequence.try_into().map_err(|seq: Vec<_>| {
             Error::custom(alloc::format!(

@@ -14,7 +14,7 @@ use crate::{
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Tag,
+        Constraints, Tag,
     },
     Decode,
 };
@@ -148,17 +148,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_enumerated(&mut self, tag: Tag) -> Result<types::Integer> {
-        self.decode_integer(tag)
+    fn decode_enumerated(&mut self, tag: Tag, constraints: Constraints) -> Result<types::Integer> {
+        self.decode_integer(tag, constraints)
     }
 
-    fn decode_integer(&mut self, tag: Tag) -> Result<types::Integer> {
+    fn decode_integer(&mut self, tag: Tag, constraints: Constraints) -> Result<types::Integer> {
         Ok(types::Integer::from_signed_bytes_be(
             self.parse_primitive_value(tag)?.1,
         ))
     }
 
-    fn decode_octet_string(&mut self, tag: Tag) -> Result<Vec<u8>> {
+    fn decode_octet_string(&mut self, tag: Tag, constraints: Constraints) -> Result<Vec<u8>> {
         let (identifier, contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
@@ -245,7 +245,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifierSnafu)
     }
 
-    fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString> {
+    fn decode_bit_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(&self.config, self.input, tag, |input| {
                 let unused_bits = if let Some(bits) = input.get(0).copied() {
@@ -291,15 +295,28 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
     }
 
-    fn decode_utf8_string(&mut self, tag: Tag) -> Result<types::Utf8String> {
-        let vec = self.decode_octet_string(tag)?;
+    fn decode_visible_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::VisibleString, Self::Error> {
+        self.decode_octet_string(tag, constraints)
+            .map(types::VisibleString::from)
+    }
+
+    fn decode_utf8_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Utf8String> {
+        let vec = self.decode_octet_string(tag, constraints)?;
         types::Utf8String::from_utf8(vec)
             .ok()
             .context(error::InvalidUtf8Snafu)
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let string = self.decode_utf8_string(tag)?;
+        let string = self.decode_utf8_string(tag, <_>::default())?;
         chrono::NaiveDateTime::parse_from_str(&string, "%Y%m%d%H%M%SZ")
             .ok()
             .context(error::InvalidDateSnafu)
@@ -307,15 +324,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
-        let string = self.decode_utf8_string(tag)?;
+        let string = self.decode_utf8_string(tag, <_>::default())?;
         chrono::NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
             .ok()
             .context(error::InvalidDateSnafu)
             .map(|date| types::UtcTime::from_utc(date, chrono::Utc))
     }
 
-    fn decode_sequence_of<D: Decode>(&mut self, tag: Tag) -> Result<Vec<D>, Self::Error> {
-        self.decode_sequence(tag, |decoder| {
+    fn decode_sequence_of<D: Decode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Vec<D>, Self::Error> {
+        self.decode_sequence(tag, constraints, |decoder| {
             let mut items = Vec::new();
 
             while let Ok(item) = D::decode(decoder) {
@@ -326,8 +347,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_set_of<D: Decode + Ord>(&mut self, tag: Tag) -> Result<types::SetOf<D>, Self::Error> {
-        self.decode_sequence(tag, |decoder| {
+    fn decode_set_of<D: Decode + Ord>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::SetOf<D>, Self::Error> {
+        self.decode_sequence(tag, constraints, |decoder| {
             let mut items = types::SetOf::new();
 
             while let Ok(item) = D::decode(decoder) {
@@ -341,6 +366,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_sequence<D, F: FnOnce(&mut Self) -> Result<D>>(
         &mut self,
         tag: Tag,
+        constraints: Constraints,
         decode_fn: F,
     ) -> Result<D> {
         self.parse_constructed_contents(tag, true, decode_fn)
@@ -350,13 +376,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.parse_constructed_contents(tag, false, D::decode)
     }
 
-    fn decode_set<FIELDS, SET, F>(&mut self, tag: Tag, decode_fn: F) -> Result<SET, Self::Error>
+    fn decode_set<FIELDS, SET, F>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        decode_fn: F,
+    ) -> Result<SET, Self::Error>
     where
         SET: Decode,
         FIELDS: Decode,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        self.decode_sequence(tag, |decoder| {
+        self.decode_sequence(tag, constraints, |decoder| {
             let mut fields = Vec::new();
 
             while let Ok(value) = FIELDS::decode(decoder) {
@@ -544,7 +575,7 @@ mod tests {
                 decoder: &mut D,
                 tag: Tag,
             ) -> Result<Self, D::Error> {
-                decoder.decode_sequence(tag, |sequence| {
+                decoder.decode_sequence(tag, <_>::default(), |sequence| {
                     let name: Ia5String = Ia5String::decode(sequence)?;
                     let ok: bool = bool::decode(sequence)?;
                     Ok(Self { name, ok })

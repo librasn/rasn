@@ -3,7 +3,7 @@ name = "rasn"
 version = "0.7.0"
 categories = ["encoding", "no-std", "parser-implementations"]
 authors = ["Erin Power <xampprocky@gmail.com>"]
-edition = "2018"
+edition = "2021"
 description = "A safe no_std ASN.1 codec framework."
 license = "MIT/Apache-2.0"
 exclude = ["fuzzing"]
@@ -36,12 +36,14 @@ harness = false
 nom = { version = "7.0.0", default-features = false, features = ["alloc"] }
 num-bigint = { version = "0.4.2", default-features = false }
 num-traits = { version = "0.2.14", default-features = false }
-snafu = { version = "0.7", default-features = false }
+snafu = { version = "0.7", default-features = false, features = ["backtraces"] }
 bytes = { version = "1.1.0", default-features = false }
 bitvec = { version = "1", default-features = false, features = ["alloc"] }
 rasn-derive = { version = "0.6.0", path = "macros", optional = true }
 chrono = { version = "0.4.19", default-features = false, features = ["alloc"] }
 konst = { version = "0.2.13", default-features = false }
+nom-bitvec = { version = "0.2.0", git = "https://github.com/XAMPPRocky/nom-bitvec.git" }
+either = { version = "1.6.1", default-features = false }
 
 [dev-dependencies]
 criterion = "0.3.5"

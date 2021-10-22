@@ -56,7 +56,7 @@ pub enum Error {
     #[snafu(display("Expected maximum of {} items", length))]
     ExceedsMaxLength {
         /// The maximum length.
-        length: usize,
+        length: num_bigint::BigUint,
     },
     /// The actual integer exceeded the expected width.
     #[snafu(display("Actual integer larger than expected {} bits", max_width))]
@@ -134,7 +134,7 @@ impl crate::de::Error for Error {
         Self::Incomplete { needed }
     }
 
-    fn exceeds_max_length(length: usize) -> Self {
+    fn exceeds_max_length(length: num_bigint::BigUint) -> Self {
         Self::ExceedsMaxLength { length }
     }
 

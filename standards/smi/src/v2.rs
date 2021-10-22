@@ -7,7 +7,7 @@ use chrono::TimeZone;
 
 use rasn::{
     types::{ConstOid, Integer, ObjectIdentifier, OctetString, Oid, Utf8String},
-    AsnType, Decode, Decoder, Encode, Encoder, Tag,
+    prelude::*,
 };
 
 use crate::v1::InvalidVariant;
@@ -78,7 +78,10 @@ pub struct ExtUtcTime(pub chrono::DateTime<chrono::Utc>);
 impl Encode for ExtUtcTime {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         encoder
-            .encode_octet_string(tag, self.0.format(FULL_DATE_FORMAT).to_string().as_bytes())
+            .encode_octet_string(
+                tag,
+                <_>::from(&[constraints::Range::<Integer>::single_value(13usize.into()).into()]),
+                self.0.format(FULL_DATE_FORMAT).to_string().as_bytes())
             .map(drop)
     }
 }

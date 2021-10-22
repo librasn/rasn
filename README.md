@@ -86,12 +86,12 @@ Next is the `Decode` and `Encode` traits. These are mirrors of each other and bo
 ```rust
 # struct Person { name: Utf8String, age: Integer }
 # impl rasn::AsnType for Person { const TAG: Tag = Tag::SEQUENCE; }
-use rasn::{Decode, Decoder, Encode, Encoder, Tag, types::{Integer, Utf8String}};
+use rasn::{prelude::*, types::{Integer, Utf8String}};
 
 impl Decode for Person {
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
         // Accepts a closure that decodes the contents of the sequence.
-        decoder.decode_sequence(tag, |decoder| {
+        decoder.decode_sequence(tag, Constraints::default(), |decoder| {
             let age = Integer::decode(decoder)?;
             let name = Utf8String::decode(decoder)?;
             Ok(Self { age, name })
@@ -102,7 +102,7 @@ impl Decode for Person {
 impl Encode for Person {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         // Accepts a closure that encodes the contents of the sequence.
-        encoder.encode_sequence(tag, |encoder| {
+        encoder.encode_sequence(tag, Constraints::default(), |encoder| {
             self.age.encode(encoder)?;
             self.name.encode(encoder)?;
             Ok(())

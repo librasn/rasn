@@ -39,89 +39,6 @@ mod tests {
     }
 
     #[test]
-    fn null() {
-        assert_eq!((), decode::<()>(&*encode(&()).unwrap()).unwrap());
-    }
-
-    #[test]
-    fn bool() {
-        assert_eq!(true, decode::<bool>(&encode(&true).unwrap()).unwrap());
-        assert_eq!(false, decode::<bool>(&encode(&false).unwrap()).unwrap());
-    }
-
-    macro_rules! integer_tests {
-        ($($integer:ident),*) => {
-            $(
-                #[test]
-                fn $integer() {
-                    let min = <$integer>::min_value();
-                    let max = <$integer>::max_value();
-
-                    assert_eq!(min, decode::<$integer>(&encode(&min).unwrap()).unwrap());
-                    assert_eq!(max, decode::<$integer>(&encode(&max).unwrap()).unwrap());
-                }
-            )*
-        }
-    }
-
-    integer_tests! {
-        i8,
-        i16,
-        i32,
-        i64,
-        i128,
-        isize,
-        u8,
-        u16,
-        u32,
-        u64,
-        u128,
-        usize
-    }
-
-    #[test]
-    fn octet_string() {
-        let a = OctetString::from(vec![1u8, 2, 3, 4, 5]);
-        let b = OctetString::from(vec![5u8, 4, 3, 2, 1]);
-
-        assert_eq!(a, decode::<OctetString>(&encode(&a).unwrap()).unwrap());
-        assert_eq!(b, decode::<OctetString>(&encode(&b).unwrap()).unwrap());
-    }
-
-    #[test]
-    fn utf8_string() {
-        let name = "Jones";
-        assert_eq!(
-            name,
-            decode::<Utf8String>(&*encode(&name).unwrap()).unwrap()
-        );
-    }
-
-    #[test]
-    fn long_sequence_of() {
-        let vec = vec![5u8; 0xffff];
-        assert_eq!(
-            vec,
-            decode::<alloc::vec::Vec<u8>>(&encode(&vec).unwrap()).unwrap()
-        );
-    }
-
-    #[test]
-    fn object_identifier() {
-        let iso = ObjectIdentifier::new(vec![1, 2]);
-        let us_ansi = ObjectIdentifier::new(vec![1, 2, 840]);
-        let rsa = ObjectIdentifier::new(vec![1, 2, 840, 113549]);
-        let pkcs = ObjectIdentifier::new(vec![1, 2, 840, 113549, 1]);
-        let random = ObjectIdentifier::new(vec![0, 3, 0, 3]);
-
-        assert_eq!(iso.clone(), decode(&encode(&iso).unwrap()).unwrap());
-        assert_eq!(us_ansi.clone(), decode(&encode(&us_ansi).unwrap()).unwrap());
-        assert_eq!(rsa.clone(), decode(&encode(&rsa).unwrap()).unwrap());
-        assert_eq!(pkcs.clone(), decode(&encode(&pkcs).unwrap()).unwrap());
-        assert_eq!(random.clone(), decode(&encode(&random).unwrap()).unwrap());
-    }
-
-    #[test]
     fn bit_string() {
         const DATA: &[u8] = &[0, 0xD0];
         let small = BitString::from_vec(DATA.to_owned());
@@ -223,7 +140,7 @@ mod tests {
                     Name(Utf8String),
                 }
 
-                decoder.decode_set::<Fields, _, _>(tag, |fields| {
+                decoder.decode_set::<Fields, _, _>(tag, <_>::default(), |fields| {
                     let mut age = None;
                     let mut name = None;
 
@@ -248,11 +165,15 @@ mod tests {
                 encoder: &mut EN,
                 tag: crate::Tag,
             ) -> Result<(), EN::Error> {
-                encoder.encode_set(tag, |encoder| {
-                    self.age.encode(encoder)?;
-                    self.name.encode(encoder)?;
-                    Ok(())
-                })?;
+                encoder.encode_set(
+                    tag,
+                    <_>::default(),
+                    |encoder| {
+                        self.age.encode(encoder)?;
+                        self.name.encode(encoder)?;
+                        Ok(())
+                    },
+                )?;
 
                 Ok(())
             }

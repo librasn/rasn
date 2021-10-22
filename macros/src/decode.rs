@@ -83,7 +83,7 @@ pub fn derive_struct_impl(
             #choice_def
             #(#field_type_defs)*
 
-            decoder.decode_set::<#choice_name, _, _>(tag, |fields| {
+            decoder.decode_set::<#choice_name, _, _>(tag, <_>::default(), |fields| {
                 #(let mut #field_names = None;)*
 
                 for field in fields {
@@ -115,7 +115,7 @@ pub fn derive_struct_impl(
         };
 
         quote! {
-            decoder.decode_sequence(tag, |decoder| {
+            decoder.decode_sequence(tag, <_>::default(), |decoder| {
                 Ok(Self #fields)
             })
         }
@@ -179,7 +179,7 @@ pub fn map_from_inner_type(
 
         impl #impl_generics #crate_root::Decode for #inner_name #ty_generics #where_clause {
             fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
-                decoder.decode_sequence(tag, |decoder| {
+                decoder.decode_sequence(tag, <_>::default(), |decoder| {
                     Ok::<_, D::Error>(#inner_name { #(#decode_fields),* })
                 })
             }

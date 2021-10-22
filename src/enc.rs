@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, AsnType, Tag};
+use crate::types::{self, constraints, AsnType, Constraints, Tag};
 
 pub use rasn_derive::Encode;
 
@@ -33,67 +33,157 @@ pub trait Encoder {
 
     /// Encode an unknown ASN.1 value.
     fn encode_any(&mut self, value: &types::Any) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `BOOL` value.
+    fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a `BIT STRING` value.
     fn encode_bit_string(
         &mut self,
         tag: Tag,
+        constraints: Constraints,
         value: &types::BitString,
     ) -> Result<Self::Ok, Self::Error>;
-    /// Encode a `BOOL` value.
-    fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a `ENUMERATED` value.
-    fn encode_enumerated(&mut self, tag: Tag, value: isize) -> Result<Self::Ok, Self::Error>;
-    /// Encode a explicitly tag value.
-    fn encode_explicit_prefix<V: Encode>(
+    fn encode_enumerated(
         &mut self,
         tag: Tag,
-        value: &V,
+        variance: usize,
+        value: isize,
     ) -> Result<Self::Ok, Self::Error>;
-    /// Encode a `GeneralizedTime` value.
-    fn encode_generalized_time(
-        &mut self,
-        tag: Tag,
-        value: &types::GeneralizedTime,
-    ) -> Result<Self::Ok, Self::Error>;
-    /// Encode a `INTEGER` value.
-    fn encode_integer(&mut self, tag: Tag, value: &types::Integer)
-        -> Result<Self::Ok, Self::Error>;
-    /// Encode a `NULL` value.
-    fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a `OBJECT IDENTIFIER` value.
     fn encode_object_identifier(
         &mut self,
         tag: Tag,
         value: &[u32],
     ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `INTEGER` value.
+    fn encode_integer(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::Integer,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `NULL` value.
+    fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a `OCTET STRING` value.
-    fn encode_octet_string(&mut self, tag: Tag, value: &[u8]) -> Result<Self::Ok, Self::Error>;
-    /// Encode a `SEQUENCE` value.
-    fn encode_sequence<F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
-    where
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
-    /// Encode a `SEQUENCE OF` value.
-    fn encode_sequence_of<E: Encode>(
+    fn encode_octet_string(
         &mut self,
         tag: Tag,
-        value: &[E],
+        constraints: Constraints,
+        value: &[u8],
     ) -> Result<Self::Ok, Self::Error>;
-    fn encode_set_of<E: Encode>(
+
+    /// Encode a `Utf8String` value.
+    fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `VisibleString` value.
+    fn encode_visible_string(
         &mut self,
         tag: Tag,
-        value: &types::SetOf<E>,
+        constraints: Constraints,
+        value: &types::VisibleString,
     ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `GeneralizedTime` value.
+    fn encode_generalized_time(
+        &mut self,
+        tag: Tag,
+        value: &types::GeneralizedTime,
+    ) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a `UtcTime` value.
     fn encode_utc_time(
         &mut self,
         tag: Tag,
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error>;
-    /// Encode a `Utf8String` value.
-    fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error>;
-    fn encode_set<F>(&mut self, tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+
+    /// Encode a explicitly tagged value.
+    fn encode_explicit_prefix<V: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &V,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `SEQUENCE` value.
+    fn encode_sequence<F>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+
+    /// Encode a `SEQUENCE OF` value.
+    fn encode_sequence_of<E: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &[E],
+        constraints: Constraints,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `SET` value.
+    fn encode_set<F>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: F,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+
+    /// Encode a `SET OF` value.
+    fn encode_set_of<E: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &types::SetOf<E>,
+        constraints: Constraints,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode the value a field or skip if it matches the default..
+    fn encode_or_default<E: Encode + Default + PartialEq>(
+        &mut self,
+        value: &E,
+    ) -> Result<Self::Ok, Self::Error> {
+        if value != &E::default() {
+            self.encode_some(value)
+        } else {
+            self.encode_none::<E>()
+        }
+    }
+
+    /// Encode the present value of an optional field.
+    fn encode_with_tag_or_default<E: Encode + Default + PartialEq>(
+        &mut self,
+        tag: Tag,
+        value: &E,
+    ) -> Result<Self::Ok, Self::Error> {
+        if value != &E::default() {
+            self.encode_some_with_tag(tag, value)
+        } else {
+            self.encode_none::<E>()
+        }
+    }
+
+    /// Encode the present value of an optional field.
+    fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode the present value of an optional field.
+    fn encode_some_with_tag<E: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &E,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode the absent value of an optional field.
+    fn encode_none<E: Encode>(&mut self) -> Result<Self::Ok, Self::Error>;
 }
 
 /// A generic error that occurred while trying to encode ASN.1.
@@ -126,16 +216,18 @@ impl Encode for () {
 impl<E: Encode> Encode for Option<E> {
     fn encode<EN: Encoder>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
         match self {
-            Some(value) => value.encode(encoder),
-            None => Ok(()),
+            Some(value) => encoder.encode_some::<E>(value),
+            None => encoder.encode_none::<E>(),
         }
+        .map(drop)
     }
 
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         match self {
-            Some(value) => value.encode_with_tag(encoder, tag),
-            None => Ok(()),
+            Some(value) => encoder.encode_some_with_tag(tag, value),
+            None => encoder.encode_none::<E>(),
         }
+        .map(drop)
     }
 }
 
@@ -150,7 +242,16 @@ macro_rules! impl_integers {
         $(
             impl Encode for $int {
                 fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-                    encoder.encode_integer(tag, &(*self).into()).map(drop)
+                    encoder.encode_integer(
+                        tag,
+                        Constraints::from(&[
+                            constraints::Range::new(
+                                types::Integer::from(<$int>::MIN),
+                                types::Integer::from(<$int>::MAX)
+                            ).into()
+                        ]),
+                        &(*self).into()
+                    ).map(drop)
                 }
             }
         )+
@@ -174,13 +275,17 @@ impl_integers! {
 
 impl Encode for types::Integer {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        encoder.encode_integer(tag, self).map(drop)
+        encoder
+            .encode_integer(tag, Constraints::NONE, self)
+            .map(drop)
     }
 }
 
 impl Encode for types::OctetString {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        encoder.encode_octet_string(tag, self).map(drop)
+        encoder
+            .encode_octet_string(tag, <_>::default(), self)
+            .map(drop)
     }
 }
 
@@ -198,7 +303,9 @@ impl Encode for &'_ str {
 
 impl Encode for types::BitString {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, self).map(drop)
+        encoder
+            .encode_bit_string(tag, <_>::default(), self)
+            .map(drop)
     }
 }
 
@@ -244,19 +351,27 @@ impl<E: Encode> Encode for alloc::boxed::Box<E> {
 
 impl<E: Encode> Encode for alloc::vec::Vec<E> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-        encoder.encode_sequence_of(tag, self).map(drop)
+        encoder
+            .encode_sequence_of(tag, self, <_>::default())
+            .map(drop)
     }
 }
 
 impl<E: Encode> Encode for alloc::collections::BTreeSet<E> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-        encoder.encode_set_of(tag, self).map(drop)
+        encoder.encode_set_of(tag, self, <_>::default()).map(drop)
     }
 }
 
 impl<E: Encode, const N: usize> Encode for [E; N] {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-        encoder.encode_sequence_of(tag, self).map(drop)
+        encoder
+            .encode_sequence_of(
+                tag,
+                self,
+                (&[constraints::Range::single_value(N).into()]).into(),
+            )
+            .map(drop)
     }
 }
 

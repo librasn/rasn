@@ -50,6 +50,7 @@ impl Enum {
 
         let name = &self.name;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
                 const TAG: #crate_root::Tag = {
@@ -94,8 +95,13 @@ impl Enum {
                 quote!(i if i == (Self::#ident as isize).into() => Self::#ident,)
             });
 
+            let length = variants.clone().count();
+
             quote! {
-                let integer = decoder.decode_enumerated(tag)?;
+                let integer = decoder.decode_enumerated(
+                    tag,
+                    #crate_root::types::constraints::Constraints::from(&[#crate_root::types::constraints::Range::new(0usize, #length).into()])
+                )?;
 
                 Ok(match integer {
                     #(#variants)*
@@ -195,8 +201,9 @@ impl Enum {
     fn encode_with_tag(&self) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
         let operation = if self.config.enumerated {
+            let variance = self.variants.len();
             quote! {
-                encoder.encode_enumerated(tag, *self as isize).map(drop)
+                encoder.encode_enumerated(tag, #variance, *self as isize).map(drop)
             }
         } else {
             quote! {
@@ -241,7 +248,7 @@ impl Enum {
 
                     let encode_impl = |tag| {
                         quote! {
-                            encoder.encode_sequence(#tag, |encoder| {
+                            encoder.encode_sequence(#tag, <_>::default(), |encoder| {
                                 #(#fields)*
                                 Ok(())
                             }).map(drop)

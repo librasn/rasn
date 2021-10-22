@@ -90,8 +90,8 @@ mod tests {
                         rasn::der::encode(&rasn::types::Open::Null).unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::VisibleString::new(
-                            "Me first!".to_string(),
+                        rasn::der::encode(&rasn::types::VisibleString::from(
+                            "Me first!",
                         ))
                         .unwrap(),
                     ));
