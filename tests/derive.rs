@@ -132,3 +132,12 @@ fn list_in_single_attr() {
     assert_eq!(Foo::TAG, Tag::new(Class::Context, 0));
     assert_eq!(Bar::TAG, Integer::TAG);
 }
+
+#[derive(AsnType, Decode, Encode)]
+#[rasn(choice)]
+pub enum ExplicitChoice {
+    #[rasn(tag(explicit(1)))]
+    ByName,
+    #[rasn(tag(explicit(2)))]
+    ByKey,
+}

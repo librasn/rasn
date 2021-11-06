@@ -30,6 +30,8 @@ pub use self::{
 pub type BitString = bitvec::vec::BitVec<bitvec::order::Msb0, u8>;
 ///  The `Ia5String` type.
 pub type Ia5String = Implicit<tag::IA5_STRING, Utf8String>;
+///  The `GeneralString` type.
+pub type GeneralString = Implicit<tag::GENERAL_STRING, Utf8String>;
 ///  The `PrintableString` type.
 pub type PrintableString = Implicit<tag::PRINTABLE_STRING, Utf8String>;
 ///  The `VisibleString` type.

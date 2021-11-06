@@ -240,17 +240,27 @@ impl<'a> VariantConfig<'a> {
     pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
         let tag = self.tag(context);
         let ident = &self.variant.ident;
+        let is_explicit = self.tag.as_ref().map_or(false, |tag| tag.explicit);
+        let explicit_wrapper = |tag, decode| quote!(decoder.decode_sequence(#tag, #decode));
 
-        let encode = match &self.variant.fields {
+         match &self.variant.fields {
             syn::Fields::Unit => {
-                quote!(if let Ok(()) = <()>::decode_with_tag(decoder, #tag) { return Ok(#name::#ident) })
+                let decode_op = if is_explicit {
+                    (explicit_wrapper)(tag, quote!(<()>::decode))
+                } else {
+                    quote!(<()>::decode_with_tag(decoder, #tag))
+                };
+
+                quote!(if let Ok(()) = #decode_op { return Ok(#name::#ident) })
             }
             syn::Fields::Unnamed(_) => {
                 if self.variant.fields.len() != 1 {
                     panic!("Tuple struct variants should contain only a single element.");
                 }
 
-                let decode_operation = if self.container_config.automatic_tags || self.tag.is_some()
+                let decode_operation = if is_explicit {
+                    (explicit_wrapper)(tag, quote!(|decoder| <_>::decode(decoder)))
+                } else if self.container_config.automatic_tags || self.tag.is_some()
                 {
                     quote!(<_>::decode_with_tag(decoder, #tag))
                 } else {
@@ -267,6 +277,12 @@ impl<'a> VariantConfig<'a> {
                     field_config.decode(name, i)
                 });
 
+                let decode_op = if is_explicit {
+                    (explicit_wrapper)(tag.clone(), quote!(decode_fn))
+                } else {
+                    quote!((decode_fn)(decoder))
+                };
+
                 quote! {
                     let decode_fn = |decoder: &mut D| {
                         decoder.decode_sequence(#tag, |decoder| {
@@ -274,19 +290,9 @@ impl<'a> VariantConfig<'a> {
                         })
                     };
 
-                    if let Ok(value) = (decode_fn)(decoder) { return Ok(value) }
+                    if let Ok(value) = #decode_op { return Ok(value) }
                 }
             }
-        };
-
-        if self.tag.as_ref().map_or(false, |tag| tag.explicit) {
-            quote! {
-                decoder.decode_sequence(#tag, |decoder| {
-                    #encode
-                })
-            }
-        } else {
-            encode
         }
     }
 

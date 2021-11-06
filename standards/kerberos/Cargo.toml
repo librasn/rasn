@@ -1,0 +1,16 @@
+[package]
+name = "rasn-kerberos"
+version = "0.4.0"
+authors = ["Erin Power <xampprocky@gmail.com>"]
+edition = "2018"
+description = "Data types for Kerberos V5"
+license = "Apache-2.0/MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+otp = ["rasn-pkix"]
+
+[dependencies]
+rasn = { path = "../..", version = "0.4.0" }
+rasn-pkix = { path = "../pkix", version = "0.4.0", optional = true }
