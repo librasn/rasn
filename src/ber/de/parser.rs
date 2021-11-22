@@ -188,14 +188,19 @@ impl Appendable for crate::types::BitString {
 /// Concatenates a series of 7 bit numbers delimited by `1`'s and
 /// ended by a `0` in the 8th bit.
 fn concat_number(body: &[u8], start: u8) -> Integer {
-    let mut number = Integer::from(start);
+    let start = Integer::from(start);
+    if body.is_empty() {
+        return start;
+    }
 
-    for byte in body.iter().rev() {
+    let mut number = Integer::from(body[0] & 0x7F);
+
+    for byte in body[1..].iter() {
         number <<= 7usize;
         number |= Integer::from(byte & 0x7F);
     }
 
-    number
+    (number << 7usize) | start
 }
 
 fn take_contents(input: &[u8], length: u8) -> IResult<&[u8], &[u8]> {
@@ -237,9 +242,9 @@ mod tests {
 
     #[test]
     fn long_tag() {
-        let (_, identifier) = parse_identifier_octet([0xFF, 0x80, 0x7F][..].into()).unwrap();
+        let (_, identifier) = parse_identifier_octet([0xFF, 0x83, 0x7F][..].into()).unwrap();
         assert!(identifier.is_constructed);
-        assert_eq!(Tag::new(Class::Private, 16256), identifier.tag);
+        assert_eq!(Tag::new(Class::Private, 511), identifier.tag);
     }
 
     #[test]
