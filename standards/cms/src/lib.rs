@@ -8,6 +8,9 @@
 //!
 //! [RFC 5652]: https://datatracker.ietf.org/doc/html/rfc5652
 
+pub mod algorithms;
+pub mod firmware_wrapper;
+
 use rasn::prelude::*;
 use rasn_pkix::{
     AlgorithmIdentifier, Attribute, Certificate, CertificateList, CertificateSerialNumber, Name,
