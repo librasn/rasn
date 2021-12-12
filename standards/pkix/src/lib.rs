@@ -83,7 +83,7 @@ pub type SubjectKeyIdentifier = KeyIdentifier;
 pub type PolicyQualifierId = ObjectIdentifier;
 
 /// An X.509 certificate
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Certificate {
     /// Certificate information.
     pub tbs_certificate: TbsCertificate,
@@ -101,7 +101,7 @@ pub struct Certificate {
 
 /// Information associated with the subject of the certificate and the CA that
 /// issued it.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TbsCertificate {
     /// The version of the encoded certificate.
     #[rasn(tag(explicit(0)), default)]
@@ -159,7 +159,7 @@ pub struct TbsCertificate {
 /// be 3.  If only basic fields are present, the version SHOULD be 1 (the
 /// value is omitted from the certificate as the default value); however,
 /// the version MAY be 2 or 3.
-#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(delegate)]
 pub struct Version(u64);
 
@@ -188,14 +188,14 @@ impl core::fmt::Display for Version {
 }
 
 /// The validity period of the certificate.
-#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Validity {
     pub not_before: Time,
     pub not_after: Time,
 }
 
 /// A general time type.
-#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum Time {
     Utc(UtcTime),
@@ -203,7 +203,7 @@ pub enum Time {
 }
 
 /// The subject's public key, and the algorithm used to encode it.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SubjectPublicKeyInfo {
     pub algorithm: AlgorithmIdentifier,
     pub subject_public_key: BitString,
@@ -216,7 +216,7 @@ pub struct SubjectPublicKeyInfo {
 /// to multiple concurrent key pairs or due to changeover).  The identification
 /// MAY be based on either the key identifier (the subject key identifier in the
 /// issuer's certificate) or the issuer name and serial number.
-#[derive(AsnType, Default, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Default, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AuthorityKeyIdentifier {
     #[rasn(tag(0))]
     pub key_identifier: Option<KeyIdentifier>,
@@ -227,7 +227,7 @@ pub struct AuthorityKeyIdentifier {
 }
 
 /// Extension to an X.509 certificate.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Extension {
     pub extn_id: ObjectIdentifier,
     #[rasn(default)]
@@ -236,7 +236,7 @@ pub struct Extension {
 }
 
 /// A signed list of revoked certificates.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CertificateList {
     pub tbs_cert_list: TbsCertList,
     pub signature_algorithim: AlgorithmIdentifier,
@@ -244,7 +244,7 @@ pub struct CertificateList {
 }
 
 /// The list of revoked certificates along with associated metadata.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TbsCertList {
     /// The version of the list.
     pub version: Version,
@@ -265,7 +265,7 @@ pub struct TbsCertList {
 }
 
 /// Identifies a revoked certificate.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RevokedCerificate {
     /// The ID of the certificate being revoked.
     pub user_certificate: CertificateSerialNumber,
@@ -276,7 +276,7 @@ pub struct RevokedCerificate {
 }
 
 /// Identifies what algorithm was used, along with any parameters used as input.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AlgorithmIdentifier {
     /// The identifier for the algorithm.
     pub algorithm: ObjectIdentifier,
@@ -284,14 +284,14 @@ pub struct AlgorithmIdentifier {
     pub parameters: Option<Any>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OrAddress {
     pub built_in_standard_attributes: BuiltInStandardAttributes,
     pub built_in_domain_defined_attributes: Option<BuiltInDomainDefinedAttributes>,
     pub extension_attributes: Option<ExtensionAttributes>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BuiltInStandardAttributes {
     pub country_name: Option<CountryName>,
     pub administraion_domain_name: Option<AdministrationDomainName>,
@@ -311,13 +311,13 @@ pub struct BuiltInStandardAttributes {
     pub organisational_unit_name: Option<OrganisationalUnitNames>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BuiltInDomainDefinedAttribute {
     pub r#type: PrintableString,
     pub value: PrintableString,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 1))]
 #[rasn(choice)]
 pub enum CountryName {
@@ -325,7 +325,7 @@ pub enum CountryName {
     Iso3166Alpha2Code(PrintableString),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 2))]
 #[rasn(choice)]
 pub enum AdministrationDomainName {
@@ -333,7 +333,7 @@ pub enum AdministrationDomainName {
     Printable(PrintableString),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct PersonalName {
     #[rasn(tag(0))]
@@ -346,14 +346,14 @@ pub struct PersonalName {
     pub generation_qualifier: Option<PrintableString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum PrivateDomainName {
     Numeric(NumericString),
     Printable(PrintableString),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExtensionAttribute {
     #[rasn(tag(0))]
     pub extension_attribute_type: Integer,
@@ -361,7 +361,7 @@ pub struct ExtensionAttribute {
     pub extension_attribute_value: Any,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct TeletexPersonalName {
     #[rasn(tag(0))]
@@ -374,35 +374,35 @@ pub struct TeletexPersonalName {
     pub generation_qualifier: Option<TeletexString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum PhysicalDeliveryCountryName {
     X121DccCode(NumericString),
     Iso3166Alpha2Code(PrintableString),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum PostalCode {
     Numeric(NumericString),
     Printable(PrintableString),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct UnformattedPostalAddress {
     pub printable_address: Option<SequenceOf<PrintableString>>,
     pub teletex_string: Option<TeletexString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct PdsParameter {
     pub printable_string: Option<PrintableString>,
     pub teletex_string: Option<TeletexString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum ExtendedNetworkAddress {
     E1634Address(E1634Address),
@@ -410,7 +410,7 @@ pub enum ExtendedNetworkAddress {
     PsapAddress(PresentationAddress),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct E1634Address {
     #[rasn(tag(0))]
     pub number: NumericString,
@@ -418,7 +418,7 @@ pub struct E1634Address {
     pub sub_address: Option<NumericString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PresentationAddress {
     #[rasn(tag(explicit(0)))]
     pub p_selector: Option<OctetString>,
@@ -430,49 +430,49 @@ pub struct PresentationAddress {
     pub n_addresses: SetOf<OctetString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TeletexDomainDefinedAttribute {
     pub r#type: TeletexString,
     pub value: TeletexString,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum Name {
     RdnSequence(RdnSequence),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct Attribute {
     pub r#type: AttributeType,
     pub value: AttributeValue,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PolicyInformation {
     pub policy_identifier: CertPolicyId,
     pub policy_qualifiers: Option<SequenceOf<PolicyQualifierInfo>>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PolicyQualifierInfo {
     pub id: PolicyQualifierId,
     pub qualifier: Any,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct UserNotice {
     pub notice_ref: Option<NoticeReference>,
     pub explicit_text: Option<DisplayText>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NoticeReference {
     pub organisation: DisplayText,
     pub notice_numbers: SequenceOf<Integer>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum DisplayText {
     Ia5String(Ia5String),
@@ -481,13 +481,13 @@ pub enum DisplayText {
     Utf8String(Utf8String),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PolicyMapping {
     pub issuer_domain_policy: CertPolicyId,
     pub subject_domain_policy: CertPolicyId,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum GeneralName {
     #[rasn(tag(0))]
@@ -511,7 +511,7 @@ pub enum GeneralName {
     RegisteredId(ObjectIdentifier),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EdiPartyName {
     #[rasn(tag(0))]
     pub name_assigner: Option<DirectoryString>,
@@ -519,7 +519,7 @@ pub struct EdiPartyName {
     pub party_name: DirectoryString,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum DirectoryString {
     Teletex(TeletexString),
@@ -529,14 +529,14 @@ pub enum DirectoryString {
     Bmp(BmpString),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BasicConstraints {
     #[rasn(default)]
     pub ca: bool,
     pub path_len_constraint: Option<Integer>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NameConstraints {
     #[rasn(tag(0))]
     pub permitted_subtrees: Option<GeneralSubtrees>,
@@ -544,7 +544,7 @@ pub struct NameConstraints {
     pub excluded_subtrees: Option<GeneralSubtrees>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneralSubtree {
     pub base: GeneralName,
     #[rasn(tag(0), default)]
@@ -553,7 +553,7 @@ pub struct GeneralSubtree {
     pub maximum: Option<BaseDistance>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PolicyConstraints {
     #[rasn(tag(0))]
     pub require_explicit_policy: Option<SkipCerts>,
@@ -561,7 +561,7 @@ pub struct PolicyConstraints {
     pub inhibit_policy_mapping: Option<SkipCerts>,
 }
 
-#[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DistributionPoint {
     #[rasn(tag(0))]
     pub distribution_point: Option<DistributionPointName>,
@@ -571,7 +571,7 @@ pub struct DistributionPoint {
     pub crl_issuer: Option<GeneralNames>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum DistributionPointName {
     #[rasn(tag(0))]
@@ -580,13 +580,13 @@ pub enum DistributionPointName {
     NameRelativeToCrlIssuer(RelativeDistinguishedName),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AccessDescription {
     pub access_method: ObjectIdentifier,
     pub access_location: GeneralName,
 }
 
-#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(enumerated)]
 pub enum CrlReason {
     Unspecified = 0,
@@ -601,7 +601,7 @@ pub enum CrlReason {
     AaCompromise = 10,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IssuingDistributionPoint {
     #[rasn(tag(0))]
     pub distribution_point: Option<DistributionPointName>,
