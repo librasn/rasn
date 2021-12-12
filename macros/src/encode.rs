@@ -110,7 +110,7 @@ pub fn derive_enum_impl(
                         encoder.encode_sequence(#variant_tag, |encoder| {
                             #(#fields)*
                             Ok(())
-                        })
+                        }).map(drop)
                     })
                 }
                 syn::Fields::Unnamed(_) => {

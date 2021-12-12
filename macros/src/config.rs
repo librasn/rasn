@@ -318,6 +318,7 @@ impl<'a> VariantConfig<'a> {
                 .fields
                 .iter()
                 .enumerate()
+                .filter(|(_, f)| FieldConfig::new(f, self.container_config).is_option_type())
                 .map(|(i, f)| FieldConfig::new(f, self.container_config).tag_tree(i));
 
             match self.variant.fields {
@@ -374,13 +375,10 @@ impl<'a> FieldConfig<'a> {
                     tag = Tag::from_meta(item);
                 } else if path.is_ident("default") {
                     default = Some(match item {
-                        syn::Meta::List(list) => list
-                            .nested
-                            .iter()
-                            .cloned()
-                            .filter_map(unested_meta)
-                            .map(|m| m.path().clone())
-                            .next(),
+                        syn::Meta::NameValue(value) => match &value.lit {
+                            syn::Lit::Str(lit_str) => lit_str.parse().map(Some).unwrap(),
+                            _ => panic!("Unsupported type for default."),
+                        }
                         _ => None,
                     });
                 }
@@ -419,7 +417,7 @@ impl<'a> FieldConfig<'a> {
         if self.default.is_some() {
             let ty = &self.field.ty;
             let default_fn = match self.default.as_ref().unwrap() {
-                Some(path) => quote!(#path),
+                Some(path) => quote!(#path ()),
                 None => quote!(<#ty>::default()),
             };
 
@@ -436,7 +434,7 @@ impl<'a> FieldConfig<'a> {
     pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         let or_else = match self.default {
-            Some(Some(ref path)) => quote! { .unwrap_or_else(#path) },
+            Some(Some(ref path)) => quote! { .unwrap_or_else(|_| #path ()) },
             Some(None) => quote! { .unwrap_or_default() },
             None => {
                 let ident = format!(
@@ -497,12 +495,5 @@ impl<'a> FieldConfig<'a> {
         self.container_config
             .option_type
             .is_option_type(&self.field.ty)
-    }
-}
-
-fn unested_meta(nm: syn::NestedMeta) -> Option<syn::Meta> {
-    match nm {
-        syn::NestedMeta::Meta(m) => Some(m),
-        _ => None,
     }
 }
