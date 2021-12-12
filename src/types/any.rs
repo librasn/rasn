@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 
 /// Represents a complete encoded ASN.1 value of any type. Usually identified
 /// with an [`ObjectIdentifier`][crate::types::ObjectIdentifier].
-#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct Any {
     pub(crate) contents: Vec<u8>,
 }
