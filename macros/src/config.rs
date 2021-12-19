@@ -243,7 +243,7 @@ impl<'a> VariantConfig<'a> {
         let is_explicit = self.tag.as_ref().map_or(false, |tag| tag.explicit);
         let explicit_wrapper = |tag, decode| quote!(decoder.decode_sequence(#tag, #decode));
 
-         match &self.variant.fields {
+        match &self.variant.fields {
             syn::Fields::Unit => {
                 let decode_op = if is_explicit {
                     (explicit_wrapper)(tag, quote!(<()>::decode))
@@ -260,8 +260,7 @@ impl<'a> VariantConfig<'a> {
 
                 let decode_operation = if is_explicit {
                     (explicit_wrapper)(tag, quote!(|decoder| <_>::decode(decoder)))
-                } else if self.container_config.automatic_tags || self.tag.is_some()
-                {
+                } else if self.container_config.automatic_tags || self.tag.is_some() {
                     quote!(<_>::decode_with_tag(decoder, #tag))
                 } else {
                     quote!(<_>::decode(decoder))
@@ -378,7 +377,7 @@ impl<'a> FieldConfig<'a> {
                         syn::Meta::NameValue(value) => match &value.lit {
                             syn::Lit::Str(lit_str) => lit_str.parse().map(Some).unwrap(),
                             _ => panic!("Unsupported type for default."),
-                        }
+                        },
                         _ => None,
                     });
                 }
