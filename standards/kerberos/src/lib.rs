@@ -1,3 +1,22 @@
+//! # Kerberos Version 5
+//! This is an implementation of the data types from [RFC 4120] also known as
+//! "Kerberos V5". Kerberos is an authentication framework for verifying
+//! identities of "principals" (e.g. a user or network server) on an open
+//! unprotected network.
+//!
+//! This is accomplished without relying on assertions by the host operating
+//! system, without basing trust on host addresses, without requiring physical
+//! security of all the hosts on the network, and under the assumption that
+//! packets traveling along the network can be read, modified, and inserted at
+//! will. Kerberos performs authentication under these conditions as a trusted
+//! third-party authentication service by using conventional (shared secret
+//! key) cryptography.
+//!
+//! Like other `rasn` core crates this crate does not provide the ability to
+//! authenticate on its own, but provides shared data types to create your own
+//! Kerberos clients and servers.
+//!
+//! [RFC 4120]: https://datatracker.ietf.org/doc/html/rfc4120
 #![no_std]
 
 #[cfg(feature = "otp")]
@@ -13,24 +32,19 @@ pub type EtypeInfo = SequenceOf<EtypeInfoEntry>;
 pub type PaEncTimestamp = EncryptedData;
 pub type LastReq = SequenceOf<LastReqItem>;
 pub type MethodData = SequenceOf<PaData>;
+pub type KerberosString = GeneralString;
+pub type ETypeList = SequenceOf<i32>;
+pub type Realm = KerberosString;
 
-pub const KERBEROS_OID: ConstOid =
+pub const OID: ConstOid =
     Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_KERBEROS_V5;
 
 //     ::= INTEGER (0..999999) -- microseconds
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(delegate)]
 pub struct Microseconds(pub Integer);
 
-#[derive(AsnType, Decode, Encode)]
-#[rasn(delegate)]
-pub struct KerberosString(pub GeneralString);
-
-#[derive(AsnType, Decode, Encode)]
-#[rasn(delegate)]
-pub struct Realm(pub KerberosString);
-
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PrincipalName {
     #[rasn(tag(0))]
     pub r#type: i32,
@@ -38,11 +52,11 @@ pub struct PrincipalName {
     pub string: SequenceOf<KerberosString>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(delegate)]
 pub struct KerberosTime(pub GeneralizedTime);
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct HostAddress {
     #[rasn(tag(0))]
     pub addr_type: i32,
@@ -52,7 +66,7 @@ pub struct HostAddress {
 
 pub type AuthorizationData = SequenceOf<AuthorizationDataItem>;
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AuthorizationDataItem {
     #[rasn(tag(0))]
     pub r#type: i32,
@@ -60,18 +74,18 @@ pub struct AuthorizationDataItem {
     pub data: OctetString,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PaData {
     #[rasn(tag(1))]
     pub r#type: i32,
     #[rasn(tag(2))]
-    value: OctetString,
+    pub value: OctetString,
 }
 
 // KerberosFlags   ::= BIT STRING (SIZE (32..MAX))
 pub type KerberosFlags = BitString;
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncryptedData {
     #[rasn(tag(0))]
     pub etype: i32,
@@ -81,7 +95,7 @@ pub struct EncryptedData {
     pub cipher: OctetString,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncryptionKey {
     #[rasn(tag(0))]
     pub keytype: i32,
@@ -89,7 +103,7 @@ pub struct EncryptionKey {
     pub keyvalue: OctetString,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Checksum {
     #[rasn(tag(0))]
     pub cksumtype: i32,
@@ -97,7 +111,7 @@ pub struct Checksum {
     pub checksum: OctetString,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 1))]
 pub struct Ticket {
     #[rasn(tag(0))]
@@ -110,7 +124,7 @@ pub struct Ticket {
     pub enc_part: EncryptedData,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 3))]
 pub struct EncTicketPart {
     #[rasn(tag(0))]
@@ -137,7 +151,7 @@ pub struct EncTicketPart {
     pub authorization_data: Option<AuthorizationData>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TransitedEncoding {
     #[rasn(tag(0))]
     pub r#type: i32,
@@ -145,31 +159,77 @@ pub struct TransitedEncoding {
     pub contents: OctetString,
 }
 
-// reserved(0),
-// forwardable(1),
-// forwarded(2),
-// proxiable(3),
-// proxy(4),
-// may-postdate(5),
-// postdated(6),
-// invalid(7),
-// renewable(8),
-// initial(9),
-// pre-authent(10),
-// hw-authent(11),
-// transited-policy-checked(12),
-// ok-as-delegate(13)
-pub type TicketFlags = KerberosFlags;
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate)]
+pub struct TicketFlags(pub KerberosFlags);
 
-#[derive(AsnType, Decode, Encode)]
+impl TicketFlags {
+    pub fn reserved() -> Self {
+        Self(KerberosFlags::from_element(0))
+    }
+
+    pub fn forwardable() -> Self {
+        Self(KerberosFlags::from_element(1))
+    }
+
+    pub fn forwarded() -> Self {
+        Self(KerberosFlags::from_element(2))
+    }
+
+    pub fn proxiable() -> Self {
+        Self(KerberosFlags::from_element(3))
+    }
+
+    pub fn proxy() -> Self {
+        Self(KerberosFlags::from_element(4))
+    }
+
+    pub fn may_postdate() -> Self {
+        Self(KerberosFlags::from_element(5))
+    }
+
+    pub fn postdated() -> Self {
+        Self(KerberosFlags::from_element(6))
+    }
+
+    pub fn invalid() -> Self {
+        Self(KerberosFlags::from_element(7))
+    }
+
+    pub fn renewable() -> Self {
+        Self(KerberosFlags::from_element(8))
+    }
+
+    pub fn initial() -> Self {
+        Self(KerberosFlags::from_element(9))
+    }
+
+    pub fn pre_authent() -> Self {
+        Self(KerberosFlags::from_element(10))
+    }
+
+    pub fn hw_authent() -> Self {
+        Self(KerberosFlags::from_element(11))
+    }
+
+    pub fn transited_policy_checked() -> Self {
+        Self(KerberosFlags::from_element(12))
+    }
+
+    pub fn ok_as_delegate() -> Self {
+        Self(KerberosFlags::from_element(13))
+    }
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 10), delegate)]
 pub struct AsReq(pub KdcReq);
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 12), delegate)]
 pub struct TgsReq(pub KdcReq);
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KdcReq {
     #[rasn(tag(1))]
     pub pvno: Integer,
@@ -181,7 +241,7 @@ pub struct KdcReq {
     pub req_body: KdcReqBody,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KdcReqBody {
     #[rasn(tag(0))]
     pub kdc_options: KdcOptions,
@@ -209,40 +269,97 @@ pub struct KdcReqBody {
     pub additional_tickets: Option<SequenceOf<Ticket>>,
 }
 
-// reserved(0),
-// forwardable(1),
-// forwarded(2),
-// proxiable(3),
-// proxy(4),
-// allow-postdate(5),
-// postdated(6),
-// unused7(7),
-// renewable(8),
-// unused9(9),
-// unused10(10),
-// opt-hardware-auth(11),
-// unused12(12),
-// unused13(13),
-// 15 is reserved for canonicalize
-// unused15(15),
-// 26 was unused in 1510
-// disable-transited-check(26),
-//
-// renewable-ok(27),
-// enc-tkt-in-skey(28),
-// renew(30),
-// validate(31)
-pub type KdcOptions = KerberosFlags;
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate)]
+pub struct KdcOptions(pub KerberosFlags);
 
-#[derive(AsnType, Decode, Encode)]
+impl KdcOptions {
+    pub fn reserved() -> Self {
+        Self(KerberosFlags::from_element(0))
+    }
+
+    pub fn forwardable() -> Self {
+        Self(KerberosFlags::from_element(1))
+    }
+
+    pub fn forwarded() -> Self {
+        Self(KerberosFlags::from_element(2))
+    }
+
+    pub fn proxiable() -> Self {
+        Self(KerberosFlags::from_element(3))
+    }
+
+    pub fn proxy() -> Self {
+        Self(KerberosFlags::from_element(4))
+    }
+
+    pub fn allow_postdate() -> Self {
+        Self(KerberosFlags::from_element(5))
+    }
+
+    pub fn postdated() -> Self {
+        Self(KerberosFlags::from_element(6))
+    }
+
+    pub fn unused7() -> Self {
+        Self(KerberosFlags::from_element(7))
+    }
+
+    pub fn renewable() -> Self {
+        Self(KerberosFlags::from_element(8))
+    }
+
+    pub fn unused9() -> Self {
+        Self(KerberosFlags::from_element(9))
+    }
+
+    pub fn unused10() -> Self {
+        Self(KerberosFlags::from_element(10))
+    }
+
+    pub fn opt_hardware_auth() -> Self {
+        Self(KerberosFlags::from_element(11))
+    }
+
+    pub fn unused12() -> Self {
+        Self(KerberosFlags::from_element(12))
+    }
+
+    pub fn unused13() -> Self {
+        Self(KerberosFlags::from_element(13))
+    }
+
+    pub fn unused15() -> Self {
+        Self(KerberosFlags::from_element(15))
+    }
+
+    pub fn renewable_ok() -> Self {
+        Self(KerberosFlags::from_element(27))
+    }
+
+    pub fn enc_tkt_in_skey() -> Self {
+        Self(KerberosFlags::from_element(28))
+    }
+
+    pub fn renew() -> Self {
+        Self(KerberosFlags::from_element(30))
+    }
+
+    pub fn validate() -> Self {
+        Self(KerberosFlags::from_element(31))
+    }
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 11), delegate)]
 pub struct AsRep(pub KdcRep);
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 13), delegate)]
 pub struct TgsRep(pub KdcRep);
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KdcRep {
     #[rasn(tag(0))]
     pub pvno: Integer,
@@ -260,15 +377,15 @@ pub struct KdcRep {
     pub enc_part: EncryptedData,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 25), delegate)]
 pub struct EncAsRepPart(pub EncKdcRepPart);
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 26), delegate)]
 pub struct EncTgsRepPart(pub EncKdcRepPart);
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncKdcRepPart {
     #[rasn(tag(0))]
     pub key: EncryptionKey,
@@ -294,9 +411,11 @@ pub struct EncKdcRepPart {
     pub sname: PrincipalName,
     #[rasn(tag(11))]
     pub caddr: Option<HostAddresses>,
+    #[rasn(tag(12))]
+    pub encrypted_pa_data: Option<SequenceOf<PaData>>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct LastReqItem {
     #[rasn(tag(0))]
     pub r#type: i32,
@@ -304,7 +423,7 @@ pub struct LastReqItem {
     pub value: KerberosTime,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 14))]
 pub struct ApReq {
     #[rasn(tag(0))]
@@ -319,12 +438,25 @@ pub struct ApReq {
     pub authenticator: EncryptedData,
 }
 
-// reserved(0),
-// use-session-key(1),
-// mutual-required(2)
-pub type ApOptions = KerberosFlags;
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate)]
+pub struct ApOptions(pub KerberosFlags);
 
-#[derive(AsnType, Decode, Encode)]
+impl ApOptions {
+    pub fn reserved() -> Self {
+        Self(KerberosFlags::from_element(0))
+    }
+
+    pub fn use_session_key() -> Self {
+        Self(KerberosFlags::from_element(1))
+    }
+
+    pub fn mutual_required() -> Self {
+        Self(KerberosFlags::from_element(2))
+    }
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 2))]
 pub struct Authenticator {
     #[rasn(tag(0))]
@@ -347,7 +479,7 @@ pub struct Authenticator {
     pub authorization_data: Option<AuthorizationData>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 15))]
 pub struct ApRep {
     #[rasn(tag(0))]
@@ -358,7 +490,7 @@ pub struct ApRep {
     pub enc_part: EncryptedData,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 27))]
 pub struct EncApRepPart {
     #[rasn(tag(0))]
@@ -371,7 +503,7 @@ pub struct EncApRepPart {
     pub seq_number: Option<u32>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 20))]
 pub struct KrbSafe {
     #[rasn(tag(0))]
@@ -384,7 +516,7 @@ pub struct KrbSafe {
     pub cksum: Checksum,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KrbSafeBody {
     #[rasn(tag(0))]
     pub user_data: OctetString,
@@ -400,7 +532,7 @@ pub struct KrbSafeBody {
     pub r_address: Option<HostAddress>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 21))]
 pub struct KrbPriv {
     #[rasn(tag(0))]
@@ -411,7 +543,7 @@ pub struct KrbPriv {
     pub enc_part: EncryptedData,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 28))]
 pub struct EncKrbPrivPart {
     #[rasn(tag(0))]
@@ -428,7 +560,7 @@ pub struct EncKrbPrivPart {
     pub r_address: Option<HostAddress>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 22))]
 pub struct KrbCred {
     #[rasn(tag(0))]
@@ -441,7 +573,7 @@ pub struct KrbCred {
     pub enc_part: EncryptedData,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 29))]
 pub struct EncKrbCredPart {
     #[rasn(tag(0))]
@@ -458,7 +590,7 @@ pub struct EncKrbCredPart {
     pub r_address: Option<HostAddress>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KrbCredInfo {
     #[rasn(tag(0))]
     pub key: EncryptionKey,
@@ -484,7 +616,7 @@ pub struct KrbCredInfo {
     pub caddr: Option<HostAddresses>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 30))]
 pub struct KrbError {
     #[rasn(tag(0))]
@@ -517,7 +649,7 @@ pub struct KrbError {
 
 pub type TypedData = SequenceOf<TypedDataItem>;
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypedDataItem {
     #[rasn(tag(0))]
     pub r#type: i32,
@@ -525,7 +657,7 @@ pub struct TypedDataItem {
     pub value: Option<OctetString>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PaEncTsEnc {
     #[rasn(tag(0))]
     pub patimestamp: KerberosTime,
@@ -533,7 +665,7 @@ pub struct PaEncTsEnc {
     pub pausec: Option<Microseconds>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EtypeInfoEntry {
     #[rasn(tag(0))]
     pub etype: i32,
@@ -541,7 +673,7 @@ pub struct EtypeInfoEntry {
     pub salt: Option<OctetString>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EtypeInfo2Entry {
     #[rasn(tag(0))]
     pub etype: i32,
@@ -551,22 +683,66 @@ pub struct EtypeInfo2Entry {
     pub s2kparams: Option<OctetString>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AdKdcIssued {
     #[rasn(tag(0))]
     pub ad_checksum: Checksum,
     #[rasn(tag(1))]
-    pub i_realm: Option<Realm>,
+    pub realm: Option<Realm>,
     #[rasn(tag(2))]
-    pub i_sname: Option<PrincipalName>,
+    pub sname: Option<PrincipalName>,
     #[rasn(tag(3))]
     pub elements: AuthorizationData,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AdAndOr {
     #[rasn(tag(0))]
     pub condition_count: i32,
     #[rasn(tag(1))]
     pub elements: AuthorizationData,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AdCammac {
+    #[rasn(tag(0))]
+    pub elements: AuthorizationData,
+    #[rasn(tag(1))]
+    pub kdc_verifier: Option<VerifierMac>,
+    #[rasn(tag(2))]
+    pub svc_verifier: Option<VerifierMac>,
+    #[rasn(tag(3))]
+    pub other_verifiers: SequenceOf<Verifier>,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
+#[rasn(choice)]
+pub enum Verifier {
+    Mac(VerifierMac),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VerifierMac {
+    #[rasn(tag(0))]
+    pub identifier: Option<PrincipalName>,
+    #[rasn(tag(1))]
+    pub kvno: Option<u32>,
+    #[rasn(tag(2))]
+    pub enctype: Option<i32>,
+    #[rasn(tag(3))]
+    pub mac: Checksum,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[non_exhaustive]
+pub struct AdLoginAlias {
+    #[rasn(tag(0))]
+    pub login_aliases: SequenceOf<PrincipalName>,
+}
+
+impl AdLoginAlias {
+    pub fn new(login_aliases: SequenceOf<PrincipalName>) -> Self {
+        Self { login_aliases }
+    }
 }

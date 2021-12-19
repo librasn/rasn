@@ -4,13 +4,28 @@ use rasn_pkix::AlgorithmIdentifier;
 
 use super::{EncryptedData, KerberosFlags, KerberosString, KerberosTime, LastReq};
 
-// reserved(0),
-// systemSetPin(1),
-// mandatory(2)
-pub type PinFlags = KerberosFlags;
 pub type AnyUri = Utf8String;
+pub type AdAuthenticationIndicator = SequenceOf<Utf8String>;
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate)]
+pub struct PinFlags(pub KerberosFlags);
+
+impl PinFlags {
+    pub fn reserved() -> Self {
+        Self(KerberosFlags::from_element(0))
+    }
+
+    pub fn system_set_pin() -> Self {
+        Self(KerberosFlags::from_element(1))
+    }
+
+    pub fn mandatory() -> Self {
+        Self(KerberosFlags::from_element(2))
+    }
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub struct PaOtpChallenge {
     #[rasn(tag(0))]
@@ -37,7 +52,7 @@ impl PaOtpChallenge {
     }
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub struct OtpTokenInfo {
     #[rasn(tag(0))]
@@ -76,24 +91,71 @@ impl OtpTokenInfo {
     }
 }
 
-// decimal(0),
-// hexadecimal(1),
-// alphanumeric(2),
-// binary(3),
-// base64(4)
-pub type OtpFormat = Integer;
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate)]
+pub struct OtpFormat(pub Integer);
 
-// reserved(0),
-// nextOTP(1),
-// combine(2),
-// collect-pin(3),
-// do-not-collect-pin(4),
-// must-encrypt-nonce (5),
-// separate-pin-required (6),
-// check-digit (7)
-pub type OtpFlags = KerberosFlags;
+impl OtpFormat {
+    pub fn decimal() -> Self {
+        Self(0.into())
+    }
 
-#[derive(AsnType, Decode, Encode)]
+    pub fn hexadecimal() -> Self {
+        Self(1.into())
+    }
+
+    pub fn alphanumeric() -> Self {
+        Self(2.into())
+    }
+
+    pub fn binary() -> Self {
+        Self(3.into())
+    }
+
+    pub fn base64() -> Self {
+        Self(4.into())
+    }
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate)]
+pub struct OtpFlags(pub KerberosFlags);
+
+impl OtpFlags {
+    pub fn reserved() -> Self {
+        Self(0.into())
+    }
+
+    pub fn nextOTP() -> Self {
+        Self(1.into())
+    }
+
+    pub fn combine() -> Self {
+        Self(2.into())
+    }
+
+    pub fn collect_pin() -> Self {
+        Self(3.into())
+    }
+
+    pub fn do_not_collect_pin() -> Self {
+        Self(4.into())
+    }
+
+    pub fn must_encrypt_nonce() -> Self {
+        Self(5.into())
+    }
+
+    pub fn separate_pin_required() -> Self {
+        Self(6.into())
+    }
+
+    pub fn check_digit() -> Self {
+        Self(7.into())
+    }
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub struct PaOtpRequest {
     #[rasn(tag(0))]
@@ -126,7 +188,7 @@ pub struct PaOtpRequest {
     pub otp_vendor: Option<Utf8String>,
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub struct PaOtpEncRequest {
     #[rasn(tag(0))]
@@ -139,7 +201,7 @@ impl PaOtpEncRequest {
     }
 }
 
-#[derive(AsnType, Decode, Encode)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub struct PaOtpPinChange {
     #[rasn(tag(0))]
