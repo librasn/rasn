@@ -17,7 +17,7 @@ pub type CsrAttrs = SequenceOf<AttrOrOid>;
 
 /// The OID identifying a `DecryptKeyIdentifier` attribute.
 pub const ASYMMETRIC_DECRYPT_KEY_OID: ConstOid =
-    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS_9_SMIME_AA_ASYMMETRIC_DECRYPT_KEY;
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_ASYMMETRIC_DECRYPT_KEY;
 
 /// Either an OID pointing a specific signature scheme or an attribute for
 /// a particular crypto system.

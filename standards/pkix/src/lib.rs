@@ -15,6 +15,7 @@
 
 extern crate alloc;
 
+pub mod attribute_certificate;
 pub mod est;
 
 use rasn::{types::*, Decode, Encode};
