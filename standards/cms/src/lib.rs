@@ -1,18 +1,22 @@
 //! # Cryptographic Message Syntax
 //!
 //! `rasn-cms` is an implementation of the data types defined in IETF
-//! [RFC 5652] also known as CMS or PKCS#7. This does not provide an implementation of a
-//! CMS generator or validator, `rasn-cms` provides an
-//! implementation of the underlying data types used to decode and
-//! encode the CMS structures from/to DER or BER.
+//! [RFC 4108], [RFC 5083], [RFC 5084], and [RFC 5652]. Also known as
+//! Cryptographic Message Syntax (CMS) or PKCS#7. This does not provide an
+//! implementation of a CMS generator or validator, instead `rasn-cms` provides
+//! an implementation of the underlying data types used to decode and encode the
+//! CMS structures from/to DER or BER.
 //!
+//! [RFC 4108]: https://datatracker.ietf.org/doc/html/rfc4108
+//! [RFC 5083]: https://datatracker.ietf.org/doc/html/rfc5083
+//! [RFC 5084]: https://datatracker.ietf.org/doc/html/rfc5084
 //! [RFC 5652]: https://datatracker.ietf.org/doc/html/rfc5652
 
 pub mod algorithms;
 pub mod firmware_wrapper;
 
 use rasn::prelude::*;
-use rasn_pkix::{
+pub use rasn_pkix::{
     AlgorithmIdentifier, Attribute, Certificate, CertificateList, CertificateSerialNumber, Name,
     SubjectKeyIdentifier,
 };
@@ -81,29 +85,31 @@ pub type UnauthAttributes = SetOf<Attribute>;
 pub type MessageAuthenticationCode = OctetString;
 pub type Signature = BitString;
 
-// ContentInfo ::= SEQUENCE {
-//   contentType ContentType,
-//   content [0] EXPLICIT ANY DEFINED BY contentType }
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct AuthEnvelopedData {
+    pub version: CmsVersion,
+    #[rasn(tag(0))]
+    pub originator_info: Option<OriginatorInfo>,
+    pub recipient_infos: RecipientInfos,
+    pub auth_encrypted_content_info: EncryptedContentInfo,
+    #[rasn(tag(1))]
+    pub auth_attrs: Option<AuthAttributes>,
+    pub mac: MessageAuthenticationCode,
+    #[rasn(tag(2))]
+    pub unauth_attrs: Option<UnauthAttributes>,
+}
 
 /// ContentInfo encapsulates a single identified content type, and the
 /// identified type may provide further encapsulation.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ContentInfo {
     pub content_type: ContentType,
     #[rasn(tag(explicit(0)))]
     pub content: Any,
 }
 
-// SignedData ::= SEQUENCE {
-//   version CMSVersion,
-//   digestAlgorithms DigestAlgorithmIdentifiers,
-//   encapContentInfo EncapsulatedContentInfo,
-//   certificates [0] IMPLICIT CertificateSet OPTIONAL,
-//   crls [1] IMPLICIT RevocationInfoChoices OPTIONAL,
-//   signerInfos SignerInfos }
-
 /// SignedData represents a signed-data content type
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SignedData {
     pub version: CmsVersion,
     pub digest_algorithms: DigestAlgorithmIdentifiers,
@@ -115,15 +121,8 @@ pub struct SignedData {
     pub signer_infos: SignerInfos,
 }
 
-// EnvelopedData ::= SEQUENCE {
-//   version CMSVersion,
-//   originatorInfo [0] IMPLICIT OriginatorInfo OPTIONAL,
-//   recipientInfos RecipientInfos,
-//   encryptedContentInfo EncryptedContentInfo,
-//   unprotectedAttrs [1] IMPLICIT UnprotectedAttributes OPTIONAL }
-
 /// EnvelopedData represents an enveloped-data content type
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EnvelopedData {
     pub version: CmsVersion,
     #[rasn(tag(0))]
@@ -134,14 +133,8 @@ pub struct EnvelopedData {
     pub unprotected_attrs: Option<UnprotectedAttributes>,
 }
 
-// DigestedData ::= SEQUENCE {
-//   version CMSVersion,
-//   digestAlgorithm DigestAlgorithmIdentifier,
-//   encapContentInfo EncapsulatedContentInfo,
-//   digest Digest }
-
 /// DigestedData represents a digested-data content type
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct DigestedData {
     pub version: CmsVersion,
     pub digest_algorithm: DigestAlgorithmIdentifier,
@@ -149,13 +142,8 @@ pub struct DigestedData {
     pub digest: Digest,
 }
 
-// EncryptedData ::= SEQUENCE {
-//   version CMSVersion,
-//   encryptedContentInfo EncryptedContentInfo,
-//   unprotectedAttrs [1] IMPLICIT UnprotectedAttributes OPTIONAL }
-
 /// EncryptedData represents an encrypted-data content type
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncryptedData {
     pub version: CmsVersion,
     pub encrypted_content_info: EncryptedContentInfo,
@@ -163,19 +151,8 @@ pub struct EncryptedData {
     pub unprotected_attrs: Option<UnprotectedAttributes>,
 }
 
-// AuthenticatedData ::= SEQUENCE {
-//   version CMSVersion,
-//   originatorInfo [0] IMPLICIT OriginatorInfo OPTIONAL,
-//   recipientInfos RecipientInfos,
-//   macAlgorithm MessageAuthenticationCodeAlgorithm,
-//   digestAlgorithm [1] DigestAlgorithmIdentifier OPTIONAL,
-//   encapContentInfo EncapsulatedContentInfo,
-//   authAttrs [2] IMPLICIT AuthAttributes OPTIONAL,
-//   mac MessageAuthenticationCode,
-//   unauthAttrs [3] IMPLICIT UnauthAttributes OPTIONAL }
-
 /// AuthenticatedData represents an authenticated-data content type
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AuthenticatedData {
     pub version: CmsVersion,
     #[rasn(tag(0))]
@@ -192,46 +169,34 @@ pub struct AuthenticatedData {
     pub unauth_attrs: Option<UnauthAttributes>,
 }
 
-// CertificateChoices ::= CHOICE {
-//   certificate Certificate,
-//   extendedCertificate [0] IMPLICIT ExtendedCertificate, -- Obsolete
-//   v1AttrCert [1] IMPLICIT AttributeCertificateV1,       -- Obsolete
-//   v2AttrCert [2] IMPLICIT AttributeCertificateV2,
-//   other [3] IMPLICIT OtherCertificateFormat }
-
 /// The CertificateChoices type gives either a PKCS #6 extended
-/// certificate [PKCS#6], an X.509 certificate, a version 1 X.509
+/// certificate, an X.509 certificate, a version 1 X.509
 ///  attribute certificate (ACv1) [X.509-97], a version 2 X.509 attribute
 /// certificate (ACv2) [X.509-00], or any other certificate format.
-/// This implementation only supports either X.509 or custom certificate formats.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum CertificateChoices {
-    Certificate(Certificate),
+    Certificate(Box<Certificate>),
+    #[rasn(tag(0))]
+    ExtendedCertificate(Box<ExtendedCertificate>),
+    #[rasn(tag(2))]
+    V2AttributeCertificate(Box<rasn_pkix::attribute_certificate::AttributeCertificate>),
     #[rasn(tag(3))]
     Other(OtherCertificateFormat),
 }
 
-// OtherCertificateFormat ::= SEQUENCE {
-//   otherCertFormat OBJECT IDENTIFIER,
-//   otherCert ANY DEFINED BY otherCertFormat }
-
 /// OtherCertificateFormat represents a custom certificate format
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OtherCertificateFormat {
-    other_cert_format: ObjectIdentifier,
-    other_cert: Any,
+    pub other_cert_format: ObjectIdentifier,
+    pub other_cert: Any,
 }
-
-// RevocationInfoChoice ::= CHOICE {
-//   crl CertificateList,
-//   other [1] IMPLICIT OtherRevocationInfoFormat }
 
 /// The RevocationInfoChoice type gives a revocation status
 /// information alternatives. It is intended that the set contain
 /// information sufficient to determine whether the certificates and
 /// attribute certificates with which the set is associated are revoked.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum RevocationInfoChoice {
     Crl(CertificateList),
@@ -239,42 +204,25 @@ pub enum RevocationInfoChoice {
     Other(OtherRevocationInfoFormat),
 }
 
-// OtherRevocationInfoFormat ::= SEQUENCE {
-//   otherRevInfoFormat OBJECT IDENTIFIER,
-//   otherRevInfo ANY DEFINED BY otherRevInfoFormat }
-
 /// The OtherRevocationInfoFormat alternative is provided to support any
 /// other revocation information format without further modifications to
 /// the CMS.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OtherRevocationInfoFormat {
-    other_rev_info_format: ObjectIdentifier,
-    other_rev_info: Any,
+    pub other_rev_info_format: ObjectIdentifier,
+    pub other_rev_info: Any,
 }
 
-// EncapsulatedContentInfo ::= SEQUENCE {
-//   eContentType ContentType,
-//   eContent [0] EXPLICIT OCTET STRING OPTIONAL }
-
 /// The content is represented in the type EncapsulatedContentInfo
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncapsulatedContentInfo {
     pub content_type: ContentType,
     #[rasn(tag(explicit(0)))]
     pub content: Option<OctetString>,
 }
 
-// SignerInfo ::= SEQUENCE {
-//   version CMSVersion,
-//   sid SignerIdentifier,
-//   digestAlgorithm DigestAlgorithmIdentifier,
-//   signedAttrs [0] IMPLICIT SignedAttributes OPTIONAL,
-//   signatureAlgorithm SignatureAlgorithmIdentifier,
-//   signature SignatureValue,
-//   unsignedAttrs [1] IMPLICIT UnsignedAttributes OPTIONAL }
-
 /// Per-signer information is represented in the type SignerInfo
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SignerInfo {
     pub version: CmsVersion,
     pub sid: SignerIdentifier,
@@ -287,12 +235,8 @@ pub struct SignerInfo {
     pub unsigned_attrs: Option<UnsignedAttributes>,
 }
 
-// SignerIdentifier ::= CHOICE {
-//   issuerAndSerialNumber IssuerAndSerialNumber,
-//   subjectKeyIdentifier [0] SubjectKeyIdentifier }
-
 /// SignerIdentifier data type represents the choice of signer identifications
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum SignerIdentifier {
     IssuerAndSerialNumber(IssuerAndSerialNumber),
@@ -300,26 +244,18 @@ pub enum SignerIdentifier {
     SubjectKeyIdentifier(SubjectKeyIdentifier),
 }
 
-// IssuerAndSerialNumber ::= SEQUENCE {
-//   issuer Name,
-//   serialNumber CertificateSerialNumber }
-
 /// The IssuerAndSerialNumber type identifies a certificate, and thereby
 /// an entity and a public key, by the distinguished name of the
 /// certificate issuer and an issuer-specific certificate serial number.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IssuerAndSerialNumber {
     pub issuer: Name,
     pub serial_number: CertificateSerialNumber,
 }
 
-// OriginatorInfo ::= SEQUENCE {
-//   certs [0] IMPLICIT CertificateSet OPTIONAL,
-//   crls [1] IMPLICIT RevocationInfoChoices OPTIONAL }
-
 /// OriginatorInfo optionally provides information about the
 /// originator. It is present only if required by the key management algorithm.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OriginatorInfo {
     #[rasn(tag(0))]
     pub certs: Option<CertificateSet>,
@@ -327,13 +263,8 @@ pub struct OriginatorInfo {
     pub crls: Option<RevocationInfoChoices>,
 }
 
-// EncryptedContentInfo ::= SEQUENCE {
-//   contentType ContentType,
-//   contentEncryptionAlgorithm ContentEncryptionAlgorithmIdentifier,
-//   encryptedContent [0] IMPLICIT EncryptedContent OPTIONAL }
-
 /// EncryptedContentInfo is the encrypted content information
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncryptedContentInfo {
     pub content_type: ContentType,
     pub content_encryption_algorithm: ContentEncryptionAlgorithmIdentifier,
@@ -341,15 +272,8 @@ pub struct EncryptedContentInfo {
     pub encrypted_content: Option<EncryptedContent>,
 }
 
-// RecipientInfo ::= CHOICE {
-//   ktri KeyTransRecipientInfo,
-//   kari [1] KeyAgreeRecipientInfo,
-//   kekri [2] KEKRecipientInfo,
-//   pwri [3] PasswordRecipientinfo,
-//   ori [4] OtherRecipientInfo }
-
 /// RecipientInfo is a per-recipient information.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum RecipientInfo {
     KeyTransRecipientInfo(KeyTransRecipientInfo),
@@ -363,16 +287,10 @@ pub enum RecipientInfo {
     OtherRecipientInfo(OtherRecipientInfo),
 }
 
-// KeyTransRecipientInfo ::= SEQUENCE {
-//   version CMSVersion,  -- always set to 0 or 2
-//   rid RecipientIdentifier,
-//   keyEncryptionAlgorithm KeyEncryptionAlgorithmIdentifier,
-//   encryptedKey EncryptedKey }
-
 /// Per-recipient information using key transport is represented in the
 /// type KeyTransRecipientInfo.  Each instance of KeyTransRecipientInfo
 /// transfers the content-encryption key to one recipient.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyTransRecipientInfo {
     pub version: CmsVersion,
     pub rid: RecipientIdentifier,
@@ -380,13 +298,9 @@ pub struct KeyTransRecipientInfo {
     pub encrypted_key: EncryptedKey,
 }
 
-// RecipientIdentifier ::= CHOICE {
-//   issuerAndSerialNumber IssuerAndSerialNumber,
-//   subjectKeyIdentifier [0] SubjectKeyIdentifier }
-
 /// RecipientIdentifier specifies the recipient's certificate or key that was used by
 /// the sender to protect the content-encryption key.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum RecipientIdentifier {
     IssuerAndSerialNumber(IssuerAndSerialNumber),
@@ -394,16 +308,9 @@ pub enum RecipientIdentifier {
     SubjectKeyIdentifier(SubjectKeyIdentifier),
 }
 
-// KeyAgreeRecipientInfo ::= SEQUENCE {
-//   version CMSVersion,  -- always set to 3
-//   originator [0] EXPLICIT OriginatorIdentifierOrKey,
-//   ukm [1] EXPLICIT UserKeyingMaterial OPTIONAL,
-//   keyEncryptionAlgorithm KeyEncryptionAlgorithmIdentifier,
-//   recipientEncryptedKeys RecipientEncryptedKeys }
-
 /// Recipient information using key agreement is represented in the type
 /// KeyAgreeRecipientInfo.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KeyAgreeRecipientInfo {
     pub version: CmsVersion,
     #[rasn(tag(explicit(0)))]
@@ -414,27 +321,19 @@ pub struct KeyAgreeRecipientInfo {
     pub recipient_encrypted_keys: RecipientEncryptedKeys,
 }
 
-// RecipientEncryptedKey ::= SEQUENCE {
-//   rid KeyAgreeRecipientIdentifier,
-//   encryptedKey EncryptedKey }
-
 /// RecipientEncryptedKey includes a recipient identifier and
 /// encrypted key for one or more recipients.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RecipientEncryptedKey {
     pub key_agree_recipient_identifier: KeyAgreeRecipientIdentifier,
     pub encrypted_key: EncryptedKey,
 }
 
-// KeyAgreeRecipientIdentifier ::= CHOICE {
-//   issuerAndSerialNumber IssuerAndSerialNumber,
-//   rKeyId [0] IMPLICIT RecipientKeyIdentifier }
-
 /// KeyAgreeRecipientIdentifier is a CHOICE with two alternatives
 /// specifying the recipient's certificate, and thereby the
 /// recipient's public key, that was used by the sender to generate a
 /// pairwise key-encryption key.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum KeyAgreeRecipientIdentifier {
     IssuerAndSerialNumber(IssuerAndSerialNumber),
@@ -442,39 +341,25 @@ pub enum KeyAgreeRecipientIdentifier {
     RecipientKeyIdentifier(RecipientKeyIdentifier),
 }
 
-// RecipientKeyIdentifier ::= SEQUENCE {
-//   subjectKeyIdentifier SubjectKeyIdentifier,
-//   date GeneralizedTime OPTIONAL,
-//   other OtherKeyAttribute OPTIONAL }
-
 /// RecipientKeyIdentifier identifies the recipient's key.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RecipientKeyIdentifier {
     pub subject_key_identifier: SubjectKeyIdentifier,
     pub date: Option<GeneralizedTime>,
     pub other: Option<OtherKeyAttribute>,
 }
 
-// OtherKeyAttribute ::= SEQUENCE {
-//   keyAttrId OBJECT IDENTIFIER,
-//   keyAttr ANY DEFINED BY keyAttrId OPTIONAL }
-
 /// Additional information used by the recipient to determine
 /// the key-encryption key used by the sender.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OtherKeyAttribute {
     pub key_attr_id: ObjectIdentifier,
     pub key_attr: Option<Any>,
 }
 
-// OriginatorIdentifierOrKey ::= CHOICE {
-//   issuerAndSerialNumber IssuerAndSerialNumber,
-//   subjectKeyIdentifier [0] SubjectKeyIdentifier,
-//   originatorKey [1] OriginatorPublicKey }
-
 /// OriginatorIdentifierOrKey is a CHOICE with three alternatives specifying the
 /// sender's key agreement public key.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum OriginatorIdentifierOrKey {
     IssuerAndSerialNumber(IssuerAndSerialNumber),
@@ -484,28 +369,18 @@ pub enum OriginatorIdentifierOrKey {
     OriginatorPublicKey(OriginatorPublicKey),
 }
 
-// OriginatorPublicKey ::= SEQUENCE {
-//   algorithm AlgorithmIdentifier,
-//   publicKey BIT STRING }
-
 /// The OriginatorPublicKey alternative
 /// includes the algorithm identifier and sender's key agreement
 /// public key.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OriginatorPublicKey {
     pub algorithm: AlgorithmIdentifier,
     pub public_key: BitString,
 }
 
-// KEKRecipientInfo ::= SEQUENCE {
-//   version CMSVersion,  -- always set to 4
-//   kekid KEKIdentifier,
-//   keyEncryptionAlgorithm KeyEncryptionAlgorithmIdentifier,
-//   encryptedKey EncryptedKey }
-
 /// Recipient information using previously distributed symmetric keys is
 /// represented in the type KEKRecipientInfo.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KekRecipientInfo {
     pub version: CmsVersion,
     pub kek_id: KekIdentifier,
@@ -513,29 +388,18 @@ pub struct KekRecipientInfo {
     pub encrypted_key: EncryptedKey,
 }
 
-// KEKIdentifier ::= SEQUENCE {
-//   keyIdentifier OCTET STRING,
-//   date GeneralizedTime OPTIONAL,
-//   other OtherKeyAttribute OPTIONAL }
-
 /// KekIdentifier specifies a symmetric key-encryption key that was previously
 /// distributed to the sender and one or more recipients.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KekIdentifier {
     pub key_identifier: OctetString,
     pub date: Option<GeneralizedTime>,
     pub other: Option<OtherKeyAttribute>,
 }
 
-// PasswordRecipientInfo ::= SEQUENCE {
-//   version CMSVersion,   -- always set to 0
-//   keyDerivationAlgorithm [0] KeyDerivationAlgorithmIdentifier OPTIONAL,
-//   keyEncryptionAlgorithm KeyEncryptionAlgorithmIdentifier,
-//   encryptedKey EncryptedKey }
-
 /// Recipient information using a password or shared secret value is
 /// represented in the type PasswordRecipientInfo.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PasswordRecipientInfo {
     pub version: CmsVersion,
     #[rasn(tag(0))]
@@ -544,14 +408,32 @@ pub struct PasswordRecipientInfo {
     pub encrypted_eey: EncryptedKey,
 }
 
-// OtherRecipientInfo ::= SEQUENCE {
-//   oriType OBJECT IDENTIFIER,
-//   oriValue ANY DEFINED BY oriType }
-
 /// Recipient information for additional key management techniques are
 /// represented in the type OtherRecipientInfo.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct OtherRecipientInfo {
     pub ori_type: ObjectIdentifier,
     pub ori_value: Any,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum ExtendedCertificateOrCertificate {
+    Certificate(Certificate),
+    #[rasn(tag(0))]
+    ExtendedCertificate(ExtendedCertificate),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ExtendedCertificate {
+    pub extended_certificate_info: ExtendedCertificateInfo,
+    pub signature_algorithm: SignatureAlgorithmIdentifier,
+    pub signature: Signature,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ExtendedCertificateInfo {
+    pub version: CmsVersion,
+    pub certificate: Certificate,
+    pub attributes: UnauthAttributes,
 }

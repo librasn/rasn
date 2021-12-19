@@ -1,19 +1,49 @@
+//! # Firmware Package Wrappers
+//! Implementation of [RFC 4108] also known as "Using Cryptographic Message
+//! Syntax (CMS) to Protect Firmware Packages". This module is used to protect
+//! firmware packages with CMS, as well as use for receipts and error reports
+//! for firmware package loading. The protected firmware package can be
+//! associated with any particular hardware module.
+//!
+//! The firmware package contains object code for one or more programmable
+//! components that make up the hardware module. The firmware package, which is
+//! treated as an opaque binary object, is digitally signed. Optional encryption
+//! and compression are also supported. When all three are used, the firmware
+//! package is compressed, then encrypted, and then signed.
+//!
+//! As with all `rasn` core crate implementations, this module does not provide
+//! the actual functionality for signing, encrypting, or compressing data;
+//! instead provides a shared set of data types that can be used with other
+//! crates to sign, encrypt, and compress your own firmware packages.
+//!
+//! [rfc 4108]: https://datatracker.ietf.org/doc/html/rfc4108
 use rasn::prelude::*;
 
 use super::EnvelopedData;
 
-pub const FIRMWARE_PACKAGE: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CT_FIRMWARE_PACKAGE;
-pub const FIRMWARE_PACKAGE_ID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_FIRMWARE_PACKAGE_ID;
+pub const FIRMWARE_PACKAGE: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CT_FIRMWARE_PACKAGE;
+pub const FIRMWARE_PACKAGE_ID: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_FIRMWARE_PACKAGE_ID;
 pub const DECRYPT_KEY_ID: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_DECRYPT_KEY_ID;
-pub const CRYPTO_ALGORITHMS: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_CRYPTO_ALGORITHMS;
-pub const COMPRESS_ALGORITHMS: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_COMPRESS_ALGORITHMS;
-pub const COMMUNITY_IDENTIFIERS: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_COMMUNITY_IDENTIFIERS;
-pub const FIRMWARE_PACKAGE_INFO: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_FIRMWARE_PACKAGE_INFO;
-pub const WRAPPED_FIRMWARE_KEY: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_WRAPPED_FIRMWARE_KEY;
-pub const FIRMWARE_LOAD_RECEIPT: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CT_FIRMWARE_LOAD_RECEIPT;
-pub const FIRMWARE_LOAD_ERROR: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CT_FIRMWARE_LOAD_ERROR;
-pub const HARDWARE_MODULE_NAME: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_MECHANISMS_PKIX_ON_HARDWARE_MODULE_NAME;
-pub const TARGET_HARDWARE_IDS: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_TARGET_HARDWARE_IDS;
+pub const CRYPTO_ALGORITHMS: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_CRYPTO_ALGORITHMS;
+pub const COMPRESS_ALGORITHMS: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_COMPRESS_ALGORITHMS;
+pub const COMMUNITY_IDENTIFIERS: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_COMMUNITY_IDENTIFIERS;
+pub const FIRMWARE_PACKAGE_INFO: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_FIRMWARE_PACKAGE_INFO;
+pub const WRAPPED_FIRMWARE_KEY: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_WRAPPED_FIRMWARE_KEY;
+pub const FIRMWARE_LOAD_RECEIPT: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CT_FIRMWARE_LOAD_RECEIPT;
+pub const FIRMWARE_LOAD_ERROR: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CT_FIRMWARE_LOAD_ERROR;
+pub const HARDWARE_MODULE_NAME: ConstOid =
+    Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_MECHANISMS_PKIX_ON_HARDWARE_MODULE_NAME;
+pub const TARGET_HARDWARE_IDS: ConstOid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_TARGET_HARDWARE_IDS;
 
 pub type FirmwarePackageData = OctetString;
 pub type TargetHardwareIdentifiers = SequenceOf<ObjectIdentifier>;
@@ -48,8 +78,8 @@ pub struct PreferredPackageIdentifier {
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum PreferredOrLegacyStalePackageIdentifier {
-     PreferredStaleVersionNumber(Integer),
-     LegacyStaleVersion(OctetString)
+    PreferredStaleVersionNumber(Integer),
+    LegacyStaleVersion(OctetString),
 }
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -68,23 +98,20 @@ pub struct HardwareModules {
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum HardwareSerialEntry {
-     All,
-     Single(OctetString),
-     Block {
-         low: OctetString,
-         high: OctetString,
-     },
+    All,
+    Single(OctetString),
+    Block { low: OctetString, high: OctetString },
 }
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct FirmwarePackageInfo {
     pub firmware_package_type: Option<Integer>,
-    pub dependencies: Option<SequenceOf<PreferredOrLegacyPackageIdentifier>>
+    pub dependencies: Option<SequenceOf<PreferredOrLegacyPackageIdentifier>>,
 }
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct FirmwarePackageLoadReceipt {
-    #[rasn(default="default_firmware_receipt_version")]
+    #[rasn(default = "default_firmware_receipt_version")]
     pub version: FirmwareReceiptVersion,
     pub hardware_type: ObjectIdentifier,
     pub hardware_serial_number: OctetString,
@@ -100,7 +127,7 @@ fn default_firmware_receipt_version() -> FirmwareReceiptVersion {
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct FirmwarePackageLoadError {
-    #[rasn(default="default_firmware_error_version")]
+    #[rasn(default = "default_firmware_error_version")]
     pub version: FirmwareErrorVersion,
     pub hardware_type: ObjectIdentifier,
     pub hardware_serial_number: OctetString,
@@ -118,49 +145,49 @@ fn default_firmware_error_version() -> FirmwareErrorVersion {
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct CurrentFirmwareConfig {
     pub firmware_package_type: Option<Integer>,
-    pub firmware_package_name: PreferredOrLegacyPackageIdentifier
+    pub firmware_package_name: PreferredOrLegacyPackageIdentifier,
 }
 
 #[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(enumerated)]
 pub enum FirmwarePackageLoadErrorCode {
-     DecodeFailure = 1,
-     BadContentInfo = 2,
-     BadSignedData = 3,
-     BadEncapContent = 4,
-     BadCertificate = 5,
-     BadSignerInfo = 6,
-     BadSignedAttrs = 7,
-     BadUnsignedAttrs = 8,
-     MissingContent = 9,
-     NoTrustAnchor = 10,
-     NotAuthorized = 11,
-     BadDigestAlgorithm = 12,
-     BadSignatureAlgorithm = 13,
-     UnsupportedKeySize = 14,
-     SignatureFailure = 15,
-     ContentTypeMismatch = 16,
-     BadEncryptedData = 17,
-     UnprotectedAttrsPresent = 18,
-     BadEncryptContent = 19,
-     BadEncryptAlgorithm = 20,
-     MissingCiphertext = 21,
-     NoDecryptKey = 22,
-     DecryptFailure = 23,
-     BadCompressAlgorithm = 24,
-     MissingCompressedContent = 25,
-     DecompressFailure = 26,
-     WrongHardware = 27,
-     StalePackage = 28,
-     NotInCommunity = 29,
-     UnsupportedPackageType = 30,
-     MissingDependency = 31,
-     WrongDependencyVersion = 32,
-     InsufficientMemory = 33,
-     BadFirmware = 34,
-     UnsupportedParameters = 35,
-     BreaksDependency = 36,
-     OtherError = 99
+    DecodeFailure = 1,
+    BadContentInfo = 2,
+    BadSignedData = 3,
+    BadEncapContent = 4,
+    BadCertificate = 5,
+    BadSignerInfo = 6,
+    BadSignedAttrs = 7,
+    BadUnsignedAttrs = 8,
+    MissingContent = 9,
+    NoTrustAnchor = 10,
+    NotAuthorized = 11,
+    BadDigestAlgorithm = 12,
+    BadSignatureAlgorithm = 13,
+    UnsupportedKeySize = 14,
+    SignatureFailure = 15,
+    ContentTypeMismatch = 16,
+    BadEncryptedData = 17,
+    UnprotectedAttrsPresent = 18,
+    BadEncryptContent = 19,
+    BadEncryptAlgorithm = 20,
+    MissingCiphertext = 21,
+    NoDecryptKey = 22,
+    DecryptFailure = 23,
+    BadCompressAlgorithm = 24,
+    MissingCompressedContent = 25,
+    DecompressFailure = 26,
+    WrongHardware = 27,
+    StalePackage = 28,
+    NotInCommunity = 29,
+    UnsupportedPackageType = 30,
+    MissingDependency = 31,
+    WrongDependencyVersion = 32,
+    InsufficientMemory = 33,
+    BadFirmware = 34,
+    UnsupportedParameters = 35,
+    BreaksDependency = 36,
+    OtherError = 99,
 }
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]

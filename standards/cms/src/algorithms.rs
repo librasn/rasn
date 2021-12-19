@@ -1,3 +1,6 @@
+//! # Algorithms used with CMS.
+//! Algorithms OIDs and parameter data types.
+
 use rasn::prelude::*;
 
 use rasn_pkix::AlgorithmIdentifier;
@@ -19,10 +22,26 @@ pub const CMS3RC2WRAP: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_ALG
 pub const DES_EDE3_CBC: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_ENCRYPTION_ALGORITHM_DES_EDE3_CBC;
 pub const RC2_CBC: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_ENCRYPTION_ALGORITHM_RC2_CBC;
 
-pub const HMAC_SHA1: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_MECHANISMS_HMAC_SHA1;
+pub const HMAC_SHA1: ConstOid =
+    Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_MECHANISMS_HMAC_SHA1;
 pub const PBKDF2: ConstOid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS5_PBKDF2;
 
+pub const AES: ConstOid = Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES;
+pub const AES128_CBC: ConstOid =
+    Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES128_CBC;
+pub const AES128_WRAP: ConstOid =
+    Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES128_WRAP;
+pub const AES192_CBC: ConstOid =
+    Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES192_CBC;
+pub const AES192_WRAP: ConstOid =
+    Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES192_WRAP;
+pub const AES256_CBC: ConstOid =
+    Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES256_CBC;
+pub const AES256_WRAP: ConstOid =
+    Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES256_WRAP;
+
 pub type DssPubKey = Integer;
+pub type AesIv = OctetString;
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct RsaPublicKey {
@@ -40,18 +59,18 @@ pub struct DssSigValue {
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct DssParameters {
-     pub p: Integer,
-     pub q: Integer,
-     pub g: Integer,
+    pub p: Integer,
+    pub q: Integer,
+    pub g: Integer,
 }
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct DhDomainParameters {
-     pub prime: Integer,
-     pub generator: Integer,
-     pub factor: Integer,
-     pub subgroup_factor: Option<Integer>,
-     pub validation_parameters: Option<ValidationParameters>,
+    pub prime: Integer,
+    pub generator: Integer,
+    pub factor: Integer,
+    pub subgroup_factor: Option<Integer>,
+    pub validation_parameters: Option<ValidationParameters>,
 }
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -74,17 +93,17 @@ pub struct Rc2CbcParameter {
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Pbkdf2Parameters {
-     salt: Pbkdf2Salt,
-     iteration_count: Integer,
-     key_length: Option<Integer>,
-     #[rasn(default="default_pbkdf2_algorithm")]
-     prf: AlgorithmIdentifier,
+    pub salt: Pbkdf2Salt,
+    pub iteration_count: Integer,
+    pub key_length: Option<Integer>,
+    #[rasn(default = "default_pbkdf2_algorithm")]
+    pub prf: AlgorithmIdentifier,
 }
 
 pub fn default_pbkdf2_algorithm() -> AlgorithmIdentifier {
     AlgorithmIdentifier {
         algorithm: HMAC_SHA1.into(),
-        parameters:None,
+        parameters: None,
     }
 }
 
