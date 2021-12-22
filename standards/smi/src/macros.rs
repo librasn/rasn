@@ -76,8 +76,8 @@ macro_rules! opaque_impls {
             type Error = $crate::rasn::ber::enc::Error;
 
             fn try_from(value: $name) -> Result<Self, Self::Error> {
-                use $crate::v1::IntoOpaque;
-                value.into_opaque()
+                use $crate::v1::ToOpaque;
+                value.to_opaque()
             }
         }
 
@@ -87,7 +87,7 @@ macro_rules! opaque_impls {
                 encoder: &mut EN,
                 tag: Tag,
             ) -> Result<(), EN::Error> {
-                self.into_opaque()
+                self.to_opaque()
                     .map_err($crate::rasn::enc::Error::custom)?
                     .encode_with_tag(encoder, tag)
             }

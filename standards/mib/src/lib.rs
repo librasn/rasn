@@ -249,7 +249,7 @@ pub mod interfaces {
         type Error = rasn::ber::enc::Error;
 
         fn try_from(value: Entry) -> Result<Self, Self::Error> {
-            value.into_opaque()
+            value.to_opaque()
         }
     }
 
@@ -295,7 +295,7 @@ pub mod interfaces {
             encoder: &mut EN,
             tag: Tag,
         ) -> Result<(), EN::Error> {
-            self.into_opaque()
+            self.to_opaque()
                 .map_err(rasn::enc::Error::custom)?
                 .encode_with_tag(encoder, tag)
         }

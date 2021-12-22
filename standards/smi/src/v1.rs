@@ -73,12 +73,12 @@ pub struct Opaque(alloc::vec::Vec<u8>);
 
 /// Helper trait for wrapping any valid ASN.1 type in an `Opaque` struct which
 /// first encodes the data into Basic Encoding Rules.
-pub trait IntoOpaque {
-    fn into_opaque(&self) -> Result<Opaque, rasn::ber::enc::Error>;
+pub trait ToOpaque {
+    fn to_opaque(&self) -> Result<Opaque, rasn::ber::enc::Error>;
 }
 
-impl<T: Encode> IntoOpaque for T {
-    fn into_opaque(&self) -> Result<Opaque, rasn::ber::enc::Error> {
+impl<T: Encode> ToOpaque for T {
+    fn to_opaque(&self) -> Result<Opaque, rasn::ber::enc::Error> {
         rasn::ber::encode(self).map(Opaque)
     }
 }

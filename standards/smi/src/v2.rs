@@ -13,7 +13,7 @@ use rasn::{
 use crate::v1::InvalidVariant;
 
 #[doc(inline)]
-pub use crate::v1::IntoOpaque;
+pub use crate::v1::ToOpaque;
 
 pub type ObjectName = crate::v1::ObjectName;
 pub type NotificationName = ObjectIdentifier;
