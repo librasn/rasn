@@ -21,7 +21,7 @@ let data: &[u8] = &[];
 // Decode SNMPv2c message containing a SNMPv2 PDU.
 let message: Message<Pdus> = rasn::ber::decode(data).unwrap();
 
-/ Handle the request.
+// Handle the request.
 match message.data {
     Pdus::GetRequest(request) => {},
     Pdus::GetNextRequest(request) => {},
