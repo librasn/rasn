@@ -1,3 +1,4 @@
+//! # One-Time Password Pre-authentication
 use rasn::prelude::*;
 
 use rasn_pkix::AlgorithmIdentifier;

@@ -8,6 +8,9 @@ license = "Apache-2.0/MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[package.metadata.docs.rs]
+features = ["otp"]
+
 [features]
 otp = ["rasn-pkix"]
 
