@@ -325,10 +325,16 @@ impl<'a> VariantConfig<'a> {
                     quote!(#crate_root::TagTree::Leaf(<() as #crate_root::AsnType>::TAG),)
                 }
                 syn::Fields::Named(_) => {
+                    let error_message = format!("{}'s fields is not a valid \
+                        order of ASN.1 tags, ensure that your field's tags and \
+                        OPTIONALs are correct.",
+                            self.variant.ident
+                        );
+
                     quote!({
                         const FIELD_LIST: &'static [#crate_root::TagTree] = &[#(#field_tags,)*];
                         const FIELD_TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(FIELD_LIST);
-                        #crate_root::sa::const_assert!(FIELD_TAG_TREE.is_unique());
+                        const _: () = assert!(FIELD_TAG_TREE.is_unique(), #error_message);
                         #crate_root::TagTree::Leaf(#crate_root::Tag::SEQUENCE)
                     },)
                 }

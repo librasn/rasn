@@ -16,7 +16,7 @@ struct OptionalSet {
 
 #[test]
 fn asn_type() {
-    static_assertions::const_assert!(Set::TAG.const_eq(&Tag::SET));
+    const _: () = assert!(Set::TAG.const_eq(&Tag::SET));
 }
 
 #[test]

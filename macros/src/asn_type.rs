@@ -35,10 +35,16 @@ pub fn derive_struct_impl(
         .filter_map(|(key, fields)| key.then(|| fields))
         .map(|fields| {
             let tag_tree = fields.map(|(i, f)| f.tag_tree(i));
+            let error_message = format!("{}'s fields is not a valid \
+                        order of ASN.1 tags, ensure that your field's tags and \
+                        OPTIONALs are correct.",
+                        name
+            );
+
             quote!({
                 const LIST: &'static [#crate_root::TagTree] = &[#(#tag_tree),*];
                 const TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(LIST);
-                #crate_root::sa::const_assert!(TAG_TREE.is_unique());
+                const _: () = assert!(TAG_TREE.is_unique(), #error_message);
             })
         });
 
@@ -74,6 +80,10 @@ pub fn derive_enum_impl(
                 .unwrap_or(quote!(#crate_root::Tag::EOC))
         });
 
+    let error_message = format!("{}'s variants is not unique, ensure that your variants's tags are correct.",
+        name
+    );
+
     let tag_tree = if config.choice {
         let field_tags = container
             .variants
@@ -85,7 +95,7 @@ pub fn derive_enum_impl(
             {
                 const VARIANT_LIST: &'static [#crate_root::TagTree] = &[#(#field_tags)*];
                 const VARIANT_TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(VARIANT_LIST);
-                #crate_root::sa::const_assert!(VARIANT_TAG_TREE.is_unique());
+                const _: () = assert!(VARIANT_TAG_TREE.is_unique(), #error_message);
                 VARIANT_TAG_TREE
             }
         }
@@ -103,7 +113,7 @@ pub fn derive_enum_impl(
             const TAG_TREE: #crate_root::TagTree = {
                 const LIST: &'static [#crate_root::TagTree] = &[#tag_tree];
                 const TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(LIST);
-                #crate_root::sa::const_assert!(TAG_TREE.is_unique());
+                const _: () = assert!(TAG_TREE.is_unique(), #error_message);
                 TAG_TREE
             };
         }

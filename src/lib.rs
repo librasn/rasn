@@ -28,6 +28,3 @@ pub mod prelude {
         types::*,
     };
 }
-
-#[doc(hidden)]
-pub use static_assertions as sa;

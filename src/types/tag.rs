@@ -248,7 +248,7 @@ impl TagTree {
 mod tests {
     use super::*;
 
-    const EXPECTED: TagTree = TagTree::Choice(&[
+    const _EXPECTED: TagTree = TagTree::Choice(&[
         TagTree::Leaf(Tag::CHOICE),
         TagTree::Leaf(Tag::BIT_STRING),
         TagTree::Choice(&[
@@ -263,7 +263,7 @@ mod tests {
         TagTree::Leaf(Tag::new(Class::Private, 1)),
     ]);
 
-    const INVALID_FLAT: TagTree = TagTree::Choice(&[
+    const _INVALID_FLAT: TagTree = TagTree::Choice(&[
         TagTree::Leaf(Tag::BIT_STRING),
         TagTree::Leaf(Tag::new(Class::Application, 0)),
         TagTree::Leaf(Tag::new(Class::Application, 0)),
@@ -273,7 +273,7 @@ mod tests {
         TagTree::Leaf(Tag::new(Class::Private, 0)),
     ]);
 
-    const INVALID_NESTED: TagTree = TagTree::Choice(&[
+    const _INVALID_NESTED: TagTree = TagTree::Choice(&[
         TagTree::Leaf(Tag::CHOICE),
         TagTree::Leaf(Tag::BIT_STRING),
         TagTree::Choice(&[
@@ -291,13 +291,9 @@ mod tests {
 
     #[test]
     fn is_unique() {
-        let _ = EXPECTED;
-        let _ = INVALID_FLAT;
-        let _ = INVALID_NESTED;
-
-        crate::sa::const_assert!(EXPECTED.is_unique());
-        crate::sa::const_assert!(!INVALID_FLAT.is_unique());
-        crate::sa::const_assert!(!INVALID_NESTED.is_unique());
+        const _ : () = assert!(_EXPECTED.is_unique());
+        const _ : () = assert!(!_INVALID_FLAT.is_unique());
+        const _ : () = assert!(!_INVALID_NESTED.is_unique());
     }
 
     #[test]

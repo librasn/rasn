@@ -163,15 +163,16 @@ We'll now get the following error trying to compile the above definition.
 
 ```text
 error[E0080]: evaluation of constant value failed
-  --> tests/derive.rs:80:14
-   |
-80 |     #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
-   |              ^^^^^^^ attempt to compute `0_usize - 1_usize` which would overflow
-   |
-   = note: this error originates in a macro (in Nightly builds, run with -Z macro-backtrace for more info)
+   --> tests/derive.rs:146:10
+    |
+146 | #[derive(rasn::AsnType)]
+    |          ^^^^^^^^^^^^^ the evaluated program panicked at 'Person's fields is not a valid order of ASN.1 tags, ensure that your field's tags and OPTIONAL
+s are correct.', tests/derive.rs:146:10
+    |
+    = note: this error originates in the macro `$crate::panic::panic_2015` (in Nightly builds, run with -Z macro-backtrace for more info)
 ```
 
-While not the most obvious error message at the moment, validating your model at compile-time enables you to work on ASN.1 code without fear that you're unintentionally changing something in the background. I bet you're wondering now though, how we are supposed to have a struct with two strings for fields? The answer is thankfully pretty simple, you just add `#[rasn(tag)]` attribute to override the tags of one or more of the types. However we can actually go further, because in ASN.1 there's the concept of having `AUTOMATIC TAGS` which essentially tells your ASN.1 compiler to automatically generate distinct tags for your ASN.1 definition. Now with rasn you can do that in Rust! Applying `#[rasn(automatic_tags)]` to the container  automatically generate tags will apply the same automatic tagging transformation you'd expect from an ASN.1 compiler.
+Validating your model at compile-time enables you to work on ASN.1 code without fear that you're unintentionally changing something in the background. I bet you're wondering now though, how we are supposed to have a struct with two strings for fields? The answer is thankfully pretty simple, you just add `#[rasn(tag)]` attribute to override the tags of one or more of the types. However we can actually go further, because in ASN.1 there's the concept of having `AUTOMATIC TAGS` which essentially tells your ASN.1 compiler to automatically generate distinct tags for your ASN.1 definition. Now with rasn you can do that in Rust! Applying `#[rasn(automatic_tags)]` to the container  automatically generate tags will apply the same automatic tagging transformation you'd expect from an ASN.1 compiler.
 
 ```rust
 use rasn::AsnType;
