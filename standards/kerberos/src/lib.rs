@@ -48,9 +48,7 @@ pub type Realm = KerberosString;
 //     ::= INTEGER (0..999999) -- microseconds
 pub type Microseconds = Integer;
 
-pub const OID: ConstOid =
-    Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_KERBEROS_V5;
-
+pub const OID: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_KERBEROS_V5;
 
 /// The name of the party to verify. Taken together, a [PrincipalName] and a
 /// [Realm] form a principal identifier.
@@ -1066,7 +1064,7 @@ pub struct EncKrbCredPart {
     pub recipient_address: Option<HostAddress>,
 }
 
-/// The 
+/// The tickets and information needed to use them in [KrbCred].
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KrbCredInfo {
     /// The session key from the sender to the intended recipient.
