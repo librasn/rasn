@@ -124,35 +124,35 @@ pub struct OtpFlags(pub KerberosFlags);
 
 impl OtpFlags {
     pub fn reserved() -> Self {
-        Self(0.into())
+        Self(KerberosFlags::from_element(0))
     }
 
-    pub fn nextOTP() -> Self {
-        Self(1.into())
+    pub fn next_otp() -> Self {
+        Self(KerberosFlags::from_element(1))
     }
 
     pub fn combine() -> Self {
-        Self(2.into())
+        Self(KerberosFlags::from_element(2))
     }
 
     pub fn collect_pin() -> Self {
-        Self(3.into())
+        Self(KerberosFlags::from_element(0x4))
     }
 
     pub fn do_not_collect_pin() -> Self {
-        Self(4.into())
+        Self(KerberosFlags::from_element(0x8))
     }
 
     pub fn must_encrypt_nonce() -> Self {
-        Self(5.into())
+        Self(KerberosFlags::from_element(0x10))
     }
 
     pub fn separate_pin_required() -> Self {
-        Self(6.into())
+        Self(KerberosFlags::from_element(0x20))
     }
 
     pub fn check_digit() -> Self {
-        Self(7.into())
+        Self(KerberosFlags::from_element(0x40))
     }
 }
 
