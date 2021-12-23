@@ -35,7 +35,7 @@ definitions for the necessary data types. Like `rasn` they are `#[no_std]`,
 as well as being transport layer and encoding rule agnostic.
 
 - [**CMS:** Cryptographic Message Syntax](https://docs.rs/rasn-cms)
-- [**Kerberos**](https://docs.rs/rasn-kerberos)
+- [**Kerberos** Authenication Framework](https://docs.rs/rasn-kerberos)
 - [**LDAP:** Lightweight Directory Access Protocol](https://docs.rs/rasn-ldap)
 - [**MIB-II:** Management of Information Base](https://docs.rs/rasn-mib)
 - [**OCSP:** Online Certificate Status Protocol](https://docs.rs/rasn-ocsp)
