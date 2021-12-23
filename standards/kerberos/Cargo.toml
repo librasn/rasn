@@ -1,6 +1,6 @@
 [package]
 name = "rasn-kerberos"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
 description = "Data types for Kerberos V5"
@@ -15,5 +15,5 @@ features = ["otp"]
 otp = ["rasn-pkix"]
 
 [dependencies]
-rasn = { path = "../..", version = "0.4.0" }
-rasn-pkix = { path = "../pkix", version = "0.4.0", optional = true }
+rasn = { path = "../..", version = "0.5.0" }
+rasn-pkix = { path = "../pkix", version = "0.5.0", optional = true }
