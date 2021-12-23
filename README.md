@@ -35,11 +35,14 @@ definitions for the necessary data types. Like `rasn` they are `#[no_std]`,
 as well as being transport layer and encoding rule agnostic.
 
 - [**CMS:** Cryptographic Message Syntax](https://docs.rs/rasn-cms)
+- [**Kerberos**](https://docs.rs/rasn-kerberos)
 - [**LDAP:** Lightweight Directory Access Protocol](https://docs.rs/rasn-ldap)
 - [**MIB-II:** Management of Information Base](https://docs.rs/rasn-mib)
+- [**OCSP:** Online Certificate Status Protocol](https://docs.rs/rasn-ocsp)
 - [**PKIX:** Public Key Infrastructure](https://docs.rs/rasn-pkix)
 - [**SMI:** Structure of Management Information](https://docs.rs/rasn-smi)
 - [**SNMP:** Simple Network Management Protocol](https://docs.rs/rasn-snmp)
+- [**S/MIME:** Secure/Multipurpose Internet Mail Extensions](https://docs.rs/rasn-smime)
 
 
 ### Powerful Derive Macros
