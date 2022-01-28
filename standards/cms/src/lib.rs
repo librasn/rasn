@@ -5,6 +5,7 @@ extern crate alloc;
 
 pub mod algorithms;
 pub mod firmware_wrapper;
+pub mod pkcs7_compat;
 
 use alloc::boxed::Box;
 
