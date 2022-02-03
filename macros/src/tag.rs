@@ -61,14 +61,18 @@ impl Tag {
                             panic!("Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`.");
                         }
 
-                        match list.nested.first() {
-                            Some(syn::NestedMeta::Meta(meta)) => {
-                                let Self { class, value, .. } = Self::from_meta(meta)
-                                    .expect("Invalid tag literal found in `explicit`.");
+                        let mut iter = list.nested.iter();
+                        let first = iter.next();
+                        let second = iter.next();
+
+                        match (first, second) {
+                            (Some(syn::NestedMeta::Meta(syn::Meta::Path(path))), Some(syn::NestedMeta::Lit(lit))) => {
+                                let class = Class::from_ident(path.get_ident().expect("Path must be a valid ident."));
+                                let value = lit.clone();
                                 explicit = true;
                                 tag = Some((class, value));
                             }
-                            Some(syn::NestedMeta::Lit(lit)) => {
+                            (Some(syn::NestedMeta::Lit(lit)), None) => {
                                 explicit = true;
                                 tag = Some((Class::Context, lit.clone()));
                             }
