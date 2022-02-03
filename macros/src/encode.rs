@@ -42,7 +42,12 @@ pub fn derive_struct_impl(
 
     let encode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
-        quote!(<#ty as #crate_root::Encode>::encode_with_tag(&self.0, encoder, tag))
+
+        if config.tag.as_ref().map(|tag| tag.explicit).unwrap_or_default() {
+            quote!(encoder.encode_explicit_prefix(tag, &self.0).map(drop))
+        } else {
+            quote!(<#ty as #crate_root::Encode>::encode_with_tag(&self.0, encoder, tag))
+        }
     } else {
         let operation = if config.set {
             quote!(encode_set)

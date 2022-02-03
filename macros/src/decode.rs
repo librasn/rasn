@@ -41,8 +41,15 @@ pub fn derive_struct_impl(
 
     let decode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
-        quote! {
-            <#ty as #crate_root::Decode>::decode_with_tag(decoder, tag).map(Self)
+
+        if config.tag.as_ref().map(|tag| tag.explicit).unwrap_or_default() {
+            quote! {
+                decoder.decode_explicit_prefix::<#ty>(tag).map(Self)
+            }
+        } else {
+            quote! {
+                <#ty as #crate_root::Decode>::decode_with_tag(decoder, tag).map(Self)
+            }
         }
     } else if config.set {
         let field_names = container.fields.iter().map(|field| field.ident.clone());
