@@ -39,10 +39,10 @@ pub struct PrincipalName {
     /// The type of name that follows. This should be should be treated as a
     /// hint. Ignoring the type, no two names can be the same (i.e., at least
     /// one of the components, or the realm, must be different).
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub r#type: i32,
     /// A sequence of components that form a name.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub string: SequenceOf<KerberosString>,
 }
 
@@ -64,10 +64,10 @@ pub struct HostAddress {
     /// - [HostAddress::APPLE_TALK_DDP]
     /// - [HostAddress::NET_BIOS]
     /// - [HostAddress::IPV6]
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub addr_type: i32,
     /// A single address of type defined by `addr_type`.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub address: OctetString,
 }
 
@@ -96,11 +96,11 @@ pub struct AuthorizationDataValue {
     /// - [AuthorizationDataValue::KDC_ISSUED]
     /// - [AuthorizationDataValue::AND_OR]
     /// - [AuthorizationDataValue::MANDATORY_FOR_KDC]
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub r#type: i32,
     /// Authorization data to be interpreted according to the value of the
     /// corresponding `type` field.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub data: OctetString,
 }
 
@@ -118,9 +118,9 @@ impl AuthorizationDataValue {
 /// Pre-Authenication data.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PaData {
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub r#type: i32,
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub value: OctetString,
 }
 
@@ -148,10 +148,10 @@ pub struct EncryptedData {
 pub struct EncryptionKey {
     /// This field specifies the encryption type of the encryption key that
     /// follows in the `value` field.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub r#type: i32,
     /// The key itself.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub value: OctetString,
 }
 
@@ -159,59 +159,59 @@ pub struct EncryptionKey {
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Checksum {
     /// The algorithm used to generate the accompanying checksum.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub r#type: i32,
     /// The checksum itself.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub checksum: OctetString,
 }
 
 /// Record that helps a client authenticate to a service.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 1))]
+#[rasn(tag(explicit(application, 1)))]
 pub struct Ticket {
     /// The version number for the ticket format.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub tkt_vno: Integer,
     /// The realm that issued a ticket.  It also serves to identify the realm
     /// part of the server's principal identifier. Since a Kerberos server can
     /// only issue tickets for servers within its realm, the two will always
     /// be identical.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub realm: Realm,
     /// All components of the name part of the server's identity, including
     /// those parts that identify a specific instance of a service.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub sname: PrincipalName,
     /// The encrypted encoding of [EncTicketPart]. It is encrypted in the key
     /// shared by Kerberos and the end server (the server's secret key), using a
     /// key usage value of `2`.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub enc_part: EncryptedData,
 }
 
 /// The encrypted part of a [Ticket].
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 3))]
+#[rasn(tag(explicit(application, 3)))]
 pub struct EncTicketPart {
     /// Options that were used or requested when the ticket was issued.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub flags: TicketFlags,
     /// Used to pass the session key from Kerberos to the application server and
     /// the client.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub key: EncryptionKey,
     /// The name of the realm in which the client is registered and in which
     /// initial authentication took place.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub crealm: Realm,
     /// The name part of the client's principal identifier.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub cname: PrincipalName,
     /// Lists the names of the Kerberos realms that took part in authenticating
     /// the user to whom this ticket was issued.  It does not specify the order
     /// in which the realms were transited.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub transited: TransitedEncoding,
     /// The time of initial authentication for the named principal. It
     /// is the time of issue for the original ticket on which this ticket is
@@ -220,20 +220,20 @@ pub struct EncTicketPart {
     /// implementation of a "hot list" service at the KDC. An end service that
     /// is particularly paranoid could refuse to accept tickets for which the
     /// initial authentication occurred "too far" in the past.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub auth_time: KerberosTime,
     /// The time after which the ticket is valid. Together with `end_time`, this
     /// field specifies the life of the ticket. If the `start_time` field is
     /// absent from the ticket, then the `auth_time` field should be used in its
     /// place to determine the life of the ticket.
-    #[rasn(tag(6))]
+    #[rasn(tag(explicit(6)))]
     pub start_time: Option<KerberosTime>,
     /// The time after which the ticket will not be honored (its expiration
     /// time). Note that individual services may place their own limits on the
     /// life of a ticket and MAY reject tickets which have not yet expired. As
     /// such, this is really an upper bound on the expiration time for
     /// the ticket.
-    #[rasn(tag(7))]
+    #[rasn(tag(explicit(7)))]
     pub end_time: KerberosTime,
     /// The maximum `end_time` that may be included in a renewal. It can be
     /// thought of as the absolute expiration time for the ticket, including
@@ -241,7 +241,7 @@ pub struct EncTicketPart {
     ///
     /// Only present in tickets that have the [TicketFlags::renewable] flag set
     /// in the flags field.
-    #[rasn(tag(8))]
+    #[rasn(tag(explicit(8)))]
     pub renew_till: Option<KerberosTime>,
     /// Addresses from which the ticket can be used.
     ///
@@ -251,7 +251,7 @@ pub struct EncTicketPart {
     /// administrators; they may refuse to issue or accept such tickets. Because
     /// of the wide deployment of network address translation, it is recommended
     /// that policy allow the issue and acceptance of such tickets.
-    #[rasn(tag(9))]
+    #[rasn(tag(explicit(9)))]
     pub caddr: Option<HostAddresses>,
     /// Restrictions on any authority obtained on the basis of authentication
     /// using the ticket. It is possible for any principal in possession of
@@ -261,15 +261,15 @@ pub struct EncTicketPart {
     /// ticket is obtained during the TGS exchange, or they MAY be added during
     /// chained delegation using the authorization data field of
     /// the authenticator.
-    #[rasn(tag(10))]
+    #[rasn(tag(explicit(10)))]
     pub authorization_data: Option<AuthorizationData>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TransitedEncoding {
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub r#type: i32,
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub contents: OctetString,
 }
 
@@ -382,31 +382,31 @@ impl TicketFlags {
 
 /// Initial ticket request.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 10), delegate)]
+#[rasn(tag(explicit(application, 10), delegate))]
 pub struct AsReq(pub KdcReq);
 
 /// Additional ticket request.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 12), delegate)]
+#[rasn(tag(explicit(application, 12), delegate))]
 pub struct TgsReq(pub KdcReq);
 
 /// The ticket request struct.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KdcReq {
     /// The protocol version number.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub pvno: Integer,
     /// The type of a protocol message. It will almost always be the same as the
     /// application identifier associated with a message. It is included to make
     /// the identifier more readily accessible to the application.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub msg_type: Integer,
     /// Pre-authentication data
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub padata: Option<SequenceOf<PaData>>,
     /// The remaining fields in ticket request. If a checksum is generated for
     /// the request, it is done using this field.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub req_body: KdcReqBody,
 }
 
@@ -416,15 +416,15 @@ pub struct KdcReq {
 pub struct KdcReqBody {
     /// Flags that the client wants set on the tickets as well as other
     /// information that is to modify the behavior of the KDC.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub kdc_options: KdcOptions,
     /// The name part of the client's principal identifier.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub cname: Option<PrincipalName>,
     /// This field specifies the realm part of the server's principal
     /// identifier. In the AS exchange, this is also the realm part of the
     /// client's principal identifier.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub realm: Realm,
     /// All components of the name part of the server's identity, including
     /// those parts that identify a specific instance of a service.
@@ -432,32 +432,32 @@ pub struct KdcReqBody {
     /// May only be absent when the [KdcOptions::enc_tkt_in_skey] option is
     /// specified. If the sname is absent, the name of the server is taken from
     /// the name of the client in the ticket passed as `additional_tickets`.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub sname: Option<PrincipalName>,
     /// Included in the [AsReq] and [TgsReq] ticket requests when the requested
     /// ticket is to be postdated. It specifies the desired starttime for the
     /// requested ticket. If this field is omitted, then the KDC should use the
     /// current time instead.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub from: Option<KerberosTime>,
     /// the expiration date requested by the client in a ticket request. It is
     /// not optional, but if the requested endtime is "19700101000000Z", the
     /// requested ticket is to have the maximum endtime permitted according to
     /// KDC policy.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub till: KerberosTime,
     /// If present, the requested renew-till time sent from a client to the KDC
     /// in a ticket request.
-    #[rasn(tag(6))]
+    #[rasn(tag(explicit(6)))]
     pub rtime: Option<KerberosTime>,
     /// A random number generated by the client. If the same number is included
     /// in the encrypted response from the KDC, it provides evidence that the
     /// response is fresh and has not been replayed by an attacker. Nonces must
     /// never be reused.
-    #[rasn(tag(7))]
+    #[rasn(tag(explicit(7)))]
     pub nonce: u32,
     /// The desired encryption algorithm(s) to be used in the response.
-    #[rasn(tag(8))]
+    #[rasn(tag(explicit(8)))]
     pub etype: SequenceOf<i32>,
     /// The addresses from which the requested ticket is to be valid. Normally
     /// it includes the addresses for the client's host.  If a proxy is
@@ -468,7 +468,7 @@ pub struct KdcReqBody {
     /// included in the initial request for tickets, and it is optionally
     /// included in requests for additional tickets from the
     /// ticket-granting server.
-    #[rasn(tag(9))]
+    #[rasn(tag(explicit(9)))]
     pub addresses: Option<HostAddresses>,
     /// If present (and it can only be present in the [TgsReq] form), is an
     /// encoding of the desired `authorization_data` encrypted under the
@@ -477,10 +477,10 @@ pub struct KdcReqBody {
     /// `padata` field in the [TgsReq]). The key usage value used when
     /// encrypting is `5` if a `subkey` key is used, or `4` if the session key
     /// is used.
-    #[rasn(tag(10))]
+    #[rasn(tag(explicit(10)))]
     pub enc_authorization_data: Option<EncryptedData>,
     /// Additional tickets included in the request.
-    #[rasn(tag(11))]
+    #[rasn(tag(explicit(11)))]
     pub additional_tickets: Option<SequenceOf<Ticket>>,
 }
 
@@ -602,37 +602,37 @@ impl KdcOptions {
 
 /// The initial KDC response.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 11), delegate)]
+#[rasn(tag(explicit(application, 11), delegate))]
 pub struct AsRep(pub KdcRep);
 
 /// Subsequent KDC response.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 13), delegate)]
+#[rasn(tag(explicit(application, 13), delegate))]
 pub struct TgsRep(pub KdcRep);
 
 /// The main KDC body.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KdcRep {
     /// The protocol version number.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub pvno: Integer,
     /// The type of a protocol message.  It will almost always be the same as
     /// the application identifier associated with a message. It is included to
     /// make the identifier more readily accessible to the application.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub msg_type: Integer,
     /// Pre-authentication data.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub padata: Option<SequenceOf<PaData>>,
     /// The name of the realm in which the client is registered and in which
     /// initial authentication took place.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub crealm: Realm,
     /// The name part of the client's principal identifier.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub cname: PrincipalName,
     /// The newly-issued ticket.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub ticket: Ticket,
     /// the encrypted part of the message follows each appearance of this field.
     /// The key usage value for encrypting this field is 3 in an [AsRep]
@@ -640,18 +640,18 @@ pub struct KdcRep {
     /// pre-authentication mechanisms. In a TgsRep message, the key usage value
     /// is 8 if the TGS session key is used, or 9 if a TGS authenticator subkey
     /// is used.
-    #[rasn(tag(6))]
+    #[rasn(tag(explicit(6)))]
     pub enc_part: EncryptedData,
 }
 
 /// The encrypted initial request.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 25), delegate)]
+#[rasn(tag(explicit(application, 25), delegate))]
 pub struct EncAsRepPart(pub EncKdcRepPart);
 
 /// The encrypted subsequent request.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 26), delegate)]
+#[rasn(tag(explicit(application, 26), delegate))]
 pub struct EncTgsRepPart(pub EncKdcRepPart);
 
 /// The encrypted part of the [KdcRep] body.
@@ -659,7 +659,7 @@ pub struct EncTgsRepPart(pub EncKdcRepPart);
 pub struct EncKdcRepPart {
     /// Used to pass the session key from Kerberos to the application server and
     /// the client.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub key: EncryptionKey,
     /// The time(s) of the last request by a principal.
     ///
@@ -670,19 +670,19 @@ pub struct EncKdcRepPart {
     /// information to the user to aid in discovering unauthorized use of one's
     /// identity. It is similar in spirit to the last login time displayed when
     /// logging in to timesharing systems.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub last_req: LastReq,
     /// A random number generated by the client.  If the same number is included
     /// in the encrypted response from the KDC, it provides evidence that the
     /// response is fresh and has not been replayed by an attacker. Nonces must
     /// never be reused.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub nonce: u32,
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     /// The time that the client's secret key is due to expire.
     pub key_expiration: Option<KerberosTime>,
     /// Options that were used or requested when the ticket was issued.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub flags: TicketFlags,
     /// The time of initial authentication for the named principal. It
     /// is the time of issue for the original ticket on which this ticket is
@@ -693,20 +693,20 @@ pub struct EncKdcRepPart {
     /// of a "hot list" service at the KDC. An end service that is particularly
     /// paranoid could refuse to accept tickets for which the initial
     /// authentication occurred "too far" in the past.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub auth_time: KerberosTime,
     /// The time after which the ticket is valid. Together with `end_time`, this
     /// field specifies the life of the ticket. If the `start_time` field is
     /// absent from the ticket, then the `auth_time` field should be used in its
     /// place to determine the life of the ticket.
-    #[rasn(tag(6))]
+    #[rasn(tag(explicit(6)))]
     pub start_time: Option<KerberosTime>,
     /// The time after which the ticket will not be honored (its expiration
     /// time). Note that individual services may place their own limits on the
     /// life of a ticket and MAY reject tickets which have not yet expired. As
     /// such, this is really an upper bound on the expiration time for
     /// the ticket.
-    #[rasn(tag(7))]
+    #[rasn(tag(explicit(7)))]
     pub end_time: KerberosTime,
     /// The maximum `end_time` that may be included in a renewal. It can be
     /// thought of as the absolute expiration time for the ticket, including
@@ -714,14 +714,14 @@ pub struct EncKdcRepPart {
     ///
     /// Only present in tickets that have the [TicketFlags::renewable] flag set
     /// in the flags field.
-    #[rasn(tag(8))]
+    #[rasn(tag(explicit(8)))]
     pub renew_till: Option<KerberosTime>,
     /// The realm part of the server's principal identifier.
-    #[rasn(tag(9))]
+    #[rasn(tag(explicit(9)))]
     pub srealm: Realm,
     /// All components of the name part of the server's identity, including
     /// those parts that identify a specific instance of a service.
-    #[rasn(tag(10))]
+    #[rasn(tag(explicit(10)))]
     pub sname: PrincipalName,
     /// Addresses from which the ticket can be used.
     ///
@@ -731,9 +731,9 @@ pub struct EncKdcRepPart {
     /// administrators; they may refuse to issue or accept such tickets. Because
     /// of the wide deployment of network address translation, it is recommended
     /// that policy allow the issue and acceptance of such tickets.
-    #[rasn(tag(11))]
+    #[rasn(tag(explicit(11)))]
     pub caddr: Option<HostAddresses>,
-    #[rasn(tag(12))]
+    #[rasn(tag(explicit(12)))]
     pub encrypted_pa_data: Option<SequenceOf<PaData>>,
 }
 
@@ -754,33 +754,33 @@ pub struct LastReqValue {
     /// - `5` — `value` is the time of last request (of any type).
     /// - `6` — `value` is the time when the password will expire.
     /// - `7`, then `value` is the time when the account will expire.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub r#type: i32,
     /// The time of the last request, defined by `type`.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub value: KerberosTime,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 14))]
+#[rasn(tag(explicit(application, 14)))]
 pub struct ApReq {
     /// The protocol version number.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub pvno: Integer,
     /// The type of a protocol message.  It will almost always be the same as
     /// the application identifier associated with a message. It is included to
     /// make the identifier more readily accessible to the application.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub msg_type: Integer,
     /// Options for the request.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub ap_options: ApOptions,
     /// Ticket authenticating the client to the server.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub ticket: Ticket,
     /// The encrypted [Authenticator], which includes the client's choice of
     /// a subkey.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub authenticator: EncryptedData,
 }
 
@@ -814,41 +814,41 @@ impl ApOptions {
 /// ticket, to help the server detect replays. It also assists in the selection
 /// of a "true session key" to use with the particular session.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 2))]
+#[rasn(tag(explicit(application, 2)))]
 pub struct Authenticator {
     /// The version number for the format of the authenticator.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub authenticator_vno: Integer,
     /// The name of the realm in which the client is registered and in which
     /// initial authentication took place.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub crealm: Realm,
     /// The name part of the client's principal identifier.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub cname: PrincipalName,
     /// Contains a checksum of the application data that accompanies the
     /// [ApReq], computed using a key usage value of `10` in normal application
     /// exchanges, or `6` when used in the [TgsReq] `padata`.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub cksum: Option<Checksum>,
     /// The microsecond part of the client's timestamp.  Its value (before
     /// encryption) ranges from 0 to 999999. It often appears along with
     /// `ctime`. The two fields are used together to specify a reasonably
     /// accurate timestamp.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub cusec: Microseconds,
     /// Contains the current time on the client's host.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub ctime: KerberosTime,
     /// Contains the client's choice for an encryption key to be used to protect
     /// this specific application session. Unless an application specifies
     /// otherwise, if this field is left out, the session key from the ticket
     /// will be used.
-    #[rasn(tag(6))]
+    #[rasn(tag(explicit(6)))]
     pub subkey: Option<EncryptionKey>,
     /// The initial sequence number to be used by the [KrbPriv] or [KrbSafe]
     /// messages when sequence numbers are used to detect replays.
-    #[rasn(tag(7))]
+    #[rasn(tag(explicit(7)))]
     pub seq_number: Option<u32>,
     /// Restrictions on any authority obtained on the basis of authentication
     /// using the ticket. It is possible for any principal in possession of
@@ -858,43 +858,43 @@ pub struct Authenticator {
     /// ticket is obtained during the TGS exchange, or they MAY be added during
     /// chained delegation using the authorization data field of
     /// the authenticator.
-    #[rasn(tag(8))]
+    #[rasn(tag(explicit(8)))]
     pub authorization_data: Option<AuthorizationData>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 15))]
+#[rasn(tag(explicit(application, 15)))]
 pub struct ApRep {
     /// The protocol version number.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub pvno: Integer,
     /// The type of a protocol message.  It will almost always be the same as
     /// the application identifier associated with a message. It is included to
     /// make the identifier more readily accessible to the application.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub msg_type: Integer,
     /// The encrypted version of [EncApRepPart].
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub enc_part: EncryptedData,
 }
 
 /// The body of [ApRep].
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 27))]
+#[rasn(tag(explicit(application, 27)))]
 pub struct EncApRepPart {
     /// Contains the current time on the client's host.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub ctime: KerberosTime,
     /// The microsecond part of the client's timestamp.  Its value (before
     /// encryption) ranges from 0 to 999999. It often appears along with
     /// `ctime`. The two fields are used together to specify a reasonably
     /// accurate timestamp.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub cusec: Microseconds,
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub subkey: Option<EncryptionKey>,
     /// The sequence number of the message.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub seq_number: Option<u32>,
 }
 
@@ -902,22 +902,22 @@ pub struct EncApRepPart {
 /// with the last encryption key negotiated via subkeys, or with the session key
 /// if no negotiation has occurred.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 20))]
+#[rasn(tag(explicit(application, 20)))]
 pub struct KrbSafe {
     /// The protocol version number.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub pvno: Integer,
     /// The type of a protocol message.  It will almost always be the same as
     /// the application identifier associated with a message. It is included to
     /// make the identifier more readily accessible to the application.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub msg_type: Integer,
     /// The body of the message.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub body: KrbSafeBody,
     /// the checksum of the application data, computed with a key usage value
     /// of `15`.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub cksum: Checksum,
 }
 
@@ -925,63 +925,63 @@ pub struct KrbSafe {
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KrbSafeBody {
     /// Application-specific data that is being passed from the sender to the recipient.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub user_data: OctetString,
     /// The current time as known by the sender of the message.
     ///
     /// By checking the timestamp, the recipient of the message is able to make
     /// sure that it was recently generated, and is not a replay.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub timestamp: Option<KerberosTime>,
     /// The microsecond part of the timestamp.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub usec: Option<Microseconds>,
     /// The sequence number of the message.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub seq_number: Option<u32>,
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub s_address: HostAddress,
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub r_address: Option<HostAddress>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 21))]
+#[rasn(tag(explicit(application, 21)))]
 pub struct KrbPriv {
     /// The protocol version number.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub pvno: Integer,
     /// The type of a protocol message.  It will almost always be the same as
     /// the application identifier associated with a message. It is included to
     /// make the identifier more readily accessible to the application.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub msg_type: Integer,
     /// The encrypted body of [KrbPriv].
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub enc_part: EncryptedData,
 }
 
 /// The body of [KrbPriv].
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 28))]
+#[rasn(tag(explicit(application, 28)))]
 pub struct EncKrbPrivPart {
     /// Application-specific data that is being passed from the sender to the recipient.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub user_data: OctetString,
     /// The current time as known by the sender of the message.
     ///
     /// By checking the timestamp, the recipient of the message is able to make
     /// sure that it was recently generated, and is not a replay.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub timestamp: Option<KerberosTime>,
     /// The microsecond part of the timestamp.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub usec: Option<Microseconds>,
     /// The sequence number of the message.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub seq_number: Option<u32>,
     /// The address in use by the sender of the message.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub sender_address: HostAddress,
     /// The address in use by the recipient of the message.
     ///
@@ -989,60 +989,60 @@ pub struct EncKrbPrivPart {
     /// recipient may arbitrarily reject such messages. This field, along with
     /// `sender_address`, can be used to help detect messages that have been
     /// incorrectly or maliciously delivered to the wrong recipient.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub recipient_address: Option<HostAddress>,
 }
 
 /// Message that can be used to send Kerberos credentials from one principal
 /// to another.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 22))]
+#[rasn(tag(explicit(application, 22)))]
 pub struct KrbCred {
     /// The protocol version number.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub pvno: Integer,
     /// The type of a protocol message.  It will almost always be the same as
     /// the application identifier associated with a message. It is included to
     /// make the identifier more readily accessible to the application.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub msg_type: Integer,
     /// Tickets obtained from the KDC specifically for use by the
     /// intended recipient.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub tickets: SequenceOf<Ticket>,
     /// The encrypted body of [EncKrbCredPart].
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub enc_part: EncryptedData,
 }
 
 /// The body of [KrbCred].
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 29))]
+#[rasn(tag(explicit(application, 29)))]
 pub struct EncKrbCredPart {
     /// Sequence of tickets to be sent and information needed to use the
     /// tickets, including the session key from each.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub ticket_info: SequenceOf<KrbCredInfo>,
     /// A random number generated by the client.  If the same number is included
     /// in the encrypted response from the KDC, it provides evidence that the
     /// response is fresh and has not been replayed by an attacker. Nonces must
     /// never be reused.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub nonce: Option<u32>,
     /// The current time as known by the sender of the message.
     ///
     /// By checking the timestamp, the recipient of the message is able to make
     /// sure that it was recently generated, and is not a replay.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub timestamp: Option<KerberosTime>,
     /// The microsecond part of the timestamp.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub usec: Option<Microseconds>,
     /// The address in use by the sender of the message.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub sender_address: Option<HostAddress>,
     /// The address in use by the recipient of the message.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub recipient_address: Option<HostAddress>,
 }
 
@@ -1050,21 +1050,21 @@ pub struct EncKrbCredPart {
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct KrbCredInfo {
     /// The session key from the sender to the intended recipient.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub key: EncryptionKey,
     /// The realm of the delegated principal identity.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub prealm: Option<Realm>,
     /// The name of the delegated principal identity.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub pname: Option<PrincipalName>,
     /// Options that were used or requested when the ticket was issued.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub flags: Option<TicketFlags>,
     /// The time of initial authentication for the named principal. It
     /// is the time of issue for the original ticket on which this ticket is
     /// based.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub auth_time: Option<KerberosTime>,
     /// The time after which the ticket is valid. Together with `end_time`, this
     /// field specifies the life of the ticket. If the `start_time` field is
@@ -1098,54 +1098,54 @@ pub struct KrbCredInfo {
 
 /// An error from Kerberos.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 30))]
+#[rasn(tag(explicit(application, 30)))]
 pub struct KrbError {
     /// The protocol version number.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub pvno: Integer,
     /// The type of a protocol message.  It will almost always be the same as
     /// the application identifier associated with a message. It is included to
     /// make the identifier more readily accessible to the application.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub msg_type: Integer,
     /// Contains the current time on the client's host.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub ctime: Option<KerberosTime>,
     /// The microsecond part of the client's timestamp.  Its value (before
     /// encryption) ranges from 0 to 999999. It often appears along with
     /// `ctime`. The two fields are used together to specify a reasonably
     /// accurate timestamp.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub cusec: Option<Microseconds>,
     /// The current time on the server.
-    #[rasn(tag(4))]
+    #[rasn(tag(explicit(4)))]
     pub stime: KerberosTime,
     /// The microsecond part of the server's timestamp.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub susec: Microseconds,
     /// The error code returned by Kerberos or the server when a request fails.
-    #[rasn(tag(6))]
+    #[rasn(tag(explicit(6)))]
     pub error_code: i32,
     /// The name of the realm in which the client is registered and in which
     /// initial authentication took place.
-    #[rasn(tag(7))]
+    #[rasn(tag(explicit(7)))]
     pub crealm: Option<Realm>,
     /// The name part of the client's principal identifier.
-    #[rasn(tag(8))]
+    #[rasn(tag(explicit(8)))]
     pub cname: Option<PrincipalName>,
     /// The realm of the issuing principal.
-    #[rasn(tag(9))]
+    #[rasn(tag(explicit(9)))]
     pub realm: Realm,
     /// The name of the issuing principal.
-    #[rasn(tag(10))]
+    #[rasn(tag(explicit(10)))]
     pub sname: PrincipalName,
     /// Additional text to help explain the error code associated with the
     /// failed request.
-    #[rasn(tag(11))]
+    #[rasn(tag(explicit(11)))]
     pub e_text: Option<KerberosString>,
     /// Additional data about the error for use by the application to help it
     /// recover from or handle the error.
-    #[rasn(tag(12))]
+    #[rasn(tag(explicit(12)))]
     pub e_data: Option<OctetString>,
 }
 
@@ -1153,35 +1153,35 @@ pub type TypedData = SequenceOf<TypedDataItem>;
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TypedDataItem {
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub r#type: i32,
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub value: Option<OctetString>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PaEncTsEnc {
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub patimestamp: KerberosTime,
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub pausec: Option<Microseconds>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EtypeInfoEntry {
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub etype: i32,
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub salt: Option<OctetString>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EtypeInfo2Entry {
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub etype: i32,
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub salt: Option<KerberosString>,
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub s2kparams: Option<OctetString>,
 }
 
@@ -1195,18 +1195,18 @@ pub struct AdKdcIssued {
     /// [AuthorizationData] in the `elements` field, keyed with the session key.
     /// Its checksumtype is the mandatory checksum type for the encryption type
     /// of the session key, and its key usage value is `19`.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub ad_checksum: Checksum,
     /// The realm of the issuing principal if different from that of the
     /// KDC itself.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub realm: Option<Realm>,
     /// The name of the issuing principal if different from that of the
     /// KDC itself.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub sname: Option<PrincipalName>,
     /// A sequence of authorization data elements issued by the KDC.
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub elements: AuthorizationData,
 }
 
@@ -1218,22 +1218,22 @@ pub struct AdKdcIssued {
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AdAndOr {
     /// The number elements required to be satisfied.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub condition_count: i32,
     /// The authorization elements.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub elements: AuthorizationData,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AdCammac {
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub elements: AuthorizationData,
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub kdc_verifier: Option<VerifierMac>,
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub svc_verifier: Option<VerifierMac>,
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub other_verifiers: SequenceOf<Verifier>,
 }
 
@@ -1246,20 +1246,20 @@ pub enum Verifier {
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VerifierMac {
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub identifier: Option<PrincipalName>,
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub kvno: Option<u32>,
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub enctype: Option<i32>,
-    #[rasn(tag(3))]
+    #[rasn(tag(explicit(3)))]
     pub mac: Checksum,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[non_exhaustive]
 pub struct AdLoginAlias {
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub login_aliases: SequenceOf<PrincipalName>,
 }
 
