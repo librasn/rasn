@@ -172,7 +172,6 @@ fn lets_encrypt_x3() {
                     0x0d, 0x1d, 0x64, 0x16, 0x33, 0xaa, 0xfa, 0x84, 0x29, 0xb6, 0xd4, 0x0b, 0xc0,
                     0xd8, 0x7d, 0xc3, 0x93, 0x02, 0x03, 0x01, 0x00, 0x01,
                 ])
-                .unwrap(),
             },
             issuer_unique_id: None,
             subject_unique_id: None,
@@ -182,7 +181,7 @@ fn lets_encrypt_x3() {
                     critical: true,
                     extn_value: rasn::der::encode(&BasicConstraints {
                         ca: true,
-                        path_len_constraint: Some(0.into()),
+                        path_len_constraint: Some(0u8.into()),
                     })
                     .unwrap()
                     .into(),
@@ -191,7 +190,7 @@ fn lets_encrypt_x3() {
                     extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 15][..]).into()),
                     critical: true,
                     extn_value: rasn::der::encode(
-                        &bitvec::bitvec![bitvec::prelude::Msb0, u8; 1, 0, 0, 0, 0, 1, 1],
+                        &bitvec::bitvec![u8, bitvec::prelude::Msb0; 1, 0, 0, 0, 0, 1, 1],
                     )
                     .unwrap()
                     .into(),
@@ -320,7 +319,6 @@ fn lets_encrypt_x3() {
                 0x34, 0x5b, 0xb4, 0x42,
             ][..],
         )
-        .unwrap(),
     };
 
     let original_data: &[u8] = include_bytes!("data/letsencrypt-x3.crt");

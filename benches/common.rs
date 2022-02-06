@@ -43,7 +43,7 @@ pub fn bench_default() -> Bench {
         b: 12345678.into(),
         // c: 3.14159,
         d: (),
-        e: BitString::from_slice(&[0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77]).unwrap(),
+        e: BitString::from_slice(&[0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77]),
         f: OctetString::from([0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77].repeat(10)),
         g: ObjectIdentifier::new(vec![1, 4, 123, 4325, 23, 1, 44, 22222]).unwrap(),
         h: BenchEnum::B,

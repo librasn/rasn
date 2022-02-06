@@ -344,7 +344,7 @@ impl TicketFlags {
     /// the pre-authentication method is not indicated, but is acceptable to
     /// the KDC.
     pub fn pre_authent() -> Self {
-        Self(KerberosFlags::from_slice(&[0x1, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x1, 00]))
     }
 
     /// Indicates that the protocol employed for initial authentication required
@@ -352,7 +352,7 @@ impl TicketFlags {
     /// The hardware authentication method is selected by the KDC and the
     /// strength of the method is not indicated.
     pub fn hw_authent() -> Self {
-        Self(KerberosFlags::from_slice(&[0x2, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x2, 00]))
     }
 
     /// Indicates that the KDC for the realm has checked the transited field
@@ -364,7 +364,7 @@ impl TicketFlags {
     /// by the KDC.  At its option the application server MAY still apply its
     /// own validation based on a separate policy for acceptance.
     pub fn transited_policy_checked() -> Self {
-        Self(KerberosFlags::from_slice(&[0x4, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x4, 00]))
     }
 
     /// Indicates that the server (not the client) specified in the ticket has
@@ -376,18 +376,18 @@ impl TicketFlags {
     /// security and placement of the server on which the service will run, as
     /// well as whether the service requires the use of delegated credentials.
     pub fn ok_as_delegate() -> Self {
-        Self(KerberosFlags::from_slice(&[0x80, 0]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x80, 0]))
     }
 }
 
 /// Initial ticket request.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(explicit(application, 10), delegate))]
+#[rasn(tag(explicit(application, 10)), delegate)]
 pub struct AsReq(pub KdcReq);
 
 /// Additional ticket request.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(explicit(application, 12), delegate))]
+#[rasn(tag(explicit(application, 12)), delegate)]
 pub struct TgsReq(pub KdcReq);
 
 /// The ticket request struct.
@@ -549,7 +549,7 @@ impl KdcOptions {
     }
 
     pub fn opt_hardware_auth() -> Self {
-        Self(KerberosFlags::from_slice(&[0x4, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x4, 00]))
     }
 
     /// Indicates checking of the transited field is disabled.  Tickets issued
@@ -559,7 +559,7 @@ impl KdcOptions {
     /// KDCs are encouraged but not required to honor the
     /// [Self::disable_transited_check] option.
     pub fn disable_transited_check() -> Self {
-        Self(KerberosFlags::from_slice(&[0x4, 00, 00, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x4, 00, 00, 00]))
     }
 
     /// Indicates that a renewable ticket will be acceptable if a ticket with
@@ -569,13 +569,13 @@ impl KdcOptions {
     /// limited by local limits, or limits selected by the individual principal
     /// or server.
     pub fn renewable_ok() -> Self {
-        Self(KerberosFlags::from_slice(&[0x8, 00, 00, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x8, 00, 00, 00]))
     }
 
     /// Indicates that the ticket for the end server is to be encrypted in the
     /// session key from the additional TGT provided.
     pub fn enc_tkt_in_skey() -> Self {
-        Self(KerberosFlags::from_slice(&[0x10, 00, 00, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x10, 00, 00, 00]))
     }
 
     /// Indicates that the present request is for a renewal. The ticket provided
@@ -585,7 +585,7 @@ impl KdcOptions {
     /// field has not passed. The ticket to be renewed is passed in the `padata`
     /// field as part of the authentication header.
     pub fn renew() -> Self {
-        Self(KerberosFlags::from_slice(&[0x40, 00, 00, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x40, 00, 00, 00]))
     }
 
     /// Indicates that the request is to validate a postdated ticket. It will
@@ -596,7 +596,7 @@ impl KdcOptions {
     /// it is valid and is passed in the `padata` field as part of the
     /// authentication header.
     pub fn validate() -> Self {
-        Self(KerberosFlags::from_slice(&[0x80, 00, 00, 00]).unwrap())
+        Self(KerberosFlags::from_slice(&[0x80, 00, 00, 00]))
     }
 }
 
@@ -646,12 +646,12 @@ pub struct KdcRep {
 
 /// The encrypted initial request.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(explicit(application, 25), delegate))]
+#[rasn(tag(explicit(application, 25)), delegate)]
 pub struct EncAsRepPart(pub EncKdcRepPart);
 
 /// The encrypted subsequent request.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(explicit(application, 26), delegate))]
+#[rasn(tag(explicit(application, 26)), delegate)]
 pub struct EncTgsRepPart(pub EncKdcRepPart);
 
 /// The encrypted part of the [KdcRep] body.

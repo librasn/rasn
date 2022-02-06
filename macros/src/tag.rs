@@ -125,6 +125,7 @@ impl Tag {
         let class = &self.class;
         let value = &self.value;
 
+
         quote!(#crate_root::Tag::new(#class, #value))
     }
 }

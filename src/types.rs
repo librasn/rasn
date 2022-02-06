@@ -27,7 +27,7 @@ pub use self::{
 };
 
 ///  The `BIT STRING` type.
-pub type BitString = bitvec::vec::BitVec<bitvec::order::Msb0, u8>;
+pub type BitString = bitvec::vec::BitVec<u8, bitvec::order::Msb0>;
 ///  The `Ia5String` type.
 pub type Ia5String = Implicit<tag::IA5_STRING, Utf8String>;
 ///  The `GeneralString` type.

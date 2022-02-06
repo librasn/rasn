@@ -45,8 +45,8 @@ mod tests {
 
     #[test]
     fn bool() {
-        assert_eq!(true, decode(&encode(&true).unwrap()).unwrap());
-        assert_eq!(false, decode(&encode(&false).unwrap()).unwrap());
+        assert_eq!(true, decode::<bool>(&encode(&true).unwrap()).unwrap());
+        assert_eq!(false, decode::<bool>(&encode(&false).unwrap()).unwrap());
     }
 
     macro_rules! integer_tests {
@@ -57,8 +57,8 @@ mod tests {
                     let min = <$integer>::min_value();
                     let max = <$integer>::max_value();
 
-                    assert_eq!(min, decode(&encode(&min).unwrap()).unwrap());
-                    assert_eq!(max, decode(&encode(&max).unwrap()).unwrap());
+                    assert_eq!(min, decode::<$integer>(&encode(&min).unwrap()).unwrap());
+                    assert_eq!(max, decode::<$integer>(&encode(&max).unwrap()).unwrap());
                 }
             )*
         }
@@ -128,8 +128,8 @@ mod tests {
         let bits = BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
         let padding_test = BitString::from_element(0x42);
         let padding_expected: &[u8] = &[0x03, 02, 0x00, 0x42];
-        let trailing_test = bitvec::bitvec![bitvec::prelude::Msb0, u8; 1, 0, 0, 0, 0, 1, 1];
-        let trailing_expected: &[u8] = &[0x03, 02, 0x01, 0x86];
+        let trailing_test = bitvec::bitvec![u8, bitvec::prelude::Msb0; 1, 0, 0, 0, 0, 1, 1, 0];
+        let trailing_expected: &[u8] = &[0x03, 02, 0x00, 0x86];
 
         assert_eq!(
             small,

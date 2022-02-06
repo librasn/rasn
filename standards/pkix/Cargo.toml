@@ -2,7 +2,7 @@
 name = "rasn-pkix"
 version = "0.5.0"
 edition = "2018"
-description = "Data types for handling Management Information Base objects."
+description = "Data types for handling Public Key Infrastructure (PKIX) objects."
 license = "Apache-2.0/MIT"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,7 +12,7 @@ rasn = { path = "../..", version = "0.5.0" }
 
 [dev-dependencies]
 base64 = "0.13"
-bitvec = "0.22.3"
+bitvec = "1"
 chrono = "0.4.19"
 pem = "0.8.3"
 pretty_assertions = "0.7.2"
