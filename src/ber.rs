@@ -154,7 +154,9 @@ mod tests {
         type MyInteger = Explicit<C0, u64>;
 
         let new_int = MyInteger::new(5);
+        let data = &[0xA0, 3, 0x2, 0x1, 5][..];
 
+        assert_eq!(data, &encode(&new_int).unwrap());
         assert_eq!(new_int, decode(&encode(&new_int).unwrap()).unwrap());
     }
 
@@ -173,7 +175,7 @@ mod tests {
     fn explicit_empty_tag() {
         type EmptyTag = Explicit<C0, Option<()>>;
 
-        let value = EmptyTag::new(None::<()>);
+        let value = EmptyTag::new(None);
         let data = &[0xA0, 0][..];
 
         assert_eq!(data, &*crate::ber::encode(&value).unwrap());

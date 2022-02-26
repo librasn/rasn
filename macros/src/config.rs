@@ -411,7 +411,17 @@ impl<'a> FieldConfig<'a> {
 
         let encode_op = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.explicit) {
-                quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;)
+                let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;);
+                if self.is_option_type() {
+                    let none = &self.container_config.option_type.none_variant;
+                    quote! {
+                        if !matches!(&#this #field, #none) {
+                            #encode
+                        }
+                    }
+                } else {
+                    encode
+                }
             } else {
                 quote!(#this #field.encode_with_tag(encoder, #tag)?;)
             }
@@ -441,6 +451,7 @@ impl<'a> FieldConfig<'a> {
         let or_else = match self.default {
             Some(Some(ref path)) => quote! { .unwrap_or_else(|_| #path ()) },
             Some(None) => quote! { .unwrap_or_default() },
+            None if self.is_option_type() => quote!{ .ok() },
             None => {
                 let ident = format!(
                     "{}.{}",

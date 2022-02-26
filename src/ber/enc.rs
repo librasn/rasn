@@ -394,7 +394,6 @@ impl crate::Encoder for Encoder {
         let mut encoder = Self::new(self.config);
         value.encode(&mut encoder)?;
         self.encode_constructed(tag, &encoder.output);
-
         Ok(())
     }
 
@@ -462,16 +461,6 @@ mod tests {
                 Tag::new(crate::types::Class::Private, 127),
                 true,
             ))
-        );
-    }
-
-    #[test]
-    fn explicit_empty_tag() {
-        use crate::types::Explicit;
-
-        assert_eq!(
-            &[0xA0, 0],
-            &*crate::ber::encode(&<Explicit<C0, _>>::new(None::<()>)).unwrap()
         );
     }
 

@@ -44,7 +44,18 @@ pub fn derive_struct_impl(
         let ty = &container.fields.iter().next().unwrap().ty;
 
         if config.tag.as_ref().map(|tag| tag.explicit).unwrap_or_default() {
-            quote!(encoder.encode_explicit_prefix(tag, &self.0).map(drop))
+            let encode =
+            quote!(encoder.encode_explicit_prefix(tag, &self.0).map(drop));
+            if config.option_type.is_option_type(&ty) {
+                let none_variant = &config.option_type.none_variant;
+                quote! {
+                    if !matches!(&self.0, #none_variant) {
+                        #encode
+                    }
+                }
+            } else {
+                encode
+            }
         } else {
             quote!(<#ty as #crate_root::Encode>::encode_with_tag(&self.0, encoder, tag))
         }
