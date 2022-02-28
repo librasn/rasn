@@ -2,7 +2,7 @@ use snafu::*;
 
 /// An error that ocurred when encoding BER or any of its variants.
 #[derive(Snafu)]
-#[snafu(visibility = "pub(crate)")]
+#[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
 pub enum Error {
     /// `OBJECT IDENTIFIER` must have at least two components.

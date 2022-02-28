@@ -66,7 +66,7 @@ impl<'input> Decoder<'input> {
         self.input = input;
         match contents {
             Some(contents) => Ok((identifier, contents)),
-            None => error::IndefiniteLengthNotAllowed.fail(),
+            None => error::IndefiniteLengthNotAllowedSnafu.fail(),
         }
     }
 
@@ -153,10 +153,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if identifier.is_primitive() {
             match contents {
                 Some(c) => Ok(c.to_vec()),
-                None => error::IndefiniteLengthNotAllowed.fail(),
+                None => error::IndefiniteLengthNotAllowedSnafu.fail(),
             }
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
-            error::ConstructedEncodingNotAllowed.fail()
+            error::ConstructedEncodingNotAllowedSnafu.fail()
         } else {
             let mut buffer = Vec::new();
 
@@ -208,7 +208,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
         let the_number = root_octets
             .to_u32()
-            .context(error::IntegerOverflow { max_width: 32u32 })?;
+            .context(error::IntegerOverflowSnafu { max_width: 32u32 })?;
         let first: u32;
         let second: u32;
         const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
@@ -227,11 +227,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
             buffer.push(
                 number
                     .to_u32()
-                    .context(error::IntegerOverflow { max_width: 32u32 })?,
+                    .context(error::IntegerOverflowSnafu { max_width: 32u32 })?,
             );
         }
 
-        crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifier)
+        crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifierSnafu)
     }
 
     fn decode_bit_string(&mut self, tag: Tag) -> Result<types::BitString> {
@@ -284,14 +284,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let vec = self.decode_octet_string(tag)?;
         types::Utf8String::from_utf8(vec)
             .ok()
-            .context(error::InvalidUtf8)
+            .context(error::InvalidUtf8Snafu)
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
         let string = self.decode_utf8_string(tag)?;
         chrono::NaiveDateTime::parse_from_str(&string, "%Y%m%d%H%M%SZ")
             .ok()
-            .context(error::InvalidDate)
+            .context(error::InvalidDateSnafu)
             .map(|date| types::GeneralizedTime::from_utc(date, chrono::FixedOffset::east(0)))
     }
 
@@ -299,7 +299,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let string = self.decode_utf8_string(tag)?;
         chrono::NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
             .ok()
-            .context(error::InvalidDate)
+            .context(error::InvalidDateSnafu)
             .map(|date| types::UtcTime::from_utc(date, chrono::Utc))
     }
 

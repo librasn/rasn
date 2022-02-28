@@ -3,7 +3,7 @@ use snafu::Snafu;
 
 /// An error that occurred when decoding BER or any of its variants.
 #[derive(Snafu)]
-#[snafu(visibility = "pub(crate)")]
+#[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
 pub enum Error {
     /// More bytes needed to parse the complete value.
