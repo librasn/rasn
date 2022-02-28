@@ -35,10 +35,11 @@ pub fn derive_struct_impl(
         .filter_map(|(key, fields)| key.then(|| fields))
         .map(|fields| {
             let tag_tree = fields.map(|(i, f)| f.tag_tree(i));
-            let error_message = format!("{}'s fields is not a valid \
+            let error_message = format!(
+                "{}'s fields is not a valid \
                         order of ASN.1 tags, ensure that your field's tags and \
                         OPTIONALs are correct.",
-                        name
+                name
             );
 
             quote!({
@@ -80,7 +81,8 @@ pub fn derive_enum_impl(
                 .unwrap_or(quote!(#crate_root::Tag::EOC))
         });
 
-    let error_message = format!("{}'s variants is not unique, ensure that your variants's tags are correct.",
+    let error_message = format!(
+        "{}'s variants is not unique, ensure that your variants's tags are correct.",
         name
     );
 

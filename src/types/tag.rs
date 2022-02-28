@@ -291,9 +291,9 @@ mod tests {
 
     #[test]
     fn is_unique() {
-        const _ : () = assert!(_EXPECTED.is_unique());
-        const _ : () = assert!(!_INVALID_FLAT.is_unique());
-        const _ : () = assert!(!_INVALID_NESTED.is_unique());
+        const _: () = assert!(_EXPECTED.is_unique());
+        const _: () = assert!(!_INVALID_FLAT.is_unique());
+        const _: () = assert!(!_INVALID_NESTED.is_unique());
     }
 
     #[test]

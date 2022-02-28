@@ -42,7 +42,12 @@ pub fn derive_struct_impl(
     let decode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
 
-        if config.tag.as_ref().map(|tag| tag.explicit).unwrap_or_default() {
+        if config
+            .tag
+            .as_ref()
+            .map(|tag| tag.explicit)
+            .unwrap_or_default()
+        {
             quote! {
                 decoder.decode_explicit_prefix::<#ty>(tag).map(Self)
             }

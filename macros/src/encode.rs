@@ -43,9 +43,13 @@ pub fn derive_struct_impl(
     let encode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
 
-        if config.tag.as_ref().map(|tag| tag.explicit).unwrap_or_default() {
-            let encode =
-            quote!(encoder.encode_explicit_prefix(tag, &self.0).map(drop));
+        if config
+            .tag
+            .as_ref()
+            .map(|tag| tag.explicit)
+            .unwrap_or_default()
+        {
+            let encode = quote!(encoder.encode_explicit_prefix(tag, &self.0).map(drop));
             if config.option_type.is_option_type(&ty) {
                 let none_variant = &config.option_type.none_variant;
                 quote! {

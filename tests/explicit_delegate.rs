@@ -5,9 +5,14 @@ use rasn::prelude::*;
 pub struct ExplicitDelegate(pub Sequence);
 
 #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
-pub struct Sequence { b: bool }
+pub struct Sequence {
+    b: bool,
+}
 
-const _: () = assert!(Tag::const_eq(ExplicitDelegate::TAG, &Tag::new(Class::Application, 1)));
+const _: () = assert!(Tag::const_eq(
+    ExplicitDelegate::TAG,
+    &Tag::new(Class::Application, 1)
+));
 
 #[test]
 fn der() {

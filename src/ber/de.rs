@@ -409,7 +409,10 @@ mod tests {
 
     #[test]
     fn integer() {
-        assert_eq!(32768, decode::<i32>(&[0x02, 0x03, 0x00, 0x80, 0x00,]).unwrap());
+        assert_eq!(
+            32768,
+            decode::<i32>(&[0x02, 0x03, 0x00, 0x80, 0x00,]).unwrap()
+        );
         assert_eq!(32767, decode::<i32>(&[0x02, 0x02, 0x7f, 0xff]).unwrap());
         assert_eq!(256, decode::<i16>(&[0x02, 0x02, 0x01, 0x00]).unwrap());
         assert_eq!(255, decode::<i16>(&[0x02, 0x02, 0x00, 0xff]).unwrap());
@@ -422,7 +425,10 @@ mod tests {
         assert_eq!(-129i16, decode::<i16>(&[0x02, 0x02, 0xff, 0x7f]).unwrap());
         assert_eq!(-256i16, decode::<i16>(&[0x02, 0x02, 0xff, 0x00]).unwrap());
         assert_eq!(-32768i32, decode::<i32>(&[0x02, 0x02, 0x80, 0x00]).unwrap());
-        assert_eq!(-32769i32, decode::<i32>(&[0x02, 0x03, 0xff, 0x7f, 0xff]).unwrap());
+        assert_eq!(
+            -32769i32,
+            decode::<i32>(&[0x02, 0x03, 0xff, 0x7f, 0xff]).unwrap()
+        );
 
         let mut data = [0u8; 261];
         data[0] = 0x02;

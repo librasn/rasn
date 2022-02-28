@@ -66,8 +66,13 @@ impl Tag {
                         let second = iter.next();
 
                         match (first, second) {
-                            (Some(syn::NestedMeta::Meta(syn::Meta::Path(path))), Some(syn::NestedMeta::Lit(lit))) => {
-                                let class = Class::from_ident(path.get_ident().expect("Path must be a valid ident."));
+                            (
+                                Some(syn::NestedMeta::Meta(syn::Meta::Path(path))),
+                                Some(syn::NestedMeta::Lit(lit)),
+                            ) => {
+                                let class = Class::from_ident(
+                                    path.get_ident().expect("Path must be a valid ident."),
+                                );
                                 let value = lit.clone();
                                 explicit = true;
                                 tag = Some((class, value));
@@ -124,7 +129,6 @@ impl Tag {
     pub fn to_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
         let class = &self.class;
         let value = &self.value;
-
 
         quote!(#crate_root::Tag::new(#class, #value))
     }
