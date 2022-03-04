@@ -1,6 +1,6 @@
 [package]
 name = "rasn-derive"
-version = "0.5.0"
+version = "0.5.1"
 categories = ["encoding", "no-std", "parser-implementations"]
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
