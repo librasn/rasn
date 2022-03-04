@@ -602,12 +602,12 @@ impl KdcOptions {
 
 /// The initial KDC response.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(explicit(application, 11), delegate))]
+#[rasn(tag(explicit(application, 11)), delegate)]
 pub struct AsRep(pub KdcRep);
 
 /// Subsequent KDC response.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(explicit(application, 13), delegate))]
+#[rasn(tag(explicit(application, 13)), delegate)]
 pub struct TgsRep(pub KdcRep);
 
 /// The main KDC body.
