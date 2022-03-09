@@ -104,6 +104,11 @@ asn_type! {
 
 }
 
+impl<T: AsnType> AsnType for &'_ T {
+    const TAG: Tag = T::TAG;
+    const TAG_TREE: TagTree = T::TAG_TREE;
+}
+
 impl<T: AsnType> AsnType for Box<T> {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;

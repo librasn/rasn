@@ -5,6 +5,9 @@ mod asn_type;
 mod config;
 mod decode;
 mod encode;
+mod ext;
+mod r#enum;
+mod r#struct;
 mod tag;
 
 use config::Config;
@@ -20,7 +23,8 @@ fn __print_stream(stream: proc_macro2::TokenStream) -> proc_macro::TokenStream {
 /// An automatic derive of the `Decode` trait.
 ///
 /// Will automatically generate a decode implementation using the your
-/// container's definition.
+/// container's definition. See [`AsnType`](`asn_type_derive`) for information
+/// on available attributes.
 #[proc_macro_derive(Decode, attributes(rasn))]
 pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
@@ -30,7 +34,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     match input.data {
         syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
-        syn::Data::Enum(v) => decode::derive_enum_impl(name, generics, v, &config),
+        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum { name, generics, variants, config }.impl_decode(),
         _ => panic!("Union types are not supported."),
     }
     .into()
@@ -39,7 +43,8 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 /// An automatic derive of the `Encode` trait.
 ///
 /// Will automatically generate a encode implementation using the your
-/// container's definition.
+/// container's definition. See [`AsnType`](`asn_type_derive`) for information
+/// on available attributes.
 #[proc_macro_derive(Encode, attributes(rasn))]
 pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree
@@ -51,7 +56,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     match input.data {
         syn::Data::Struct(v) => encode::derive_struct_impl(name, generics, v, &config),
-        syn::Data::Enum(v) => encode::derive_enum_impl(name, generics, v, &config),
+        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum { name, generics, variants, config }.impl_encode(),
         _ => todo!(),
     }
     .into()
@@ -66,12 +71,15 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 /// ##### Shared Attributes
 /// These attributes are available on containers, variants, and fields.
 /// - *`tag([class], number)`* — override the default tag with the one
-/// specified with this attribute. E.g. `#[rasn(rag(context, 0))]`.
+/// specified with this attribute. E.g. `#[rasn(tag(context, 0))]`, you can also
+/// wrapp `[class], number` in `explicit` to mark it as a explicit tag
+/// (e.g.  `#[rasn(tag(explicit(0)))]`.)
 ///
 /// ##### Container Attributes
 /// - `crate_root` The path to the `rasn` library to use in the macro.
 /// - `enumerated/choice` Use either `#[rasn(choice)]` or `#[rasn(enumerated)]`
-/// to mark your enum as one of the two different enum types in ASN.1.
+/// - `delegate` Only available for newtype wrappers (e.g. `struct Delegate(T)`);
+/// uses the inner `T` type for implementing the trait.
 #[proc_macro_derive(AsnType, attributes(rasn))]
 pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree
@@ -82,7 +90,7 @@ pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 
     match input.data {
         syn::Data::Struct(v) => asn_type::derive_struct_impl(name, generics, v, &config).into(),
-        syn::Data::Enum(v) => asn_type::derive_enum_impl(name, generics, v, &config).into(),
+        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum { name, generics, variants, config }.impl_asntype().into(),
         _ => panic!("Union types are not supported."),
     }
 }

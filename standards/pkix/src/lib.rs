@@ -307,7 +307,7 @@ pub struct BuiltInDomainDefinedAttribute {
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 1))]
+#[rasn(tag(explicit(application, 1)))]
 #[rasn(choice)]
 pub enum CountryName {
     X121DccCode(NumericString),
@@ -315,7 +315,7 @@ pub enum CountryName {
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(application, 2))]
+#[rasn(tag(explicit(application, 2)))]
 #[rasn(choice)]
 pub enum AdministrationDomainName {
     Numeric(NumericString),

@@ -107,6 +107,16 @@ impl Error for core::convert::Infallible {
     }
 }
 
+impl<E: Encode> Encode for &'_ E {
+    fn encode<EN: Encoder>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
+        E::encode(self, encoder)
+    }
+
+    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+        E::encode_with_tag(self, encoder, tag)
+    }
+}
+
 impl Encode for () {
     fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
         encoder.encode_null(tag).map(drop)

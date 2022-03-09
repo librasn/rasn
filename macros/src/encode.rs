@@ -1,4 +1,4 @@
-use crate::config::*;
+use crate::{config::*, ext::GenericsExt};
 
 pub fn derive_struct_impl(
     name: syn::Ident,
@@ -14,31 +14,8 @@ pub fn derive_struct_impl(
         .map(|(i, field)| FieldConfig::new(field, config).encode(i, true))
         .collect();
 
-    for param in generics.type_params_mut() {
-        param.colon_token = Some(Default::default());
-        param.bounds = {
-            let mut punct = syn::punctuated::Punctuated::new();
-            punct.push(
-                syn::TraitBound {
-                    paren_token: None,
-                    modifier: syn::TraitBoundModifier::None,
-                    lifetimes: None,
-                    path: {
-                        let mut path = crate_root.clone();
-                        path.segments.push(syn::PathSegment {
-                            ident: quote::format_ident!("Encode"),
-                            arguments: syn::PathArguments::None,
-                        });
-
-                        path
-                    },
-                }
-                .into(),
-            );
-
-            punct
-        };
-    }
+    generics.add_trait_bounds(crate_root, quote::format_ident!("Encode"));
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let encode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
@@ -64,144 +41,111 @@ pub fn derive_struct_impl(
             quote!(<#ty as #crate_root::Encode>::encode_with_tag(&self.0, encoder, tag))
         }
     } else {
-        let operation = if config.set {
-            quote!(encode_set)
-        } else {
-            quote!(encode_sequence)
-        };
+        let operation = config.set.then(|| quote!(encode_set)).unwrap_or_else(|| quote!(encode_sequence));
 
-        quote! {
+        let encode_impl = quote! {
             encoder.#operation(tag, |encoder| {
                 #(#list)*
 
                 Ok(())
             }).map(drop)
+        };
+
+        if config.tag.as_ref().map_or(false, |tag| tag.explicit) {
+            map_to_inner_type(quote!(tag), &name, &container.fields, &generics, &crate_root, encode_impl)
+        } else {
+            encode_impl
         }
     };
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
+    let vars = fields_as_vars(&container.fields);
     quote! {
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
             fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> Result<(), EN::Error> {
+                #(#vars)*
+
                 #encode_impl
             }
         }
     }
 }
 
-pub fn derive_enum_impl(
-    name: syn::Ident,
-    mut generics: syn::Generics,
-    container: syn::DataEnum,
-    config: &Config,
-) -> proc_macro2::TokenStream {
-    let crate_root = &config.crate_root;
+pub fn map_to_inner_type(tag: proc_macro2::TokenStream, name: &syn::Ident, fields: &syn::Fields, generics: &syn::Generics, crate_root: &syn::Path, encode_impl: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+    let inner_name = quote::format_ident!("Inner{}", name);
+    let mut inner_generics = generics.clone();
+    inner_generics.params.push(syn::LifetimeDef::new(syn::Lifetime::new("'inner", proc_macro2::Span::call_site())).into());
 
-    let encode_with_tag = if config.enumerated {
-        quote! {
-            encoder.encode_enumerated(tag, *self as isize).map(drop)
+    let (field_defs, init_fields) = match &fields {
+        syn::Fields::Named(_) => {
+            let field_defs = fields.iter().map(|field| {
+                let name = field.ident.as_ref().unwrap();
+                let ty = &field.ty;
+                quote!(#name : &'inner #ty)
+            });
+
+            let init_fields = fields.iter().map(|field| {
+                let name = field.ident.as_ref().unwrap();
+                quote!(#name : &#name)
+            });
+
+            fn wrap(fields: impl Iterator<Item = proc_macro2::TokenStream>) -> proc_macro2::TokenStream { quote!({ #(#fields),* }) }
+
+            (wrap(field_defs), wrap(init_fields))
         }
-    } else {
-        quote! {
-            encoder.encode_explicit_prefix(tag, self).map(drop)
+        syn::Fields::Unnamed(_) => {
+            let field_defs = fields.iter().map(|field| {
+                let ty = &field.ty;
+                quote!(&'inner #ty)
+            });
+
+            let init_fields = fields.iter().enumerate().map(|(i, _)| {
+                let i = syn::Index::from(i);
+                quote!(&self.#i)
+            });
+
+            fn wrap(fields: impl Iterator<Item = proc_macro2::TokenStream>) -> proc_macro2::TokenStream { quote!((#(#fields),*)) }
+
+            (wrap(field_defs), wrap(init_fields))
         }
+        syn::Fields::Unit => (quote!(;), quote!()),
     };
 
-    let encode = if config.choice {
-        let variants = container.variants.iter().enumerate().map(|(i, v)| {
-            let ident = &v.ident;
-            let variant_config = VariantConfig::new(v, config);
-            let variant_tag = variant_config.tag(i);
+    let vars = fields_as_vars(&fields);
+    let (impl_generics, ty_generics, where_clause) = inner_generics.split_for_impl();
+    quote! {
+        struct #inner_name #inner_generics #field_defs
 
-            match &v.fields {
-                syn::Fields::Named(_) => {
-                    let idents = v.fields.iter().map(|f| {
-                        let ident = f.ident.as_ref().unwrap();
-                        quote!(#ident)
-                    });
-
-                    let fields = v.fields.iter().enumerate().map(|(i, f)| {
-                        let field_config = FieldConfig::new(f, config);
-                        field_config.encode(i, false)
-                    });
-
-                    quote!(#name::#ident { #(#idents),* } => {
-                        encoder.encode_sequence(#variant_tag, |encoder| {
-                            #(#fields)*
-                            Ok(())
-                        }).map(drop)
-                    })
-                }
-                syn::Fields::Unnamed(_) => {
-                    if v.fields.iter().count() != 1 {
-                        panic!("Tuple variants must contain only a single element.");
-                    }
-                    let encode_operation = if variant_config.tag.is_some() || config.automatic_tags
-                    {
-                        quote!(#crate_root::Encode::encode_with_tag(value, encoder, #variant_tag))
-                    } else {
-                        quote!(#crate_root::Encode::encode(value, encoder))
-                    };
-
-                    quote! {
-                        #name::#ident(value) => {
-                            #encode_operation.map(drop)
-                        }
-                    }
-                }
-                syn::Fields::Unit => {
-                    quote!(#name::#ident => { encoder.encode_null(#variant_tag).map(drop) })
-                }
+            impl #impl_generics  #crate_root::AsnType for #inner_name #ty_generics #where_clause {
+                const TAG: #crate_root::Tag = #crate_root::Tag::SEQUENCE;
             }
+
+        impl #impl_generics  #crate_root::Encode for #inner_name #ty_generics #where_clause {
+            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> Result<(), EN::Error> {
+                #(#vars)*
+
+                #encode_impl
+            }
+        }
+
+        let inner = #inner_name #init_fields;
+
+        encoder.encode_explicit_prefix(#tag, &inner).map(drop)
+    }
+}
+
+fn fields_as_vars(fields: &syn::Fields) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
+   fields.iter().enumerate().map(|(i, field)| {
+        let self_name = field.ident.as_ref().map(|ident| quote!(#ident)).unwrap_or_else(|| {
+            let i = syn::Index::from(i);
+            quote!(#i)
         });
 
-        Some(quote! {
-            fn encode<E: #crate_root::Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-                match self {
-                    #(#variants),*
-                }.map(drop)
-            }
-        })
-    } else {
-        None
-    };
+        let name = field.ident.is_some().then(|| self_name.clone())
+            .unwrap_or_else(|| {
+                let ident = format_ident!("i{}", i);
+                quote!(#ident)
+            });
 
-    for param in generics.type_params_mut() {
-        param.colon_token = Some(Default::default());
-        param.bounds = {
-            let mut punct = syn::punctuated::Punctuated::new();
-            punct.push(
-                syn::TraitBound {
-                    paren_token: None,
-                    modifier: syn::TraitBoundModifier::None,
-                    lifetimes: None,
-                    path: {
-                        let mut path = crate_root.clone();
-                        path.segments.push(syn::PathSegment {
-                            ident: quote::format_ident!("Encode"),
-                            arguments: syn::PathArguments::None,
-                        });
-
-                        path
-                    },
-                }
-                .into(),
-            );
-
-            punct
-        };
-    }
-
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    quote! {
-        #[automatically_derived]
-        impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
-            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> Result<(), EN::Error> {
-                #encode_with_tag
-            }
-
-            #encode
-        }
-    }
+        quote!(#[allow(unused)] let #name = &self.#self_name;)
+    })
 }

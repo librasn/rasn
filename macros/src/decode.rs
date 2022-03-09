@@ -1,6 +1,6 @@
 use syn::Fields;
 
-use crate::config::*;
+use crate::{config::*, ext::GenericsExt};
 
 pub fn derive_struct_impl(
     name: syn::Ident,
@@ -10,33 +10,7 @@ pub fn derive_struct_impl(
 ) -> proc_macro2::TokenStream {
     let mut list = vec![];
     let crate_root = &config.crate_root;
-
-    for param in generics.type_params_mut() {
-        param.colon_token = Some(Default::default());
-        param.bounds = {
-            let mut punct = syn::punctuated::Punctuated::new();
-            punct.push(
-                syn::TraitBound {
-                    paren_token: None,
-                    modifier: syn::TraitBoundModifier::None,
-                    lifetimes: None,
-                    path: {
-                        let mut path = crate_root.clone();
-                        path.segments.push(syn::PathSegment {
-                            ident: quote::format_ident!("Decode"),
-                            arguments: syn::PathArguments::None,
-                        });
-
-                        path
-                    },
-                }
-                .into(),
-            );
-
-            punct
-        };
-    }
-
+    generics.add_trait_bounds(crate_root, quote::format_ident!("Decode"));
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let decode_impl = if config.delegate {
@@ -74,19 +48,16 @@ pub fn derive_struct_impl(
                     .option_type
                     .map_to_inner_type(&field.ty)
                     .unwrap_or(&field.ty);
-                let tag = FieldConfig::new(field, config).tag(i);
+                let tag_attr = FieldConfig::new(field, config).tag_derive(i);
                 let name = quote::format_ident!("Field{}", i);
 
                 (
                     name.clone(),
                     quote! {
-                        #[derive(#crate_root::Decode, #crate_root::Encode)]
+                        #[derive(#crate_root::AsnType, #crate_root::Decode, #crate_root::Encode)]
                         #[rasn(delegate)]
+                        #tag_attr
                         pub struct #name(#ty);
-
-                        impl #crate_root::AsnType for #name {
-                            const TAG: Tag = #tag;
-                        }
                     },
                 )
             })
@@ -125,7 +96,7 @@ pub fn derive_struct_impl(
                     }
                 }
 
-                #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field("#required_field_names"))?;)*
+                #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field(stringify!(#required_field_names)))?;)*
 
                 Ok(Self #set_init)
             })
@@ -150,6 +121,13 @@ pub fn derive_struct_impl(
         }
     };
 
+    let decode_impl = if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.explicit) {
+        let tag = config.tag_for_struct(&container.fields);
+        map_from_inner_type(tag, &name, &generics, &container.fields, container.semi_token, None, &config)
+    } else {
+        decode_impl
+    };
+
     quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
             fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
@@ -159,89 +137,36 @@ pub fn derive_struct_impl(
     }
 }
 
-pub fn derive_enum_impl(
-    name: syn::Ident,
-    mut generics: syn::Generics,
-    container: syn::DataEnum,
-    config: &Config,
-) -> proc_macro2::TokenStream {
+pub fn map_from_inner_type(tag: proc_macro2::TokenStream, name: &syn::Ident, generics: &syn::Generics, fields: &Fields, semi: Option<syn::Token![;]>, outer_name: Option<proc_macro2::TokenStream>, config: &Config) -> proc_macro2::TokenStream {
+    let inner_name = quote::format_ident!("Inner{}", name);
     let crate_root = &config.crate_root;
-    let decode_with_tag = if config.enumerated {
-        let variants = container.variants.iter().map(|v| {
-            let ident = &v.ident;
-            quote!(i if i == (#name::#ident as isize).into() => #name::#ident,)
-        });
+    let outer_name = outer_name.unwrap_or(quote!(Self));
 
-        quote! {
-            let integer = decoder.decode_enumerated(tag)?;
+    let map_from_inner = fields.iter().enumerate().map(|(i, field)| {
+        let name = field.ident.as_ref().map(|ident| quote!(#ident)).unwrap_or_else(|| quote!(#i));
+        quote!(#name : inner.#name)
+    });
 
-            Ok(match integer {
-                #(#variants)*
-                _ => return Err(#crate_root::de::Error::custom("Invalid enumerated disrciminant."))
-            })
-
-        }
-    } else {
-        quote! {
-            decoder.decode_explicit_prefix(tag)
-        }
-    };
-
-    let decode = if config.choice {
-        let variants = container
-            .variants
-            .iter()
-            .enumerate()
-            .map(|(i, v)| VariantConfig::new(v, config).decode(&name, i));
-
-        let name = syn::LitStr::new(&name.to_string(), proc_macro2::Span::call_site());
-        Some(quote! {
-            fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-                #(#variants);*
-                Err(#crate_root::de::Error::no_valid_choice(#name))
-            }
-        })
-    } else {
-        None
-    };
-
-    let crate_root = &config.crate_root;
-
-    for param in generics.type_params_mut() {
-        param.colon_token = Some(Default::default());
-        param.bounds = {
-            let mut punct = syn::punctuated::Punctuated::new();
-            punct.push(
-                syn::TraitBound {
-                    paren_token: None,
-                    modifier: syn::TraitBoundModifier::None,
-                    lifetimes: None,
-                    path: {
-                        let mut path = crate_root.clone();
-                        path.segments.push(syn::PathSegment {
-                            ident: quote::format_ident!("Decode"),
-                            arguments: syn::PathArguments::None,
-                        });
-
-                        path
-                    },
-                }
-                .into(),
-            );
-
-            punct
-        };
-    }
+    let decode_fields = fields.iter().enumerate().map(|(i, field)| {
+        let field_config = FieldConfig::new(field, config);
+        field_config.decode(name, i)
+    });
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-
     quote! {
-        impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
-                #decode_with_tag
-            }
+        #[derive(#crate_root::AsnType)]
+        struct #inner_name #generics #fields #semi
 
-            #decode
+        impl #impl_generics #crate_root::Decode for #inner_name #ty_generics #where_clause {
+            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
+                decoder.decode_sequence(tag, |decoder| {
+                    Ok::<_, D::Error>(#inner_name { #(#decode_fields),* })
+                })
+            }
         }
+
+        let inner = decoder.decode_explicit_prefix::<#inner_name>(#tag)?;
+
+        Ok(#outer_name { #(#map_from_inner),* })
     }
 }

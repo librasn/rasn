@@ -19,6 +19,15 @@ impl Class {
             ),
         }
     }
+
+    pub fn to_ident(&self) -> syn::Ident {
+        quote::format_ident!("{}", match self {
+            Self::Universal => "universal",
+            Self::Application => "application",
+            Self::Context => "context",
+            Self::Private => "private",
+        })
+    }
 }
 
 impl quote::ToTokens for Class {
