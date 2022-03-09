@@ -1,6 +1,6 @@
 [package]
 name = "rasn-kerberos"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
 description = "Data types for Kerberos V5"
