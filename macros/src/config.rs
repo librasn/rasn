@@ -166,8 +166,7 @@ impl Config {
 
     pub fn tag_for_struct(&self, fields: &syn::Fields) -> proc_macro2::TokenStream {
         let crate_root = &self.crate_root;
-        self
-            .tag
+        self.tag
             .as_ref()
             .map(|t| t.to_tokens(crate_root))
             .or_else(|| {
@@ -178,9 +177,8 @@ impl Config {
                     quote!(<#ty as #crate_root::AsnType>::TAG)
                 })
             })
-        .or_else(|| self.set.then(|| quote!(#crate_root::Tag::SET)))
+            .or_else(|| self.set.then(|| quote!(#crate_root::Tag::SET)))
             .unwrap_or(quote!(#crate_root::Tag::SEQUENCE))
-
     }
 }
 
@@ -236,7 +234,11 @@ pub struct VariantConfig<'config> {
 }
 
 impl<'config> VariantConfig<'config> {
-    pub fn new(variant: &'config syn::Variant, generics: &'config syn::Generics, container_config: &'config Config) -> Self {
+    pub fn new(
+        variant: &'config syn::Variant,
+        generics: &'config syn::Generics,
+        container_config: &'config Config,
+    ) -> Self {
         let mut tag = None;
         let mut iter = variant
             .attrs
@@ -309,7 +311,15 @@ impl<'config> VariantConfig<'config> {
                         .map(|t| t.to_tokens(crate_root))
                         .unwrap_or(quote!(#crate_root::Tag::SEQUENCE));
 
-                        super::decode::map_from_inner_type(tag, &name, &self.generics, &self.variant.fields, Some(<_>::default()), Some(quote!(Self::#ident)), &self.container_config)
+                    super::decode::map_from_inner_type(
+                        tag,
+                        &name,
+                        &self.generics,
+                        &self.variant.fields,
+                        Some(<_>::default()),
+                        Some(quote!(Self::#ident)),
+                        &self.container_config,
+                    )
                 } else {
                     let decode_fields = self.variant.fields.iter().enumerate().map(|(i, field)| {
                         let field_config = FieldConfig::new(field, self.container_config);
@@ -523,7 +533,12 @@ impl<'a> FieldConfig<'a> {
     }
 
     pub fn tag_derive(&self, context: usize) -> proc_macro2::TokenStream {
-        if let Some(Tag { class, value, explicit }) = &self.tag {
+        if let Some(Tag {
+            class,
+            value,
+            explicit,
+        }) = &self.tag
+        {
             if self.container_config.automatic_tags {
                 panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
             }

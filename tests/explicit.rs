@@ -46,13 +46,13 @@ pub enum DelegateChoice {
 #[rasn(choice)]
 pub enum InlineChoice {
     #[rasn(tag(explicit(application, 1)))]
-    Sequence { b: bool }
+    Sequence { b: bool },
 }
 
 #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
 #[rasn(choice, tag(explicit(application, 1)))]
 pub enum WrappedChoice {
-    Sequence { b: bool }
+    Sequence { b: bool },
 }
 
 const _: () = assert!(Tag::const_eq(
@@ -60,15 +60,9 @@ const _: () = assert!(Tag::const_eq(
     &Tag::new(Class::Application, 1)
 ));
 
-const _: () = assert!(Tag::const_eq(
-    DelegateSequence::TAG,
-    &InlineSequence::TAG,
-));
+const _: () = assert!(Tag::const_eq(DelegateSequence::TAG, &InlineSequence::TAG,));
 
-const _: () = assert!(Tag::const_eq(
-    DelegateSequence::TAG,
-    &InlineSet::TAG,
-));
+const _: () = assert!(Tag::const_eq(DelegateSequence::TAG, &InlineSet::TAG,));
 
 #[test]
 fn works() {
@@ -78,7 +72,7 @@ fn works() {
     let field_seq = SequenceField { b: true };
     let field_set = SetField { b: true };
     let inline_set = InlineSet { b: true };
-    let delegate_choice = DelegateChoice::Sequence(Sequence { b: true});
+    let delegate_choice = DelegateChoice::Sequence(Sequence { b: true });
     let inline_choice = InlineChoice::Sequence { b: true };
     let wrapped_choice = WrappedChoice::Sequence { b: true };
     let delegate_seq_enc = rasn::der::encode(&delegate_seq).unwrap();

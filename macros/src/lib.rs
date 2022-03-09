@@ -5,8 +5,8 @@ mod asn_type;
 mod config;
 mod decode;
 mod encode;
-mod ext;
 mod r#enum;
+mod ext;
 mod r#struct;
 mod tag;
 
@@ -34,7 +34,13 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     match input.data {
         syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
-        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum { name, generics, variants, config }.impl_decode(),
+        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
+            name,
+            generics,
+            variants,
+            config,
+        }
+        .impl_decode(),
         _ => panic!("Union types are not supported."),
     }
     .into()
@@ -56,7 +62,13 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     match input.data {
         syn::Data::Struct(v) => encode::derive_struct_impl(name, generics, v, &config),
-        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum { name, generics, variants, config }.impl_encode(),
+        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
+            name,
+            generics,
+            variants,
+            config,
+        }
+        .impl_encode(),
         _ => todo!(),
     }
     .into()
@@ -90,7 +102,14 @@ pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 
     match input.data {
         syn::Data::Struct(v) => asn_type::derive_struct_impl(name, generics, v, &config).into(),
-        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum { name, generics, variants, config }.impl_asntype().into(),
+        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
+            name,
+            generics,
+            variants,
+            config,
+        }
+        .impl_asntype()
+        .into(),
         _ => panic!("Union types are not supported."),
     }
 }

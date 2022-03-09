@@ -1,5 +1,5 @@
-use quote::ToTokens;
 use crate::{config::*, ext::GenericsExt};
+use quote::ToTokens;
 
 pub struct Enum {
     pub name: syn::Ident,
@@ -12,7 +12,8 @@ impl Enum {
     pub fn impl_asntype(&self) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
 
-        let tag = self.config
+        let tag = self
+            .config
             .tag
             .as_ref()
             .map(|t| t.to_tokens(crate_root))
@@ -62,7 +63,6 @@ impl Enum {
                 };
             }
         }
-
     }
 
     pub fn impl_encode(&self) -> proc_macro2::TokenStream {
@@ -108,11 +108,10 @@ impl Enum {
         };
 
         let decode_op = if self.config.choice {
-            let variants = self
-                .variants
-                .iter()
-                .enumerate()
-                .map(|(i, v)| VariantConfig::new(v, &generics, &self.config).decode(&self.name, i));
+            let variants =
+                self.variants.iter().enumerate().map(|(i, v)| {
+                    VariantConfig::new(v, &generics, &self.config).decode(&self.name, i)
+                });
 
             let name = syn::LitStr::new(&self.name.to_string(), proc_macro2::Span::call_site());
             quote! {
@@ -130,7 +129,12 @@ impl Enum {
             let variants = self.variants.clone();
             let mut config = self.config.clone();
             config.tag = None;
-            let inner_type = Self { name: inner_name.clone(), generics, variants, config };
+            let inner_type = Self {
+                name: inner_name.clone(),
+                generics,
+                variants,
+                config,
+            };
             let asntype = inner_type.impl_asntype();
             let decode_impl = inner_type.impl_decode();
 
@@ -138,9 +142,10 @@ impl Enum {
                 let ident = &variant.ident;
 
                 let fields = variant.fields.iter().enumerate().map(|(i, field)| {
-                    field.ident.clone().unwrap_or_else(|| {
-                        quote::format_ident!("i{}", i)
-                    })
+                    field
+                        .ident
+                        .clone()
+                        .unwrap_or_else(|| quote::format_ident!("i{}", i))
                 });
 
                 let fields = match variant.fields {
@@ -206,7 +211,7 @@ impl Enum {
         }
     }
 
-    fn encode(&self, generics: &syn:: Generics) -> Option<proc_macro2::TokenStream> {
+    fn encode(&self, generics: &syn::Generics) -> Option<proc_macro2::TokenStream> {
         if self.config.choice {
             Some(self.encode_choice(&generics))
         } else {
@@ -234,15 +239,24 @@ impl Enum {
                         field_config.encode(i, false)
                     });
 
-                    let encode_impl = |tag| quote! {
-                        encoder.encode_sequence(#tag, |encoder| {
-                            #(#fields)*
-                            Ok(())
-                        }).map(drop)
+                    let encode_impl = |tag| {
+                        quote! {
+                            encoder.encode_sequence(#tag, |encoder| {
+                                #(#fields)*
+                                Ok(())
+                            }).map(drop)
+                        }
                     };
 
                     let encode_impl = if variant_config.has_explicit_tag() {
-                        crate::encode::map_to_inner_type(quote!(#variant_tag), &ident, &v.fields, &generics, &crate_root, (encode_impl)(quote!(#crate_root::Tag::SEQUENCE)))
+                        crate::encode::map_to_inner_type(
+                            quote!(#variant_tag),
+                            &ident,
+                            &v.fields,
+                            &generics,
+                            &crate_root,
+                            (encode_impl)(quote!(#crate_root::Tag::SEQUENCE)),
+                        )
                     } else {
                         (encode_impl)(variant_tag)
                     };
@@ -290,24 +304,36 @@ impl Enum {
             let encode_lifetime = syn::Lifetime::new("'inner", proc_macro2::Span::call_site());
             let mut inner_generics = generics.clone();
 
-            inner_generics.params.push(syn::LifetimeDef::new(encode_lifetime.clone().into()).into());
+            inner_generics
+                .params
+                .push(syn::LifetimeDef::new(encode_lifetime.clone().into()).into());
 
-            let variants = self.variants.iter().cloned().map(|mut variant| {
-                for field in variant.fields.iter_mut() {
-                    field.ty = syn::Type::Reference(syn::TypeReference {
-                        and_token: <_>::default(),
-                        lifetime: encode_lifetime.clone().into(),
-                        mutability: None,
-                        elem: Box::from(field.ty.clone())
-                    });
-                }
+            let variants = self
+                .variants
+                .iter()
+                .cloned()
+                .map(|mut variant| {
+                    for field in variant.fields.iter_mut() {
+                        field.ty = syn::Type::Reference(syn::TypeReference {
+                            and_token: <_>::default(),
+                            lifetime: encode_lifetime.clone().into(),
+                            mutability: None,
+                            elem: Box::from(field.ty.clone()),
+                        });
+                    }
 
-                variant
-            }).collect();
+                    variant
+                })
+                .collect();
 
             let mut inner_config = self.config.clone();
             inner_config.tag = None;
-            let inner_enum = Self { name: inner_name, generics: inner_generics, variants, config: inner_config };
+            let inner_enum = Self {
+                name: inner_name,
+                generics: inner_generics,
+                variants,
+                config: inner_config,
+            };
             let impl_asntype = inner_enum.impl_asntype();
             let impl_encode = inner_enum.impl_encode();
             let inner_name = &inner_enum.name;
@@ -325,7 +351,6 @@ impl Enum {
 
                 quote!(Self::#ident { #(#def_fields),* } => #inner_name::#ident { #(#init_fields),* })
             });
-
 
             let name = &self.name;
             quote! {

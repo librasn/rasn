@@ -8,7 +8,7 @@ impl TypeExt for syn::Type {
             syn::Type::Reference(ref mut reference) => {
                 reference.lifetime = None;
             }
-            _ => {},
+            _ => {}
         }
     }
 }

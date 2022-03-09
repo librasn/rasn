@@ -123,7 +123,15 @@ pub fn derive_struct_impl(
 
     let decode_impl = if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.explicit) {
         let tag = config.tag_for_struct(&container.fields);
-        map_from_inner_type(tag, &name, &generics, &container.fields, container.semi_token, None, &config)
+        map_from_inner_type(
+            tag,
+            &name,
+            &generics,
+            &container.fields,
+            container.semi_token,
+            None,
+            &config,
+        )
     } else {
         decode_impl
     };
@@ -137,13 +145,25 @@ pub fn derive_struct_impl(
     }
 }
 
-pub fn map_from_inner_type(tag: proc_macro2::TokenStream, name: &syn::Ident, generics: &syn::Generics, fields: &Fields, semi: Option<syn::Token![;]>, outer_name: Option<proc_macro2::TokenStream>, config: &Config) -> proc_macro2::TokenStream {
+pub fn map_from_inner_type(
+    tag: proc_macro2::TokenStream,
+    name: &syn::Ident,
+    generics: &syn::Generics,
+    fields: &Fields,
+    semi: Option<syn::Token![;]>,
+    outer_name: Option<proc_macro2::TokenStream>,
+    config: &Config,
+) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
     let crate_root = &config.crate_root;
     let outer_name = outer_name.unwrap_or(quote!(Self));
 
     let map_from_inner = fields.iter().enumerate().map(|(i, field)| {
-        let name = field.ident.as_ref().map(|ident| quote!(#ident)).unwrap_or_else(|| quote!(#i));
+        let name = field
+            .ident
+            .as_ref()
+            .map(|ident| quote!(#ident))
+            .unwrap_or_else(|| quote!(#i));
         quote!(#name : inner.#name)
     });
 

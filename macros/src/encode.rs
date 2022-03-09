@@ -41,7 +41,10 @@ pub fn derive_struct_impl(
             quote!(<#ty as #crate_root::Encode>::encode_with_tag(&self.0, encoder, tag))
         }
     } else {
-        let operation = config.set.then(|| quote!(encode_set)).unwrap_or_else(|| quote!(encode_sequence));
+        let operation = config
+            .set
+            .then(|| quote!(encode_set))
+            .unwrap_or_else(|| quote!(encode_sequence));
 
         let encode_impl = quote! {
             encoder.#operation(tag, |encoder| {
@@ -52,7 +55,14 @@ pub fn derive_struct_impl(
         };
 
         if config.tag.as_ref().map_or(false, |tag| tag.explicit) {
-            map_to_inner_type(quote!(tag), &name, &container.fields, &generics, &crate_root, encode_impl)
+            map_to_inner_type(
+                quote!(tag),
+                &name,
+                &container.fields,
+                &generics,
+                &crate_root,
+                encode_impl,
+            )
         } else {
             encode_impl
         }
@@ -70,10 +80,19 @@ pub fn derive_struct_impl(
     }
 }
 
-pub fn map_to_inner_type(tag: proc_macro2::TokenStream, name: &syn::Ident, fields: &syn::Fields, generics: &syn::Generics, crate_root: &syn::Path, encode_impl: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
+pub fn map_to_inner_type(
+    tag: proc_macro2::TokenStream,
+    name: &syn::Ident,
+    fields: &syn::Fields,
+    generics: &syn::Generics,
+    crate_root: &syn::Path,
+    encode_impl: proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
     let mut inner_generics = generics.clone();
-    inner_generics.params.push(syn::LifetimeDef::new(syn::Lifetime::new("'inner", proc_macro2::Span::call_site())).into());
+    inner_generics.params.push(
+        syn::LifetimeDef::new(syn::Lifetime::new("'inner", proc_macro2::Span::call_site())).into(),
+    );
 
     let (field_defs, init_fields) = match &fields {
         syn::Fields::Named(_) => {
@@ -88,7 +107,11 @@ pub fn map_to_inner_type(tag: proc_macro2::TokenStream, name: &syn::Ident, field
                 quote!(#name : &#name)
             });
 
-            fn wrap(fields: impl Iterator<Item = proc_macro2::TokenStream>) -> proc_macro2::TokenStream { quote!({ #(#fields),* }) }
+            fn wrap(
+                fields: impl Iterator<Item = proc_macro2::TokenStream>,
+            ) -> proc_macro2::TokenStream {
+                quote!({ #(#fields),* })
+            }
 
             (wrap(field_defs), wrap(init_fields))
         }
@@ -103,7 +126,11 @@ pub fn map_to_inner_type(tag: proc_macro2::TokenStream, name: &syn::Ident, field
                 quote!(&self.#i)
             });
 
-            fn wrap(fields: impl Iterator<Item = proc_macro2::TokenStream>) -> proc_macro2::TokenStream { quote!((#(#fields),*)) }
+            fn wrap(
+                fields: impl Iterator<Item = proc_macro2::TokenStream>,
+            ) -> proc_macro2::TokenStream {
+                quote!((#(#fields),*))
+            }
 
             (wrap(field_defs), wrap(init_fields))
         }
@@ -134,13 +161,20 @@ pub fn map_to_inner_type(tag: proc_macro2::TokenStream, name: &syn::Ident, field
 }
 
 fn fields_as_vars(fields: &syn::Fields) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
-   fields.iter().enumerate().map(|(i, field)| {
-        let self_name = field.ident.as_ref().map(|ident| quote!(#ident)).unwrap_or_else(|| {
-            let i = syn::Index::from(i);
-            quote!(#i)
-        });
+    fields.iter().enumerate().map(|(i, field)| {
+        let self_name = field
+            .ident
+            .as_ref()
+            .map(|ident| quote!(#ident))
+            .unwrap_or_else(|| {
+                let i = syn::Index::from(i);
+                quote!(#i)
+            });
 
-        let name = field.ident.is_some().then(|| self_name.clone())
+        let name = field
+            .ident
+            .is_some()
+            .then(|| self_name.clone())
             .unwrap_or_else(|| {
                 let ident = format_ident!("i{}", i);
                 quote!(#ident)
