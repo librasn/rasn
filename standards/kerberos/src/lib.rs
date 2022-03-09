@@ -1070,29 +1070,29 @@ pub struct KrbCredInfo {
     /// field specifies the life of the ticket. If the `start_time` field is
     /// absent from the ticket, then the `auth_time` field should be used in its
     /// place to determine the life of the ticket.
-    #[rasn(tag(5))]
+    #[rasn(tag(explicit(5)))]
     pub start_time: Option<KerberosTime>,
     /// The time after which the ticket will not be honored (its expiration
     /// time). Note that individual services may place their own limits on the
     /// life of a ticket and MAY reject tickets which have not yet expired. As
     /// such, this is really an upper bound on the expiration time for
     /// the ticket.
-    #[rasn(tag(6))]
+    #[rasn(tag(explicit(6)))]
     pub end_time: Option<KerberosTime>,
     /// The maximum `end_time` that may be included in a renewal. It can be
     /// thought of as the absolute expiration time for the ticket, including
     /// all renewals.
-    #[rasn(tag(7))]
+    #[rasn(tag(explicit(7)))]
     pub renew_till: Option<KerberosTime>,
     /// The realm part of the server's principal identifier.
-    #[rasn(tag(8))]
+    #[rasn(tag(explicit(8)))]
     pub srealm: Option<Realm>,
     /// All components of the name part of the server's identity, including
     /// those parts that identify a specific instance of a service.
-    #[rasn(tag(9))]
+    #[rasn(tag(explicit(9)))]
     pub sname: Option<PrincipalName>,
     /// Addresses from which the ticket can be used.
-    #[rasn(tag(10))]
+    #[rasn(tag(explicit(10)))]
     pub caddr: Option<HostAddresses>,
 }
 
