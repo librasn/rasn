@@ -131,15 +131,15 @@ pub type KerberosFlags = BitString;
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct EncryptedData {
     /// Identifies which encryption algorithm was used to encipher the cipher.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub etype: i32,
     /// Contains the version number of the key under which data is encrypted.
     /// It is only present in messages encrypted under long lasting keys, such
     /// as principals' secret keys.
-    #[rasn(tag(1))]
+    #[rasn(tag(explicit(1)))]
     pub kvno: Option<u32>,
     /// Contains the enciphered text.
-    #[rasn(tag(2))]
+    #[rasn(tag(explicit(2)))]
     pub cipher: OctetString,
 }
 
