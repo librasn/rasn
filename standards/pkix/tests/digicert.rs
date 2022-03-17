@@ -74,7 +74,7 @@ fn lets_encrypt_x3() {
             issuer: Name::RdnSequence(vec![
                 {
                     let mut set = rasn::types::SetOf::new();
-                    set.insert(Attribute {
+                    set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 10][..]).into()),
                         value: Any::new(
                             rasn::der::encode(&PrintableString::from(String::from(
@@ -88,7 +88,7 @@ fn lets_encrypt_x3() {
                 },
                 {
                     let mut set = rasn::types::SetOf::new();
-                    set.insert(Attribute {
+                    set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 3][..]).into()),
                         value: Any::new(
                             rasn::der::encode(&PrintableString::from(String::from(
@@ -107,7 +107,7 @@ fn lets_encrypt_x3() {
             subject: Name::RdnSequence(vec![
                 {
                     let mut set = rasn::types::SetOf::new();
-                    set.insert(Attribute {
+                    set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 6][..]).into()),
                         value: Any::new(
                             rasn::der::encode(&PrintableString::from(String::from("US"))).unwrap(),
@@ -117,7 +117,7 @@ fn lets_encrypt_x3() {
                 },
                 {
                     let mut set = rasn::types::SetOf::new();
-                    set.insert(Attribute {
+                    set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 10][..]).into()),
                         value: Any::new(
                             rasn::der::encode(&PrintableString::from(String::from(
@@ -130,7 +130,7 @@ fn lets_encrypt_x3() {
                 },
                 {
                     let mut set = rasn::types::SetOf::new();
-                    set.insert(Attribute {
+                    set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 3][..]).into()),
                         value: Any::new(
                             rasn::der::encode(&PrintableString::from(String::from(
