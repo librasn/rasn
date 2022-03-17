@@ -159,7 +159,7 @@ impl Enum {
             });
 
             quote! {
-                fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
+                fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
                     #inner_type
                     #asntype
                     #decode_impl
@@ -172,7 +172,7 @@ impl Enum {
             }
         } else {
             quote! {
-                fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
+                fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
                     #decode_op
                 }
             }
@@ -183,7 +183,7 @@ impl Enum {
         quote! {
             #[automatically_derived]
             impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-                fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
+                fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
                     #decode_with_tag
                 }
 
@@ -205,7 +205,7 @@ impl Enum {
         };
 
         quote! {
-            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> Result<(), EN::Error> {
+            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> core::result::Result<(), EN::Error> {
                 #operation
             }
         }
@@ -369,7 +369,7 @@ impl Enum {
         };
 
         quote! {
-            fn encode<E: #crate_root::Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
+            fn encode<E: #crate_root::Encoder>(&self, encoder: &mut E) -> core::result::Result<(), E::Error> {
                 #encode_impl.map(drop)
             }
         }
