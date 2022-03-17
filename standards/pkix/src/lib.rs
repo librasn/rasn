@@ -35,7 +35,7 @@ pub type TeletexDomainDefinedAttributes = SequenceOf<TeletexDomainDefinedAttribu
 pub type AttributeType = ObjectIdentifier;
 pub type AttributeValue = Any;
 pub type RdnSequence = SequenceOf<RelativeDistinguishedName>;
-pub type RelativeDistinguishedName = SetOf<Attribute>;
+pub type RelativeDistinguishedName = SetOf<AttributeTypeAndValue>;
 pub type X520Name = DirectoryString;
 pub type X520CommonName = DirectoryString;
 pub type X520LocalityName = DirectoryString;
@@ -433,6 +433,12 @@ pub enum Name {
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct Attribute {
+    pub r#type: AttributeType,
+    pub values: SetOf<AttributeValue>,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub struct AttributeTypeAndValue {
     pub r#type: AttributeType,
     pub value: AttributeValue,
 }
