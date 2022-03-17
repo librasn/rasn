@@ -227,7 +227,7 @@ fn true_bool() -> bool {
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AttributeCertificateClearAttributes {
-    issuer: GeneralName,
-    serial: Integer,
-    attrs: SequenceOf<Attribute>,
+    pub issuer: GeneralName,
+    pub serial: Integer,
+    pub attrs: SequenceOf<Attribute>,
 }
