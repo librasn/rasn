@@ -112,8 +112,8 @@ pub struct IssuerSerial {
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AttributeCertificateValidityPeriod {
-    not_before: GeneralizedTime,
-    not_after: GeneralizedTime,
+    pub not_before: GeneralizedTime,
+    pub not_after: GeneralizedTime,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
