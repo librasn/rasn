@@ -1,0 +1,584 @@
+ModuleDefinition = {
+    SOI ~
+    ModuleIdentifier ~
+    "DEFINITIONS" ~ EncodingReferenceDefault? ~ TagDefault? ~ ExtensionDefault? ~
+    "::=" ~ "BEGIN" ~
+    ModuleBody? ~
+    "END" ~
+    EOI
+}
+
+// Not in standard. Used to pull out module identifiers from dependencies.
+ModuleHeaderOnly = { SOI ~ ModuleIdentifier }
+
+ModuleIdentifier = { ReferenceIdentifier ~ DefinitiveIdentification? }
+DefinitiveIdentification = { DefinitiveOID ~ IRIValue? }
+DefinitiveOID = { "{" ~ DefinitiveObjIdComponent+ ~ "}" }
+DefinitiveObjIdComponent = { DefinitiveNameAndNumberForm | DefinitiveNumberForm | NameForm }
+NameForm = { Identifier }
+DefinitiveNumberForm = @{ number }
+DefinitiveNameAndNumberForm = { Identifier ~ "(" ~ DefinitiveNumberForm ~ ")" }
+EncodingReferenceDefault = { EncodingIdentifier ~ "INSTRUCTIONS" }
+TagDefault = { ("EXPLICIT" | "IMPLICIT" | "AUTOMATIC") ~ "TAGS" }
+ExtensionDefault = { "EXTENSIBILITY" ~ "IMPLIED" }
+
+ModuleBody = { Exports? ~ Imports? ~ Assignment* }
+Exports = { "EXPORTS" ~ ("ALL" | SymbolList?) ~ ";" }
+Imports = { "IMPORTS" ~ SymbolsFromModule* ~ ";" }
+SymbolsFromModule = { SymbolList ~ "FROM" ~ GlobalModuleReference }
+GlobalModuleReference = { ReferenceIdentifier ~ AssignedIdentifier? }
+AssignedIdentifier = { ObjectIdentifierValue | DefinedValue }
+SymbolList = { (Symbol ~ ",")* ~ Symbol }
+Symbol = { ParameterizedReference | Reference }
+Assignment = {
+    TypeAssignment |
+    ObjectClassAssignment |
+    ValueAssignment |
+    ValueSetAssignment |
+    ObjectAssignment |
+    ObjectSetAssignment
+}
+
+DefinedType = {
+    ParameterizedType |
+    ParameterizedValueSet |
+    DefinedTypeReference
+}
+
+DefinedValue = { ParameterizedValue | ExternalValueReference | valuereference }
+NumberOrDefinedValue = { number | DefinedValue }
+DefinedTypeReference = { (modulereference ~ ".")? ~ typereference }
+ExternalValueReference = { modulereference ~ "." ~ valuereference }
+ItemSpec = { ((typereference ~ ".")+ ~ ComponentId) | typereference }
+ComponentId = { Identifier | number | "*" }
+
+TypeAssignment = { typereference ~ ParameterList? ~ "::=" ~ Type }
+ValueAssignment = { valuereference ~ ParameterList? ~ Type ~ "::=" ~ Value }
+ValueSetAssignment = { typereference ~ ParameterList? ~ Type ~ "::=" ~ ValueSet }
+
+ValueSet = { "{" ~ ElementSetSpecs ~ "}" }
+Type = { ConstrainedType | UnconstrainedType }
+UnconstrainedType = { BuiltinType | ReferencedType }
+BuiltinType = {
+    PrefixedType |
+    EnumeratedType |
+    BitStringType |
+    BooleanType |
+    CharacterStringType |
+    ChoiceType |
+    DateType |
+    DateTimeType |
+    DurationType |
+    EmbeddedPDVType |
+    ExternalType |
+    // TODO:  InstanceOftype |
+    IntegerType |
+    // TODO: IRIType |
+    NullType |
+    ObjectClassFieldType |
+    ObjectIdentifierType |
+    OctetStringType |
+    // TODO: RealType |
+    // TODO: RelativeIRIType |
+    // TODO: RelativeOIDType |
+    SequenceType |
+    SequenceOfType |
+    SetType |
+    SetOfType // |
+    // TODO: Timetype |
+    // TODO: TimeOfdayType
+}
+
+ReferencedType = {
+    FromObject |
+    DefinedType |
+    SelectionType
+}
+
+NamedType = { Identifier ~ Type }
+Value = { ReferencedValue | BuiltinValue | ObjectClassFieldType }
+BuiltinValue = {
+    BitStringValue |
+    BooleanValue |
+    CharacterStringValue |
+    ChoiceValue |
+    ObjectIdentifierValue |
+    SequenceValue |
+    EnumeratedValue |
+    // TODO: InstanceOfValue |
+    IntegerValue |
+    // TODO: IRIValue |
+    NullValue |
+    // TODO: OctetStringValue |
+    // TODO: RealValue |
+    // TODO: RelativeIRIValue |
+    // TODO: RelativeOIDValue |
+    SequenceOfValue |
+    SetValue |
+    SetOfValue // |
+    // TODO: PrefixedValue |
+    // TODO: TimeValue
+}
+
+ReferencedValue = { DefinedValue | FromObject }
+NamedValue = { Identifier ~ Value }
+
+BooleanType = { "BOOLEAN" }
+BooleanValue = { "TRUE" | "FALSE" }
+
+IntegerType = { "INTEGER" ~ ("{" ~ NamedNumberList ~ "}")? }
+NamedNumberList = { (NamedNumber ~ ",")* ~ NamedNumber }
+NamedNumber = { Identifier ~ "(" ~ (SignedNumber | DefinedValue) ~ ")" }
+SignedNumber = @{ "-"? ~ number }
+IntegerValue = { SignedNumber | Identifier }
+
+EnumeratedType = { "ENUMERATED" ~ "{" ~ Enumerations ~ "}" }
+Enumerations = { Enumeration ~ ("," ~ "..." ~ ExceptionSpec? ~ ("," ~ Enumeration)?)? }
+Enumeration = { (EnumerationItem ~ ",")* ~ EnumerationItem }
+EnumerationItem = { NamedNumber | Identifier }
+EnumeratedValue = { Identifier }
+
+BitStringType = { "BIT" ~ "STRING" ~ ("{" ~ NamedBitList ~ "}")? }
+NamedBitList = { (NamedBit ~ ",")* ~ NamedBit }
+NamedBit = { Identifier ~ "(" ~ NumberOrDefinedValue ~ ")"}
+BitStringValue = { bstring | hstring | ("{" ~ IdentifierList? ~ "}") | ("CONTAINING" ~ Value) }
+IdentifierList = { (Identifier ~ ",")* ~ Identifier }
+
+ConstrainedType = { (UnconstrainedType ~ Constraint+) | TypeWithConstraint }
+TypeWithConstraint = { ("SET" | "SEQUENCE") ~ (Constraint | SizeConstraint) ~ "OF" ~ (NamedType | Type) }
+Constraint = { "(" ~ ConstraintSpec ~ ExceptionSpec? ~ ")" }
+ConstraintSpec = { GeneralConstraint | ElementSetSpecs }
+
+ElementSetSpecs = { ElementSetSpec ~ ("," ~ "..." ~ ("," ~ ElementSetSpec)?)? }
+ElementSetSpec = { Unions | ("ALL" ~ Exclusions) }
+Unions = { (Intersections ~ UnionMark)* ~ Intersections }
+Intersections = { (IntersectionElements ~ IntersectionMark)* ~ IntersectionElements }
+IntersectionElements = { Elements ~ Exclusions? }
+Exclusions = { "EXCEPT" ~ Elements }
+UnionMark = { "|" | "UNION" }
+IntersectionMark = { "^" | "INTERSECTION" }
+Elements = { SubtypeElements | ObjectSetElements | ( "(" ~ ElementSetSpec ~ ")" ) }
+SubtypeElements = {
+    ValueRange |
+    ContainedSubtype |
+    PermittedAlphabet |
+    SizeConstraint |
+    Type |
+    InnerTypeConstraints |
+    PatternConstraint |
+    // TODO: PropertySettings |
+    // TODO: DurationRange |
+    // TODO: TimePointRange |
+    // TODO: RecurrenceRange
+    Value
+}
+
+ContainedSubtype = { "INCLUDES" ~ Type }
+ValueRange = { LowerEndpoint ~ ".." ~ UpperEndpoint }
+LowerEndpoint = { LowerEndValue ~ "<"? }
+UpperEndpoint = { "<"? ~ UpperEndValue }
+LowerEndValue = { Value | "MIN" }
+UpperEndValue = { Value | "MAX" }
+
+SizeConstraint = { "SIZE" ~ Constraint }
+PermittedAlphabet = { "FROM" ~ Constraint }
+InnerTypeConstraints = { "WITH" ~ (("COMPONENT" ~ Constraint) | ("COMPONENTS" ~ MultipleTypeConstraints)) }
+MultipleTypeConstraints = { FullSpecification | PartialSpecification }
+FullSpecification = { "{" ~ TypeConstraints ~ "}" }
+PartialSpecification = { "{" ~ "..." ~ "," ~ TypeConstraints ~ "}" }
+TypeConstraints = { (NamedConstraint ~ ",")* ~ NamedConstraint }
+NamedConstraint = { Identifier ~ ComponentConstraint }
+ComponentConstraint = { Constraint? ~ PresenceConstraint? }
+PresenceConstraint = { "PRESENT" | "ABSENT" | "OPTIONAL" }
+PatternConstraint = { "PATTERN" ~ Value }
+
+OctetStringType = { "OCTET" ~ "STRING" }
+NullType = { "NULL" }
+NullValue = { "NULL" }
+SequenceType = {
+    "SEQUENCE" ~
+    "{" ~
+        (ComponentTypeLists | (ExtensionAndException ~ OptionalExtensionMarker?))?  ~
+    "}"
+}
+
+ExtensionAndException = { "..." ~ ExceptionSpec? }
+OptionalExtensionMarker = { "," ~ "..." }
+ComponentTypeLists = {
+    ComponentTypeExtension |
+    (ComponentTypeList ~ ("," ~ ComponentTypeExtension)?)
+}
+
+ComponentTypeExtension = {
+    ExtensionAndException ~
+    ExtensionAdditions? ~
+    (
+        (ExtensionEndMarker ~ "," ~ ComponentTypeList) |
+        OptionalExtensionMarker?
+    )
+}
+
+ExtensionEndMarker = { "," ~ "..." }
+ExtensionAdditions = { "," ~ ExtensionAdditionList }
+ExtensionAdditionList = { (ExtensionAddition ~ ",")* ~ ExtensionAddition }
+ExtensionAddition = { ComponentType | ExtensionAdditionGroup }
+ExtensionAdditionGroup = { "[[" ~ (VersionNumber ~ ":")? ~ ComponentTypeList  ~ "]]" }
+ComponentTypeList = { (ComponentType ~ ",")* ~ ComponentType }
+VersionNumber = @{ number }
+ComponentType = {
+    (NamedType ~ ("OPTIONAL" | ("DEFAULT" ~ Value))?) |
+    "COMPONENTS" ~ "OF" ~ Type
+}
+
+SequenceValue = {
+    "{" ~ ComponentValueList? ~ "}"
+}
+
+SequenceOfType = { "SEQUENCE" ~ "OF" ~ (Type | NamedType) }
+SequenceOfValue = { "{" ~ (ValueList | NamedValueList)? ~ "}" }
+ValueList = { (Value ~ ",")* ~ Value }
+NamedValueList = { (NamedValue ~ ",")* ~ NamedValue }
+SetType = { "SET" ~ "{" ~ ((ExtensionEndMarker ~ OptionalExtensionMarker?) | ComponentTypeLists)? ~ "}" }
+SetValue = { "{" ~ ComponentValueList? ~ "}" }
+SetOfType = { "SET" ~ "OF" ~ (Type | NamedType) }
+SetOfValue = { "{" ~ (ValueList | NamedValueList)? ~ "}" }
+ChoiceType = { "CHOICE" ~ "{" ~ AlternativeTypeLists ~ "}" }
+AlternativeTypeLists = {
+    AlternativeTypeList ~
+    (
+        "," ~
+        ExtensionAndException ~
+        ExtensionAdditionAlternatives? ~
+        OptionalExtensionMarker?
+    )?
+}
+
+ExtensionAdditionAlternatives = {
+    "," ~ ExtensionAdditionAlternativesList
+}
+
+ExtensionAdditionAlternativesList = {
+    (ExtensionAdditionAlternative ~ ",")* ~ ExtensionAdditionAlternative
+}
+
+ExtensionAdditionAlternative = { ExtensionAdditionAlternativesGroup | NamedType }
+ExtensionAdditionAlternativesGroup = { "[[" ~ VersionNumber ~ AlternativeTypeList ~ "]]" }
+AlternativeTypeList = { (NamedType ~ ",")* ~ NamedType }
+ChoiceValue = { Identifier ~ ":" ~ Value }
+
+ComponentValueList = {
+    (NamedValue ~ ",")* ~ NamedValue
+}
+
+SelectionType = { Identifier ~ "<" ~ Type }
+PrefixedType = { TaggedType | EncodingPrefixedType }
+EncodingPrefixedType = { EncodingPrefix ~ Type }
+EncodingPrefix = { "[" ~ EncodingReference? ~ EncodingInstruction? ~ "]" }
+EncodingInstruction = { ANY+ }
+TaggedType = { Tag ~ TagKind? ~ Type }
+TagKind = { "IMPLICIT" | "EXPLICIT" }
+Tag = { "[" ~ EncodingReference? ~ Class? ~ ClassNumber ~ "]" }
+EncodingReference = { encodingreference ~ ":" }
+ClassNumber = ${ NumberOrDefinedValue }
+Class = { "UNIVERSAL" | "APPLICATION" | "PRIVATE" }
+EmbeddedPDVType = { "EMBEDDED" ~ "PDV" }
+ExternalType = { "EXTERNAL" }
+TimeType = { "TIME" }
+DateType = { "DATE" }
+TimeOfDayType = { "TIME-OF-DAY" }
+DateTimeType = { "DATE-TIME" }
+DurationType = { "DURATION" }
+CharacterStringType = { RestrictedCharacterStringType | UnrestrictedCharacterStringType }
+CharacterStringValue = { RestrictedCharacterStringValue | UnrestrictedCharacterStringValue }
+RestrictedCharacterStringType = {
+    "BMPString" |
+    "GeneralString" |
+    "GraphicString" |
+    "IA5String" |
+    "ISO646String" |
+    "NumericString" |
+    "PrintableString" |
+    "TeletexString" |
+    "T61String" |
+    "UniversalString" |
+    "UTF8String" |
+    "VideotexString" |
+    "VisibleString"
+}
+
+RestrictedCharacterStringValue = { cstring | CharacterStringList | Quadruple | Tuple }
+CharacterStringList = { "{" ~ CharSyms ~ "}" }
+CharSyms = { (CharsDefn ~ ",")* ~ CharsDefn }
+CharsDefn = { cstring | Quadruple | Tuple | DefinedValue }
+Quadruple = { "{" ~ Group ~ "," ~ Plane ~ "," ~ Row ~ "," ~ Cell ~ "}" }
+Group = @{ number }
+Plane = @{ number }
+Row = @{ number }
+Cell = @{ number }
+Tuple = { "{" ~ TableColumn ~ "," ~ TableRow ~ "}" }
+TableColumn = @{ number }
+TableRow = @{ number }
+UnrestrictedCharacterStringType = { "CHARACTER" ~ "STRING" }
+UnrestrictedCharacterStringValue = { SequenceOfValue }
+ObjectIdentifierType = { "OBJECT" ~ "IDENTIFIER" }
+// TODO: Figure out how DefinedValue can be parsed in ObjectIdentifierValue.
+ObjectIdentifierValue = { "{" ~ ObjIdComponents+ ~ "}" }
+ObjIdComponents = { NameAndNumberForm | Identifier | NumberForm }
+NumberForm = ${ NumberOrDefinedValue }
+NameAndNumberForm = { Identifier ~ "(" ~ NumberForm ~ ")" }
+
+ExceptionSpec = { "!" ~ ExceptionIdentification }
+ExceptionIdentification = { SignedNumber | DefinedValue | (Type ~ ":" ~ Value) }
+
+IRIValue = { "\"" ~ FirstArcIdentifier ~ SubsequentArcIdentifier?  ~ "\"" }
+FirstArcIdentifier = { "/" ~ ArcIdentifier }
+SubsequentArcIdentifier = { "/" ~ ArcIdentifier ~ SubsequentArcIdentifier? }
+ArcIdentifier = { integerUnicodeLabel | nonIntegerUnicodeLabel }
+integerUnicodeLabel = @{ number }
+nonIntegerUnicodeLabel = { OidNonIntegerCharacter+ }
+OidNonIntegerCharacter = {
+    "." |
+    "_" |
+    "~" |
+    ASCII_ALPHANUMERIC |
+    // \u{D7FF} instead of \u{DFFE} because Rust does not allow chars as
+    // surrogate
+    '\u{A0}'..'\u{D7FF}' |
+    '\u{F900}'..'\u{FDCF}' |
+    '\u{FDF0}'..'\u{FFEF}' |
+    '\u{10000}'..'\u{1FFFD}' |
+    '\u{20000}'..'\u{2FFFD}' |
+    '\u{30000}'..'\u{3FFFD}' |
+    '\u{40000}'..'\u{4FFFD}' |
+    '\u{50000}'..'\u{5FFFD}' |
+    '\u{60000}'..'\u{6FFFD}' |
+    '\u{70000}'..'\u{7FFFD}' |
+    '\u{80000}'..'\u{8FFFD}' |
+    '\u{90000}'..'\u{9FFFD}' |
+    '\u{A0000}'..'\u{AFFFD}' |
+    '\u{B0000}'..'\u{BFFFD}' |
+    '\u{C0000}'..'\u{CFFFD}' |
+    '\u{D0000}'..'\u{DFFFD}' |
+    '\u{E1000}'..'\u{EFFFD}'
+}
+
+// X.861
+DefinedObjectClass = { UsefulObjectClassReference | ExternalObjectClassReference | EncodingIdentifier }
+ExternalObjectClassReference = { ReferenceIdentifier ~ "." ~ EncodingIdentifier }
+UsefulObjectClassReference = { "TYPE-IDENTIFIER" | "ABSTRACT-SYNTAX"  }
+ObjectClassAssignment = { objectclassreference ~ ParameterList? ~ "::=" ~ ObjectClass }
+ObjectClass = {  ObjectClassDefn | ParameterizedObjectClass | DefinedObjectClass }
+ObjectClassDefn = { "CLASS" ~ "{" ~ (FieldSpec ~ ",")* ~ FieldSpec  ~ "}" ~ WithSyntaxSpec? }
+FieldSpec = {
+    FixedTypeValueFieldSpec |
+    VariableTypeValueFieldSpec |
+    FixedTypeValueSetFieldSpec |
+    VariableTypeValueSetFieldSpec |
+    ObjectFieldSpec |
+    TypeFieldSpec |
+    ObjectSetFieldSpec
+}
+
+PrimitiveFieldName = {
+    typefieldreference |
+    valuefieldreference |
+    valuesetfieldreference |
+    objectfieldreference |
+    objectsetfieldreference
+}
+
+FieldName = { (PrimitiveFieldName  ~ ".")* ~ PrimitiveFieldName }
+TypeFieldSpec = { typefieldreference ~ TypeOptionalitySpec? }
+TypeOptionalitySpec = { "OPTIONAL" | "DEFAULT" ~ Type }
+FixedTypeValueFieldSpec = { valuefieldreference ~ Type ~ "UNIQUE"? ~ ValueOptionalitySpec? }
+ValueOptionalitySpec = { "OPTIONAL" | "DEFAULT" ~ Value }
+VariableTypeValueFieldSpec = { valuefieldreference ~ FieldName ~ ValueOptionalitySpec? }
+FixedTypeValueSetFieldSpec = { valuesetfieldreference ~ Type ~ ValueSetOptionalitySpec? }
+ValueSetOptionalitySpec = { "OPTIONAL" | "DEFAULT" ~ ValueSet }
+VariableTypeValueSetFieldSpec = { valuesetfieldreference ~ Type ~ ValueSetOptionalitySpec? }
+ObjectFieldSpec = { objectfieldreference ~ DefinedObjectClass ~ ObjectOptionalitySpec? }
+ObjectOptionalitySpec = { "OPTIONAL" | "DEFAULT" ~ Object }
+ObjectSetFieldSpec = { objectsetfieldreference ~ DefinedObjectClass ~ ObjectSetOptionalitySpec? }
+ObjectSetOptionalitySpec = { "OPTIONAL" | "DEFAULT" ~ ObjectSet }
+WithSyntaxSpec = { "WITH" ~ "SYNTAX" ~ SyntaxList }
+SyntaxList = { "{" ~ TokenOrGroupSpec+ ~ "}" }
+TokenOrGroupSpec = { RequiredToken | OptionalGroup }
+OptionalGroup = { "[" ~ TokenOrGroupSpec+ ~ "]" }
+RequiredToken = { Literal | PrimitiveFieldName }
+Literal = @{ word | "," }
+DefinedObject = { ((modulereference ~ ".")? ~ objectreference) ~ ActualParameterList? }
+ObjectAssignment = { objectreference ~ ParameterList? ~ DefinedObjectClass ~ "::=" ~ Object }
+Object = { DefinedObject | ObjectDefn | FromObject }
+ObjectDefn = { DefaultSyntax | DefinedSyntax }
+DefaultSyntax = { "{" ~ ((FieldSetting ~ ",")* ~ FieldSetting)? ~ "}" }
+FieldSetting = { PrimitiveFieldName ~ Setting }
+DefinedSyntax = { "{" ~ DefinedSyntaxToken* ~ "}" }
+DefinedSyntaxToken = { Setting | Literal  }
+Setting = { Type | Value | ValueSet | Object | ObjectSet }
+DefinedObjectSet = { (modulereference ~ ".")? ~ objectsetreference }
+ObjectSetAssignment = { objectsetreference ~ ParameterList? ~ DefinedObjectClass ~ "::=" ~ ObjectSet }
+ObjectSet = { "{" ~ ObjectSetSpec ~ "}" }
+ObjectSetSpec = {
+    (ElementSetSpec ~ ("," ~ "..." ~ ("," ~ ElementSetSpec)?)?) |
+    ("..." ~ ("," ~ ElementSetSpec)?)
+}
+ObjectSetElements = { Object | ParameterizedObjectSet | DefinedObjectSet | FromObject }
+ObjectClassFieldType = { DefinedObjectClass ~ "." ~ FieldName }
+ObjectClassFieldValue = { OpenTypeFieldVal | FixedTypeFieldVal }
+OpenTypeFieldVal = { Type ~ ":" ~ Value }
+FixedTypeFieldVal = { ReferencedValue | BuiltinValue }
+ReferencedObjects = { DefinedObject | ParameterizedObjectSet | DefinedObjectSet }
+FromObject = { ReferencedObjects ~ "." ~ FieldName }
+
+// X.682
+GeneralConstraint = { UserDefinedConstraint | TableConstraint | ContentsConstraint }
+UserDefinedConstraint = {
+    "CONSTRAINED" ~ "BY" ~ "{" ~
+        (UserDefinedConstraintParameter ~ ",")* ~ UserDefinedConstraintParameter?
+    ~ "}"
+}
+UserDefinedConstraintParameter = {
+    (Governor ~ ":" ~ (Value | ValueSet | Object | ObjectSet)) |
+    Type |
+    DefinedObjectClass
+}
+TableConstraint = { ComponentRelationConstraint | ObjectSet }
+ComponentRelationConstraint = { "{" ~ DefinedObjectSet ~ "}" ~ "{" ~ (AtNotation ~ ",")* ~ AtNotation  ~ "}"}
+AtNotation = { ("@" ~ ComponentIdList) | ("@." ~ Level* ~ ComponentIdList) }
+Level = { "." }
+ComponentIdList = { (Identifier ~ ".")* ~ Identifier }
+ContentsConstraint = { ("CONTAINING" ~ Type) | ("ENCODED" ~ "BY" ~ Value) | ("CONTAINING" ~ Type ~ "ENCODED" ~ "BY" ~ Value) }
+
+// X.683
+// Moved into Assignments directly.
+// ParameterizedAssignment = {
+//     ParameterizedObjectClassAssignment |
+//     ParameterizedTypeAssignment |
+//     ParameterizedValueAssignment |
+//     ParameterizedValueSetAssignment |
+//     ParameterizedObjectAssignment |
+//     ParameterizedObjectSetAssignment
+// }
+//
+// ParameterizedTypeAssignment = { typereference ~ ParameterList ~ "::=" ~ Type }
+// ParameterizedValueAssignment = { valuereference ~ ParameterList ~ Type ~ "::=" ~ Value }
+// ParameterizedValueSetAssignment = { typereference ~ ParameterList ~ Type ~ "::=" ~ ValueSet }
+// ParameterizedObjectClassAssignment = { objectclassreference ~ ParameterList ~ "::=" ~ ObjectClass }
+// ParameterizedObjectAssignment = { objectreference ~ ParameterList ~ DefinedObjectClass ~ "::=" ~ Object }
+// ParameterizedObjectSetAssignment = { objectsetreference ~ ParameterList ~ DefinedObjectClass ~ "::=" ~ ObjectSet }
+
+ParameterList = { "{" ~ (Parameter ~ ",")* ~ Parameter ~ "}" }
+Parameter = { (ParamGovernor ~ ":")? ~ Reference }
+ParamGovernor = { Governor | Reference }
+Governor = { Type | DefinedObjectClass }
+ParameterizedReference  = { Reference ~ ("{" ~ "}")? }
+SimpleDefinedValue = { ExternalValueReference | valuereference }
+ParameterizedType = { DefinedTypeReference ~ ActualParameterList }
+ParameterizedValue = { SimpleDefinedValue ~ ActualParameterList }
+ParameterizedValueSet = { DefinedTypeReference ~ ActualParameterList }
+ParameterizedObjectClass = { DefinedObjectClass ~ ActualParameterList }
+ParameterizedObjectSet = { DefinedObjectSet ~ ActualParameterList }
+ActualParameterList = { "{" ~ (ActualParameter ~ ","?)+ ~ "}" }
+ActualParameter = {
+    Type |
+    Value |
+    ValueSet |
+    DefinedObjectClass |
+    Object |
+    ObjectSet
+}
+
+// Terminals
+ReferenceIdentifier = @{ !KEYWORDS ~ ASCII_ALPHA_UPPER ~ ASCII_ALPHANUMERIC* ~ (hyphen ~ ASCII_ALPHANUMERIC+)* }
+Identifier = @{ !KEYWORDS ~  ASCII_ALPHA_LOWER ~ ASCII_ALPHANUMERIC* ~ (hyphen ~ ASCII_ALPHANUMERIC+)* }
+EncodingIdentifier = @{ !KEYWORDS ~  ASCII_ALPHA_UPPER ~ ASCII_ALPHA_UPPER* ~ (hyphen ~ ASCII_ALPHA_UPPER+)* }
+Reference = @{ typereference | valuereference | objectclassreference | objectreference | objectsetreference }
+typereference = @{ ReferenceIdentifier }
+modulereference = @{ ReferenceIdentifier }
+encodingreference = @{ EncodingIdentifier }
+valuereference = @{ Identifier }
+objectclassreference = @{ EncodingIdentifier }
+objectreference = @{ valuereference }
+objectsetreference = @{ typereference }
+typefieldreference = @{ "&" ~ typereference }
+valuefieldreference = @{ "&" ~ valuereference }
+valuesetfieldreference = @{ "&" ~ typereference }
+objectfieldreference = @{ "&" ~ objectreference }
+objectsetfieldreference = @{ "&" ~ objectsetreference }
+word = @{ !WORD_KEYWORDS ~ ASCII_ALPHA_UPPER+ ~ (hyphen ~ ASCII_ALPHA_UPPER+)* }
+hyphen = { "–" | "-" }
+bstring = @{ "'" ~ bits? ~ "'B" }
+bits = { ("0" | "1")+ }
+hstring = @{ "'" ~ hexes? ~ "'H" }
+hexes = {
+    ( "A" | "B" | "C" | "D" | "E" | "F" | "0" | "1" |
+      "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" )+
+}
+
+cstring = { "\"" ~ characters?  ~ "\"" }
+characters = { ("\"\"" | (!"\"" ~ ANY))+ }
+number = @{ ASCII_DIGIT+ }
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{
+    ("--" ~ (!("--" | NEWLINE) ~ ANY)* ~ ("--" | NEWLINE)) |
+    ("/*" ~ (!"*/" ~ ANY)* ~ "*/")
+}
+
+KEYWORDS = {
+    ("ABSENT" | "ENCODED" | "INTERSECTION" | "SEQUENCE"
+        | "ABSTRACT-SYNTAX" | "ENCODING-CONTROL" | "ISO646String" | "SET"
+        | "ALL" | "END" | "MAX" | "SETTINGS"
+        | "APPLICATION" | "ENUMERATED" | "MIN" | "SIZE"
+        | "AUTOMATIC" | "EXCEPT" | "MINUS-INFINITY" | "STRING"
+        | "BEGIN" | "EXPLICIT" | "NOT-A-NUMBER" | "SYNTAX"
+        | "BIT" | "EXPORTS" | "NULL" | "T61String"
+        | "BMPString" | "EXTENSIBILITY" | "NumericString" | "TAGS"
+        | "BOOLEAN" | "EXTERNAL" | "OBJECT" | "TeletexString"
+        | "BY" | "FALSE" | "ObjectDescriptor" | "TIME"
+        | "CHARACTER" | "FROM" | "OCTET" | "TIME-OF-DAY"
+        | "CHOICE" | "GeneralizedTime" | "OF" | "TRUE"
+        | "CLASS" | "GeneralString" | "OID-IRI" | "TYPE-IDENTIFIER"
+        | "COMPONENT" | "GraphicString" | "OPTIONAL" | "UNION"
+        | "COMPONENTS" | "IA5String" | "PATTERN" | "UNIQUE"
+        | "CONSTRAINED" | "IDENTIFIER" | "PDV" | "UNIVERSAL"
+        | "CONTAINING" | "IMPLICIT" | "PLUS-INFINITY" | "UniversalString"
+        | "DATE" | "IMPLIED" | "PRESENT" | "UTCTime"
+        | "DATE-TIME" | "IMPORTS" | "PrintableString" | "UTF8String"
+        | "DEFAULT" | "INCLUDES" | "PRIVATE" | "VideotexString"
+        | "DEFINITIONS" | "INSTANCE" | "REAL" | "VisibleString"
+        | "DURATION" | "INSTRUCTIONS" | "RELATIVE-OID" | "WITH"
+        | "EMBEDDED" | "INTEGER" | "RELATIVE-OID-IRI")
+    ~ !(hyphen | ASCII_ALPHANUMERIC)
+}
+
+WORD_KEYWORDS = {
+    ("BIT" |
+    "BOOLEAN" |
+    "CHARACTER" |
+    "CHOICE" |
+    "DATE" |
+    "DATE-TIME" |
+    "DURATION" |
+    "EMBEDDED" |
+    "END" |
+    "ENUMERATED" |
+    "EXTERNAL" |
+    "FALSE" |
+    "INSTANCE" |
+    "INTEGER" |
+    "INTERSECTION" |
+    "MINUS-INFINITY" |
+    "NULL" |
+    "OBJECT" |
+    "OCTET" |
+    "PLUS-INFINITY" |
+    "REAL" |
+    "RELATIVE-OID" |
+    "SEQUENCE" |
+    "SET" |
+    "TIME" |
+    "TIME-OF-DAY" |
+    "TRUE" |
+    "UNION")
+    ~ !(hyphen | ASCII_ALPHA_UPPER)
+}

@@ -1,0 +1,10 @@
+PKCS-12 DEFINITIONS ::= BEGIN
+
+    -- Basic Comment
+    PFX ::= SEQUENCE {
+        version INTEGER {v3(3)}(v3,...),
+        authSafe ContentInfo,
+        macData MacData OPTIONAL
+    }
+
+END

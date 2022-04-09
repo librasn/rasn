@@ -1,0 +1,23 @@
+[package]
+categories = ["command-line-utilities", "encoding", "parser-implementations"]
+description = "An ASN.1 notation compiler"
+edition = "2018"
+keywords = ["protocol", "asn1", "der", "notation", "compiler"]
+license = "MIT/Apache-2.0"
+name = "rasn-compiler"
+repository = "https://github.com/XAMPPRocky/rasn"
+version = "0.1.1"
+publish = false
+
+[dependencies]
+failure = "0.1.5"
+clap = "2.32.0"
+derefable = "0.1"
+unwrap_to = "0.1.0"
+variation = "0.1.0"
+log = "0.4.6"
+env_logger = "0.6.1"
+asn1-pest = { version = "0.1.1", package = "rasn-compiler-pest", path = "./pest/" }
+pest = "2.1.0"
+heck = "0.3.1"
+itertools = "0.8.0"

@@ -14,7 +14,7 @@ repository = "https://github.com/XAMPPRocky/rasn.git"
 bench = false
 
 [workspace]
-members = [".", "macros", "standards/*"]
+members = [".", "macros", "standards/*", "compiler", "compiler/pest"]
 exclude = ["fuzzing"]
 
 [features]
