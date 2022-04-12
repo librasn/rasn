@@ -68,7 +68,13 @@ pub struct Field {
 impl fmt::Display for Field {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if !self.attributes.is_empty() {
-            itertools::join(self.attributes.iter().map(ToString::to_string), "\n").fmt(f)?;
+            itertools::join(
+                self.attributes
+                    .iter()
+                    .map(|x| format!("\t{}", x.to_string())),
+                "\n",
+            )
+            .fmt(f)?;
             writeln!(f)?;
         }
 
