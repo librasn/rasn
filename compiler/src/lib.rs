@@ -41,8 +41,7 @@ impl NotationCompiler {
 
         let mut output = Vec::new();
 
-        CodeGenerator::<Vec<u8>, Rust>::new(fixed_tree, &mut output)
-            .generate()?;
+        CodeGenerator::<Vec<u8>, Rust>::new(fixed_tree, &mut output).generate()?;
 
         Ok(String::from_utf8(output).unwrap())
     }

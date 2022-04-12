@@ -994,7 +994,7 @@ impl<'a> Parser<'a> {
             component_list.extension = Some(Extension {
                 exception,
                 additions,
-                marker
+                marker,
             });
         }
 
