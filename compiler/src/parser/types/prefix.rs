@@ -9,7 +9,12 @@ pub struct Prefix {
 }
 
 impl Prefix {
-    pub fn new(encoding: Option<String>, kind: TagKind, class: Option<Class>, number: Number) -> Self {
+    pub fn new(
+        encoding: Option<String>,
+        kind: TagKind,
+        class: Option<Class>,
+        number: Number,
+    ) -> Self {
         Self {
             encoding,
             class,

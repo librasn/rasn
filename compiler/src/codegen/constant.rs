@@ -24,11 +24,13 @@ impl Constant {
     pub fn generate(self, backend: &mut Rust) -> Fallible<String> {
         use heck::ShoutySnakeCase;
 
+        let (ty, _) = backend.generate_type(&self.ty, None)?;
+
         Ok(format!(
             "{vis}const {name}: {ty} = {value};",
             vis = self.visibility,
             name = self.name.to_shouty_snake_case(),
-            ty = backend.generate_type(&self.ty)?,
+            ty = ty,
             value = backend.generate_value(&self.value)?,
         ))
     }

@@ -43,3 +43,9 @@ impl fmt::Display for Visibility {
         visibility.fmt(f)
     }
 }
+
+impl Default for Visibility {
+    fn default() -> Self {
+        Visibility::Private
+    }
+}
