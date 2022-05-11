@@ -116,7 +116,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
     type Error = Error;
 
     fn decode_any(&mut self) -> Result<types::Any> {
-        let (input, _) = self::parser::parse_value(&self.config, self.input, None)?;
+        let (mut input, (identifier, contents)) =
+            self::parser::parse_value(&self.config, self.input, None)?;
+
+        if contents.is_none() {
+            let (i, _) = self::parser::parse_encoded_value(
+                &self.config,
+                self.input,
+                identifier.tag,
+                |input| Ok(alloc::vec::Vec::from(input)),
+            )?;
+            input = i;
+        }
         let diff = self.input.len() - input.len();
         let contents = &self.input[..diff];
         self.input = input;
@@ -608,6 +619,29 @@ mod tests {
             },
             decode(expected).unwrap()
         );
+    }
+
+    #[test]
+    fn any_indefinite() {
+        let any = &[
+            0x30, 0x80, 0x2C, 0x80, 0x04, 0x03, 0x4A, 0x6F, 0x6E, 0x04, 0x02, 0x65, 0x73, 0x00,
+            0x00, 0x00, 0x00,
+        ];
+        assert_eq!(
+            Any {
+                contents: any.to_vec()
+            },
+            decode(any).unwrap(),
+        );
+    }
+
+    #[test]
+    fn any_indefinite_fail_no_eoc() {
+        let any = &[
+            0x30, 0x80, 0x2C, 0x80, 0x04, 0x03, 0x4A, 0x6F, 0x6E, 0x04, 0x02, 0x65, 0x73, 0x00,
+            0x00,
+        ];
+        assert!(decode::<Any>(any).is_err());
     }
 
     #[test]
