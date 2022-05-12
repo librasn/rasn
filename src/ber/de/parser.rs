@@ -43,27 +43,19 @@ where
         let mut container = RV::new();
         let mut input = input;
 
-        match contents {
-            Some(contents) => {
-                while !contents.is_empty() {
-                    let (i, mut child) =
-                        parse_encoded_value(config, input, tag, primitive_callback)?;
-                    input = i;
-                    container.append(&mut child);
-                }
-            }
-            None => {
-                const EOC: &[u8] = &[0, 0];
-                while !input.is_empty() && !input.starts_with(EOC) {
-                    let (i, mut child) =
-                        parse_encoded_value(config, input, tag, primitive_callback)?;
-                    input = i;
-                    container.append(&mut child);
-                }
+        const EOC: &[u8] = &[0, 0];
 
-                let (i, _) = nom::bytes::streaming::tag(EOC)(input).map_err(error::map_nom_err)?;
-                input = i;
-            }
+        while !input.is_empty() && !input.starts_with(EOC) {
+            let (_, identifier) = parse_identifier_octet(input).map_err(error::map_nom_err)?;
+            let (i, mut child) =
+                parse_encoded_value(config, input, identifier.tag, primitive_callback)?;
+            input = i;
+            container.append(&mut child);
+        }
+
+        if contents.is_none() {
+            let (i, _) = nom::bytes::streaming::tag(EOC)(input).map_err(error::map_nom_err)?;
+            input = i;
         }
 
         Ok((input, container))
