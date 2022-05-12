@@ -17,7 +17,7 @@ use rasn::{AsnType, Decode, Encode};
 pub struct EncapsulatedContentInfo {
     pub content_type: ContentType,
     #[rasn(tag(explicit(0)))]
-    pub content: Any,
+    pub content: Option<Any>,
 }
 
 /// SignedData represents a signed-data content type
