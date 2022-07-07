@@ -245,10 +245,10 @@ macro_rules! impl_integers {
                     encoder.encode_integer(
                         tag,
                         Constraints::from(&[
-                            constraints::Range::new(
+                            constraints::Value::new(constraints::Range::new(
                                 types::Integer::from(<$int>::MIN),
                                 types::Integer::from(<$int>::MAX)
-                            ).into()
+                            )).into()
                         ]),
                         &(*self).into()
                     ).map(drop)

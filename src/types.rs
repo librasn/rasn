@@ -72,6 +72,9 @@ pub trait AsnType {
     /// The root of this type's tree of tag's if it a CHOICE type, otherwise its
     /// `Leaf` that points [`Self::TAG`].
     const TAG_TREE: TagTree = TagTree::Leaf(Self::TAG);
+    /// The root of this type's tree of tag's if it a CHOICE type, otherwise its
+    /// `Leaf` that points [`Self::TAG`].
+    const CONSTRAINTS: Constraints<'static> = Constraints::NONE;
 }
 
 macro_rules! asn_type {

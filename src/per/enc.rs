@@ -3,10 +3,11 @@ mod error;
 use alloc::vec::Vec;
 
 use bitvec::prelude::*;
+use snafu::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
-    types::{self, constraints, BitString, Constraints, Integer, Tag},
+    types::{self, constraints, BitString, Constraints, Tag},
     Encode, Encoder as _,
 };
 
@@ -111,7 +112,7 @@ impl Encoder {
         let range = constraints.range().map_or(usize::MAX, |range| range + 1);
         let effective_length = constraints.effective_value(length).into_inner();
         let encode_min = |buffer: &mut BitString| -> Result<()> {
-            if let Some(min) = constraints.as_min() {
+            if let Some(min) = constraints.as_start() {
                 buffer.extend((encode_fn)(0..*min)?);
             }
 
@@ -123,7 +124,7 @@ impl Encoder {
         } else if range < SIXTY_FOUR_K {
             self.encode_integer(
                 Tag::INTEGER,
-                (&[<constraints::Range<Integer>>::from(constraints).into()]).into(),
+                (&[constraints::Value::from(constraints).into()]).into(),
                 &effective_length.into(),
             )?;
             buffer.extend((encode_fn)(0..length)?);
@@ -137,7 +138,7 @@ impl Encoder {
             buffer.extend((encode_fn)(0..length)?);
         } else {
             let mut effective_length = effective_length;
-            let mut min = constraints.min();
+            let mut min = constraints.start();
             (encode_min)(buffer)?;
 
             loop {
@@ -314,7 +315,7 @@ impl crate::Encoder for Encoder {
             .range()
             .filter(|range| *range < SIXTY_FOUR_K.into())
         {
-            let total_bits = value_range.max().unwrap().bits();
+            let total_bits = value_range.end().unwrap().bits();
             let current_bits = (bytes.len() * 8) as u64;
             if total_bits > current_bits {
                 let diff = total_bits - current_bits;
@@ -343,12 +344,10 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_object_identifier(
-        &mut self,
-        _tag: Tag,
-        _oid: &[u32],
-    ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+    fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32]) -> Result<Self::Ok, Self::Error> {
+        let der = crate::der::encode_scope(|encoder| encoder.encode_object_identifier(tag, oid))
+            .context(error::DerSnafu)?;
+        self.encode_octet_string(tag, <_>::default(), &der)
     }
 
     fn encode_octet_string(
@@ -581,10 +580,10 @@ mod tests {
                 encoder
                     .encode_integer(
                         tag,
-                        Constraints::from(&[constraints::Range::up_to(types::Integer::from(
+                        Constraints::from(&[constraints::Value::from(constraints::Range::up_to(types::Integer::from(
                             65535,
                         ))
-                        .into()]),
+                        ).into()]),
                         &self.0.into(),
                     )
                     .map(drop)
@@ -612,7 +611,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(&[
-                    constraints::Range::start_from(types::Integer::from(-1)).into()
+                    constraints::Value::from(constraints::Range::start_from(types::Integer::from(-1))).into()
                 ]),
                 &4096.into(),
             )
@@ -624,7 +623,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(
-                    &[constraints::Range::start_from(types::Integer::from(1)).into()],
+                    &[constraints::Value::from(constraints::Range::start_from(types::Integer::from(1))).into()],
                 ),
                 &127.into(),
             )
@@ -635,7 +634,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(
-                    &[constraints::Range::start_from(types::Integer::from(0)).into()],
+                    &[constraints::Value::from(constraints::Range::start_from(types::Integer::from(0))).into()],
                 ),
                 &128.into(),
             )

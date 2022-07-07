@@ -165,15 +165,11 @@ mod tests {
                 encoder: &mut EN,
                 tag: crate::Tag,
             ) -> Result<(), EN::Error> {
-                encoder.encode_set(
-                    tag,
-                    <_>::default(),
-                    |encoder| {
-                        self.age.encode(encoder)?;
-                        self.name.encode(encoder)?;
-                        Ok(())
-                    },
-                )?;
+                encoder.encode_set(tag, <_>::default(), |encoder| {
+                    self.age.encode(encoder)?;
+                    self.name.encode(encoder)?;
+                    Ok(())
+                })?;
 
                 Ok(())
             }

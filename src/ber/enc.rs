@@ -633,16 +633,12 @@ mod tests {
         let output = {
             let mut encoder = Encoder::new_set(EncoderOptions::ber());
             encoder
-                .encode_set(
-                    Tag::SET,
-                    <_>::default(),
-                    |encoder| {
-                        field3.encode(encoder)?;
-                        field2.encode(encoder)?;
-                        field1.encode(encoder)?;
-                        Ok(())
-                    },
-                )
+                .encode_set(Tag::SET, <_>::default(), |encoder| {
+                    field3.encode(encoder)?;
+                    field2.encode(encoder)?;
+                    field1.encode(encoder)?;
+                    Ok(())
+                })
                 .unwrap();
 
             encoder.output()

@@ -1,5 +1,7 @@
 //! # Distinguished Encoding Rules
 
+pub use crate::ber::*;
+
 /// Attempts to decode `T` from `input` using DER.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::ber::de::Error> {
     T::decode(&mut crate::ber::de::Decoder::new(

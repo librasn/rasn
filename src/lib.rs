@@ -128,7 +128,7 @@ mod tests {
                     .encode_integer(
                         tag,
                         Constraints::from(&[
-                            constraints::Range::start_from(Integer::from(127)).into()
+                            constraints::Value::from(constraints::Range::start_from(Integer::from(127))).into()
                         ]),
                         &self.0.into(),
                     )
@@ -146,7 +146,7 @@ mod tests {
 
                 let integer = decoder.decode_integer(
                     tag,
-                    Constraints::from(&[constraints::Range::start_from(Integer::from(127)).into()]),
+                    Constraints::from(&[constraints::Value::from(constraints::Range::start_from(Integer::from(127))).into()]),
                 )?;
 
                 Ok(Self(<_>::try_from(integer).map_err(D::Error::custom)?))

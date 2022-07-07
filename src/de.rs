@@ -177,7 +177,7 @@ macro_rules! impl_integers {
                     decoder.decode_integer(
                         tag,
                         Constraints::from(&[
-                            constraints::Range::new(types::Integer::from(<$int>::MIN), types::Integer::from(<$int>::MAX)).into()
+                            constraints::Value::from(constraints::Range::new(types::Integer::from(<$int>::MIN), types::Integer::from(<$int>::MAX))).into()
                         ])
                     )?
                 ).map_err(Error::custom)

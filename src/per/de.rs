@@ -67,13 +67,12 @@ impl<'input> Decoder<'input> {
                 .then(Default::default)
                 .unwrap_or_else(|| constraints.size());
 
-            let options = self.options;
             let input = self.decode_length(self.input, constraints, &mut decode_fn)?;
             self.input = input;
             constraints
         };
 
-        if let Some(min) = constraints.as_min().filter(|min| **min != 0) {
+        if let Some(min) = constraints.as_start().filter(|min| **min != 0) {
             (decode_fn)(self.input, *min)?;
         }
 
@@ -103,7 +102,7 @@ impl<'input> Decoder<'input> {
             if let Some(range) = constraints.range().filter(|range| *range < SIXTY_FOUR_K) {
                 let (input, length) = nom::bytes::streaming::take(range)(input)?;
                 (decode_fn)(input, length.load_be::<usize>())?
-            } else if let Some(min) = constraints.as_min() {
+            } else if let Some(min) = constraints.as_start() {
                 let input = self.decode_length(input, <_>::default(), decode_fn)?;
                 (decode_fn)(input, *min)?
             } else {
@@ -182,25 +181,28 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .map(|_| self.parse_one_bit())
             .transpose()?
             .unwrap_or_default();
-        let value_range = constraints.value();
+        let value_constraint: crate::types::constraints::Value = constraints.value();
 
-        let number = if let Some(range) = value_range
+        let number = if let Some(range) = value_constraint
             .range()
             .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
         {
-            let bits: usize = range.bits().try_into().map_err(|_| Error::range_exceeds_platform_width(<u64>::BITS, <usize>::BITS))?;
+            let bits: usize = range
+                .bits()
+                .try_into()
+                .map_err(|_| Error::range_exceeds_platform_width(<u64>::BITS, <usize>::BITS))?;
             let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
             self.input = input;
             num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec()).into()
         } else {
             let bytes = self.decode_octets()?.into_vec();
-            value_range
-                .as_min()
+            value_constraint
+                .as_start()
                 .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
                 .unwrap_or_else(|| types::Integer::from_signed_bytes_be(&bytes))
         };
 
-        Ok(value_range.min() + number)
+        Ok(value_constraint.start() + number)
     }
 
     fn decode_octet_string(&mut self, _: Tag, constraints: Constraints) -> Result<Vec<u8>> {

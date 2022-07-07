@@ -9,6 +9,8 @@ pub enum Error {
         length: usize,
         expected: Range<usize>,
     },
+    #[snafu(display("wrapped der encoding error: {source}"))]
+    Der { source: crate::der::enc::Error },
     #[snafu(display("custom error:\n{}", msg))]
     Custom { msg: alloc::string::String },
 }

@@ -30,15 +30,11 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         encoder: &mut D,
         tag: Tag,
     ) -> Result<(), D::Error> {
-        encoder.encode_sequence(
-            tag,
-            <_>::default(),
-            |sequence| {
-                self.type_id.encode(sequence)?;
-                sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
-                Ok(())
-            },
-        )?;
+        encoder.encode_sequence(tag, <_>::default(), |sequence| {
+            self.type_id.encode(sequence)?;
+            sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
+            Ok(())
+        })?;
 
         Ok(())
     }
