@@ -101,7 +101,9 @@ impl Encode for Opaque {
         encoder: &mut EN,
         tag: Tag,
     ) -> Result<(), EN::Error> {
-        encoder.encode_octet_string(tag, <_>::default(), &self.0).map(drop)
+        encoder
+            .encode_octet_string(tag, <_>::default(), &self.0)
+            .map(drop)
     }
 }
 

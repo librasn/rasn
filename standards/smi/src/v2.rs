@@ -6,8 +6,8 @@ use core::convert::TryInto;
 use chrono::TimeZone;
 
 use rasn::{
-    types::{ConstOid, Integer, ObjectIdentifier, OctetString, Oid, Utf8String},
     prelude::*,
+    types::{ConstOid, Integer, ObjectIdentifier, OctetString, Oid, Utf8String},
 };
 
 use crate::v1::InvalidVariant;
@@ -81,7 +81,8 @@ impl Encode for ExtUtcTime {
             .encode_octet_string(
                 tag,
                 <_>::from(&[constraints::Range::<Integer>::single_value(13usize.into()).into()]),
-                self.0.format(FULL_DATE_FORMAT).to_string().as_bytes())
+                self.0.format(FULL_DATE_FORMAT).to_string().as_bytes(),
+            )
             .map(drop)
     }
 }

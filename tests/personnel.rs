@@ -1,5 +1,5 @@
-use rasn::prelude::*;
 use pretty_assertions::assert_eq;
+use rasn::prelude::*;
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(set, tag(application, 0))]
@@ -67,7 +67,7 @@ pub struct ChildInformation {
 pub struct Name {
     pub given_name: VisibleString,
     pub initial: VisibleString,
-    pub family_name: VisibleString
+    pub family_name: VisibleString,
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
