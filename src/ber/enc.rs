@@ -57,6 +57,15 @@ impl Encoder {
         }
     }
 
+    /// Creates a new instance from the given `config` and a user-supplied
+    /// `Vec<u8>` buffer. This allows reuse of an existing buffer instead of
+    /// allocating a new encoding buffer each time an [`Encoder`] is created.
+    /// The buffer will be cleared before use.
+    pub fn new_with_buffer(config: EncoderOptions, mut buffer: Vec<u8>) -> Self {
+        buffer.clear();
+        Self { output: buffer, config, is_set_encoding: false, set_buffer: <_>::default() }
+    }
+
     /// Consumes the encoder and returns the output of the encoding.
     pub fn output(self) -> Vec<u8> {
         if self.is_set_encoding {
