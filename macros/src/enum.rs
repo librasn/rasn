@@ -189,7 +189,7 @@ impl Enum {
         quote! {
             #[automatically_derived]
             impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-                fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
+                fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
                     #decode_with_tag
                 }
 
@@ -212,7 +212,7 @@ impl Enum {
         };
 
         quote! {
-            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag, constraints: Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
                 #operation
             }
         }

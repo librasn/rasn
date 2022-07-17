@@ -1,4 +1,4 @@
-use super::{AsnType, Class, ObjectIdentifier, Tag};
+use super::{AsnType, Class, ObjectIdentifier, Tag, Constraints};
 
 /// An instance of a defined object class.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -14,8 +14,8 @@ impl<T> AsnType for InstanceOf<T> {
 }
 
 impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
-    fn decode_with_tag<D: crate::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_sequence(tag, <_>::default(), |sequence| {
+    fn decode_with_tag_and_constraints<'constraints, D: crate::Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints<'constraints>) -> Result<Self, D::Error> {
+        decoder.decode_sequence(tag, constraints, |sequence| {
             let type_id = ObjectIdentifier::decode(sequence)?;
             let value = sequence.decode_explicit_prefix(Tag::new(Class::Context, 0))?;
 
@@ -25,12 +25,8 @@ impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
 }
 
 impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
-    fn encode_with_tag<D: crate::Encoder>(
-        &self,
-        encoder: &mut D,
-        tag: Tag,
-    ) -> Result<(), D::Error> {
-        encoder.encode_sequence(tag, <_>::default(), |sequence| {
+    fn encode_with_tag_and_constraints<'constraints, EN: crate::Encoder>(&self, encoder: &mut EN, tag: Tag, constraints: Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
+        encoder.encode_sequence(tag, constraints, |sequence| {
             self.type_id.encode(sequence)?;
             sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
             Ok(())

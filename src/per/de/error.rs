@@ -53,6 +53,11 @@ pub enum Kind {
         /// The error's message.
         msg: alloc::string::String,
     },
+    #[snafu(display("Error in wrapped BER: {}", source))]
+    Ber {
+        /// The error's message.
+        source: crate::ber::de::Error,
+    },
     #[snafu(display("Custom: {}", msg))]
     Custom {
         /// The error's message.

@@ -138,7 +138,7 @@ pub fn derive_struct_impl(
 
     quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
                 #decode_impl
             }
         }
@@ -178,8 +178,8 @@ pub fn map_from_inner_type(
         struct #inner_name #generics #fields #semi
 
         impl #impl_generics #crate_root::Decode for #inner_name #ty_generics #where_clause {
-            fn decode_with_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
-                decoder.decode_sequence(tag, <_>::default(), |decoder| {
+            fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
+                decoder.decode_sequence(tag, constraints, |decoder| {
                     Ok::<_, D::Error>(#inner_name { #(#decode_fields),* })
                 })
             }

@@ -2,6 +2,7 @@ mod error;
 
 use alloc::vec::Vec;
 use bitvec::field::BitField;
+use snafu::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
@@ -99,7 +100,7 @@ impl<'input> Decoder<'input> {
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
         Ok(
-            if let Some(range) = constraints.range().filter(|range| *range < SIXTY_FOUR_K) {
+            if let Some(range) = constraints.range().filter(|range| *range <= u16::MAX.into()) {
                 let (input, length) = nom::bytes::streaming::take(range)(input)?;
                 (decode_fn)(input, length.load_be::<usize>())?
             } else if let Some(min) = constraints.as_start() {
@@ -121,18 +122,18 @@ impl<'input> Decoder<'input> {
                         (decode_fn)(input, length.load_be::<usize>())?
                     } else {
                         let (input, mask) = nom::bytes::streaming::take(6u8)(input)?;
-                        let length = match mask.load_be::<u8>() {
-                            1 => SIXTEEN_K,
-                            2 => THIRTY_TWO_K,
-                            3 => FOURTY_EIGHT_K,
-                            4 => SIXTY_FOUR_K,
+                        let length: usize = match mask.load_be::<u8>() {
+                            1 => SIXTEEN_K.into(),
+                            2 => THIRTY_TWO_K.into(),
+                            3 => FOURTY_EIGHT_K.into(),
+                            4 => SIXTY_FOUR_K as usize,
                             _ => {
                                 return Err(error::Kind::Parser {
                                     msg: "Invalid length fragment".into(),
                                 }
                                 .into())
                             }
-                        };
+                        }.into();
 
                         let mut input = (decode_fn)(input, length)?;
 
@@ -181,16 +182,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .map(|_| self.parse_one_bit())
             .transpose()?
             .unwrap_or_default();
-        let value_constraint: crate::types::constraints::Value = constraints.value();
+        let value_constraint = constraints.value();
 
         let number = if let Some(range) = value_constraint
             .range()
             .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
         {
-            let bits: usize = range
-                .bits()
-                .try_into()
-                .map_err(|_| Error::range_exceeds_platform_width(<u64>::BITS, <usize>::BITS))?;
+            let bits = range.count_ones();
             let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
             self.input = input;
             num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec()).into()
@@ -199,7 +197,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             value_constraint
                 .as_start()
                 .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
-                .unwrap_or_else(|| types::Integer::from_signed_bytes_be(&bytes))
+                .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
         Ok(value_constraint.start() + number)
@@ -221,13 +219,15 @@ impl<'input> crate::Decoder for Decoder<'input> {
         Ok(())
     }
 
-    fn decode_object_identifier(&mut self, tag: Tag) -> Result<crate::types::ObjectIdentifier> {
-        todo!()
+    fn decode_object_identifier(&mut self, _: Tag) -> Result<crate::types::ObjectIdentifier> {
+        let octets = self.decode_octets()?.into_vec();
+
+        crate::ber::decode(&octets).context(error::BerSnafu).map_err(From::from)
     }
 
     fn decode_bit_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<types::BitString> {
         let mut bit_string = types::BitString::default();

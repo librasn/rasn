@@ -288,7 +288,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_integer(
             tag,
-            Constraints::from(&[constraints::Range::up_to(variance).into()]),
+            Constraints::from(&[constraints::Size::new(constraints::Range::up_to(variance)).into()]),
             &(value.into()),
         )
     }
@@ -297,7 +297,7 @@ impl crate::Encoder for Encoder {
         &mut self,
         tag: Tag,
         _constraints: Constraints,
-        value: &types::Integer,
+        value: &num_bigint::BigInt,
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(tag, &value.to_signed_bytes_be());
         Ok(())

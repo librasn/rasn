@@ -121,10 +121,11 @@ impl Encoder {
 
         if range == 0 {
             (encode_min)(buffer)?;
-        } else if range < SIXTY_FOUR_K {
+        } else if range < SIXTY_FOUR_K as usize {
+            let constraints = [constraints::Value::try_from(constraints).unwrap().into()];
             self.encode_integer(
                 Tag::INTEGER,
-                (&[constraints::Value::from(constraints).into()]).into(),
+                Constraints::from(&constraints),
                 &effective_length.into(),
             )?;
             buffer.extend((encode_fn)(0..length)?);
@@ -132,7 +133,7 @@ impl Encoder {
             buffer.extend((effective_length as u8).to_be_bytes());
             self.pad_to_alignment(buffer);
             buffer.extend((encode_fn)(0..length)?);
-        } else if effective_length < SIXTEEN_K {
+        } else if effective_length < SIXTEEN_K.into() {
             const SIXTEENTH_BIT: u16 = 0x8000;
             buffer.extend((SIXTEENTH_BIT | effective_length as u16).to_be_bytes());
             buffer.extend((encode_fn)(0..length)?);
@@ -143,14 +144,18 @@ impl Encoder {
 
             loop {
                 // Hack to get around no exclusive syntax.
-                const K64: usize = SIXTY_FOUR_K - 1;
-                const K48: usize = FOURTY_EIGHT_K - 1;
-                const K32: usize = THIRTY_TWO_K - 1;
+                const K64: usize = SIXTY_FOUR_K as usize;
+                const K48: usize = FOURTY_EIGHT_K as usize;
+                const K32: usize = THIRTY_TWO_K as usize;
+                const K16: usize = SIXTEEN_K as usize;
+                const K64_MAX: usize = (K64 - 1);
+                const K48_MAX: usize = (K48 - 1);
+                const K32_MAX: usize = (K32 - 1);
                 let (fragment_index, amount) = match effective_length {
-                    SIXTY_FOUR_K..=usize::MAX => (4, SIXTY_FOUR_K),
-                    FOURTY_EIGHT_K..=K64 => (3, FOURTY_EIGHT_K),
-                    THIRTY_TWO_K..=K48 => (2, THIRTY_TWO_K),
-                    SIXTEEN_K..=K32 => (1, SIXTEEN_K),
+                    K64..=usize::MAX => (4, K64),
+                    K48..=K64_MAX => (3, K48),
+                    K32..=K48_MAX => (2, K32),
+                    K16..=K32_MAX => (1, K16),
                     _ => {
                         self.encode_length(buffer, effective_length, <_>::default(), encode_fn)?;
                         break;
@@ -289,7 +294,9 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_integer(
             tag,
-            Constraints::from(&[constraints::Range::up_to(variance).into()]),
+            Constraints::new(&[
+                constraints::Size::new(constraints::Range::up_to(variance)).into(),
+            ]),
             &value.into(),
         )
     }
@@ -298,11 +305,11 @@ impl crate::Encoder for Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &types::Integer,
+        value: &num_bigint::BigInt,
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::default();
         let value_range = constraints.value();
-        let mut bytes = match value_range.effective_value(value.clone()) {
+        let mut bytes = match value_range.effective_bigint_value(value.clone()) {
             either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
             either::Right(value) => value.to_signed_bytes_be(),
         };
@@ -315,18 +322,18 @@ impl crate::Encoder for Encoder {
             .range()
             .filter(|range| *range < SIXTY_FOUR_K.into())
         {
-            let total_bits = value_range.end().unwrap().bits();
-            let current_bits = (bytes.len() * 8) as u64;
+            let total_bits = value_range.end().unwrap().count_ones() as u128;
+            let current_bits = bytes.len() as u128 * 8;
             if total_bits > current_bits {
                 let diff = total_bits - current_bits;
-                let padding = (diff / 8) + ((diff % 8) != 0) as u64;
+                let padding = (diff / 8) + ((diff % 8) != 0) as u128;
                 let mut padding_vec = vec![0; padding as usize];
 
                 padding_vec.append(&mut bytes);
                 bytes = padding_vec;
             }
 
-            let mut field = BitString::repeat(false, range.bits() as usize);
+            let mut field = BitString::repeat(false, range.count_ones() as usize);
             field |= BitString::from_slice(&bytes);
 
             buffer.extend(field);
@@ -580,10 +587,7 @@ mod tests {
                 encoder
                     .encode_integer(
                         tag,
-                        Constraints::from(&[constraints::Value::from(constraints::Range::up_to(types::Integer::from(
-                            65535,
-                        ))
-                        ).into()]),
+                        Constraints::from(&[constraints::Value::from(constraints::Range::up_to(65535)).into()]),
                         &self.0.into(),
                     )
                     .map(drop)
@@ -611,7 +615,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(&[
-                    constraints::Value::from(constraints::Range::start_from(types::Integer::from(-1))).into()
+                    constraints::Value::from(constraints::Range::start_from(-1)).into()
                 ]),
                 &4096.into(),
             )
@@ -623,7 +627,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(
-                    &[constraints::Value::from(constraints::Range::start_from(types::Integer::from(1))).into()],
+                    &[constraints::Value::from(constraints::Range::start_from(1)).into()],
                 ),
                 &127.into(),
             )
@@ -634,7 +638,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(
-                    &[constraints::Value::from(constraints::Range::start_from(types::Integer::from(0))).into()],
+                    &[constraints::Value::from(constraints::Range::start_from(0)).into()],
                 ),
                 &128.into(),
             )

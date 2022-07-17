@@ -23,7 +23,15 @@ pub trait Encode: AsnType {
     /// **Note** For `CHOICE` and other types that cannot be implicitly tagged
     /// this will **explicitly tag** the value, for all other types, it will
     /// **implicitly** tag the value.
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error>;
+    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+        self.encode_with_tag_and_constraints(encoder, tag, Self::CONSTRAINTS)
+    }
+
+    fn encode_with_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
+        self.encode_with_tag_and_constraints(encoder, Self::TAG, constraints)
+    }
+
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error>;
 }
 
 /// A **data format** encode any ASN.1 data type.
@@ -65,7 +73,7 @@ pub trait Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &types::Integer,
+        value: &num_bigint::BigInt,
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `NULL` value.
@@ -205,10 +213,18 @@ impl<E: Encode> Encode for &'_ E {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         E::encode_with_tag(self, encoder, tag)
     }
+
+    fn encode_with_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
+        E::encode_with_constraints(self, encoder, constraints)
+    }
+
+    fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
+        E::encode_with_tag_and_constraints(self, encoder, tag, constraints)
+    }
 }
 
 impl Encode for () {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_null(tag).map(drop)
     }
 }
@@ -229,10 +245,18 @@ impl<E: Encode> Encode for Option<E> {
         }
         .map(drop)
     }
+
+    fn encode_with_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, _: Constraints<'constraints>) -> Result<(), EN::Error> {
+        todo!()
+    }
+
+    fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, tag: Tag, _: Constraints<'constraints>) -> Result<(), EN::Error> {
+        todo!()
+    }
 }
 
 impl Encode for bool {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_bool(tag, *self).map(drop)
     }
 }
@@ -241,15 +265,10 @@ macro_rules! impl_integers {
     ($($int:ty),+) => {
         $(
             impl Encode for $int {
-                fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+                fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
                     encoder.encode_integer(
                         tag,
-                        Constraints::from(&[
-                            constraints::Value::new(constraints::Range::new(
-                                types::Integer::from(<$int>::MIN),
-                                types::Integer::from(<$int>::MAX)
-                            )).into()
-                        ]),
+                        constraints,
                         &(*self).into()
                     ).map(drop)
                 }
@@ -273,68 +292,68 @@ impl_integers! {
     usize
 }
 
-impl Encode for types::Integer {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+impl Encode for num_bigint::BigInt {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder
-            .encode_integer(tag, Constraints::NONE, self)
+            .encode_integer(tag, constraints, self)
             .map(drop)
     }
 }
 
 impl Encode for types::OctetString {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder
-            .encode_octet_string(tag, <_>::default(), self)
+            .encode_octet_string(tag, constraints, self)
             .map(drop)
     }
 }
 
 impl Encode for types::Utf8String {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_utf8_string(tag, self).map(drop)
     }
 }
 
 impl Encode for &'_ str {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_utf8_string(tag, self).map(drop)
     }
 }
 
 impl Encode for types::BitString {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder
-            .encode_bit_string(tag, <_>::default(), self)
+            .encode_bit_string(tag, constraints, self)
             .map(drop)
     }
 }
 
 impl Encode for types::ObjectIdentifier {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_object_identifier(tag, self).map(drop)
     }
 }
 
 impl Encode for types::Oid {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_object_identifier(tag, self).map(drop)
     }
 }
 
 impl Encode for types::UtcTime {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_utc_time(tag, self).map(drop)
     }
 }
 
 impl Encode for types::GeneralizedTime {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_generalized_time(tag, self).map(drop)
     }
 }
 
 impl Encode for types::Any {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, _: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_any(self).map(drop)
     }
 }
@@ -347,42 +366,50 @@ impl<E: Encode> Encode for alloc::boxed::Box<E> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         E::encode_with_tag(&*self, encoder, tag)
     }
+
+    fn encode_with_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
+        E::encode_with_constraints(self, encoder, constraints)
+    }
+
+    fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
+        E::encode_with_tag_and_constraints(self, encoder, tag, constraints)
+    }
 }
 
 impl<E: Encode> Encode for alloc::vec::Vec<E> {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+    fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
         encoder
-            .encode_sequence_of(tag, self, <_>::default())
+            .encode_sequence_of(tag, self, constraints)
             .map(drop)
     }
 }
 
 impl<E: Encode> Encode for alloc::collections::BTreeSet<E> {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-        encoder.encode_set_of(tag, self, <_>::default()).map(drop)
+    fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
+        encoder.encode_set_of(tag, self, constraints).map(drop)
     }
 }
 
 impl<E: Encode, const N: usize> Encode for [E; N] {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+    fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
         encoder
             .encode_sequence_of(
                 tag,
                 self,
-                (&[constraints::Range::single_value(N).into()]).into(),
+                constraints,
             )
             .map(drop)
     }
 }
 
 impl<T: AsnType, V: Encode> Encode for types::Implicit<T, V> {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-        V::encode_with_tag(&self.value, encoder, tag).map(drop)
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
+        V::encode_with_tag_and_constraints(&self.value, encoder, tag, constraints).map(drop)
     }
 }
 
 impl<T: AsnType, V: Encode> Encode for types::Explicit<T, V> {
-    fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
         encoder.encode_explicit_prefix(tag, &self.value).map(drop)
     }
 }

@@ -16,12 +16,12 @@ use alloc::boxed::Box;
 
 pub use ::{
     alloc::string::String as Utf8String, bytes::Bytes as OctetString,
-    num_bigint::BigInt as Integer, rasn_derive::AsnType,
+    rasn_derive::AsnType, num_bigint::BigInt as Integer,
 };
 
 pub use self::{
     any::Any,
-    constraints::Constraints,
+    constraints::{Constraints, Constraint},
     instance::InstanceOf,
     oid::{ConstOid, ObjectIdentifier, Oid},
     open::Open,
@@ -57,10 +57,6 @@ pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
 ///  The `SEQUENCE OF` type.
 pub type SequenceOf<T> = alloc::vec::Vec<T>;
 
-pub trait IntegerType: Clone {}
-
-impl IntegerType for Integer {}
-
 /// A trait representing any type that can represented in ASN.1.
 pub trait AsnType {
     /// The associated tag for the type.
@@ -72,8 +68,7 @@ pub trait AsnType {
     /// The root of this type's tree of tag's if it a CHOICE type, otherwise its
     /// `Leaf` that points [`Self::TAG`].
     const TAG_TREE: TagTree = TagTree::Leaf(Self::TAG);
-    /// The root of this type's tree of tag's if it a CHOICE type, otherwise its
-    /// `Leaf` that points [`Self::TAG`].
+
     const CONSTRAINTS: Constraints<'static> = Constraints::NONE;
 }
 
@@ -89,19 +84,7 @@ macro_rules! asn_type {
 
 asn_type! {
     bool: BOOL,
-    i8: INTEGER,
-    i16: INTEGER,
-    i32: INTEGER,
-    i64: INTEGER,
-    i128: INTEGER,
-    isize: INTEGER,
-    u8: INTEGER,
-    u16: INTEGER,
-    u32: INTEGER,
-    u64: INTEGER,
-    u128: INTEGER,
-    usize: INTEGER,
-    Integer: INTEGER,
+    num_bigint::BigInt: INTEGER,
     OctetString: OCTET_STRING,
     ObjectIdentifier: OBJECT_IDENTIFIER,
     Oid: OBJECT_IDENTIFIER,
@@ -113,6 +96,34 @@ asn_type! {
     (): NULL,
     &'_ str: UTF8_STRING
 
+}
+
+macro_rules! asn_integer_type {
+    ($($int:ty),+ $(,)?) => {
+        $(
+            impl AsnType for $int {
+                const TAG: Tag = Tag::INTEGER;
+                const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
+                    constraints::Constraint::Value(constraints::Value::new(constraints::Range::const_new(<$int>::MIN as i128, <$int>::MAX as i128))),
+                ]);
+            }
+        )+
+    }
+}
+
+asn_integer_type! {
+    i8,
+    i16,
+    i32,
+    i64,
+    i128,
+    isize,
+    u8,
+    u16,
+    u32,
+    u64,
+    u128,
+    usize,
 }
 
 impl AsnType for str {
@@ -144,6 +155,9 @@ impl<T> AsnType for alloc::collections::BTreeSet<T> {
 
 impl<T: AsnType, const N: usize> AsnType for [T; N] {
     const TAG: Tag = Tag::SEQUENCE;
+    const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
+        Constraint::Size(constraints::Size::new(constraints::Range::single_value(N)))
+    ]);
 }
 
 impl<T> AsnType for &'_ [T] {

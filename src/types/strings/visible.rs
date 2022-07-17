@@ -92,16 +92,14 @@ impl AsnType for VisibleString {
 }
 
 impl Encode for VisibleString {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
-        encoder
-            .encode_visible_string(tag, <_>::default(), &self)
-            .map(drop)
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
+        encoder.encode_visible_string(tag, constraints, &self).map(drop)
     }
 }
 
 impl Decode for VisibleString {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        decoder.decode_visible_string(tag, <_>::default())
+    fn decode_with_tag_and_constraints<'constraints, D: Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints<'constraints>) -> Result<Self, D::Error> {
+        decoder.decode_visible_string(tag, constraints)
     }
 }
 

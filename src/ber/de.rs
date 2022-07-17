@@ -478,7 +478,7 @@ mod tests {
         data[2] = 0x01;
         data[3] = 0x01;
         data[4] = 0x01;
-        let mut bigint = types::Integer::from(1);
+        let mut bigint = num_bigint::BigInt::from(1);
         bigint <<= 2048;
         assert_eq!(bigint, decode(&data).unwrap());
     }

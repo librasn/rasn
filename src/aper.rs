@@ -1,5 +1,7 @@
 //! # Aligned Packed Encoding Rules
 
+pub use super::per::*;
+
 /// Attempts to decode `T` from `input` using DER.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::per::de::Error> {
     T::decode(&mut crate::per::de::Decoder::new(

@@ -1,10 +1,12 @@
-use crate::types::Integer;
-
 #[derive(Debug, Default, Copy, Clone)]
 pub struct Constraints<'constraint>(pub &'constraint [Constraint]);
 
-impl Constraints<'_> {
+impl<'r> Constraints<'r> {
     pub const NONE: Self = Self(&[]);
+
+    pub const fn new(constraints: &'r [Constraint]) -> Self {
+        Self(constraints)
+    }
 
     pub fn size(&self) -> Range<usize> {
         self.0
@@ -27,6 +29,12 @@ impl Constraints<'_> {
     }
 }
 
+impl<'r> From<&'r [Constraint]> for Constraints<'r> {
+    fn from(constraints: &'r [Constraint]) -> Self {
+        Self(constraints)
+    }
+}
+
 impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
     fn from(constraints: &'r [Constraint; N]) -> Self {
         Self(constraints)
@@ -36,7 +44,7 @@ impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Constraint {
     Value(Value),
-    Size(Range<usize>),
+    Size(Size),
     Extensible(bool),
 }
 
@@ -55,9 +63,9 @@ impl Constraint {
         }
     }
 
-    pub const fn to_size(&self) -> Option<Range<usize>> {
+    pub fn to_size(&self) -> Option<Range<usize>> {
         match self {
-            Self::Size(size) => Some(*size),
+            Self::Size(size) => Some(**size),
             _ => None,
         }
     }
@@ -75,17 +83,17 @@ impl Constraint {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Value(Range<Integer>);
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Value(Range<i128>);
 
 impl Value {
-    pub const fn new(value: Range<Integer>) -> Self {
+    pub const fn new(value: Range<i128>) -> Self {
         Self(value)
     }
 }
 
 impl core::ops::Deref for Value {
-    type Target = Range<Integer>;
+    type Target = Range<i128>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -98,17 +106,45 @@ impl core::ops::DerefMut for Value {
     }
 }
 
-impl From<Range<usize>> for Value {
-    fn from(range: Range<usize>) -> Self {
-        Self(Range {
-            start: range.start.map(From::from),
-            end: range.end.map(From::from),
-        })
+macro_rules! from_primitives {
+    ($($int:ty),+ $(,)?) => {
+        $(
+            impl From<Range<$int>> for Value {
+                fn from(range: Range<$int>) -> Self {
+                    Self(Range {
+                        start: range.start.map(From::from),
+                        end: range.end.map(From::from),
+                    })
+                }
+            }
+        )+
+    }
+}
+
+from_primitives! {
+    u8, u16, u32, u64,
+    i8, i16, i32, i64, i128,
+}
+
+impl TryFrom<Range<usize>> for Value {
+    type Error = <i128 as TryFrom<usize>>::Error;
+
+    fn try_from(range: Range<usize>) -> Result<Self, Self::Error> {
+        Ok(Self(Range {
+            start: range.start.map(TryFrom::try_from).transpose()?,
+            end: range.end.map(TryFrom::try_from).transpose()?,
+        }))
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Size(Range<usize>);
+
+impl Size {
+    pub const fn new(range: Range<usize>) -> Self {
+        Self(range)
+    }
+}
 
 impl core::ops::Deref for Size {
     type Target = Range<usize>;
@@ -151,10 +187,10 @@ impl<T> Range<T> {
     }
 }
 
-impl<T: Clone> Range<T> {
-    pub fn single_value(value: T) -> Self {
+impl<T: Clone + Copy> Range<T> {
+    pub const fn single_value(value: T) -> Self {
         Self {
-            start: Some(value.clone()),
+            start: Some(value),
             end: Some(value),
         }
     }
@@ -179,24 +215,6 @@ impl<T: core::ops::Sub<Output = T> + Clone> Range<T> {
     }
 }
 
-impl<T: PartialEq + PartialOrd> Range<T> {
-    pub fn contains(&self, element: &T) -> bool {
-        self.start.as_ref().map_or(true, |start| element >= start)
-            && self.end.as_ref().map_or(true, |end| element < end)
-    }
-
-    pub fn contains_or<E>(&self, element: &T, error: E) -> Result<(), E> {
-        self.contains_or_else(element, || error)
-    }
-
-    pub fn contains_or_else<E>(&self, element: &T, error: impl FnOnce() -> E) -> Result<(), E> {
-        match self.contains(element) {
-            true => Ok(()),
-            false => Err((error)()),
-        }
-    }
-}
-
 impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd> Range<T> {
     /// Returns the effective value which is either the number, or the positive
     /// offset of that number from the start of the value range. `Either::Left`
@@ -212,12 +230,17 @@ impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + Partia
     }
 }
 
-impl From<Range<Integer>> for Value {
-    fn from(size: Range<Integer>) -> Self {
-        Self(Range {
-            start: size.start.map(From::from),
-            end: size.end.map(From::from),
-        })
+impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd> Range<T>
+    where crate::types::Integer: From<T>
+{
+    /// The same as [`effective_value`] except using [`crate::types::Integer`].
+    pub fn effective_bigint_value(&self, value: crate::types::Integer) -> either::Either<crate::types::Integer, crate::types::Integer> {
+        if let Some(start) = self.start.clone().map(From::from) {
+            debug_assert!(value >= start);
+            either::Left(value - start)
+        } else {
+            either::Right(value)
+        }
     }
 }
 
@@ -227,8 +250,8 @@ impl From<Value> for Constraint {
     }
 }
 
-impl From<Range<usize>> for Constraint {
-    fn from(size: Range<usize>) -> Self {
+impl From<Size> for Constraint {
+    fn from(size: Size) -> Self {
         Self::Size(size)
     }
 }
@@ -253,6 +276,22 @@ impl<T: PartialEq + PartialOrd> Range<T> {
         Self {
             start: Some(start),
             end: Some(end),
+        }
+    }
+
+    pub fn contains(&self, element: &T) -> bool {
+        self.start.as_ref().map_or(true, |start| element >= start)
+            && self.end.as_ref().map_or(true, |end| element < end)
+    }
+
+    pub fn contains_or<E>(&self, element: &T, error: E) -> Result<(), E> {
+        self.contains_or_else(element, || error)
+    }
+
+    pub fn contains_or_else<E>(&self, element: &T, error: impl FnOnce() -> E) -> Result<(), E> {
+        match self.contains(element) {
+            true => Ok(()),
+            false => Err((error)()),
         }
     }
 }

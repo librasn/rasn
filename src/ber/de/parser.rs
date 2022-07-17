@@ -2,11 +2,12 @@ use alloc::vec::Vec;
 
 use nom::IResult;
 use num_traits::ToPrimitive;
+use num_bigint::BigInt;
 
 use super::{error, DecoderOptions};
 use crate::{
     ber::identifier::Identifier,
-    types::{Class, Integer, Tag},
+    types::{Class, Tag},
 };
 
 pub(crate) fn parse_value<'config, 'input>(
@@ -95,24 +96,24 @@ pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier>
     Ok((input, identifier.tag(tag)))
 }
 
-pub fn parse_encoded_number(input: &[u8]) -> IResult<&[u8], Integer> {
+pub fn parse_encoded_number(input: &[u8]) -> IResult<&[u8], BigInt> {
     let (input, body) = nom::bytes::streaming::take_while(|i| i & 0x80 != 0)(input)?;
     let (input, end) = nom::bytes::streaming::take(1usize)(input)?;
 
     Ok((input, concat_number(body, end[0])))
 }
 
-pub fn parse_base128_number(input: &[u8]) -> IResult<&[u8], Integer> {
+pub fn parse_base128_number(input: &[u8]) -> IResult<&[u8], BigInt> {
     let (input, body) = nom::bytes::streaming::take_while(|i| i & 0x80 != 0)(input)?;
     let (input, end) = nom::bytes::streaming::take(1usize)(input)?;
 
-    let mut number = Integer::from(0);
+    let mut number = BigInt::from(0);
     for byte in body.iter() {
         number <<= 7usize;
-        number |= Integer::from(byte & 0x7F);
+        number |= BigInt::from(byte & 0x7F);
     }
     number <<= 7usize;
-    number |= Integer::from(end[0]);
+    number |= BigInt::from(end[0]);
     Ok((input, number))
 }
 
@@ -179,17 +180,17 @@ impl Appendable for crate::types::BitString {
 
 /// Concatenates a series of 7 bit numbers delimited by `1`'s and
 /// ended by a `0` in the 8th bit.
-fn concat_number(body: &[u8], start: u8) -> Integer {
-    let start = Integer::from(start);
+fn concat_number(body: &[u8], start: u8) -> BigInt {
+    let start = BigInt::from(start);
     if body.is_empty() {
         return start;
     }
 
-    let mut number = Integer::from(body[0] & 0x7F);
+    let mut number = BigInt::from(body[0] & 0x7F);
 
     for byte in body[1..].iter() {
         number <<= 7usize;
-        number |= Integer::from(byte & 0x7F);
+        number |= BigInt::from(byte & 0x7F);
     }
 
     (number << 7usize) | start
@@ -208,7 +209,7 @@ fn take_contents(input: &[u8], length: u8) -> IResult<&[u8], &[u8]> {
         _ => {
             let length = length ^ 0x80;
             let (input, length_slice) = nom::bytes::streaming::take(length)(input)?;
-            let length = Integer::from_bytes_be(num_bigint::Sign::Plus, length_slice).to_usize();
+            let length = BigInt::from_bytes_be(num_bigint::Sign::Plus, length_slice).to_usize();
 
             if let Some(length) = length {
                 nom::bytes::streaming::take(length)(input)

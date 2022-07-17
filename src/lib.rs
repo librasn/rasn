@@ -128,7 +128,7 @@ mod tests {
                     .encode_integer(
                         tag,
                         Constraints::from(&[
-                            constraints::Value::from(constraints::Range::start_from(Integer::from(127))).into()
+                            constraints::Value::from(constraints::Range::start_from(127)).into()
                         ]),
                         &self.0.into(),
                     )
@@ -146,7 +146,7 @@ mod tests {
 
                 let integer = decoder.decode_integer(
                     tag,
-                    Constraints::from(&[constraints::Value::from(constraints::Range::start_from(Integer::from(127))).into()]),
+                    Constraints::from(&[constraints::Value::from(constraints::Range::start_from(127)).into()]),
                 )?;
 
                 Ok(Self(<_>::try_from(integer).map_err(D::Error::custom)?))
@@ -184,14 +184,14 @@ mod tests {
         round_trip(&vec![5u8; 0xffff]);
     }
 
-    // #[test]
-    // fn object_identifier() {
-    //     round_trip(&ObjectIdentifier::new(vec![1, 2]));
-    //     round_trip(&ObjectIdentifier::new(vec![1, 2, 840]));
-    //     round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549]));
-    //     round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549, 1]));
-    //     round_trip(&ObjectIdentifier::new(vec![0, 3, 0, 3]));
-    // }
+    #[test]
+    fn object_identifier() {
+        round_trip(&ObjectIdentifier::new(vec![1, 2]));
+        round_trip(&ObjectIdentifier::new(vec![1, 2, 840]));
+        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549]));
+        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549, 1]));
+        round_trip(&ObjectIdentifier::new(vec![0, 3, 0, 3]));
+    }
 
     #[test]
     fn enumerated() {

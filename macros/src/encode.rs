@@ -71,7 +71,7 @@ pub fn derive_struct_impl(
     let vars = fields_as_vars(&container.fields);
     quote! {
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
-            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag, constraints: Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
                 #(#vars)*
 
                 #encode_impl
@@ -147,7 +147,7 @@ pub fn map_to_inner_type(
             }
 
         impl #impl_generics  #crate_root::Encode for #inner_name #ty_generics #where_clause {
-            fn encode_with_tag<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag, constraints: Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
                 #(#vars)*
 
                 #encode_impl
