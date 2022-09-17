@@ -206,10 +206,10 @@ impl<T: Default + Clone> Range<T> {
     }
 }
 
-impl<T: core::ops::Sub<Output = T> + Clone> Range<T> {
+impl<T: num_traits::WrappingSub<Output = T> + Clone + core::fmt::Debug> Range<T> {
     pub fn range(&self) -> Option<T> {
-        match (self.start.clone(), self.end.clone()) {
-            (Some(start), Some(end)) => Some(end - start),
+        match (&self.start, &self.end) {
+            (Some(start), Some(end)) => Some(end.wrapping_sub(&start)),
             _ => None,
         }
     }
@@ -311,6 +311,7 @@ impl<T: core::fmt::Display> core::fmt::Display for Range<T> {
 mod tests {
     use super::*;
 
+    #[test]
     fn range() {
         let constraints = Range::new(0, 255);
         assert_eq!(256, constraints.range().unwrap());

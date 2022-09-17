@@ -78,9 +78,13 @@ mod tests {
                 fn $integer() {
                     let min = <$integer>::min_value();
                     let max = <$integer>::max_value();
+                    let half_max = <$integer>::max_value() / 2;
+                    let half_min = <$integer>::min_value() / 2;
 
                     round_trip(&min);
                     round_trip(&max);
+                    round_trip(&half_max);
+                    round_trip(&half_min);
                 }
             )*
         }
@@ -116,20 +120,22 @@ mod tests {
 
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
+            const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
+                Constraint::Value(constraints::Value::new(constraints::Range::start_from(127)))
+            ]);
         }
 
         impl crate::Encode for CustomInt {
-            fn encode_with_tag<E: crate::Encoder>(
+            fn encode_with_tag_and_constraints<E: crate::Encoder>(
                 &self,
                 encoder: &mut E,
                 tag: Tag,
+                constraints: Constraints,
             ) -> Result<(), E::Error> {
                 encoder
                     .encode_integer(
                         tag,
-                        Constraints::from(&[
-                            constraints::Value::from(constraints::Range::start_from(127)).into()
-                        ]),
+                        constraints,
                         &self.0.into(),
                     )
                     .map(drop)
@@ -137,16 +143,17 @@ mod tests {
         }
 
         impl crate::Decode for CustomInt {
-            fn decode_with_tag<D: crate::Decoder>(
+            fn decode_with_tag_and_constraints<D: crate::Decoder>(
                 decoder: &mut D,
                 tag: Tag,
+                constraints: Constraints,
             ) -> Result<Self, D::Error> {
                 use crate::de::Error;
                 use core::convert::TryFrom;
 
                 let integer = decoder.decode_integer(
                     tag,
-                    Constraints::from(&[constraints::Value::from(constraints::Range::start_from(127)).into()]),
+                    constraints,
                 )?;
 
                 Ok(Self(<_>::try_from(integer).map_err(D::Error::custom)?))

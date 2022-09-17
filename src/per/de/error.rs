@@ -58,6 +58,27 @@ pub enum Kind {
         /// The error's message.
         source: crate::ber::de::Error,
     },
+    #[snafu(display("Missing field `{}`", name))]
+    MissingField {
+        /// The field's name.
+        name: &'static str,
+    },
+    #[snafu(display("Error when decoding field `{}`: {}", name, msg))]
+    FieldError {
+        /// The field's name.
+        name: &'static str,
+        msg: alloc::string::String,
+    },
+    #[snafu(display("Duplicate field for `{}`", name))]
+    DuplicateField {
+        /// The field's name.
+        name: &'static str,
+    },
+    #[snafu(display("No valid choice for `{}`", name))]
+    NoValidChoice {
+        /// The field's name.
+        name: &'static str,
+    },
     #[snafu(display("Custom: {}", msg))]
     Custom {
         /// The error's message.
@@ -73,19 +94,19 @@ impl crate::de::Error for Error {
     }
 
     fn incomplete(needed: nom::Needed) -> Self {
-        todo!()
+        Self::from(Kind::Incomplete { needed })
     }
 
-    fn exceeds_max_length(length: num_bigint::BigUint) -> Self {
-        todo!()
+    fn exceeds_max_length(needed: num_bigint::BigUint) -> Self {
+        Self::from(Kind::ExceedsMaxLength { needed })
     }
 
     fn missing_field(name: &'static str) -> Self {
-        todo!()
+        Self::from(Kind::MissingField { name })
     }
 
     fn field_error<D: core::fmt::Display>(name: &'static str, error: D) -> Self {
-        todo!()
+        Self::from(Kind::FieldError { name, msg: error.to_string() })
     }
 
     fn duplicate_field(name: &'static str) -> Self {

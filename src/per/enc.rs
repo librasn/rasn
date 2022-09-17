@@ -148,9 +148,9 @@ impl Encoder {
                 const K48: usize = FOURTY_EIGHT_K as usize;
                 const K32: usize = THIRTY_TWO_K as usize;
                 const K16: usize = SIXTEEN_K as usize;
-                const K64_MAX: usize = (K64 - 1);
-                const K48_MAX: usize = (K48 - 1);
-                const K32_MAX: usize = (K32 - 1);
+                const K64_MAX: usize = K64 - 1;
+                const K48_MAX: usize = K48 - 1;
+                const K32_MAX: usize = K32 - 1;
                 let (fragment_index, amount) = match effective_length {
                     K64..=usize::MAX => (4, K64),
                     K48..=K64_MAX => (3, K48),
@@ -529,8 +529,6 @@ impl crate::Encoder for Encoder {
 mod tests {
     use super::*;
 
-    use crate::Encoder as _;
-
     #[derive(crate::AsnType, Default, crate::Encode, Clone, Copy)]
     #[rasn(crate_root = "crate")]
     struct Byte {
@@ -576,18 +574,22 @@ mod tests {
 
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
+            const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
+                constraints::Constraint::Value(constraints::Value::new(constraints::Range::up_to(65535)))
+            ]);
         }
 
         impl crate::Encode for CustomInt {
-            fn encode_with_tag<E: crate::Encoder>(
+            fn encode_with_tag_and_constraints<E: crate::Encoder>(
                 &self,
                 encoder: &mut E,
                 tag: Tag,
+                constraints: Constraints,
             ) -> Result<(), E::Error> {
                 encoder
                     .encode_integer(
                         tag,
-                        Constraints::from(&[constraints::Value::from(constraints::Range::up_to(65535)).into()]),
+                        constraints,
                         &self.0.into(),
                     )
                     .map(drop)
@@ -685,14 +687,14 @@ mod tests {
         assert_eq!(&[5, 0, 0, 0, 0, 0], &*(make_buffer)(5));
         assert!((make_buffer)(130).starts_with(&[0b10000000u8, 0b10000010]));
         assert!((make_buffer)(16000).starts_with(&[0b10111110u8, 0b10000000]));
-        let buffer = (make_buffer)(THIRTY_TWO_K);
-        assert_eq!(THIRTY_TWO_K + 2, buffer.len());
+        let buffer = (make_buffer)(THIRTY_TWO_K as usize);
+        assert_eq!(THIRTY_TWO_K as usize + 2, buffer.len());
         assert!(buffer.starts_with(&[0b11000010]));
         assert!(buffer.ends_with(&[0]));
         let buffer = (make_buffer)(99000);
         assert_eq!(99000 + 4, buffer.len());
         assert!(buffer.starts_with(&[0b11000100]));
-        assert!(buffer[1 + SIXTY_FOUR_K..].starts_with(&[0b11000010]));
-        assert!(buffer[SIXTY_FOUR_K + THIRTY_TWO_K + 2..].starts_with(&[0b10000010, 0b10111000]));
+        assert!(buffer[1 + SIXTY_FOUR_K as usize..].starts_with(&[0b11000010]));
+        assert!(buffer[SIXTY_FOUR_K as usize + THIRTY_TWO_K as usize + 2..].starts_with(&[0b10000010, 0b10111000]));
     }
 }

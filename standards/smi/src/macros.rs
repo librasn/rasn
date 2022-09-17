@@ -15,7 +15,7 @@ macro_rules! from_impls {
 macro_rules! common_impls {
     ($name:ident, $network_type:ty, $access_variant:ident, $status_variant:ident, $const_oid:expr) => {
         impl $crate::rasn::AsnType for $name {
-            const TAG: Tag = <$network_type as $crate::rasn::AsnType>::TAG;
+            const TAG: $crate::rasn::types::Tag = <$network_type as $crate::rasn::AsnType>::TAG;
         }
 
         impl $crate::ObjectType for $name {
@@ -82,22 +82,24 @@ macro_rules! opaque_impls {
         }
 
         impl $crate::rasn::Encode for $name {
-            fn encode_with_tag<EN: $crate::rasn::Encoder>(
+            fn encode_with_tag_and_constraints<EN: $crate::rasn::Encoder>(
                 &self,
                 encoder: &mut EN,
-                tag: Tag,
+                tag: $crate::rasn::types::Tag,
+                constraints: $crate::rasn::types::Constraints,
             ) -> Result<(), EN::Error> {
                 self.to_opaque()
                     .map_err($crate::rasn::enc::Error::custom)?
-                    .encode_with_tag(encoder, tag)
+                    .encode_with_tag_and_constraints(encoder, tag, constraints)
             }
         }
         impl $crate::rasn::Decode for $name {
-            fn decode_with_tag<D: $crate::rasn::Decoder>(
+            fn decode_with_tag_and_constraints<D: $crate::rasn::Decoder>(
                 decoder: &mut D,
-                tag: Tag,
+                tag: $crate::rasn::types::Tag,
+                constraints: $crate::rasn::types::Constraints,
             ) -> Result<Self, D::Error> {
-                $crate::v2::Opaque::decode_with_tag(decoder, tag).and_then(|opaque| {
+                $crate::v2::Opaque::decode_with_tag_and_constraints(decoder, tag, constraints).and_then(|opaque| {
                     let decoder = &mut $crate::rasn::ber::de::Decoder::new(opaque.as_ref(), $crate::rasn::ber::de::DecoderOptions::ber());
 
                     Ok($crate::opaque_impls! { @decode(decoder) $($decode)+ })
@@ -117,8 +119,20 @@ macro_rules! opaque_impls {
     };
 }
 
-/// A declartive macro for generating SMI objects. This macro accepts a list
+/// A declarative macro for generating SMI objects. This macro accepts a list
 /// of statements preceeded by a struct-like definition
+/// ```
+/// rasn_smi::object_type! {
+///     /// A textual description of the entity.  This value should include the
+///     /// full name and version identification of the system's hardware type,
+///     /// software operating-system, and networking software.
+///     #[derive(Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+///     pub struct Descr(pub rasn::types::OctetString);
+///     access: ReadOnly,
+///     status: Current,
+///     value = [1, 3, 6, 1, 2, 1, 1, 1];
+/// }
+/// ```
 #[macro_export]
 macro_rules! object_type {
     (
@@ -160,18 +174,18 @@ macro_rules! object_type {
         $crate::delegate_impls!($name, $typ);
 
         impl $crate::rasn::Decode for $name {
-            fn decode_with_tag<D: $crate::rasn::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<D: $crate::rasn::Decoder>(decoder: &mut D, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints) -> Result<Self, D::Error> {
                 use core::convert::TryFrom;
 
-                let syntax = $crate::v2::ObjectSyntax::decode_with_tag(decoder, tag)?;
+                let syntax = $crate::v2::ObjectSyntax::decode_with_tag_and_constraints(decoder, tag, constraints)?;
 
                 <$typ>::try_from(syntax).map_err($crate::rasn::de::Error::custom).map(Self)
             }
         }
 
         impl $crate::rasn::Encode for $name {
-            fn encode_with_tag<EN: $crate::rasn::Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
-                self.0.encode_with_tag(encoder, tag)
+            fn encode_with_tag_and_constraints<EN: $crate::rasn::Encoder>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints,) -> Result<(), EN::Error> {
+                self.0.encode_with_tag_and_constraints(encoder, tag, constraints)
             }
         }
 

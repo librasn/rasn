@@ -89,9 +89,9 @@ Next is the `Decode` and `Encode` traits. These are mirrors of each other and bo
 use rasn::{prelude::*, types::{Integer, Utf8String}};
 
 impl Decode for Person {
-    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+    fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints) -> Result<Self, D::Error> {
         // Accepts a closure that decodes the contents of the sequence.
-        decoder.decode_sequence(tag, Constraints::default(), |decoder| {
+        decoder.decode_sequence(tag, constraints, |decoder| {
             let age = Integer::decode(decoder)?;
             let name = Utf8String::decode(decoder)?;
             Ok(Self { age, name })
@@ -100,9 +100,9 @@ impl Decode for Person {
 }
 
 impl Encode for Person {
-    fn encode_with_tag<E: Encoder>(&self, encoder: &mut E, tag: Tag) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints) -> Result<(), E::Error> {
         // Accepts a closure that encodes the contents of the sequence.
-        encoder.encode_sequence(tag, Constraints::default(), |encoder| {
+        encoder.encode_sequence(tag, constraints, |encoder| {
             self.age.encode(encoder)?;
             self.name.encode(encoder)?;
             Ok(())

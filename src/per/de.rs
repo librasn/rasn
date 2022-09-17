@@ -243,7 +243,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_visible_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<types::VisibleString> {
         let mut bit_string = types::BitString::default();
@@ -266,11 +266,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .and_then(|bytes| String::from_utf8(bytes).map_err(Error::custom))
     }
 
-    fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
+    fn decode_generalized_time(&mut self, _: Tag) -> Result<types::GeneralizedTime> {
         todo!()
     }
 
-    fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
+    fn decode_utc_time(&mut self, _: Tag) -> Result<types::UtcTime> {
         todo!()
     }
 
@@ -310,7 +310,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_sequence<D, F: FnOnce(&mut Self) -> Result<D>>(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
         decode_fn: F,
     ) -> Result<D> {
@@ -323,7 +323,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_set<FIELDS, SET, F>(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
         decode_fn: F,
     ) -> Result<SET, Self::Error>

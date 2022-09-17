@@ -571,9 +571,10 @@ mod tests {
         }
 
         impl Decode for Foo {
-            fn decode_with_tag<D: crate::Decoder>(
+            fn decode_with_tag_and_constraints<D: crate::Decoder>(
                 decoder: &mut D,
                 tag: Tag,
+                _: Constraints,
             ) -> Result<Self, D::Error> {
                 decoder.decode_sequence(tag, <_>::default(), |sequence| {
                     let name: Ia5String = Ia5String::decode(sequence)?;

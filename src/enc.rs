@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, constraints, AsnType, Constraints, Tag};
+use crate::types::{self, AsnType, Constraints, Tag};
 
 pub use rasn_derive::Encode;
 

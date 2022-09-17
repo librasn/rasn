@@ -83,7 +83,7 @@ pub fn derive_struct_impl(
             #choice_def
             #(#field_type_defs)*
 
-            decoder.decode_set::<#choice_name, _, _>(tag, <_>::default(), |fields| {
+            decoder.decode_set::<#choice_name, _, _>(tag, constraints, |fields| {
                 #(let mut #field_names = None;)*
 
                 for field in fields {
@@ -115,7 +115,7 @@ pub fn derive_struct_impl(
         };
 
         quote! {
-            decoder.decode_sequence(tag, <_>::default(), |decoder| {
+            decoder.decode_sequence(tag, constraints, |decoder| {
                 Ok(Self #fields)
             })
         }

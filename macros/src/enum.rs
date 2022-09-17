@@ -95,12 +95,10 @@ impl Enum {
                 quote!(i if i == (Self::#ident as isize).into() => Self::#ident,)
             });
 
-            let length = variants.clone().count();
-
             quote! {
                 let integer = decoder.decode_enumerated(
                     tag,
-                    #crate_root::types::constraints::Constraints::from(&[#crate_root::types::constraints::Range::new(0usize, #length).into()])
+                    constraints,
                 )?;
 
                 Ok(match integer {
@@ -212,7 +210,7 @@ impl Enum {
         };
 
         quote! {
-            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag, constraints: Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
                 #operation
             }
         }

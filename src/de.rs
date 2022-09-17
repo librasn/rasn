@@ -3,7 +3,7 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::convert::TryInto;
 
-use crate::types::{self, constraints, AsnType, Constraints, Tag};
+use crate::types::{self, AsnType, Constraints, Tag};
 
 pub use nom::Needed;
 pub use rasn_derive::Decode;
@@ -119,7 +119,7 @@ pub trait Decoder: Sized {
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime, Self::Error>;
     /// Decode a `SET` identified by `tag` from the available input. Decoding
     /// `SET`s works a little different than other methods, as you need to
-    /// provide two types `SET` and `SET`, `SET` represents the complete type,
+    /// provide two types `SET` and `FIELDS`, `SET` represents the complete type,
     /// and `FIELDS` must represent a `CHOICE` with a variant for each field
     /// from `SET`. As with `SET`s the field order is not guarenteed, so you'll
     /// have map from `Vec<FIELDS>` to `SET` in `decode_operation`.

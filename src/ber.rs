@@ -126,9 +126,10 @@ mod tests {
         );
 
         impl crate::Decode for Set {
-            fn decode_with_tag<D: crate::Decoder>(
+            fn decode_with_tag_and_constraints<D: crate::Decoder>(
                 decoder: &mut D,
                 tag: Tag,
+                _: Constraints,
             ) -> Result<Self, D::Error> {
                 use crate::de::Error;
 
@@ -160,10 +161,11 @@ mod tests {
         }
 
         impl crate::Encode for Set {
-            fn encode_with_tag<EN: crate::Encoder>(
+            fn encode_with_tag_and_constraints<EN: crate::Encoder>(
                 &self,
                 encoder: &mut EN,
                 tag: crate::Tag,
+                _: Constraints,
             ) -> Result<(), EN::Error> {
                 encoder.encode_set(tag, <_>::default(), |encoder| {
                     self.age.encode(encoder)?;
