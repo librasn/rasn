@@ -206,10 +206,16 @@ impl<T: Default + Clone> Range<T> {
     }
 }
 
-impl<T: num_traits::WrappingSub<Output = T> + Clone + core::fmt::Debug> Range<T> {
+impl<T: PartialEq + PartialOrd + num_traits::WrappingSub<Output = T> + std::ops::Add<Output = T> + From<u8> + Clone + core::fmt::Debug> Range<T> {
     pub fn range(&self) -> Option<T> {
         match (&self.start, &self.end) {
-            (Some(start), Some(end)) => Some(end.wrapping_sub(&start)),
+            (Some(start), Some(end)) => {
+                Some(
+                    end.wrapping_sub(start) + (start == &T::from(0))
+                        .then(|| T::from(1))
+                        .unwrap_or_else(|| T::from(0))
+                )
+            }
             _ => None,
         }
     }
@@ -230,12 +236,12 @@ impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + Partia
     }
 }
 
-impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd> Range<T>
+impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd<T>> Range<T>
     where crate::types::Integer: From<T>
 {
     /// The same as [`effective_value`] except using [`crate::types::Integer`].
     pub fn effective_bigint_value(&self, value: crate::types::Integer) -> either::Either<crate::types::Integer, crate::types::Integer> {
-        if let Some(start) = self.start.clone().map(From::from) {
+        if let Some(start) = self.start.clone().map(crate::types::Integer::from) {
             debug_assert!(value >= start);
             either::Left(value - start)
         } else {

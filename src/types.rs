@@ -72,6 +72,53 @@ pub trait AsnType {
     const CONSTRAINTS: Constraints<'static> = Constraints::NONE;
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Field {
+    pub tag: Tag,
+    pub presence: FieldPresence,
+}
+
+impl Field {
+    pub const fn new_required(tag: Tag) -> Self {
+        Self {
+            tag,
+            presence: FieldPresence::Required,
+        }
+    }
+
+    pub const fn new_optional(tag: Tag) -> Self {
+        Self {
+            tag,
+            presence: FieldPresence::Optional,
+        }
+    }
+
+    pub const fn new_default(tag: Tag) -> Self {
+        Self {
+            tag,
+            presence: FieldPresence::Default,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub enum FieldPresence {
+    Required,
+    Optional,
+    #[default]
+    Default,
+}
+
+impl FieldPresence {
+    pub fn is_optional_or_default(&self) -> bool {
+        matches!(self, Self::Optional | Self::Default)
+    }
+}
+
+pub trait Constructed {
+    const FIELDS: &'static [Field];
+}
+
 macro_rules! asn_type {
     ($($name:ty: $value:ident),+) => {
         $(

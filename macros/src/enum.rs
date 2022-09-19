@@ -92,7 +92,7 @@ impl Enum {
         let decode_with_tag = if self.config.enumerated {
             let variants = self.variants.iter().map(|v| {
                 let ident = &v.ident;
-                quote!(i if i == (Self::#ident as isize).into() => Self::#ident,)
+                quote!(i if i == #crate_root::types::Integer::from(Self::#ident as isize) => Self::#ident,)
             });
 
             quote! {

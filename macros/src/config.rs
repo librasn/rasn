@@ -411,6 +411,12 @@ pub struct FieldConfig<'a> {
     pub default: Option<Option<syn::Path>>,
 }
 
+pub enum FieldType {
+    Required,
+    Optional,
+    Default
+}
+
 impl<'a> FieldConfig<'a> {
     pub fn new(field: &'a syn::Field, container_config: &'a Config) -> Self {
         let mut default = None;
@@ -592,9 +598,40 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
+    pub fn to_field_metadata(&self, context: usize) -> proc_macro2::TokenStream {
+        let crate_root = &self.container_config.crate_root;
+        let tag = self.tag(context);
+
+        let constructor = match self.field_type() {
+            FieldType::Required => "new_required",
+            FieldType::Optional => "new_optional",
+            FieldType::Default => "new_default",
+        };
+
+        quote!(#crate_root::types::Field::#constructor(#tag))
+    }
+
+    pub fn field_type(&self) -> FieldType {
+        if self.is_option_type() {
+            FieldType::Optional
+        } else if self.is_default_type() {
+            FieldType::Default
+        } else {
+            FieldType::Required
+        }
+    }
+
     pub fn is_option_type(&self) -> bool {
         self.container_config
             .option_type
             .is_option_type(&self.field.ty)
+    }
+
+    pub fn is_default_type(&self) -> bool {
+        self.default.is_some()
+    }
+
+    pub fn is_option_or_default_type(&self) -> bool {
+        self.is_default_type() || self.is_option_type()
     }
 }

@@ -188,7 +188,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .range()
             .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
         {
-            let bits = range.count_ones();
+            let bits = super::log2(range);
             let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
             self.input = input;
             num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec()).into()

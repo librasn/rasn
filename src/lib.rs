@@ -37,6 +37,7 @@ pub mod prelude {
 mod tests {
     use super::prelude::*;
 
+    #[track_caller]
     fn round_trip<T: Decode + Encode + PartialEq + core::fmt::Debug>(value: &T) {
         macro_rules! codecs {
             ($($codec:ident),+ $(,)?) => {
@@ -57,7 +58,7 @@ mod tests {
             }
         }
 
-        codecs!(ber, der, cer, uper, aper);
+        codecs!(uper, aper);
     }
 
     #[test]
@@ -82,12 +83,22 @@ mod tests {
                     let half_min = <$integer>::min_value() / 2;
 
                     round_trip(&min);
-                    round_trip(&max);
-                    round_trip(&half_max);
                     round_trip(&half_min);
+                    round_trip(&half_max);
+                    round_trip(&max);
                 }
             )*
         }
+    }
+
+    #[test]
+    fn unsigned() {
+        let min = <i8>::min_value();
+        let max = <i8>::max_value();
+        let half_max = <i8>::max_value() / 2;
+        let half_min = <i8>::min_value() / 2;
+
+        round_trip(&dbg!(half_max));
     }
 
     integer_tests! {
@@ -95,13 +106,11 @@ mod tests {
         i16,
         i32,
         i64,
-        i128,
         isize,
         u8,
         u16,
         u32,
         u64,
-        u128,
         usize
     }
 

@@ -47,7 +47,7 @@ pub fn derive_struct_impl(
             .unwrap_or_else(|| quote!(encode_sequence));
 
         let encode_impl = quote! {
-            encoder.#operation(tag, <_>::default(), |encoder| {
+            encoder.#operation::<Self, _>(tag, <_>::default(), |encoder| {
                 #(#list)*
 
                 Ok(())

@@ -449,13 +449,14 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_sequence<F>(
+    fn encode_sequence<C, F>(
         &mut self,
         tag: Tag,
         _constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
+        C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut encoder = Self::new(self.config);
@@ -467,13 +468,14 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_set<F>(
+    fn encode_set<C, F>(
         &mut self,
         tag: Tag,
         _constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
+        C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut encoder = Self::new_set(self.config);
@@ -630,10 +632,20 @@ mod tests {
         let field2: Field2 = 2.into();
         let field3: Field3 = 3.into();
 
+        struct Set;
+
+        impl crate::types::Constructed for Set {
+            const FIELDS: &'static [crate::types::Field] = &[
+                crate::types::Field::new_required(C0::TAG),
+                crate::types::Field::new_required(C1::TAG),
+                crate::types::Field::new_required(C2::TAG),
+            ];
+        }
+
         let output = {
             let mut encoder = Encoder::new_set(EncoderOptions::ber());
             encoder
-                .encode_set(Tag::SET, <_>::default(), |encoder| {
+                .encode_set::<Set, _>(Tag::SET, <_>::default(), |encoder| {
                     field3.encode(encoder)?;
                     field2.encode(encoder)?;
                     field1.encode(encoder)?;

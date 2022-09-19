@@ -14,10 +14,19 @@ pub fn derive_struct_impl(
         .fields
         .iter()
         .enumerate()
-        .map(|(i, f)| (i, FieldConfig::new(f, config)))
-        .group_by(|(_, config)| config.is_option_type());
+        .map(|(i, f)| (i, FieldConfig::new(f, config)));
 
-    let all_optional_tags_are_unique = field_groups
+    let field_metadata = field_groups.clone()
+        .group_by(|(_, config)| config.is_option_or_default_type())
+        .into_iter()
+        .filter_map(|(key, fields)| key.then(|| fields))
+        .map(|field| {
+            let metadata = field.map(|(i, field)| field.to_field_metadata(i));
+            quote!(#(#metadata,)*)
+        }).collect::<Vec<_>>();
+
+    let all_optional_tags_are_unique: Vec<_> = field_groups
+        .group_by(|(_, config)| config.is_option_or_default_type())
         .into_iter()
         .filter_map(|(key, fields)| key.then(|| fields))
         .map(|fields| {
@@ -34,11 +43,19 @@ pub fn derive_struct_impl(
                 const TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(LIST);
                 const _: () = assert!(TAG_TREE.is_unique(), #error_message);
             })
-        });
+        })
+        .collect::<Vec<_>>();
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     quote! {
+        #[automatically_derived]
+        impl #impl_generics  #crate_root::types::Constructed for #name #ty_generics #where_clause {
+            const FIELDS: &'static [#crate_root::types::Field] = &[
+                #(#field_metadata,)*
+            ];
+        }
+
         #[automatically_derived]
         impl #impl_generics  #crate_root::AsnType for #name #ty_generics #where_clause {
             const TAG: #crate_root::Tag = {

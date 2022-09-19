@@ -47,7 +47,7 @@ pub struct Encoder {
     options: EncoderOptions,
     output: BitString,
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
-    field_bitfield: BitString,
+    field_bitfield: alloc::collections::BTreeMap<Tag, bool>,
 }
 
 impl Encoder {
@@ -60,10 +60,12 @@ impl Encoder {
         }
     }
 
-    fn new_set_encoder(&self) -> Self {
+    fn new_set_encoder<C: crate::types::Constructed>(&self) -> Self {
         let mut options = self.options;
         options.set_encoding = true;
-        Self::new(options)
+        let mut encoder = Self::new(options);
+        encoder.field_bitfield = C::FIELDS.iter().filter(|field| field.presence.is_optional_or_default()).map(|field| (field.tag, false)).collect();
+        encoder
     }
 
     pub fn output(self) -> Vec<u8> {
@@ -94,7 +96,11 @@ impl Encoder {
         let mut buffer = BitString::default();
 
         extensible.map(|extended_value| buffer.push(extended_value));
-        buffer.extend(&encoder.field_bitfield);
+
+        for bit in encoder.field_bitfield.values().copied() {
+            buffer.push(bit);
+        }
+
         self.pad_to_alignment(&mut buffer);
         buffer.extend(encoder.bitstring_output());
         self.extend(tag, &buffer);
@@ -322,7 +328,7 @@ impl crate::Encoder for Encoder {
             .range()
             .filter(|range| *range < SIXTY_FOUR_K.into())
         {
-            let total_bits = value_range.end().unwrap().count_ones() as u128;
+            let total_bits = super::log2(range) as u128;
             let current_bits = bytes.len() as u128 * 8;
             if total_bits > current_bits {
                 let diff = total_bits - current_bits;
@@ -333,7 +339,7 @@ impl crate::Encoder for Encoder {
                 bytes = padding_vec;
             }
 
-            let mut field = BitString::repeat(false, range.count_ones() as usize);
+            let mut field = BitString::repeat(false, super::log2(range) as usize);
             field |= BitString::from_slice(&bytes);
 
             buffer.extend(field);
@@ -473,7 +479,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
-        self.field_bitfield.push(true);
+        self.field_bitfield.insert(E::TAG, true);
         value.encode(self)
     }
 
@@ -482,22 +488,23 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        self.field_bitfield.push(true);
+        self.field_bitfield.insert(tag, true);
         value.encode_with_tag(self, tag)
     }
 
     fn encode_none<E: Encode>(&mut self) -> Result<Self::Ok, Self::Error> {
-        self.field_bitfield.push(false);
+        self.field_bitfield.insert(E::TAG, false);
         Ok(())
     }
 
-    fn encode_sequence<F>(
+    fn encode_sequence<C, F>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
+        C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut sequence = Self::new(self.options.without_set_encoding());
@@ -506,16 +513,17 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_set<F>(
+    fn encode_set<C, F>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
+        C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
-        let mut set = self.new_set_encoder();
+        let mut set = self.new_set_encoder::<C>();
 
         (encoder_scope)(&mut set)?;
 

@@ -111,6 +111,13 @@ mod tests {
             const TAG: Tag = Tag::SET;
         }
 
+        impl crate::types::Constructed for Set {
+            const FIELDS: &'static [crate::types::Field] = &[
+                crate::types::Field::new_required(u32::TAG),
+                crate::types::Field::new_required(Utf8String::TAG),
+            ];
+        }
+
         let example = Set {
             age: 1,
             name: "Jane".into(),
@@ -165,9 +172,9 @@ mod tests {
                 &self,
                 encoder: &mut EN,
                 tag: crate::Tag,
-                _: Constraints,
+                constraints: Constraints,
             ) -> Result<(), EN::Error> {
-                encoder.encode_set(tag, <_>::default(), |encoder| {
+                encoder.encode_set::<Self, _>(tag, constraints, |encoder| {
                     self.age.encode(encoder)?;
                     self.name.encode(encoder)?;
                     Ok(())

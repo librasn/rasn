@@ -120,13 +120,14 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `SEQUENCE` value.
-    fn encode_sequence<F>(
+    fn encode_sequence<C, F>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
+        C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
 
     /// Encode a `SEQUENCE OF` value.
@@ -138,13 +139,14 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `SET` value.
-    fn encode_set<F>(
+    fn encode_set<C, F>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
         value: F,
     ) -> Result<Self::Ok, Self::Error>
     where
+        C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
 
     /// Encode a `SET OF` value.
@@ -282,13 +284,11 @@ impl_integers! {
     i16,
     i32,
     i64,
-    i128,
     isize,
     u8,
     u16,
     u32,
     u64,
-    u128,
     usize
 }
 

@@ -26,7 +26,7 @@ impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
 
 impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
     fn encode_with_tag_and_constraints<'constraints, EN: crate::Encoder>(&self, encoder: &mut EN, tag: Tag, constraints: Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
-        encoder.encode_sequence(tag, constraints, |sequence| {
+        encoder.encode_sequence::<Self, _>(tag, constraints, |sequence| {
             self.type_id.encode(sequence)?;
             sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
             Ok(())
@@ -34,4 +34,17 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
 
         Ok(())
     }
+}
+
+impl<T: AsnType> crate::types::Constructed for InstanceOf<T> {
+    const FIELDS: &'static [crate::types::Field] = &[
+        crate::types::Field {
+            tag: ObjectIdentifier::TAG,
+            presence: crate::types::FieldPresence::Required,
+        },
+        crate::types::Field {
+            tag: T::TAG,
+            presence: crate::types::FieldPresence::Required,
+        },
+    ];
 }
