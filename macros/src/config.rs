@@ -161,7 +161,7 @@ impl Config {
     }
 
     pub fn has_explicit_tag(&self) -> bool {
-        self.tag.as_ref().map_or(false, |tag| tag.explicit)
+        self.tag.as_ref().map_or(false, |tag| tag.is_explicit())
     }
 
     pub fn tag_for_struct(&self, fields: &syn::Fields) -> proc_macro2::TokenStream {
@@ -267,11 +267,11 @@ impl<'config> VariantConfig<'config> {
     }
 
     pub fn has_explicit_tag(&self) -> bool {
-        self.tag.as_ref().map_or(false, |tag| tag.explicit)
+        self.tag.as_ref().map_or(false, |tag| tag.is_explicit())
     }
 
     pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
-        let tag = self.tag(context);
+        let tag = self.tag(context).to_tokens(&self.container_config.crate_root);
         let ident = &self.variant.ident;
         let is_explicit = self.has_explicit_tag();
 
@@ -344,12 +344,12 @@ impl<'config> VariantConfig<'config> {
         }
     }
 
-    pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
+    pub fn tag(&self, context: usize) -> crate::tag::Tag {
         let crate_root = &self.container_config.crate_root;
-        if let Some(Tag { class, value, .. }) = &self.tag {
-            quote!(#crate_root::Tag::new(#class, #value))
+        if let Some(tag) = &self.tag {
+            tag.clone()
         } else if self.container_config.automatic_tags {
-            quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
+            Tag::Value { class: crate::tag::Class::Context, value: syn::LitInt::new(&context.to_string(), proc_macro2::Span::call_site()).into(), explicit: false }
         } else {
             Tag::from_fields(&self.variant.fields, crate_root)
         }
@@ -358,7 +358,7 @@ impl<'config> VariantConfig<'config> {
     pub fn tag_tree(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         if self.tag.is_some() || self.container_config.automatic_tags {
-            let tag = self.tag(context);
+            let tag = self.tag(context).to_tokens(crate_root);
             quote!(#crate_root::TagTree::Leaf(#tag),)
         } else {
             let field_tags = self
@@ -467,7 +467,7 @@ impl<'a> FieldConfig<'a> {
             .unwrap_or_else(|| quote!(#i));
 
         let encode_op = if self.tag.is_some() || self.container_config.automatic_tags {
-            if self.tag.as_ref().map_or(false, |tag| tag.explicit) {
+            if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;);
                 if self.is_option_type() {
                     let none = &self.container_config.option_type.none_variant;
@@ -534,7 +534,7 @@ impl<'a> FieldConfig<'a> {
         let tag = self.tag(context);
 
         if self.tag.is_some() || self.container_config.automatic_tags {
-            if self.tag.as_ref().map_or(false, |tag| tag.explicit) {
+            if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 quote!(#lhs decoder.decode_explicit_prefix(#tag) #or_else)
             } else {
                 quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else)
@@ -545,23 +545,13 @@ impl<'a> FieldConfig<'a> {
     }
 
     pub fn tag_derive(&self, context: usize) -> proc_macro2::TokenStream {
-        if let Some(Tag {
-            class,
-            value,
-            explicit,
-        }) = &self.tag
+        if let Some(tag) = &self.tag
         {
             if self.container_config.automatic_tags {
                 panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
             }
-            let class = class.to_ident();
-            let mut tag = quote!(#class, #value);
 
-            if *explicit {
-                tag = quote!(explicit(#tag));
-            }
-
-            quote!(#[rasn(tag(#tag))])
+            tag.to_attribute_tokens()
         } else if self.container_config.automatic_tags {
             let context = syn::Index::from(context);
             quote!(#[rasn(tag(context, #context))])
@@ -572,11 +562,12 @@ impl<'a> FieldConfig<'a> {
 
     pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
-        if let Some(Tag { class, value, .. }) = &self.tag {
+        if let Some(tag) = &self.tag {
             if self.container_config.automatic_tags {
                 panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
             }
-            quote!(#crate_root::Tag::new(#class, #value))
+            let tag = tag.to_tokens(crate_root);
+            quote!(#tag)
         } else if self.container_config.automatic_tags {
             quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
         } else {
@@ -602,11 +593,11 @@ impl<'a> FieldConfig<'a> {
         let crate_root = &self.container_config.crate_root;
         let tag = self.tag(context);
 
-        let constructor = match self.field_type() {
+        let constructor = quote::format_ident!("{}", match self.field_type() {
             FieldType::Required => "new_required",
             FieldType::Optional => "new_optional",
             FieldType::Default => "new_default",
-        };
+        });
 
         quote!(#crate_root::types::Field::#constructor(#tag))
     }

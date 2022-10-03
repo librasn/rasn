@@ -19,7 +19,7 @@ pub fn derive_struct_impl(
         if config
             .tag
             .as_ref()
-            .map(|tag| tag.explicit)
+            .map(|tag| tag.is_explicit())
             .unwrap_or_default()
         {
             quote! {
@@ -121,7 +121,7 @@ pub fn derive_struct_impl(
         }
     };
 
-    let decode_impl = if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.explicit) {
+    let decode_impl = if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
         let tag = config.tag_for_struct(&container.fields);
         map_from_inner_type(
             tag,

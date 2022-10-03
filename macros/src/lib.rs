@@ -101,15 +101,14 @@ pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let generics = input.generics;
 
     match input.data {
-        syn::Data::Struct(v) => asn_type::derive_struct_impl(name, generics, v, &config).into(),
+        syn::Data::Struct(v) => asn_type::derive_struct_impl(name, generics, v, &config),
         syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
             name,
             generics,
             variants,
             config,
         }
-        .impl_asntype()
-        .into(),
+        .impl_asntype(),
         _ => panic!("Union types are not supported."),
-    }
+    }.into()
 }

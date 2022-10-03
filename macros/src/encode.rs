@@ -20,13 +20,13 @@ pub fn derive_struct_impl(
     let encode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
 
-        if config
+        if let Some(tag) = config
             .tag
             .as_ref()
-            .map(|tag| tag.explicit)
-            .unwrap_or_default()
+            .filter(|tag| tag.is_explicit())
         {
-            let encode = quote!(encoder.encode_explicit_prefix(tag, &self.0).map(drop));
+            let tag = tag.to_tokens(crate_root);
+            let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.0).map(drop));
             if config.option_type.is_option_type(&ty) {
                 let none_variant = &config.option_type.none_variant;
                 quote! {
@@ -54,14 +54,15 @@ pub fn derive_struct_impl(
             }).map(drop)
         };
 
-        if config.tag.as_ref().map_or(false, |tag| tag.explicit) {
+        if config.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
             map_to_inner_type(
-                quote!(tag),
+                config.tag.clone().unwrap(),
                 &name,
                 &container.fields,
                 &generics,
                 &crate_root,
                 encode_impl,
+                true
             )
         } else {
             encode_impl
@@ -81,25 +82,25 @@ pub fn derive_struct_impl(
 }
 
 pub fn map_to_inner_type(
-    tag: proc_macro2::TokenStream,
+    tag: crate::tag::Tag,
     name: &syn::Ident,
     fields: &syn::Fields,
     generics: &syn::Generics,
     crate_root: &syn::Path,
     encode_impl: proc_macro2::TokenStream,
+    is_explicit: bool,
 ) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
     let mut inner_generics = generics.clone();
-    inner_generics.params.push(
-        syn::LifetimeDef::new(syn::Lifetime::new("'inner", proc_macro2::Span::call_site())).into(),
-    );
+    let lifetime = syn::Lifetime::new(&format!("'inner{}", uuid::Uuid::new_v4().as_u128()), proc_macro2::Span::call_site());
+    inner_generics.params.push(syn::LifetimeDef::new(lifetime.clone()).into());
 
     let (field_defs, init_fields) = match &fields {
         syn::Fields::Named(_) => {
             let field_defs = fields.iter().map(|field| {
                 let name = field.ident.as_ref().unwrap();
                 let ty = &field.ty;
-                quote!(#name : &'inner #ty)
+                quote!(#name : &#lifetime #ty)
             });
 
             let init_fields = fields.iter().map(|field| {
@@ -118,7 +119,7 @@ pub fn map_to_inner_type(
         syn::Fields::Unnamed(_) => {
             let field_defs = fields.iter().map(|field| {
                 let ty = &field.ty;
-                quote!(&'inner #ty)
+                quote!(&#lifetime #ty)
             });
 
             let init_fields = fields.iter().enumerate().map(|(i, _)| {
@@ -137,26 +138,21 @@ pub fn map_to_inner_type(
         syn::Fields::Unit => (quote!(;), quote!()),
     };
 
-    let vars = fields_as_vars(&fields);
+    let (inner_tag, inner_impl) = if is_explicit {
+        let tag = tag.to_tokens(crate_root);
+        (quote!(#[rasn(tag(universal, 16))]), quote!(encoder.encode_explicit_prefix(#tag, &inner).map(drop)))
+    } else {
+        (tag.to_attribute_tokens(), quote!(inner.encode(encoder)))
+    };
+
     let (impl_generics, ty_generics, where_clause) = inner_generics.split_for_impl();
     quote! {
+        #[derive(#crate_root::AsnType, #crate_root::Encode)]
         struct #inner_name #inner_generics #field_defs
-
-            impl #impl_generics  #crate_root::AsnType for #inner_name #ty_generics #where_clause {
-                const TAG: #crate_root::Tag = #crate_root::Tag::SEQUENCE;
-            }
-
-        impl #impl_generics  #crate_root::Encode for #inner_name #ty_generics #where_clause {
-            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
-                #(#vars)*
-
-                #encode_impl
-            }
-        }
 
         let inner = #inner_name #init_fields;
 
-        encoder.encode_explicit_prefix(#tag, &inner).map(drop)
+        #inner_impl
     }
 }
 

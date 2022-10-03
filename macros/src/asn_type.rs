@@ -22,7 +22,7 @@ pub fn derive_struct_impl(
         .filter_map(|(key, fields)| key.then(|| fields))
         .map(|field| {
             let metadata = field.map(|(i, field)| field.to_field_metadata(i));
-            quote!(#(#metadata,)*)
+            quote!(#(#metadata),*)
         }).collect::<Vec<_>>();
 
     let all_optional_tags_are_unique: Vec<_> = field_groups
@@ -48,13 +48,19 @@ pub fn derive_struct_impl(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-    quote! {
-        #[automatically_derived]
-        impl #impl_generics  #crate_root::types::Constructed for #name #ty_generics #where_clause {
-            const FIELDS: &'static [#crate_root::types::Field] = &[
-                #(#field_metadata,)*
-            ];
+    let constructed_impl = (!config.delegate).then(|| {
+        quote! {
+            #[automatically_derived]
+            impl #impl_generics  #crate_root::types::Constructed for #name #ty_generics #where_clause {
+                const FIELDS: &'static [#crate_root::types::Field] = &[
+                    #(#field_metadata),*
+                ];
+            }
         }
+    });
+
+    quote! {
+        #constructed_impl
 
         #[automatically_derived]
         impl #impl_generics  #crate_root::AsnType for #name #ty_generics #where_clause {

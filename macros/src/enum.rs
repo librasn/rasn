@@ -253,18 +253,15 @@ impl Enum {
                         }
                     };
 
-                    let encode_impl = if variant_config.has_explicit_tag() {
-                        crate::encode::map_to_inner_type(
-                            quote!(#variant_tag),
-                            &ident,
-                            &v.fields,
-                            &generics,
-                            &crate_root,
-                            (encode_impl)(quote!(#crate_root::Tag::SEQUENCE)),
-                        )
-                    } else {
-                        (encode_impl)(variant_tag)
-                    };
+                    let encode_impl = crate::encode::map_to_inner_type(
+                        variant_tag,
+                        &ident,
+                        &v.fields,
+                        &generics,
+                        &crate_root,
+                        (encode_impl)(quote!(#crate_root::Tag::SEQUENCE)),
+                        variant_config.has_explicit_tag(),
+                    );
 
                     quote!(#name::#ident { #(#idents),* } => { #encode_impl })
                 }
@@ -272,6 +269,7 @@ impl Enum {
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
+                    let variant_tag = variant_tag.to_tokens(crate_root);
                     let encode_operation = if variant_config.has_explicit_tag() {
                         quote!(encoder.encode_explicit_prefix(#variant_tag, value))
                     } else if variant_config.tag.is_some() || self.config.automatic_tags {
@@ -287,6 +285,7 @@ impl Enum {
                     }
                 }
                 syn::Fields::Unit => {
+                    let variant_tag = variant_tag.to_tokens(crate_root);
                     let encode_operation = if variant_config.has_explicit_tag() {
                         quote!(encoder.encode_explicit_prefix(#variant_tag, &()))
                     } else {
