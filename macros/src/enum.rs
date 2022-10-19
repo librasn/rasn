@@ -50,6 +50,10 @@ impl Enum {
 
         let name = &self.name;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+        let return_val = self.config.tag.is_some()
+            .then(|| quote!(#crate_root::types::TagTree::Leaf(Self::TAG)))
+            .unwrap_or_else(|| quote!(TAG_TREE));
+
 
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
@@ -60,7 +64,7 @@ impl Enum {
                     const LIST: &'static [#crate_root::TagTree] = &[#tag_tree];
                     const TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(LIST);
                     const _: () = assert!(TAG_TREE.is_unique(), #error_message);
-                    TAG_TREE
+                    #return_val
                 };
             }
         }
@@ -239,27 +243,12 @@ impl Enum {
                         quote!(#ident)
                     });
 
-                    let fields = v.fields.iter().enumerate().map(|(i, f)| {
-                        let field_config = FieldConfig::new(f, &self.config);
-                        field_config.encode(i, false)
-                    });
-
-                    let encode_impl = |tag| {
-                        quote! {
-                            encoder.encode_sequence(#tag, <_>::default(), |encoder| {
-                                #(#fields)*
-                                Ok(())
-                            }).map(drop)
-                        }
-                    };
-
                     let encode_impl = crate::encode::map_to_inner_type(
                         variant_tag,
                         &ident,
                         &v.fields,
                         &generics,
                         &crate_root,
-                        (encode_impl)(quote!(#crate_root::Tag::SEQUENCE)),
                         variant_config.has_explicit_tag(),
                     );
 

@@ -152,13 +152,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.decode_integer(tag, constraints)
     }
 
-    fn decode_integer(&mut self, tag: Tag, constraints: Constraints) -> Result<types::Integer> {
+    fn decode_integer(&mut self, tag: Tag, _: Constraints) -> Result<types::Integer> {
         Ok(types::Integer::from_signed_bytes_be(
             self.parse_primitive_value(tag)?.1,
         ))
     }
 
-    fn decode_octet_string(&mut self, tag: Tag, constraints: Constraints) -> Result<Vec<u8>> {
+    fn decode_octet_string(&mut self, tag: Tag, _: Constraints) -> Result<Vec<u8>> {
         let (identifier, contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
@@ -248,7 +248,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_bit_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        _: Constraints,
     ) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(&self.config, self.input, tag, |input| {
@@ -334,9 +334,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_sequence_of<D: Decode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        _: Constraints,
     ) -> Result<Vec<D>, Self::Error> {
-        self.decode_sequence(tag, constraints, |decoder| {
+        self.parse_constructed_contents(tag, true, |decoder| {
             let mut items = Vec::new();
 
             while let Ok(item) = D::decode(decoder) {
@@ -350,9 +350,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_set_of<D: Decode + Ord>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        _: Constraints,
     ) -> Result<types::SetOf<D>, Self::Error> {
-        self.decode_sequence(tag, constraints, |decoder| {
+        self.parse_constructed_contents(tag, true, |decoder| {
             let mut items = types::SetOf::new();
 
             while let Ok(item) = D::decode(decoder) {
@@ -366,7 +366,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_sequence<D, F: FnOnce(&mut Self) -> Result<D>>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        _: Constraints,
         decode_fn: F,
     ) -> Result<D> {
         self.parse_constructed_contents(tag, true, decode_fn)
@@ -379,15 +379,15 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_set<FIELDS, SET, F>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        _: Constraints,
         decode_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode,
+        SET: Decode + crate::types::Constructed,
         FIELDS: Decode,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        self.decode_sequence(tag, constraints, |decoder| {
+        self.parse_constructed_contents(tag, true, |decoder| {
             let mut fields = Vec::new();
 
             while let Ok(value) = FIELDS::decode(decoder) {
@@ -396,6 +396,35 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
             (decode_fn)(fields)
         })
+    }
+
+    fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {
+        self.decode_optional_with_tag(D::TAG)
+    }
+
+    /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
+    /// Passing the correct tag is required even when used with codecs where
+    /// the tag is not present.
+    fn decode_optional_with_tag<D: Decode>(
+        &mut self,
+        tag: Tag,
+    ) -> Result<Option<D>, Self::Error> {
+        Ok(D::decode_with_tag(self, tag).ok())
+    }
+
+    fn decode_optional_with_constraints<D: Decode>(
+        &mut self,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error> {
+        Ok(D::decode_with_constraints(self, constraints).ok())
+    }
+
+    fn decode_optional_with_tag_and_constraints<D: Decode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error> {
+        Ok(D::decode_with_tag_and_constraints(self, tag, constraints).ok())
     }
 }
 
@@ -564,6 +593,13 @@ mod tests {
         struct Foo {
             name: Ia5String,
             ok: bool,
+        }
+
+        impl types::Constructed for Foo {
+            const FIELDS: types::fields::Fields = types::fields::Fields::from_static(&[
+                types::fields::Field::new_required(Ia5String::TAG_TREE),
+                types::fields::Field::new_required(bool::TAG_TREE),
+            ]);
         }
 
         impl types::AsnType for Foo {

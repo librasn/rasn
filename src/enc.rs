@@ -40,7 +40,7 @@ pub trait Encoder {
     type Error: Error;
 
     /// Encode an unknown ASN.1 value.
-    fn encode_any(&mut self, value: &types::Any) -> Result<Self::Ok, Self::Error>;
+    fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `BOOL` value.
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error>;
@@ -88,7 +88,7 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `Utf8String` value.
-    fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error>;
+    fn encode_utf8_string(&mut self, tag: Tag, constraints: Constraints, value: &str) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `VisibleString` value.
     fn encode_visible_string(
@@ -190,10 +190,59 @@ pub trait Encoder {
         &mut self,
         tag: Tag,
         value: &E,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_some_with_tag_and_constraints(tag, <_>::default(), value)
+    }
+
+    /// Encode the present value of an optional field.
+    fn encode_some_with_tag_and_constraints<E: Encode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &E,
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode the absent value of an optional field.
     fn encode_none<E: Encode>(&mut self) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode the absent value with `tag` of an optional field.
+    fn encode_none_with_tag(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode the present value of an optional field.
+    fn encode_default<E: Encode + PartialEq>(&mut self, value: &E, default: impl FnOnce() -> E) -> Result<Self::Ok, Self::Error> {
+        match (*value != (default)()).then(|| value) {
+            Some(value) => self.encode_some(value),
+            None => self.encode_none::<E>(),
+        }
+    }
+
+    /// Encode the present value of an optional field.
+    fn encode_default_with_tag<E: Encode + PartialEq>(
+        &mut self,
+        tag: Tag,
+        value: &E,
+        default: impl FnOnce() -> E,
+    ) -> Result<Self::Ok, Self::Error> {
+        match (*value != (default)()).then(|| value) {
+            Some(value) => self.encode_some_with_tag(tag, value),
+            None => self.encode_none_with_tag(tag),
+        }
+    }
+
+    /// Encode the present value of an optional field.
+    fn encode_default_with_tag_and_constraints<E: Encode + PartialEq>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &E,
+        default: impl FnOnce() -> E,
+    ) -> Result<Self::Ok, Self::Error> {
+        match (*value != (default)()).then(|| value) {
+            Some(value) => self.encode_some_with_tag_and_constraints(tag, constraints, value),
+            None => self.encode_none_with_tag(tag),
+        }
+
+    }
 }
 
 /// A generic error that occurred while trying to encode ASN.1.
@@ -248,12 +297,12 @@ impl<E: Encode> Encode for Option<E> {
         .map(drop)
     }
 
-    fn encode_with_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, _: Constraints<'constraints>) -> Result<(), EN::Error> {
-        todo!()
+    fn encode_with_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
+        encoder.encode_some_with_tag_and_constraints(Self::TAG, constraints, self).map(drop)
     }
 
-    fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, tag: Tag, _: Constraints<'constraints>) -> Result<(), EN::Error> {
-        todo!()
+    fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(&self, encoder: &mut EN, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), EN::Error> {
+        encoder.encode_some_with_tag_and_constraints(tag, constraints, self).map(drop)
     }
 }
 
@@ -310,13 +359,13 @@ impl Encode for types::OctetString {
 
 impl Encode for types::Utf8String {
     fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
-        encoder.encode_utf8_string(tag, self).map(drop)
+        encoder.encode_utf8_string(tag, constraints, self).map(drop)
     }
 }
 
 impl Encode for &'_ str {
     fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
-        encoder.encode_utf8_string(tag, self).map(drop)
+        encoder.encode_utf8_string(tag, constraints, self).map(drop)
     }
 }
 
@@ -354,7 +403,7 @@ impl Encode for types::GeneralizedTime {
 
 impl Encode for types::Any {
     fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints<'constraints>) -> Result<(), E::Error> {
-        encoder.encode_any(self).map(drop)
+        encoder.encode_any(tag, self).map(drop)
     }
 }
 

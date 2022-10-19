@@ -1,4 +1,5 @@
 use super::{AsnType, Class, ObjectIdentifier, Tag, Constraints};
+use crate::types::fields::{Field, Fields, FieldPresence};
 
 /// An instance of a defined object class.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -37,14 +38,14 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
 }
 
 impl<T: AsnType> crate::types::Constructed for InstanceOf<T> {
-    const FIELDS: &'static [crate::types::Field] = &[
-        crate::types::Field {
-            tag: ObjectIdentifier::TAG,
-            presence: crate::types::FieldPresence::Required,
+    const FIELDS: Fields = Fields::from_static(&[
+        Field {
+            tag: ObjectIdentifier::TAG_TREE,
+            presence: FieldPresence::Required,
         },
-        crate::types::Field {
-            tag: T::TAG,
-            presence: crate::types::FieldPresence::Required,
+        Field {
+            tag: T::TAG_TREE,
+            presence: FieldPresence::Required,
         },
-    ];
+    ]);
 }

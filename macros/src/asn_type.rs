@@ -17,12 +17,10 @@ pub fn derive_struct_impl(
         .map(|(i, f)| (i, FieldConfig::new(f, config)));
 
     let field_metadata = field_groups.clone()
-        .group_by(|(_, config)| config.is_option_or_default_type())
         .into_iter()
-        .filter_map(|(key, fields)| key.then(|| fields))
-        .map(|field| {
-            let metadata = field.map(|(i, field)| field.to_field_metadata(i));
-            quote!(#(#metadata),*)
+        .map(|(i, field)| {
+            let metadata = field.to_field_metadata(i);
+            quote!(#metadata)
         }).collect::<Vec<_>>();
 
     let all_optional_tags_are_unique: Vec<_> = field_groups
@@ -52,9 +50,9 @@ pub fn derive_struct_impl(
         quote! {
             #[automatically_derived]
             impl #impl_generics  #crate_root::types::Constructed for #name #ty_generics #where_clause {
-                const FIELDS: &'static [#crate_root::types::Field] = &[
+                const FIELDS: #crate_root::types::fields::Fields = #crate_root::types::fields::Fields::from_static(&[
                     #(#field_metadata),*
-                ];
+                ]);
             }
         }
     });

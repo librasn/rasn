@@ -16,6 +16,7 @@ impl Error {
             backtrace: Backtrace::generate(),
         }
     }
+
 }
 
 impl From<Kind> for Error {
@@ -110,11 +111,11 @@ impl crate::de::Error for Error {
     }
 
     fn duplicate_field(name: &'static str) -> Self {
-        todo!()
+        Self::from(Kind::DuplicateField { name })
     }
 
     fn no_valid_choice(name: &'static str) -> Self {
-        todo!()
+        Self::from(Kind::NoValidChoice { name })
     }
 }
 

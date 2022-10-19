@@ -8,7 +8,7 @@ use snafu::*;
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
     types::{self, constraints, BitString, Constraints, Tag},
-    Encode, Encoder as _,
+    Encode, Encoder as _, enc::Error as _,
 };
 
 pub use error::Error;
@@ -17,7 +17,6 @@ pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct EncoderOptions {
-    #[allow(unused)]
     aligned: bool,
     set_encoding: bool,
 }
@@ -64,7 +63,7 @@ impl Encoder {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
-        encoder.field_bitfield = C::FIELDS.iter().filter(|field| field.presence.is_optional_or_default()).map(|field| (field.tag, false)).collect();
+        encoder.field_bitfield = C::FIELDS.canonised().optional_and_default_fields().map(|field| (field.tag.smallest_tag(), false)).collect();
         encoder
     }
 
@@ -84,12 +83,24 @@ impl Encoder {
         output
     }
 
+    pub fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
+        self.require_fields()?;
+        self.field_bitfield.entry(tag).and_modify(|b| { *b = bit });
+        Ok(())
+    }
+
     fn pad_to_alignment(&self, buffer: &mut BitString) {
         const BYTE_WIDTH: usize = 8;
         if self.options.aligned && buffer.len() % BYTE_WIDTH != 0 {
             buffer.extend(BitString::repeat(false, BYTE_WIDTH - (buffer.len() % 8)));
             debug_assert_eq!(0, buffer.len() % 8);
         }
+    }
+
+    fn require_fields(&self) -> Result<()> {
+        self.field_bitfield.is_empty()
+            .then(|| Err(Error::custom("encode_some_* can only be called inside a sequence or set type")))
+            .unwrap_or(Ok(()))
     }
 
     fn encode_constructed(&mut self, tag: Tag, extensible: Option<bool>, encoder: Self) {
@@ -251,8 +262,8 @@ impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = Error;
 
-    fn encode_any(&mut self, value: &types::Any) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(Tag::EOC, <_>::default(), &value.contents)
+    fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <_>::default(), &value.contents)
     }
 
     fn encode_bit_string(
@@ -417,8 +428,8 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_utf8_string(&mut self, tag: Tag, value: &str) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, <_>::default(), value.as_bytes())
+    fn encode_utf8_string(&mut self, tag: Tag, constraints: Constraints, value: &str) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
     fn encode_utc_time(
@@ -479,7 +490,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
-        self.field_bitfield.insert(E::TAG, true);
+        self.set_bit(E::TAG, true)?;
         value.encode(self)
     }
 
@@ -488,12 +499,27 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        self.field_bitfield.insert(tag, true);
+        self.set_bit(tag, true)?;
         value.encode_with_tag(self, tag)
     }
 
+    fn encode_some_with_tag_and_constraints<E: Encode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &E,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
+        value.encode_with_tag_and_constraints(self, tag, constraints)
+    }
+
     fn encode_none<E: Encode>(&mut self) -> Result<Self::Ok, Self::Error> {
-        self.field_bitfield.insert(E::TAG, false);
+        self.set_bit(E::TAG, false)?;
+        Ok(())
+    }
+
+    fn encode_none_with_tag(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, false)?;
         Ok(())
     }
 

@@ -141,3 +141,11 @@ pub enum ExplicitChoice {
     #[rasn(tag(explicit(2)))]
     ByKey,
 }
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct BasicConstraints {
+    #[rasn(default)]
+    pub ca: bool,
+    pub path_len_constraint: Option<Integer>,
+}
+

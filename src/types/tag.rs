@@ -34,6 +34,17 @@ impl Class {
     }
 }
 
+impl core::fmt::Display for Class {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.write_str(match self {
+            Self::Universal => "universal",
+            Self::Application => "application",
+            Self::Context => "context",
+            Self::Private => "private",
+        })
+    }
+}
+
 /// An abstract representation of an ASN.1 tag that uniquely identifies a type
 /// within a ASN.1 module for codecs.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
@@ -111,6 +122,21 @@ impl Tag {
         Self { class, value }
     }
 
+    /// Create a new `APPLICATION` tag from `value`.
+    pub const fn new_application(value: u32) -> Self {
+        Self::new(Class::Application, value)
+    }
+
+    /// Create a new `CONTEXT` tag from `value`.
+    pub const fn new_context(value: u32) -> Self {
+        Self::new(Class::Context, value)
+    }
+
+    /// Create a new `PRIVATE` tag from `value`.
+    pub const fn new_private(value: u32) -> Self {
+        Self::new(Class::Private, value)
+    }
+
     /// Set the value of the tag.
     pub fn set_value(mut self, value: u32) -> Self {
         self.value = value;
@@ -120,6 +146,11 @@ impl Tag {
     #[doc(hidden)]
     pub const fn const_eq(self, rhs: &Self) -> bool {
         self.class as u8 == rhs.class as u8 && self.value == rhs.value
+    }
+
+    #[doc(hidden)]
+    pub const fn const_less_than(self, rhs: Self) -> bool {
+        (self.class as u8) < (rhs.class as u8) && self.value < rhs.value
     }
 
     /// Returns whether `Tag` is defined as `Tag::EOC`, and thus is an invalid
@@ -133,7 +164,7 @@ impl Tag {
 /// For most types this is only ever one level deep, except for CHOICE enums
 /// which will contain a set of nodes, that either point to a `Leaf` or another
 /// level of `Choice`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TagTree {
     /// The end of branch in the tree.
     Leaf(Tag),
@@ -142,6 +173,25 @@ pub enum TagTree {
 }
 
 impl TagTree {
+    pub const fn smallest_tag(&self) -> Tag {
+        match self {
+            Self::Leaf(tag) => *tag,
+            Self::Choice(tree) => {
+                let i = 0;
+                let mut tag: Tag = Tag::new_private(u32::MAX);
+
+                while i < tree.len() {
+                    let next_tag = tree[i].smallest_tag();
+                    if next_tag.const_less_than(tag) {
+                        tag = next_tag;
+                    }
+                }
+
+                tag
+            }
+        }
+    }
+
     /// Returns whether a given `TagTree` only contains unique entries.
     pub const fn is_unique(&self) -> bool {
         match self {

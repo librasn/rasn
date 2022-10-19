@@ -38,7 +38,7 @@ pub fn derive_struct_impl(
                 encode
             }
         } else {
-            quote!(<#ty as #crate_root::Encode>::encode_with_tag(&self.0, encoder, tag))
+            quote!(<#ty as #crate_root::Encode>::encode_with_tag_and_constraints(&self.0, encoder, tag, constraints))
         }
     } else {
         let operation = config
@@ -47,7 +47,7 @@ pub fn derive_struct_impl(
             .unwrap_or_else(|| quote!(encode_sequence));
 
         let encode_impl = quote! {
-            encoder.#operation::<Self, _>(tag, <_>::default(), |encoder| {
+            encoder.#operation::<Self, _>(tag, constraints, |encoder| {
                 #(#list)*
 
                 Ok(())
@@ -61,7 +61,6 @@ pub fn derive_struct_impl(
                 &container.fields,
                 &generics,
                 &crate_root,
-                encode_impl,
                 true
             )
         } else {
@@ -87,7 +86,6 @@ pub fn map_to_inner_type(
     fields: &syn::Fields,
     generics: &syn::Generics,
     crate_root: &syn::Path,
-    encode_impl: proc_macro2::TokenStream,
     is_explicit: bool,
 ) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
@@ -138,14 +136,13 @@ pub fn map_to_inner_type(
         syn::Fields::Unit => (quote!(;), quote!()),
     };
 
-    let (inner_tag, inner_impl) = if is_explicit {
+    let inner_impl = if is_explicit {
         let tag = tag.to_tokens(crate_root);
-        (quote!(#[rasn(tag(universal, 16))]), quote!(encoder.encode_explicit_prefix(#tag, &inner).map(drop)))
+        quote!(encoder.encode_explicit_prefix(#tag, &inner).map(drop))
     } else {
-        (tag.to_attribute_tokens(), quote!(inner.encode(encoder)))
+        quote!(inner.encode(encoder))
     };
 
-    let (impl_generics, ty_generics, where_clause) = inner_generics.split_for_impl();
     quote! {
         #[derive(#crate_root::AsnType, #crate_root::Encode)]
         struct #inner_name #inner_generics #field_defs

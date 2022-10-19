@@ -127,7 +127,7 @@ impl Tag {
         })
     }
 
-    pub fn from_fields(fields: &syn::Fields, crate_root: &syn::Path) -> Self {
+    pub fn from_fields(fields: &syn::Fields) -> Self {
         match fields {
             syn::Fields::Unit => Self::Delegate { ty: syn::TypeTuple { paren_token: <_>::default(), elems: <_>::default() }.into() },
             syn::Fields::Named(_) => Self::SEQUENCE(),
@@ -179,6 +179,7 @@ macro_rules! consts {
         #[allow(missing_docs)]
         impl Tag {
             $(
+                #[allow(dead_code, non_snake_case)]
                 pub fn $name() -> Tag {
                     Self::Value {
                         class: Class::Universal,

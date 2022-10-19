@@ -80,6 +80,7 @@ pub trait Decoder: Sized {
         decode_fn: F,
     ) -> Result<D, Self::Error>
     where
+        D: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>;
     /// Decode a `SEQUENCE OF D` where `D: Decode` identified by `tag` from the available input.
     fn decode_sequence_of<D: Decode>(
@@ -130,9 +131,44 @@ pub trait Decoder: Sized {
         decode_operation: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode,
+        SET: Decode + crate::types::Constructed,
         FIELDS: Decode,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
+
+    /// Decode an the optional value in a `SEQUENCE` or `SET`.
+    fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error>;
+
+    /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
+    /// Passing the correct tag is required even when used with codecs where
+    /// the tag is not present.
+    fn decode_optional_with_tag<D: Decode>(
+        &mut self,
+        tag: Tag,
+    ) -> Result<Option<D>, Self::Error>;
+
+    /// Decode an the optional value in a `SEQUENCE` or `SET` with `constraints`.
+    fn decode_optional_with_constraints<D: Decode>(
+        &mut self,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error>;
+
+    /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`
+    /// and `constraints`.
+    fn decode_optional_with_tag_and_constraints<D: Decode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error>;
+
+    /// Decode a `DEFAULT` value in a `SEQUENCE` or `SET`.
+    fn decode_default<D: Decode + Default>(&mut self) -> Result<D, Self::Error> {
+        self.decode_default_with_tag(D::TAG, D::default)
+    }
+
+    /// Decode a `DEFAULT` value in a `SEQUENCE` or `SET` with `tag` and `default_fn`.
+    fn decode_default_with_tag<D: Decode, F: FnOnce() -> D>(&mut self, tag: Tag, default_fn: F) -> Result<D, Self::Error> {
+        self.decode_optional_with_tag::<D>(tag).map(|_| (default_fn)())
+    }
 }
 
 /// A generic error that can occur while decoding ASN.1.
@@ -162,19 +198,19 @@ impl Decode for () {
 
 impl<D: Decode> Decode for Option<D> {
     fn decode<DE: Decoder>(decoder: &mut DE) -> Result<Self, DE::Error> {
-        Ok(D::decode(decoder).ok())
+        decoder.decode_optional()
     }
 
     fn decode_with_tag<DE: Decoder>(decoder: &mut DE, tag: Tag) -> Result<Self, DE::Error> {
-        Ok(D::decode_with_tag(decoder, tag).ok())
+        decoder.decode_optional_with_tag(tag)
     }
 
     fn decode_with_constraints<'constraints, DE: Decoder>(decoder: &mut DE, constraints: Constraints<'constraints>) -> Result<Self, DE::Error> {
-        Ok(D::decode_with_constraints(decoder, constraints).ok())
+        decoder.decode_optional_with_constraints(constraints)
     }
 
     fn decode_with_tag_and_constraints<'constraints, DE: Decoder>(decoder: &mut DE, tag: Tag, constraints: Constraints<'constraints>) -> Result<Self, DE::Error> {
-        Ok(D::decode_with_tag_and_constraints(decoder, tag, constraints).ok())
+        decoder.decode_optional_with_tag_and_constraints(tag, constraints)
     }
 }
 

@@ -202,11 +202,11 @@ mod tests {
 
     #[test]
     fn object_identifier() {
-        round_trip(&ObjectIdentifier::new(vec![1, 2]));
-        round_trip(&ObjectIdentifier::new(vec![1, 2, 840]));
-        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549]));
-        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549, 1]));
-        round_trip(&ObjectIdentifier::new(vec![0, 3, 0, 3]));
+        round_trip(&ObjectIdentifier::new(vec![1, 2]).unwrap());
+        round_trip(&ObjectIdentifier::new(vec![1, 2, 840]).unwrap());
+        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap());
+        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549, 1]).unwrap());
+        round_trip(&ObjectIdentifier::new(vec![0, 3, 0, 3]).unwrap());
     }
 
     #[test]

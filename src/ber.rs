@@ -112,10 +112,10 @@ mod tests {
         }
 
         impl crate::types::Constructed for Set {
-            const FIELDS: &'static [crate::types::Field] = &[
-                crate::types::Field::new_required(u32::TAG),
-                crate::types::Field::new_required(Utf8String::TAG),
-            ];
+            const FIELDS: crate::types::fields::Fields = crate::types::fields::Fields::from_static(&[
+                crate::types::fields::Field::new_required(u32::TAG_TREE),
+                crate::types::fields::Field::new_required(Utf8String::TAG_TREE),
+            ]);
         }
 
         let example = Set {

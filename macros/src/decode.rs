@@ -27,7 +27,7 @@ pub fn derive_struct_impl(
             }
         } else {
             quote! {
-                <#ty as #crate_root::Decode>::decode_with_tag(decoder, tag).map(Self)
+                <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(decoder, tag, constraints).map(Self)
             }
         }
     } else if config.set {
@@ -131,6 +131,7 @@ pub fn derive_struct_impl(
             container.semi_token,
             None,
             &config,
+            true,
         )
     } else {
         decode_impl
@@ -153,6 +154,7 @@ pub fn map_from_inner_type(
     semi: Option<syn::Token![;]>,
     outer_name: Option<proc_macro2::TokenStream>,
     config: &Config,
+    is_explicit: bool,
 ) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
     let crate_root = &config.crate_root;
@@ -172,6 +174,13 @@ pub fn map_from_inner_type(
         field_config.decode(name, i)
     });
 
+
+    let decode_op = if is_explicit {
+        quote!(decoder.decode_explicit_prefix::<#inner_name>(#tag)?)
+    } else {
+        quote!(<#inner_name>::decode_with_tag(decoder, #tag)?)
+    };
+
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
         #[derive(#crate_root::AsnType)]
@@ -185,7 +194,7 @@ pub fn map_from_inner_type(
             }
         }
 
-        let inner = decoder.decode_explicit_prefix::<#inner_name>(#tag)?;
+        let inner = #decode_op;
 
         Ok(#outer_name { #(#map_from_inner),* })
     }

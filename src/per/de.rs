@@ -7,7 +7,7 @@ use snafu::*;
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
     de::Error as _,
-    types::{self, constraints, Constraints, Tag},
+    types::{self, constraints, Constraints, Tag, fields::{Field, Fields}},
     Decode,
 };
 
@@ -34,6 +34,9 @@ impl DecoderOptions {
 pub struct Decoder<'input> {
     input: InputSlice<'input>,
     options: DecoderOptions,
+    /// When the decoder contains fields, we check against optional or default
+    /// fields to know the presence of those fields.
+    fields: alloc::collections::VecDeque<(Field, bool)>,
 }
 
 impl<'input> Decoder<'input> {
@@ -41,12 +44,38 @@ impl<'input> Decoder<'input> {
         Self {
             input: input.into(),
             options,
+            fields: <_>::default(),
         }
     }
 
     /// Returns the remaining input, if any.
     pub fn input(&self) -> &'input crate::types::BitStr {
         self.input.0
+    }
+
+    #[track_caller]
+    fn require_field(&mut self, tag: Tag) -> Result<bool> {
+        if self.fields.front().map(|field| field.0.tag.smallest_tag() == tag).unwrap_or_default() {
+            Ok(self.fields.pop_front().unwrap().1)
+        } else {
+            Err(Error::custom(alloc::format!("expected class: {}, value: {} in sequence or set", tag.class, tag.value)))
+        }
+    }
+
+    fn parse_extensible_bit(&mut self, constraints: &Constraints) -> Result<bool> {
+        constraints
+            .extensible()
+            .map(|_| self.parse_one_bit())
+            .transpose()
+            .map(|opt| opt.unwrap_or_default())
+    }
+
+    fn parse_optional_and_default_field_bitmap(&mut self, fields: &Fields) -> Result<InputSlice<'input>> {
+        let (input, bitset) = nom::bytes::streaming::take(
+            fields.number_of_optional_and_default_fields()
+        )(self.input)?;
+        self.input = input;
+        Ok(bitset)
     }
 
     fn decode_extensible_container(
@@ -308,13 +337,33 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .map(|seq| seq.into_iter().collect())
     }
 
-    fn decode_sequence<D, F: FnOnce(&mut Self) -> Result<D>>(
+    fn decode_sequence<D, F>(
         &mut self,
         _: Tag,
         constraints: Constraints,
         decode_fn: F,
-    ) -> Result<D> {
-        todo!()
+    ) -> Result<D, Self::Error>
+        where
+            D: crate::types::Constructed,
+            F: FnOnce(&mut Self) -> Result<D, Self::Error>,
+    {
+        let is_extensible = self.parse_extensible_bit(&constraints)?;
+        let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
+
+        let value = {
+            let mut sequence_decoder = Self::new(self.input(), self.options);
+            sequence_decoder.fields = D::FIELDS.optional_and_default_fields().zip(bitmap.into_iter().map(|b| *b)).collect();
+            let value = (decode_fn)(&mut sequence_decoder)?;
+
+            self.input = sequence_decoder.input;
+            value
+        };
+
+        if is_extensible {
+            todo!()
+        }
+
+        Ok(value)
     }
 
     fn decode_explicit_prefix<D: Decode>(&mut self, _: Tag) -> Result<D> {
@@ -328,10 +377,79 @@ impl<'input> crate::Decoder for Decoder<'input> {
         decode_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode,
+        SET: Decode + crate::types::Constructed,
         FIELDS: Decode,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        todo!()
+        let fields = SET::FIELDS.canonised();
+        let is_extensible = self.parse_extensible_bit(&constraints)?;
+        let bitmap = self.parse_optional_and_default_field_bitmap(&fields)?;
+
+        let fields = {
+            let mut sequence_decoder = Self::new(self.input(), self.options);
+            sequence_decoder.fields = fields.optional_and_default_fields().zip(bitmap.into_iter().map(|b| *b)).collect();
+            let mut fields = Vec::new();
+
+            while let Ok(value) = FIELDS::decode(self) {
+                fields.push(value);
+            }
+
+            self.input = sequence_decoder.input;
+            fields
+        };
+
+        if is_extensible {
+            todo!()
+        }
+
+        (decode_fn)(fields)
+    }
+
+    fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {
+        self.decode_optional_with_tag(D::TAG)
+    }
+
+    /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
+    /// Passing the correct tag is required even when used with codecs where
+    /// the tag is not present.
+    fn decode_optional_with_tag<D: Decode>(
+        &mut self,
+        tag: Tag,
+    ) -> Result<Option<D>, Self::Error> {
+        let is_present = self.require_field(tag)?;
+
+        if is_present {
+            D::decode_with_tag(self, tag).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn decode_optional_with_constraints<D: Decode>(
+        &mut self,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error> {
+        let is_present = self.require_field(D::TAG)?;
+
+        if is_present {
+            D::decode_with_constraints(self, constraints).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+
+    fn decode_optional_with_tag_and_constraints<D: Decode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error> {
+        let is_present = self.require_field(tag)?;
+
+        if is_present {
+            D::decode_with_tag_and_constraints(self, tag, constraints).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 }
