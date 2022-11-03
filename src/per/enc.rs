@@ -63,7 +63,7 @@ impl Encoder {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
-        encoder.field_bitfield = C::FIELDS.canonised().optional_and_default_fields().map(|field| (field.tag.smallest_tag(), false)).collect();
+        encoder.field_bitfield = C::FIELDS.canonised().optional_and_default_fields().map(|field| (field.tag_tree.smallest_tag(), false)).collect();
         encoder
     }
 

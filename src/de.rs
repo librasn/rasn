@@ -124,15 +124,17 @@ pub trait Decoder: Sized {
     /// and `FIELDS` must represent a `CHOICE` with a variant for each field
     /// from `SET`. As with `SET`s the field order is not guarenteed, so you'll
     /// have map from `Vec<FIELDS>` to `SET` in `decode_operation`.
-    fn decode_set<FIELDS, SET, F>(
+    fn decode_set<FIELDS, SET, D, F>(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
-        decode_operation: F,
+        decode_fn: D,
+        field_fn: F,
     ) -> Result<SET, Self::Error>
     where
         SET: Decode + crate::types::Constructed,
         FIELDS: Decode,
+        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
 
     /// Decode an the optional value in a `SEQUENCE` or `SET`.

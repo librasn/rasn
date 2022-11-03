@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
 
-use crate::types::{TagTree};
+use crate::types::{Tag, TagTree};
 
 #[derive(Debug, Clone)]
 pub struct Fields {
@@ -32,7 +32,7 @@ impl Fields {
 
     /// Sorts the fields by their canonical tag order.
     pub fn canonical_sort(&mut self) {
-        self.fields.to_mut().sort_by(|a, b| a.tag.smallest_tag().cmp(&b.tag.smallest_tag()));
+        self.fields.to_mut().sort_by(|a, b| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
     }
 
     pub fn iter(&self) -> impl Iterator<Item = Field> + '_ {
@@ -46,30 +46,34 @@ impl From<Cow<'static, [Field]>> for Fields {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Field {
-    pub tag: TagTree,
+    pub tag: Tag,
+    pub tag_tree: TagTree,
     pub presence: FieldPresence,
 }
 
 impl Field {
-    pub const fn new_required(tag: TagTree) -> Self {
+    pub const fn new_required(tag: Tag, tag_tree: TagTree) -> Self {
         Self {
             tag,
+            tag_tree,
             presence: FieldPresence::Required,
         }
     }
 
-    pub const fn new_optional(tag: TagTree) -> Self {
+    pub const fn new_optional(tag: Tag, tag_tree: TagTree) -> Self {
         Self {
             tag,
+            tag_tree,
             presence: FieldPresence::Optional,
         }
     }
 
-    pub const fn new_default(tag: TagTree) -> Self {
+    pub const fn new_default(tag: Tag, tag_tree: TagTree) -> Self {
         Self {
             tag,
+            tag_tree,
             presence: FieldPresence::Default,
         }
     }
@@ -79,7 +83,7 @@ impl Field {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd)]
 pub enum FieldPresence {
     Required,
     Optional,

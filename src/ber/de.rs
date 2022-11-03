@@ -376,15 +376,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.parse_constructed_contents(tag, false, D::decode)
     }
 
-    fn decode_set<FIELDS, SET, F>(
+    fn decode_set<FIELDS, SET, D, F>(
         &mut self,
         tag: Tag,
-        _: Constraints,
-        decode_fn: F,
+        _constraints: Constraints,
+        _decode_fn: D,
+        field_fn: F,
     ) -> Result<SET, Self::Error>
     where
         SET: Decode + crate::types::Constructed,
         FIELDS: Decode,
+        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
         self.parse_constructed_contents(tag, true, |decoder| {
@@ -394,7 +396,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 fields.push(value);
             }
 
-            (decode_fn)(fields)
+            (field_fn)(fields)
         })
     }
 

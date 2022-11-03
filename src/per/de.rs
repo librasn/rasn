@@ -55,7 +55,7 @@ impl<'input> Decoder<'input> {
 
     #[track_caller]
     fn require_field(&mut self, tag: Tag) -> Result<bool> {
-        if self.fields.front().map(|field| field.0.tag.smallest_tag() == tag).unwrap_or_default() {
+        if self.fields.front().map(|field| field.0.tag_tree.smallest_tag() == tag).unwrap_or_default() {
             Ok(self.fields.pop_front().unwrap().1)
         } else {
             Err(Error::custom(alloc::format!("expected class: {}, value: {} in sequence or set", tag.class, tag.value)))
@@ -370,31 +370,38 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D::decode(self)
     }
 
-    fn decode_set<FIELDS, SET, F>(
+    fn decode_set<FIELDS, SET, D, F>(
         &mut self,
         _: Tag,
         constraints: Constraints,
-        decode_fn: F,
+        decode_fn: D,
+        field_fn: F,
     ) -> Result<SET, Self::Error>
     where
         SET: Decode + crate::types::Constructed,
         FIELDS: Decode,
+        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        let fields = SET::FIELDS.canonised();
         let is_extensible = self.parse_extensible_bit(&constraints)?;
-        let bitmap = self.parse_optional_and_default_field_bitmap(&fields)?;
+        let bitmap = self.parse_optional_and_default_field_bitmap(&SET::FIELDS)?;
+        let field_map = SET::FIELDS.optional_and_default_fields().zip(bitmap.into_iter().map(|b| *b)).collect::<alloc::collections::BTreeMap<_, _>>();
 
         let fields = {
-            let mut sequence_decoder = Self::new(self.input(), self.options);
-            sequence_decoder.fields = fields.optional_and_default_fields().zip(bitmap.into_iter().map(|b| *b)).collect();
             let mut fields = Vec::new();
+            let mut set_decoder = Self::new(self.input(), self.options);
+            set_decoder.fields = SET::FIELDS.optional_and_default_fields().zip(bitmap.into_iter().map(|b| *b)).collect();
 
-            while let Ok(value) = FIELDS::decode(self) {
-                fields.push(value);
+            let mut field_indices = SET::FIELDS.iter().enumerate().collect::<Vec<_>>();
+            field_indices.sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+            for (indice, field) in field_indices.into_iter() {
+                match field_map.get(&field).copied() {
+                    Some(true) | None => fields.push((decode_fn)(&mut set_decoder, indice, field.tag)?),
+                    Some(false) => {}
+                }
             }
 
-            self.input = sequence_decoder.input;
+            self.input = set_decoder.input;
             fields
         };
 
@@ -402,7 +409,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             todo!()
         }
 
-        (decode_fn)(fields)
+        (field_fn)(fields)
     }
 
     fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {

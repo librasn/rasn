@@ -40,11 +40,13 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
 impl<T: AsnType> crate::types::Constructed for InstanceOf<T> {
     const FIELDS: Fields = Fields::from_static(&[
         Field {
-            tag: ObjectIdentifier::TAG_TREE,
+            tag: ObjectIdentifier::TAG,
+            tag_tree: ObjectIdentifier::TAG_TREE,
             presence: FieldPresence::Required,
         },
         Field {
-            tag: T::TAG_TREE,
+            tag: T::TAG,
+            tag_tree: T::TAG_TREE,
             presence: FieldPresence::Required,
         },
     ]);

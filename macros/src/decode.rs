@@ -13,6 +13,7 @@ pub fn derive_struct_impl(
     generics.add_trait_bounds(crate_root, quote::format_ident!("Decode"));
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+
     let decode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
 
@@ -79,33 +80,58 @@ pub fn derive_struct_impl(
             syn::Fields::Named(_) => quote!({ #(#field_names3),* }),
         };
 
+        let (field_const_defs, field_match_arms): (Vec<_>, Vec<_>) = container.fields
+            .iter()
+            .enumerate()
+            .zip(field_type_names.clone())
+            .map(|((context, field), field_name)| {
+                let config = FieldConfig::new(field, config);
+                let tag = config.tag(context);
+                let const_name = quote::format_ident!("{}Const", field_name);
+                (
+                    quote!(const #const_name: Tag = #tag;),
+                    quote!((#context, #const_name) => { #choice_name::#field_name(<_>::decode(decoder)?) }),
+                )
+            })
+            .unzip();
+
         quote! {
             #choice_def
             #(#field_type_defs)*
 
-            decoder.decode_set::<#choice_name, _, _>(tag, constraints, |fields| {
-                #(let mut #field_names = None;)*
+            decoder.decode_set::<#choice_name, _, _, _>(tag, constraints,
+                |decoder, index, tag| {
+                    #(#field_const_defs)*
 
-                for field in fields {
-                    match field {
-                        #(#choice_name::#field_type_names(value) => {
-                            if #field_names2.replace(value.0).is_some() {
-                                return Err(rasn::de::Error::duplicate_field(stringify!(#field_names2)))
-                            }
-                        })*
+                    Ok(match (index, tag) {
+                        #(#field_match_arms)*
+                        _ => return Err(#crate_root::de::Error::custom("Unknown field provided.")),
+                    })
+                },
+                |fields| {
+                    #(let mut #field_names = None;)*
+
+                    for field in fields {
+                        match field {
+                            #(#choice_name::#field_type_names(value) => {
+                                if #field_names2.replace(value.0).is_some() {
+                                    return Err(rasn::de::Error::duplicate_field(stringify!(#field_names2)))
+                                }
+                            })*
+                        }
                     }
+
+                    #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field(stringify!(#required_field_names)))?;)*
+
+                    Ok(Self #set_init)
                 }
-
-                #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field(stringify!(#required_field_names)))?;)*
-
-                Ok(Self #set_init)
-            })
+            )
         }
     } else {
         for (i, field) in container.fields.iter().enumerate() {
             let field_config = FieldConfig::new(field, config);
 
-            list.push(field_config.decode(&name, i));
+            list.push(field_config.decode_field_def(&name, i));
         }
 
         let fields = match container.fields {
@@ -171,7 +197,7 @@ pub fn map_from_inner_type(
 
     let decode_fields = fields.iter().enumerate().map(|(i, field)| {
         let field_config = FieldConfig::new(field, config);
-        field_config.decode(name, i)
+        field_config.decode_field_def(name, i)
     });
 
 

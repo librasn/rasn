@@ -485,8 +485,15 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
+    pub fn decode_field_def(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+        let lhs = self.field.ident.as_ref().map(|i| quote!(#i :));
+        let decode_op = self.decode(name, context);
+        quote!(#lhs #decode_op)
+    }
+
     pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
+        let ty = &self.field.ty;
         let or_else = {
             let ident = format!(
                 "{}.{}",
@@ -500,22 +507,21 @@ impl<'a> FieldConfig<'a> {
             quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error))?)
         };
 
-        let lhs = self.field.ident.as_ref().map(|i| quote!(#i :));
         let tag = self.tag(context);
 
         if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
-                quote!(#lhs decoder.decode_explicit_prefix(#tag) #or_else)
+                quote!(decoder.decode_explicit_prefix(#tag) #or_else)
             } else {
-                quote!(#lhs <_>::decode_with_tag(decoder, #tag) #or_else)
+                quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
             }
         } else if let Some(path) = self.default.as_ref() {
             match path {
-                Some(path) => quote!(#lhs decoder.decode_default_with_tag(#tag, #path) #or_else),
-                None => quote!(#lhs decoder.decode_default() #or_else),
+                Some(path) => quote!(decoder.decode_default_with_tag(#tag, #path) #or_else),
+                None => quote!(decoder.decode_default() #or_else),
             }
         } else {
-            quote!(#lhs <_>::decode(decoder) #or_else)
+            quote!(<_>::decode(decoder) #or_else)
         }
     }
 
@@ -566,7 +572,8 @@ impl<'a> FieldConfig<'a> {
 
     pub fn to_field_metadata(&self, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
-        let tag = self.tag_tree(context);
+        let tag = self.tag(context);
+        let tag_tree = self.tag_tree(context);
 
         let constructor = quote::format_ident!("{}", match self.field_type() {
             FieldType::Required => "new_required",
@@ -574,7 +581,7 @@ impl<'a> FieldConfig<'a> {
             FieldType::Default => "new_default",
         });
 
-        quote!({ #crate_root::types::fields::Field::#constructor(#tag) })
+        quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree) })
     }
 
     pub fn field_type(&self) -> FieldType {

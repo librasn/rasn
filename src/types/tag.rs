@@ -164,7 +164,7 @@ impl Tag {
 /// For most types this is only ever one level deep, except for CHOICE enums
 /// which will contain a set of nodes, that either point to a `Leaf` or another
 /// level of `Choice`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
 pub enum TagTree {
     /// The end of branch in the tree.
     Leaf(Tag),
