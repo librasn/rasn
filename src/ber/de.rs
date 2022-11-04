@@ -599,8 +599,8 @@ mod tests {
 
         impl types::Constructed for Foo {
             const FIELDS: types::fields::Fields = types::fields::Fields::from_static(&[
-                types::fields::Field::new_required(Ia5String::TAG_TREE),
-                types::fields::Field::new_required(bool::TAG_TREE),
+                types::fields::Field::new_required(Ia5String::TAG, Ia5String::TAG_TREE),
+                types::fields::Field::new_required(bool::TAG, bool::TAG_TREE),
             ]);
         }
 

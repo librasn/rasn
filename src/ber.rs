@@ -113,8 +113,8 @@ mod tests {
 
         impl crate::types::Constructed for Set {
             const FIELDS: crate::types::fields::Fields = crate::types::fields::Fields::from_static(&[
-                crate::types::fields::Field::new_required(u32::TAG_TREE),
-                crate::types::fields::Field::new_required(Utf8String::TAG_TREE),
+                crate::types::fields::Field::new_required(u32::TAG, u32::TAG_TREE),
+                crate::types::fields::Field::new_required(Utf8String::TAG, Utf8String::TAG_TREE),
             ]);
         }
 
@@ -148,22 +148,33 @@ mod tests {
                     Name(Utf8String),
                 }
 
-                decoder.decode_set::<Fields, _, _>(tag, <_>::default(), |fields| {
-                    let mut age = None;
-                    let mut name = None;
-
-                    for field in fields {
-                        match field {
-                            Fields::Age(value) => age = value.into(),
-                            Fields::Name(value) => name = value.into(),
+                decoder.decode_set::<Fields, _, _, _>(
+                    tag,
+                    <_>::default(),
+                    |decoder, indice, tag| {
+                        match (indice, tag) {
+                            (0, u32::TAG) => <_>::decode(decoder).map(Fields::Age),
+                            (1, Utf8String::TAG) => <_>::decode(decoder).map(Fields::Name),
+                            (_, _) => Err(D::Error::custom("unknown field")),
                         }
-                    }
+                    },
+                    |fields| {
+                        let mut age = None;
+                        let mut name = None;
 
-                    Ok(Self {
-                        age: age.ok_or_else(|| D::Error::missing_field("age"))?,
-                        name: name.ok_or_else(|| D::Error::missing_field("name"))?,
-                    })
-                })
+                        for field in fields {
+                            match field {
+                                Fields::Age(value) => age = value.into(),
+                                Fields::Name(value) => name = value.into(),
+                            }
+                        }
+
+                        Ok(Self {
+                            age: age.ok_or_else(|| D::Error::missing_field("age"))?,
+                            name: name.ok_or_else(|| D::Error::missing_field("name"))?,
+                        })
+                    }
+                )
             }
         }
 

@@ -649,9 +649,9 @@ mod tests {
 
         impl crate::types::Constructed for Set {
             const FIELDS: crate::types::fields::Fields = crate::types::fields::Fields::from_static(&[
-                crate::types::fields::Field::new_required(C0::TAG_TREE),
-                crate::types::fields::Field::new_required(C1::TAG_TREE),
-                crate::types::fields::Field::new_required(C2::TAG_TREE),
+                crate::types::fields::Field::new_required(C0::TAG, C0::TAG_TREE),
+                crate::types::fields::Field::new_required(C1::TAG, C1::TAG_TREE),
+                crate::types::fields::Field::new_required(C2::TAG, C2::TAG_TREE),
             ]);
         }
 
