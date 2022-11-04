@@ -434,18 +434,18 @@ impl crate::Encoder for Encoder {
 
     fn encode_utc_time(
         &mut self,
-        _tag: Tag,
-        _value: &types::UtcTime,
+        tag: Tag,
+        value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value).context(error::DerSnafu)?)
     }
 
     fn encode_generalized_time(
         &mut self,
-        _tag: Tag,
-        _value: &types::GeneralizedTime,
+        tag: Tag,
+        value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value).context(error::DerSnafu)?)
     }
 
     fn encode_sequence_of<E: Encode>(

@@ -194,7 +194,15 @@ impl<'input> crate::Decoder for Decoder<'input> {
     type Error = Error;
 
     fn decode_any(&mut self) -> Result<types::Any> {
-        todo!()
+        let mut octet_string = types::BitString::default();
+
+        self.decode_extensible_container(<_>::default(), |input, length| {
+            let (input, part) = nom::bytes::streaming::take(length * 8)(input)?;
+            octet_string.extend(&*part);
+            Ok(input)
+        })?;
+
+        Ok(types::Any::new(octet_string.into_vec()))
     }
 
     fn decode_bool(&mut self, _: Tag) -> Result<bool> {
@@ -295,12 +303,16 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .and_then(|bytes| String::from_utf8(bytes).map_err(Error::custom))
     }
 
-    fn decode_generalized_time(&mut self, _: Tag) -> Result<types::GeneralizedTime> {
-        todo!()
+    fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
+        let bytes = self.decode_octet_string(tag, <_>::default())?;
+
+        crate::ber::decode(&bytes).context(error::BerSnafu).map_err(From::from)
     }
 
-    fn decode_utc_time(&mut self, _: Tag) -> Result<types::UtcTime> {
-        todo!()
+    fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
+        let bytes = self.decode_octet_string(tag, <_>::default())?;
+
+        crate::ber::decode(&bytes).context(error::BerSnafu).map_err(From::from)
     }
 
     fn decode_sequence_of<D: Decode>(
