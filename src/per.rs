@@ -1,12 +1,43 @@
 pub mod de;
 pub mod enc;
 
+use crate::types::Constraints;
+
 pub use self::{de::Decoder, enc::Encoder};
 
 const SIXTEEN_K: u16 = 16384;
 const THIRTY_TWO_K: u16 = 32768;
 const FOURTY_EIGHT_K: u16 = 49152;
 const SIXTY_FOUR_K: u32 = 65536;
+const TWO_FIFTY_SIX: u32 = 256;
+
+/// Attempts to decode `T` from `input` using DER.
+pub(crate) fn decode<T: crate::Decode>(options: de::DecoderOptions, input: &[u8]) -> Result<T, crate::per::de::Error> {
+    T::decode(&mut crate::per::de::Decoder::new(crate::types::BitStr::from_slice(input), options))
+}
+
+/// Attempts to encode `value` to DER.
+pub(crate) fn encode<T: crate::Encode>(options: enc::EncoderOptions, value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+    let mut enc = crate::per::enc::Encoder::new(options);
+
+    value.encode(&mut enc)?;
+
+    Ok(enc.output())
+}
+
+/// Attempts to decode `T` from `input` using DER.
+pub(crate) fn decode_with_constraints<T: crate::Decode>(options: de::DecoderOptions, constraints: Constraints, input: &[u8]) -> Result<T, crate::per::de::Error> {
+    T::decode_with_constraints(&mut crate::per::de::Decoder::new(crate::types::BitStr::from_slice(input), options), constraints)
+}
+
+/// Attempts to encode `value` to DER.
+pub(crate) fn encode_with_constraints<T: crate::Encode>(options: enc::EncoderOptions, constraints: Constraints, value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+    let mut enc = crate::per::enc::Encoder::new(options);
+
+    value.encode_with_constraints(&mut enc, constraints)?;
+
+    Ok(enc.output())
+}
 
 fn log2(x: i128) -> u32 {
     i128::BITS - (x - 1).leading_zeros()
@@ -15,6 +46,8 @@ fn log2(x: i128) -> u32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::types::*;
 
     macro_rules! round_trip {
         ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{

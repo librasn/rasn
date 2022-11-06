@@ -1,20 +1,24 @@
 //! # Aligned Packed Encoding Rules
+use crate::types::Constraints;
 
 pub use super::per::*;
 
-/// Attempts to decode `T` from `input` using DER.
+/// Attempts to decode `T` from `input` using UPER-BASIC.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::per::de::Error> {
-    T::decode(&mut crate::per::de::Decoder::new(
-        crate::types::BitStr::from_slice(input),
-        crate::per::de::DecoderOptions::aligned(),
-    ))
+    crate::per::decode(de::DecoderOptions::aligned(), input)
 }
 
-/// Attempts to encode `value` to DER.
+/// Attempts to encode `value` to UPER-CANONICAL.
 pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
-    let mut enc = crate::per::enc::Encoder::new(crate::per::enc::EncoderOptions::aligned());
+    crate::per::encode(enc::EncoderOptions::aligned(), value)
+}
 
-    value.encode(&mut enc)?;
+/// Attempts to decode `T` from `input` using UPER-BASIC.
+pub fn decode_with_constraints<T: crate::Decode>(constraints: Constraints, input: &[u8]) -> Result<T, crate::per::de::Error> {
+    crate::per::decode_with_constraints(de::DecoderOptions::aligned(), constraints, input)
+}
 
-    Ok(enc.output())
+/// Attempts to encode `value` to UPER-CANONICAL.
+pub fn encode_with_constraints<T: crate::Encode>(constraints: Constraints, value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+    crate::per::encode_with_constraints(enc::EncoderOptions::aligned(), constraints, value)
 }

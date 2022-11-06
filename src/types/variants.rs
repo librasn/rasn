@@ -12,20 +12,6 @@ impl Variants {
         Self { fields }
     }
 
-    pub const fn smallest_tag(&self) -> Tag {
-        let i = self.fields.len();
-        let mut tag: Tag = Tag::new_private(u32::MAX);
-
-        while i < self.fields.len() {
-            let field = &self.fields[i];
-            if field.tag.const_less_than(tag) {
-                tag = field.tag;
-            }
-        }
-
-        tag
-    }
-
     /// Returns the canonical sorted version of `self`.
     pub fn canonised(mut self) -> Self {
         self.canonical_sort();
@@ -41,5 +27,3 @@ impl Variants {
         self.fields.iter().copied()
     }
 }
-
-
