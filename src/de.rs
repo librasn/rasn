@@ -169,7 +169,7 @@ pub trait Decoder: Sized {
 
     /// Decode a `DEFAULT` value in a `SEQUENCE` or `SET` with `tag` and `default_fn`.
     fn decode_default_with_tag<D: Decode, F: FnOnce() -> D>(&mut self, tag: Tag, default_fn: F) -> Result<D, Self::Error> {
-        self.decode_optional_with_tag::<D>(tag).map(|_| (default_fn)())
+        Ok(self.decode_optional_with_tag::<D>(tag)?.unwrap_or_else(default_fn))
     }
 }
 
