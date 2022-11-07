@@ -12,7 +12,7 @@ mod tag;
 
 pub mod constraints;
 pub mod fields;
-// pub mod variants;
+pub mod variants;
 
 pub(crate) mod oid;
 
@@ -76,8 +76,16 @@ pub trait AsnType {
     const CONSTRAINTS: Constraints<'static> = Constraints::NONE;
 }
 
+/// A `SET` or `SEQUENCE` value.
 pub trait Constructed {
     const FIELDS: self::fields::Fields;
+    const EXTENDED_FIELDS: self::fields::Fields = self::fields::Fields::empty();
+}
+
+/// a `CHOICE` value.
+pub trait Choice {
+    const VARIANTS: &'static [TagTree];
+    const EXTENDED_VARIANTS: &'static [TagTree] = &[];
 }
 
 macro_rules! asn_type {

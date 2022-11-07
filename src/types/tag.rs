@@ -164,7 +164,7 @@ impl Tag {
 /// For most types this is only ever one level deep, except for CHOICE enums
 /// which will contain a set of nodes, that either point to a `Leaf` or another
 /// level of `Choice`.
-#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Eq, Ord, PartialEq)]
 pub enum TagTree {
     /// The end of branch in the tree.
     Leaf(Tag),
@@ -173,6 +173,10 @@ pub enum TagTree {
 }
 
 impl TagTree {
+    pub const fn empty() -> Self {
+        Self::Choice(&[])
+    }
+
     pub const fn smallest_tag(&self) -> Tag {
         match self {
             Self::Leaf(tag) => *tag,
@@ -269,7 +273,7 @@ impl TagTree {
     }
 
     /// Whether `needle` matches any `Leaf`s in `nodes`.
-    pub(crate) const fn tag_contains(needle: &Tag, nodes: &'static [TagTree]) -> bool {
+    pub(crate) const fn tag_contains(needle: &Tag, nodes: &[TagTree]) -> bool {
         let mut index = 0;
 
         while index < nodes.len() {
@@ -291,6 +295,12 @@ impl TagTree {
         }
 
         false
+    }
+}
+
+impl PartialOrd for TagTree {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        Some(self.smallest_tag().cmp(&other.smallest_tag()))
     }
 }
 

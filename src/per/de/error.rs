@@ -1,5 +1,7 @@
 use snafu::*;
 
+use crate::types::variants::Variants;
+
 #[derive(Snafu)]
 #[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
@@ -17,6 +19,19 @@ impl Error {
         }
     }
 
+    pub fn choice_index_exceeds_platform_width(needed: u32, present: u64) -> Self {
+        Self {
+            kind: Kind::ChoiceIndexExceedsPlatformWidth { needed, present },
+            backtrace: Backtrace::generate(),
+        }
+    }
+
+    pub fn choice_index_not_found(index: usize, variants: Variants) -> Self {
+        Self {
+            kind: Kind::ChoiceIndexNotFound { index, variants },
+            backtrace: Backtrace::generate(),
+        }
+    }
 }
 
 impl From<Kind> for Error {
@@ -32,6 +47,20 @@ impl From<Kind> for Error {
 #[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
 pub enum Kind {
+    #[snafu(display("choice index '{index}' did not match any variant"))]
+    ChoiceIndexNotFound {
+        /// The found index of the choice variant.
+        index: usize,
+        /// The variants checked for presence.
+        variants: Variants,
+    },
+    #[snafu(display("integer range larger than possible to address on this platform. needed: {needed} present: {present}"))]
+    ChoiceIndexExceedsPlatformWidth {
+        /// Amount of bytes needed.
+        needed: u32,
+        /// Amount of bytes needed.
+        present: u64,
+    },
     #[snafu(display("integer range larger than possible to address on this platform. needed: {needed} present: {present}"))]
     RangeExceedsPlatformWidth {
         /// Amount of bytes needed.

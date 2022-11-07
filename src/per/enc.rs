@@ -8,7 +8,7 @@ use snafu::*;
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
     types::{self, constraints, BitString, Constraints, Tag},
-    Encode, Encoder as _, enc::Error as _,
+    Encode, enc::Error as _,
 };
 
 pub use error::Error;
@@ -97,16 +97,25 @@ impl Encoder {
         }
     }
 
+    fn encode_extensible_bit(&mut self, constraints: &Constraints, buffer: &mut BitString, extensible_condition: impl FnOnce() -> bool) -> bool {
+        constraints.extensible().then(|| {
+            let is_in_constraints = !(extensible_condition)();
+            buffer.push(is_in_constraints);
+            is_in_constraints
+        }).unwrap_or_default()
+    }
+
+
     fn require_fields(&self) -> Result<()> {
         self.field_bitfield.is_empty()
             .then(|| Err(Error::custom("encode_some_* can only be called inside a sequence or set type")))
             .unwrap_or(Ok(()))
     }
 
-    fn encode_constructed(&mut self, tag: Tag, extensible: Option<bool>, encoder: Self) {
+    fn encode_constructed(&mut self, tag: Tag, constraints: &Constraints, encoder: Self) {
         let mut buffer = BitString::default();
 
-        extensible.map(|extended_value| buffer.push(extended_value));
+        self.encode_extensible_bit(constraints, &mut buffer, || todo!());
 
         for bit in encoder.field_bitfield.values().copied() {
             buffer.push(bit);
@@ -115,6 +124,25 @@ impl Encoder {
         self.pad_to_alignment(&mut buffer);
         buffer.extend(encoder.bitstring_output());
         self.extend(tag, &buffer);
+    }
+
+    fn encode_normally_small_integer(&mut self, value: usize, buffer: &mut BitString)
+        -> Result<()>
+    {
+        let is_large = value >= 64;
+        buffer.push(is_large);
+
+        let size_constraints = if is_large {
+            constraints::Value::new(constraints::Range::start_from(0)).into()
+        } else {
+            constraints::Value::new(constraints::Range::new(0, 63)).into()
+        };
+
+        self.encode_integer_into_buffer(
+            Constraints::new(&[size_constraints]),
+            &value.into(),
+            buffer,
+        )
     }
 
     fn encode_length(
@@ -138,14 +166,6 @@ impl Encoder {
 
         if range == 0 {
             (encode_min)(buffer)?;
-        } else if range < SIXTY_FOUR_K as usize {
-            let constraints = [constraints::Value::try_from(constraints).unwrap().into()];
-            self.encode_integer(
-                Tag::INTEGER,
-                Constraints::from(&constraints),
-                &effective_length.into(),
-            )?;
-            buffer.extend((encode_fn)(0..length)?);
         } else if effective_length <= 127 {
             buffer.extend((effective_length as u8).to_be_bytes());
             self.pad_to_alignment(buffer);
@@ -219,6 +239,63 @@ impl Encoder {
             self.set_output.insert(tag, set_buffer);
         }
     }
+
+    fn encode_octet_string_into_buffer(
+        &mut self,
+        constraints: Constraints,
+        value: &[u8],
+        buffer: &mut BitString,
+    ) -> Result<()> {
+        let extensible_is_present = self.encode_extensible_bit(&constraints, buffer, || todo!());
+
+        if constraints.size().effective_value(value.len()).into_inner() == 0 {
+            // NO-OP
+        } else if extensible_is_present {
+            self.encode_length(buffer, value.len(), <_>::default(), |range| {
+                Ok(BitString::from_slice(&value[range]))
+            })?;
+        } else {
+            self.encode_length(buffer, value.len(), constraints.size(), |range| {
+                Ok(BitString::from_slice(&value[range]))
+            })?;
+        }
+
+        Ok(())
+    }
+
+    fn encode_integer_into_buffer(
+        &mut self,
+        constraints: Constraints,
+        value: &num_bigint::BigInt,
+        buffer: &mut BitString,
+    ) -> Result<()> {
+        let value_range = constraints.value();
+        let bytes = match value_range.effective_bigint_value(value.clone()) {
+            either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
+            either::Right(value) => value.to_signed_bytes_be(),
+        };
+
+        self.encode_extensible_bit(&constraints, buffer, || todo!());
+
+        if let Some(range) = value_range
+            .range()
+            .filter(|range| *range < SIXTY_FOUR_K.into())
+        {
+            let total_bits = super::log2(range) as usize;
+            let mut bits = BitString::from_vec(bytes);
+            bits.resize(total_bits, false);
+            if range >= super::TWO_FIFTY_SIX.into() {
+                self.pad_to_alignment(buffer);
+            }
+            buffer.extend(bits);
+        } else {
+            self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
+                Ok(BitString::from_slice(&bytes[range]))
+            })?;
+        }
+
+        Ok(())
+    }
 }
 
 pub enum Input<'input> {
@@ -273,14 +350,7 @@ impl crate::Encoder for Encoder {
         value: &BitString,
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::default();
-
-        let extensible_is_present = constraints
-            .extensible()
-            .map(|is_present| {
-                buffer.push(is_present);
-                is_present
-            })
-            .unwrap_or_default();
+        let extensible_is_present = self.encode_extensible_bit(&constraints, &mut buffer, || todo!());
 
         if constraints.size().effective_value(value.len()).into_inner() == 0 {
             // NO-OP
@@ -324,42 +394,8 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &num_bigint::BigInt,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut buffer = BitString::default();
-        let value_range = constraints.value();
-        let mut bytes = match value_range.effective_bigint_value(value.clone()) {
-            either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
-            either::Right(value) => value.to_signed_bytes_be(),
-        };
-
-        constraints
-            .extensible()
-            .map(|is_present| buffer.push(is_present));
-
-        if let Some(range) = value_range
-            .range()
-            .filter(|range| *range < SIXTY_FOUR_K.into())
-        {
-            let total_bits = super::log2(range) as u128;
-            let current_bits = bytes.len() as u128 * 8;
-            if total_bits > current_bits {
-                let diff = total_bits - current_bits;
-                let padding = (diff / 8) + ((diff % 8) != 0) as u128;
-                let mut padding_vec = vec![0; padding as usize];
-
-                padding_vec.append(&mut bytes);
-                bytes = padding_vec;
-            }
-
-            let mut field = BitString::repeat(false, super::log2(range) as usize);
-            field |= BitString::from_slice(&bytes);
-
-            buffer.extend(field);
-        } else {
-            self.encode_length(&mut buffer, bytes.len(), constraints.size(), |range| {
-                Ok(BitString::from_slice(&bytes[range]))
-            })?;
-        }
-
+        let mut buffer = BitString::new();
+        self.encode_integer_into_buffer(constraints, value, &mut buffer)?;
         self.extend(tag, &buffer);
         Ok(())
     }
@@ -381,29 +417,8 @@ impl crate::Encoder for Encoder {
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::default();
-
-        let extensible_is_present = constraints
-            .extensible()
-            .map(|is_present| {
-                buffer.push(is_present);
-                is_present
-            })
-            .unwrap_or_default();
-
-        if constraints.size().effective_value(value.len()).into_inner() == 0 {
-            // NO-OP
-        } else if extensible_is_present {
-            self.encode_length(&mut buffer, value.len(), <_>::default(), |range| {
-                Ok(BitString::from_slice(&value[range]))
-            })?;
-        } else {
-            self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
-                Ok(BitString::from_slice(&value[range]))
-            })?;
-        }
-
+        self.encode_octet_string_into_buffer(constraints, value, &mut buffer)?;
         self.extend(tag, &buffer);
-
         Ok(())
     }
 
@@ -535,7 +550,7 @@ impl crate::Encoder for Encoder {
     {
         let mut sequence = Self::new(self.options.without_set_encoding());
         (encoder_scope)(&mut sequence)?;
-        self.encode_constructed(tag, constraints.extensible(), sequence);
+        self.encode_constructed(tag, &constraints, sequence);
         Ok(())
     }
 
@@ -553,8 +568,65 @@ impl crate::Encoder for Encoder {
 
         (encoder_scope)(&mut set)?;
 
-        self.encode_constructed(tag, constraints.extensible(), set);
+        self.encode_constructed(tag, &constraints, set);
 
+        Ok(())
+    }
+
+    fn encode_choice<E: Encode + crate::types::Choice>(
+        &mut self,
+        constraints: Constraints,
+        encode_fn: impl FnOnce(&mut Self)  -> Result<Tag, Self::Error>,
+    ) -> Result<Self::Ok, Self::Error> {
+        let mut buffer = BitString::new();
+        let mut choice_encoder = Self::new(self.options.without_set_encoding());
+        let tag = (encode_fn)(&mut choice_encoder)?;
+        let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
+
+        self.encode_extensible_bit(&constraints, &mut buffer, || is_root_extension);
+        let variants = crate::types::variants::Variants::from_static(
+            is_root_extension.then(|| E::VARIANTS).unwrap_or(E::EXTENDED_VARIANTS)
+        );
+
+        let index = variants
+            .iter()
+            .enumerate()
+            .find_map(|(i, &variant_tag)| (tag == variant_tag).then(|| i))
+            .ok_or_else(|| Error::custom("variant not found in choice"))?;
+
+        let bounds = if is_root_extension {
+            let variance = variants.len();
+
+            if variance != 1 {
+                Some(Some(variance))
+            } else {
+                None
+            }
+        } else {
+            Some(None)
+        };
+
+        match (index, bounds) {
+            (index, Some(Some(variance))) => {
+                self.encode_integer_into_buffer(
+                    Constraints::new(&[
+                        constraints::Value::new(constraints::Range::new(0, variance as i128)).into()
+                    ]),
+                    &index.into(),
+                    &mut buffer,
+                )?;
+
+                buffer.extend(choice_encoder.output);
+            }
+            (index, Some(None)) => {
+                self.encode_normally_small_integer(index, &mut buffer)?;
+                self.pad_to_alignment(&mut buffer);
+                self.encode_octet_string_into_buffer(<_>::default(), &choice_encoder.output(), &mut buffer)?;
+            }
+            (_, None) => {},
+        }
+
+        self.extend(tag, &buffer);
         Ok(())
     }
 }
@@ -562,6 +634,8 @@ impl crate::Encoder for Encoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::Encoder as _;
 
     #[derive(crate::AsnType, Default, crate::Encode, Clone, Copy)]
     #[rasn(crate_root = "crate")]

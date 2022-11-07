@@ -138,6 +138,11 @@ pub trait Decoder: Sized {
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
 
     /// Decode an the optional value in a `SEQUENCE` or `SET`.
+    fn decode_choice<D, F>(&mut self, constraints: Constraints, decode_fn: F) -> Result<D, Self::Error>
+        where D: Decode + crate::types::Choice,
+              F: FnOnce(&mut Self, Tag) -> Result<D, Self::Error>;
+
+    /// Decode an the optional value in a `SEQUENCE` or `SET`.
     fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error>;
 
     /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
@@ -163,8 +168,8 @@ pub trait Decoder: Sized {
     ) -> Result<Option<D>, Self::Error>;
 
     /// Decode a `DEFAULT` value in a `SEQUENCE` or `SET`.
-    fn decode_default<D: Decode + Default>(&mut self) -> Result<D, Self::Error> {
-        self.decode_default_with_tag(D::TAG, D::default)
+    fn decode_default<D: Decode, F: FnOnce() -> D>(&mut self, default_fn: F) -> Result<D, Self::Error> {
+        self.decode_default_with_tag(D::TAG, default_fn)
     }
 
     /// Decode a `DEFAULT` value in a `SEQUENCE` or `SET` with `tag` and `default_fn`.

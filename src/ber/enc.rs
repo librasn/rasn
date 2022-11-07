@@ -241,7 +241,7 @@ impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = error::Error;
 
-    fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
+    fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
             return Err(crate::enc::Error::custom(
                 "Cannot encode `ANY` types in `SET` fields.",
@@ -278,6 +278,14 @@ impl crate::Encoder for Encoder {
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(tag, &[if value { 0xff } else { 0x00 }]);
         Ok(())
+    }
+
+    fn encode_choice<E: Encode>(
+        &mut self,
+        _: Constraints,
+        encode_fn: impl FnOnce(&mut Self)  -> Result<Tag, Self::Error>,
+    ) -> Result<Self::Ok, Self::Error> {
+        (encode_fn)(self).map(drop)
     }
 
     fn encode_enumerated(
@@ -413,7 +421,7 @@ impl crate::Encoder for Encoder {
         self.encode_none_with_tag(E::TAG)
     }
 
-    fn encode_none_with_tag(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
+    fn encode_none_with_tag(&mut self, _: Tag) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 

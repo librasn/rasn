@@ -15,10 +15,8 @@ impl<'r> Constraints<'r> {
             .unwrap_or_default()
     }
 
-    pub fn extensible(&self) -> Option<bool> {
-        self.0
-            .iter()
-            .find_map(|constraint| constraint.to_extensible())
+    pub fn extensible(&self) -> bool {
+        self.0.iter().any(|constraint| constraint.is_extensible())
     }
 
     pub fn value(&self) -> Value {
@@ -45,20 +43,13 @@ impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
 pub enum Constraint {
     Value(Value),
     Size(Size),
-    Extensible(bool),
+    Extensible,
 }
 
 impl Constraint {
     pub const fn as_value(&self) -> Option<&Value> {
         match self {
             Self::Value(integer) => Some(integer),
-            _ => None,
-        }
-    }
-
-    pub const fn to_extensible(&self) -> Option<bool> {
-        match self {
-            Self::Extensible(value) => Some(*value),
             _ => None,
         }
     }
@@ -79,7 +70,7 @@ impl Constraint {
 
     /// Returns whether the type is extensible.
     pub const fn is_extensible(&self) -> bool {
-        matches!(self, Self::Extensible(_))
+        matches!(self, Self::Extensible)
     }
 }
 

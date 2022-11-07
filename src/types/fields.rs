@@ -12,6 +12,10 @@ impl Fields {
         Self { fields }
     }
 
+    pub const fn empty() -> Self {
+        Self::new(Cow::Borrowed(&[]))
+    }
+
     pub const fn from_static(fields: &'static [Field]) -> Self {
         Self { fields: Cow::Borrowed(fields) }
     }

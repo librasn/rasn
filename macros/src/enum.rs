@@ -1,5 +1,7 @@
-use crate::{config::*, ext::GenericsExt};
+use itertools::Itertools;
 use quote::ToTokens;
+
+use crate::{config::*, ext::GenericsExt};
 
 pub struct Enum {
     pub name: syn::Ident,
@@ -54,6 +56,23 @@ impl Enum {
             .then(|| quote!(#crate_root::types::TagTree::Leaf(Self::TAG)))
             .unwrap_or_else(|| quote!(TAG_TREE));
 
+        let (base_variants, extended_variants): (Vec<_>, Vec<_>) = self
+            .variants
+            .iter()
+            .enumerate()
+            .partition_map(|(i, variant)| {
+                let config = VariantConfig::new(variant, &self.generics, &self.config);
+                let tag_tree = config.tag_tree(i);
+                match config.extension_addition {
+                    false => either::Left(tag_tree),
+                    true => either::Right(tag_tree),
+                }
+            });
+
+        let constraints_def = self.config.extensible.then(|| quote! {
+            const CONSTRAINTS: #crate_root::types::Constraints<'static> =
+                #crate_root::types::Constraints::new(&[#crate_root::types::constraints::Constraint::Extensible]);
+        });
 
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
@@ -66,6 +85,17 @@ impl Enum {
                     const _: () = assert!(TAG_TREE.is_unique(), #error_message);
                     #return_val
                 };
+
+                #constraints_def
+            }
+
+            impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
+                const VARIANTS: &'static [#crate_root::types::TagTree] = &[
+                    #(#base_variants)*
+                ];
+                const EXTENDED_VARIANTS: &'static [#crate_root::types::TagTree] = &[
+                    #(#extended_variants)*
+                ];
             }
         }
     }
@@ -116,15 +146,19 @@ impl Enum {
         };
 
         let decode_op = if self.config.choice {
-            let variants =
+            let (consts, variants): (Vec<_>, Vec<_>) =
                 self.variants.iter().enumerate().map(|(i, v)| {
                     VariantConfig::new(v, &generics, &self.config).decode(&self.name, i)
-                });
+                }).unzip();
 
             let name = syn::LitStr::new(&self.name.to_string(), proc_macro2::Span::call_site());
             quote! {
-                #(#variants);*
-                Err(#crate_root::de::Error::no_valid_choice(#name))
+                #(#consts)*
+
+                decoder.decode_choice(Self::CONSTRAINTS, |decoder, tag| match tag {
+                    #(#variants,)*
+                    _ => Err(#crate_root::de::Error::no_valid_choice(#name)),
+                })
             }
         } else {
             let name = &self.name;
@@ -243,6 +277,7 @@ impl Enum {
                         quote!(#ident)
                     });
 
+                    let tag_tokens = variant_tag.to_tokens(&crate_root);
                     let encode_impl = crate::encode::map_to_inner_type(
                         variant_tag,
                         &ident,
@@ -252,7 +287,7 @@ impl Enum {
                         variant_config.has_explicit_tag(),
                     );
 
-                    quote!(#name::#ident { #(#idents),* } => { #encode_impl })
+                    quote!(#name::#ident { #(#idents),* } => { #encode_impl.map(|_| #tag_tokens) })
                 }
                 syn::Fields::Unnamed(_) => {
                     if v.fields.iter().count() != 1 {
@@ -269,7 +304,7 @@ impl Enum {
 
                     quote! {
                         #name::#ident(value) => {
-                            #encode_operation.map(drop)
+                            #encode_operation.map(|_| #variant_tag)
                         }
                     }
                 }
@@ -281,15 +316,15 @@ impl Enum {
                         quote!(encoder.encode_null(#variant_tag))
                     };
 
-                    quote!(#name::#ident => #encode_operation.map(drop))
+                    quote!(#name::#ident => #encode_operation.map(|_| #variant_tag))
                 }
             }
         });
 
         let encode_variants = quote! {
-            match self {
+            encoder.encode_choice::<Self>(Self::CONSTRAINTS, |encoder| match self {
                 #(#variants),*
-            }
+            })
         };
 
         let encode_impl = if self.config.has_explicit_tag() {

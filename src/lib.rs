@@ -91,16 +91,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn unsigned() {
-        let min = <i8>::min_value();
-        let max = <i8>::max_value();
-        let half_max = <i8>::max_value() / 2;
-        let half_min = <i8>::min_value() / 2;
-
-        round_trip(&dbg!(half_max));
-    }
-
     integer_tests! {
         i8,
         i16,

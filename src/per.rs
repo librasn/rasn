@@ -45,9 +45,7 @@ fn log2(x: i128) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::types::*;
+    use crate::{types::*, prelude::*};
 
     macro_rules! round_trip {
         ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
@@ -66,5 +64,23 @@ mod tests {
     fn sequence_of() {
         round_trip!(uper, Vec<u8>, vec![1; 5], &[0b00000101, 1, 1, 1, 1, 1]);
         round_trip!(aper, Vec<u8>, vec![1; 5], &[0b00000101, 1, 1, 1, 1, 1]);
+    }
+
+    #[test]
+    fn choice() {
+        use crate as rasn;
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum Choice {
+            Normal,
+            High,
+            #[rasn(extension_addition)]
+            Medium
+        }
+
+        round_trip!(uper, Choice, Choice::Normal, &[0]);
+        round_trip!(uper, Choice, Choice::Medium, &[0x80, 1, 0]);
+        round_trip!(aper, Choice, Choice::Medium, &[0x80, 1, 0]);
     }
 }

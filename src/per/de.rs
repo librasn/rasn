@@ -65,7 +65,7 @@ impl<'input> Decoder<'input> {
     fn parse_extensible_bit(&mut self, constraints: &Constraints) -> Result<bool> {
         constraints
             .extensible()
-            .map(|_| self.parse_one_bit())
+            .then(|| self.parse_one_bit())
             .transpose()
             .map(|opt| opt.unwrap_or_default())
     }
@@ -83,11 +83,7 @@ impl<'input> Decoder<'input> {
         constraints: Constraints,
         mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<()> {
-        let extensible_is_present = constraints
-            .extensible()
-            .map(|_| self.parse_one_bit())
-            .transpose()?
-            .unwrap_or_default();
+        let extensible_is_present = self.parse_extensible_bit(&constraints)?;
 
         let constraints = if constraints.size().range() == Some(0) {
             // NO-OP
@@ -188,6 +184,40 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(boolean[0] as bool)
     }
+
+    fn parse_normally_small_integer(&mut self) -> Result<types::Integer> {
+        let is_large = self.parse_one_bit()?;
+        let constraints = if is_large {
+            constraints::Value::new(constraints::Range::start_from(0)).into()
+        } else {
+            constraints::Value::new(constraints::Range::new(0, 63)).into()
+        };
+
+        self.parse_integer(Constraints::new(&[constraints]))
+    }
+
+    fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
+        let extensible = self.parse_extensible_bit(&constraints)?;
+        let value_constraint = constraints.value();
+
+        let number = if let Some(range) = value_constraint
+            .range()
+            .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
+        {
+            let bits = super::log2(range);
+            let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
+            self.input = input;
+            num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec()).into()
+        } else {
+            let bytes = self.decode_octets()?.into_vec();
+            value_constraint
+                .as_start()
+                .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
+                .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
+        };
+
+        Ok(value_constraint.start() + number)
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -214,30 +244,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_integer(&mut self, _: Tag, constraints: Constraints) -> Result<types::Integer> {
-        let extensible = constraints
-            .extensible()
-            .map(|_| self.parse_one_bit())
-            .transpose()?
-            .unwrap_or_default();
-        let value_constraint = constraints.value();
-
-        let number = if let Some(range) = value_constraint
-            .range()
-            .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
-        {
-            let bits = super::log2(range);
-            let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
-            self.input = input;
-            num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec()).into()
-        } else {
-            let bytes = self.decode_octets()?.into_vec();
-            value_constraint
-                .as_start()
-                .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
-                .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
-        };
-
-        Ok(value_constraint.start() + number)
+        self.parse_integer(constraints)
     }
 
     fn decode_octet_string(&mut self, _: Tag, constraints: Constraints) -> Result<Vec<u8>> {
@@ -470,5 +477,33 @@ impl<'input> crate::Decoder for Decoder<'input> {
         } else {
             Ok(None)
         }
+    }
+
+    fn decode_choice<D, F>(&mut self, constraints: Constraints, decode_fn: F) -> Result<D, Self::Error>
+        where D: Decode + crate::types::Choice,
+              F: FnOnce(&mut Self, Tag) -> Result<D, Self::Error>
+    {
+        let is_extensible = self.parse_extensible_bit(&constraints)?;
+        let variants = crate::types::variants::Variants::from_static(
+            is_extensible.then(|| D::EXTENDED_VARIANTS).unwrap_or(D::VARIANTS)
+        );
+
+        let index = if variants.len() != 1 || is_extensible {
+            usize::try_from(if is_extensible {
+                self.parse_normally_small_integer()?
+            } else {
+                let variance = variants.len();
+                let constraints = constraints::Value::new(constraints::Range::new(0, variance as i128)).into();
+                self.parse_integer(Constraints::new(&[constraints]))?
+            }).map_err(|error| Error::choice_index_exceeds_platform_width(usize::BITS, error.into_original().bits()))?
+        } else {
+            0
+        };
+
+        let tag = variants.get(index).ok_or_else(|| {
+            Error::choice_index_not_found(index, variants.clone())
+        })?;
+
+        Ok((decode_fn)(self, *tag)?)
     }
 }

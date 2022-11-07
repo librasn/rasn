@@ -99,7 +99,7 @@ enum NestedAnonChoiceStruct {
 
 #[test]
 fn automatic_tags() {
-    #[derive(AsnType, Debug, Default, Decode, Encode, PartialEq)]
+    #[derive(AsnType, Debug, Decode, Default, Encode, PartialEq)]
     #[rasn(automatic_tags)]
     struct Bools {
         #[rasn(default)]

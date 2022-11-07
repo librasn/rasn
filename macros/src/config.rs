@@ -13,6 +13,7 @@ pub struct Config {
     pub option_type: OptionalEnum,
     pub delegate: bool,
     pub tag: Option<Tag>,
+    pub extensible: bool,
 }
 
 impl Config {
@@ -25,6 +26,11 @@ impl Config {
         let mut tag = None;
         let mut option = None;
         let mut delegate = false;
+        let extensible = input
+            .attrs
+            .iter()
+            .any(|a| a.path.is_ident("non_exhaustive"));
+
 
         let mut iter = input
             .attrs
@@ -135,11 +141,12 @@ impl Config {
         Self {
             automatic_tags,
             choice,
-            set,
-            enumerated,
-            tag,
-            option_type,
             delegate,
+            enumerated,
+            extensible,
+            option_type,
+            set,
+            tag,
             crate_root: crate_root.unwrap_or_else(|| {
                 syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site())
                     .parse()
@@ -227,6 +234,7 @@ pub struct VariantConfig<'config> {
     container_config: &'config Config,
     generics: &'config syn::Generics,
     pub tag: Option<Tag>,
+    pub extension_addition: bool,
 }
 
 impl<'config> VariantConfig<'config> {
@@ -236,6 +244,7 @@ impl<'config> VariantConfig<'config> {
         container_config: &'config Config,
     ) -> Self {
         let mut tag = None;
+        let mut extension_addition = false;
         let mut iter = variant
             .attrs
             .iter()
@@ -250,15 +259,18 @@ impl<'config> VariantConfig<'config> {
                 let path = item.path();
                 if path.is_ident("tag") {
                     tag = Tag::from_meta(item);
+                } else if path.is_ident("extension_addition") {
+                    extension_addition = true;
                 }
             }
         }
 
         Self {
-            variant,
-            generics,
             container_config,
+            extension_addition,
+            generics,
             tag,
+            variant,
         }
     }
 
@@ -266,10 +278,13 @@ impl<'config> VariantConfig<'config> {
         self.tag.as_ref().map_or(false, |tag| tag.is_explicit())
     }
 
-    pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+    pub fn decode(&self, name: &syn::Ident, context: usize) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+        let crate_root = &self.container_config.crate_root;
         let tag = self.tag(context).to_tokens(&self.container_config.crate_root);
         let ident = &self.variant.ident;
+        let const_name = quote::format_ident!("{ident}{context}");
         let is_explicit = self.has_explicit_tag();
+        let const_name_def = quote!(const #const_name : #crate_root::Tag = #tag;);
 
         match &self.variant.fields {
             syn::Fields::Unit => {
@@ -279,24 +294,33 @@ impl<'config> VariantConfig<'config> {
                     quote!(<()>::decode_with_tag(decoder, #tag))
                 };
 
-                quote!(if let Ok(()) = #decode_op { return Ok(Self::#ident) })
+                (const_name_def, quote!(#const_name => #decode_op.map(|_| Self::#ident)))
             }
             syn::Fields::Unnamed(_) => {
                 if self.variant.fields.len() != 1 {
                     panic!("Tuple struct variants should contain only a single element.");
                 }
 
+                let field = FieldConfig::new(self.variant.fields.iter().next().unwrap(), self.container_config);
                 let decode_operation = if is_explicit {
                     quote!(decoder.decode_explicit_prefix(#tag))
                 } else if self.container_config.automatic_tags || self.tag.is_some() {
-                    quote!(<_>::decode_with_tag(decoder, #tag))
+                    if let Some(path) = field.default {
+                        let path = path.map(|path| quote!(#path)).unwrap_or_else(|| quote!(<_>::default));
+                        quote!(decoder.decode_default_with_tag(#tag, #path))
+                    } else {
+                        quote!(<_>::decode_with_tag(decoder, #tag))
+                    }
                 } else {
-                    quote!(<_>::decode(decoder))
+                    if let Some(path) = field.default {
+                        let path = path.map(|path| quote!(#path)).unwrap_or_else(|| quote!(<_>::default));
+                        quote!(<_>::decode_default(decoder, <_>::TAG, #path))
+                    } else {
+                        quote!(<_>::decode(decoder))
+                    }
                 };
 
-                quote! {
-                    if let Ok(value) = #decode_operation.map(Self::#ident) { return Ok(value) }
-                }
+                (const_name_def, quote!(#const_name => #decode_operation.map(Self::#ident)))
             }
             syn::Fields::Named(_) => {
                 let crate_root = &self.container_config.crate_root;
@@ -307,7 +331,7 @@ impl<'config> VariantConfig<'config> {
                     .unwrap_or(quote!(#crate_root::Tag::SEQUENCE));
 
                 let decode_impl = super::decode::map_from_inner_type(
-                    tag,
+                    tag.clone(),
                     &name,
                     &self.generics,
                     &self.variant.fields,
@@ -317,13 +341,15 @@ impl<'config> VariantConfig<'config> {
                     is_explicit,
                 );
 
-                quote! {
-                    let decode_fn = |decoder: &mut D| -> core::result::Result<_, D::Error> {
-                        #decode_impl
-                    };
+                (const_name_def, quote! {
+                    #const_name => {
+                        let decode_fn = |decoder: &mut D| -> core::result::Result<_, D::Error> {
+                            #decode_impl
+                        };
 
-                    if let Ok(value) = (decode_fn)(decoder) { return Ok(value) }
-                }
+                        (decode_fn)(decoder)
+                    }
+                })
             }
         }
     }
@@ -493,7 +519,6 @@ impl<'a> FieldConfig<'a> {
 
     pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
-        let ty = &self.field.ty;
         let or_else = {
             let ident = format!(
                 "{}.{}",
@@ -513,12 +538,17 @@ impl<'a> FieldConfig<'a> {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 quote!(decoder.decode_explicit_prefix(#tag) #or_else)
             } else {
-                quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
+                if let Some(path) = &self.default {
+                    let path = path.as_ref().map(|path| quote!(#path)).unwrap_or_else(|| quote!(<_>::default));
+                    quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
+                } else {
+                    quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
+                }
             }
         } else if let Some(path) = self.default.as_ref() {
             match path {
                 Some(path) => quote!(decoder.decode_default_with_tag(#tag, #path) #or_else),
-                None => quote!(decoder.decode_default() #or_else),
+                None => quote!(decoder.decode_default(<_>::default) #or_else),
             }
         } else {
             quote!(<_>::decode(decoder) #or_else)

@@ -21,7 +21,7 @@ fn asn1tools(c: &mut Criterion) {
         }}
     }
 
-    bench_encoding_rules!(ber, der, cer, aper, uper);
+    bench_encoding_rules!(ber, der, cer, uper);
 }
 
 fn x509(c: &mut Criterion) {

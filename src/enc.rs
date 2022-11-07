@@ -241,8 +241,14 @@ pub trait Encoder {
             Some(value) => self.encode_some_with_tag_and_constraints(tag, constraints, value),
             None => self.encode_none_with_tag(tag),
         }
-
     }
+
+    /// Encode a `CHOICE` value.
+    fn encode_choice<E: Encode + crate::types::Choice>(
+        &mut self,
+        constraints: Constraints,
+        encode_fn: impl FnOnce(&mut Self)  -> Result<Tag, Self::Error>,
+    ) -> Result<Self::Ok, Self::Error>;
 }
 
 /// A generic error that occurred while trying to encode ASN.1.
