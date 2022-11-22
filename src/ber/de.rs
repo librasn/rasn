@@ -300,8 +300,57 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::VisibleString, Self::Error> {
-        self.decode_octet_string(tag, constraints)
-            .map(types::VisibleString::from)
+        types::VisibleString::try_from(
+            self.decode_octet_string(tag, constraints)?
+        ).map_err(Error::custom)
+    }
+
+    fn decode_ia5_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Ia5String> {
+        types::Ia5String::try_from(
+            self.decode_octet_string(tag, constraints)?
+        ).map_err(Error::custom)
+    }
+
+    fn decode_printable_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::PrintableString> {
+        types::PrintableString::try_from(
+            self.decode_octet_string(tag, constraints)?
+        ).map_err(Error::custom)
+    }
+
+    fn decode_numeric_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::NumericString> {
+        types::NumericString::try_from(
+            self.decode_octet_string(tag, constraints)?
+        ).map_err(Error::custom)
+    }
+
+    fn decode_teletex_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::TeletexString> {
+        types::TeletexString::try_from(
+            self.decode_octet_string(tag, constraints)?
+        ).map_err(Error::custom)
+    }
+
+    fn decode_bmp_string(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<types::BmpString> {
+        todo!()
     }
 
     fn decode_utf8_string(
@@ -631,7 +680,7 @@ mod tests {
         }
 
         let foo = Foo {
-            name: String::from("Smith").into(),
+            name: String::from("Smith").try_into().unwrap(),
             ok: true,
         };
         let bytes = &[
@@ -652,7 +701,7 @@ mod tests {
         type Type5 = Implicit<C2, Type2>;
 
         let jones = String::from("Jones");
-        let jones1 = Type1::from(jones);
+        let jones1 = Type1::from(jones.try_into().unwrap());
         let jones2 = Type2::from(jones1.clone());
         let jones3 = Type3::from(jones2.clone());
         let jones4 = Type4::from(jones3.clone());

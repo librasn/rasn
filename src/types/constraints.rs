@@ -15,6 +15,12 @@ impl<'r> Constraints<'r> {
             .unwrap_or_default()
     }
 
+    pub fn permitted_alphabet(&self) -> Option<&'static [u32]> {
+        self.0
+            .iter()
+            .find_map(|constraint| constraint.as_permitted_alphabet())
+    }
+
     pub fn extensible(&self) -> bool {
         self.0.iter().any(|constraint| constraint.is_extensible())
     }
@@ -43,6 +49,7 @@ impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
 pub enum Constraint {
     Value(Value),
     Size(Size),
+    PermittedAlphabet(PermittedAlphabet),
     Extensible,
 }
 
@@ -50,6 +57,13 @@ impl Constraint {
     pub const fn as_value(&self) -> Option<&Value> {
         match self {
             Self::Value(integer) => Some(integer),
+            _ => None,
+        }
+    }
+
+    pub fn as_permitted_alphabet(&self) -> Option<&'static [u32]> {
+        match self {
+            Self::PermittedAlphabet(alphabet) => Some(alphabet.as_inner()),
             _ => None,
         }
     }
@@ -151,6 +165,26 @@ impl core::ops::DerefMut for Size {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PermittedAlphabet(&'static [u32]);
+
+impl PermittedAlphabet {
+    pub const fn new(range: &'static [u32]) -> Self {
+        Self(range)
+    }
+
+    pub fn as_inner(&self) -> &'static [u32] {
+        self.0
+    }
+}
+
+impl core::ops::Deref for PermittedAlphabet {
+    type Target = [u32];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Range<T> {
@@ -278,7 +312,7 @@ impl<T: PartialEq + PartialOrd> Range<T> {
 
     pub fn contains(&self, element: &T) -> bool {
         self.start.as_ref().map_or(true, |start| element >= start)
-            && self.end.as_ref().map_or(true, |end| element < end)
+            && self.end.as_ref().map_or(true, |end| element <= end)
     }
 
     pub fn contains_or<E>(&self, element: &T, error: E) -> Result<(), E> {

@@ -7,7 +7,6 @@ mod any;
 mod instance;
 mod open;
 mod prefix;
-mod strings;
 mod tag;
 
 pub mod constraints;
@@ -15,41 +14,30 @@ pub mod fields;
 pub mod variants;
 
 pub(crate) mod oid;
+pub(crate) mod strings;
 
 use alloc::boxed::Box;
 
-pub use ::{
-    alloc::string::String as Utf8String, bytes::Bytes as OctetString,
-    rasn_derive::AsnType, num_bigint::BigInt as Integer,
-};
-
-pub use self::{
-    any::Any,
-    constraints::{Constraints, Constraint},
-    instance::InstanceOf,
-    oid::{ConstOid, ObjectIdentifier, Oid},
-    open::Open,
-    prefix::{Explicit, Implicit},
-    strings::VisibleString,
-    tag::{Class, Tag, TagTree},
+pub use {
+    bytes::Bytes as OctetString,
+    rasn_derive::AsnType,
+    num_bigint::BigInt as Integer,
+    self::{
+        any::Any,
+        constraints::{Constraints, Constraint},
+        instance::InstanceOf,
+        oid::{ConstOid, ObjectIdentifier, Oid},
+        open::Open,
+        prefix::{Explicit, Implicit},
+        strings::{BmpString, Ia5String, PrintableString, NumericString, TeletexString, VisibleString, Utf8String},
+        tag::{Class, Tag, TagTree},
+    }
 };
 
 ///  The `BIT STRING` type.
 pub type BitString = bitvec::vec::BitVec<u8, bitvec::order::Msb0>;
 ///  The `BIT STRING` type.
 pub type BitStr = bitvec::slice::BitSlice<u8, bitvec::order::Msb0>;
-///  The `Ia5String` type.
-pub type Ia5String = Implicit<tag::IA5_STRING, Utf8String>;
-///  The `GeneralString` type.
-pub type GeneralString = Implicit<tag::GENERAL_STRING, Utf8String>;
-///  The `PrintableString` type.
-pub type PrintableString = Implicit<tag::PRINTABLE_STRING, Utf8String>;
-///  The `BmpString` type.
-pub type BmpString = Implicit<tag::BMP_STRING, Utf8String>;
-///  The `TeletexString` type.
-pub type TeletexString = Implicit<tag::TELETEX_STRING, OctetString>;
-///  The `NumericString` type.
-pub type NumericString = Implicit<tag::NUMERIC_STRING, Utf8String>;
 ///  The `SET OF` type.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
 ///  The `UniversalString` type.

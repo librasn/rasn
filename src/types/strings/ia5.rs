@@ -7,14 +7,14 @@ use super::ConstrainedCharacterString;
 const BIT_WIDTH: usize = 7;
 
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct VisibleString(ConstrainedCharacterString<BIT_WIDTH>);
+pub struct Ia5String(ConstrainedCharacterString<BIT_WIDTH>);
 
 #[derive(snafu::Snafu, Debug)]
 #[snafu(visibility(pub(crate)))]
 #[snafu(display("Invalid ISO 646 bytes"))]
 pub struct InvalidIso646Bytes;
 
-impl VisibleString {
+impl Ia5String {
     pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, InvalidIso646Bytes> {
         let mut buffer = types::BitString::new();
 
@@ -51,7 +51,7 @@ impl VisibleString {
     }
 }
 
-impl core::ops::Deref for VisibleString {
+impl core::ops::Deref for Ia5String {
     type Target = ConstrainedCharacterString<BIT_WIDTH>;
 
     fn deref(&self) -> &Self::Target {
@@ -59,29 +59,29 @@ impl core::ops::Deref for VisibleString {
     }
 }
 
-impl core::fmt::Display for VisibleString {
+impl core::fmt::Display for Ia5String {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(&String::from_utf8(self.to_iso646_bytes()).unwrap())
     }
 }
 
-impl AsnType for VisibleString {
-    const TAG: Tag = Tag::VISIBLE_STRING;
+impl AsnType for Ia5String {
+    const TAG: Tag = Tag::IA5_STRING;
 }
 
-impl Encode for VisibleString {
+impl Encode for Ia5String {
     fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
-        encoder.encode_visible_string(tag, constraints, &self).map(drop)
+        encoder.encode_ia5_string(tag, constraints, &self).map(drop)
     }
 }
 
-impl Decode for VisibleString {
+impl Decode for Ia5String {
     fn decode_with_tag_and_constraints<'constraints, D: Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints<'constraints>) -> Result<Self, D::Error> {
-        decoder.decode_visible_string(tag, constraints)
+        decoder.decode_ia5_string(tag, constraints)
     }
 }
 
-impl TryFrom<alloc::string::String> for VisibleString {
+impl TryFrom<alloc::string::String> for Ia5String {
     type Error = InvalidIso646Bytes;
 
     fn try_from(value: alloc::string::String) -> Result<Self, Self::Error> {
@@ -89,7 +89,7 @@ impl TryFrom<alloc::string::String> for VisibleString {
     }
 }
 
-impl TryFrom<&'_ str> for VisibleString {
+impl TryFrom<&'_ str> for Ia5String {
     type Error = InvalidIso646Bytes;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -97,7 +97,7 @@ impl TryFrom<&'_ str> for VisibleString {
     }
 }
 
-impl TryFrom<alloc::vec::Vec<u8>> for VisibleString {
+impl TryFrom<alloc::vec::Vec<u8>> for Ia5String {
     type Error = InvalidIso646Bytes;
 
     fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
@@ -105,7 +105,7 @@ impl TryFrom<alloc::vec::Vec<u8>> for VisibleString {
     }
 }
 
-impl TryFrom<&'_ [u8]> for VisibleString {
+impl TryFrom<&'_ [u8]> for Ia5String {
     type Error = InvalidIso646Bytes;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
@@ -113,7 +113,7 @@ impl TryFrom<&'_ [u8]> for VisibleString {
     }
 }
 
-impl TryFrom<bytes::Bytes> for VisibleString {
+impl TryFrom<bytes::Bytes> for Ia5String {
     type Error = InvalidIso646Bytes;
 
     fn try_from(value: bytes::Bytes) -> Result<Self, Self::Error> {
@@ -121,14 +121,14 @@ impl TryFrom<bytes::Bytes> for VisibleString {
     }
 }
 
-impl From<VisibleString> for bytes::Bytes {
-    fn from(value: VisibleString) -> Self {
+impl From<Ia5String> for bytes::Bytes {
+    fn from(value: Ia5String) -> Self {
         value.to_iso646_bytes().into()
     }
 }
 
-impl From<VisibleString> for alloc::string::String {
-    fn from(value: VisibleString) -> Self {
+impl From<Ia5String> for alloc::string::String {
+    fn from(value: Ia5String) -> Self {
         Self::from_utf8(value.to_iso646_bytes()).unwrap()
     }
 }
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn string_compatibility() {
-        let john = VisibleString::try_from("John").unwrap();
+        let john = Ia5String::try_from("John").unwrap();
         let mut chars = john.chars();
         assert_eq!(b'J', chars.next().unwrap());
         assert_eq!(b'o', chars.next().unwrap());

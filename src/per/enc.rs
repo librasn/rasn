@@ -2,12 +2,11 @@ mod error;
 
 use alloc::vec::Vec;
 
-use bitvec::prelude::*;
 use snafu::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
-    types::{self, constraints, BitString, Constraints, Tag},
+    types::{self, constraints, BitString, Constraints, Tag, strings::{DynConstrainedCharacterString, ConstrainedCharacterString}},
     Encode, enc::Error as _,
 };
 
@@ -105,6 +104,40 @@ impl Encoder {
         }).unwrap_or_default()
     }
 
+    fn encode_known_multipler_string<const WIDTH: usize>(&mut self, tag: Tag, constraints: &Constraints, value: &ConstrainedCharacterString<WIDTH>) -> Result<()> {
+        let mut buffer = BitString::default();
+        let characters = match constraints.permitted_alphabet() {
+            Some(alphabet)  => {
+                let alphabet_width = crate::per::log2(alphabet.len() as i128);
+                if WIDTH as u32 > self.options.aligned.then(|| alphabet_width.next_power_of_two()).unwrap_or(alphabet_width) {
+                    Some(DynConstrainedCharacterString::from_known_multiplier_string(value, alphabet).map_err(Error::custom)?)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        };
+
+        let is_aligned = self.options.aligned;
+        let ref characters = characters;
+
+        self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
+            Ok(if is_aligned {
+                match characters {
+                    Some(characters) => characters.to_octet_aligned()[range].to_bitvec(),
+                    None => value.to_octet_aligned()[range].to_bitvec(),
+                }
+            } else {
+                match characters {
+                    Some(characters) => characters[range].to_bitvec(),
+                    None => value[range].to_bitvec(),
+                }
+            })
+        })?;
+
+        self.extend(tag, &buffer);
+        Ok(())
+    }
 
     fn require_fields(&self) -> Result<()> {
         self.field_bitfield.is_empty()
@@ -154,7 +187,7 @@ impl Encoder {
     ) -> Result<()> {
         Error::check_length(length, constraints)?;
 
-        let range = constraints.range().map_or(usize::MAX, |range| range + 1);
+        let range = constraints.range().unwrap_or(usize::MAX);
         let effective_length = constraints.effective_value(length).into_inner();
         let encode_min = |buffer: &mut BitString| -> Result<()> {
             if let Some(min) = constraints.as_start() {
@@ -428,23 +461,56 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &types::VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut buffer = BitString::default();
-        let characters = self.options.aligned.then(|| value.to_iso646_bytes());
-        let characters = characters.as_deref();
-
-        self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
-            Ok(match characters {
-                Some(characters) => characters[range].view_bits::<Msb0>().to_bitvec(),
-                None => value[range].to_bitvec(),
-            })
-        })?;
-
-        self.extend(tag, &buffer);
-        Ok(())
+        self.encode_known_multipler_string(tag, &constraints, value)
     }
 
-    fn encode_utf8_string(&mut self, tag: Tag, constraints: Constraints, value: &str) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, constraints, value.as_bytes())
+    fn encode_ia5_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::Ia5String,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_known_multipler_string(tag, &constraints, value)
+    }
+
+    fn encode_printable_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::PrintableString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_known_multipler_string(tag, &constraints, value)
+    }
+
+    fn encode_numeric_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::NumericString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_known_multipler_string(tag, &constraints, value)
+    }
+
+    fn encode_teletex_string(
+        &mut self,
+        tag: Tag,
+        _: Constraints,
+        value: &types::TeletexString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <_>::default(), value)
+    }
+
+    fn encode_bmp_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::BmpString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_known_multipler_string(tag, &constraints, value)
+    }
+
+    fn encode_utf8_string(&mut self, tag: Tag, _: Constraints, value: &str) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <_>::default(), value.as_bytes())
     }
 
     fn encode_utc_time(
@@ -778,12 +844,12 @@ mod tests {
 
         assert_encode(
             EncoderOptions::unaligned(),
-            VisibleString::from("John"),
+            VisibleString::try_from("John").unwrap(),
             &[4, 0x95, 0xBF, 0x46, 0xE0],
         );
         assert_encode(
             EncoderOptions::aligned(),
-            VisibleString::from("John"),
+            VisibleString::try_from("John").unwrap(),
             &[4, 0x4A, 0x6F, 0x68, 0x6E],
         );
     }

@@ -164,7 +164,7 @@ impl Tag {
 /// For most types this is only ever one level deep, except for CHOICE enums
 /// which will contain a set of nodes, that either point to a `Leaf` or another
 /// level of `Choice`.
-#[derive(Debug, Clone, Eq, Ord, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum TagTree {
     /// The end of branch in the tree.
     Leaf(Tag),
@@ -300,7 +300,13 @@ impl TagTree {
 
 impl PartialOrd for TagTree {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.smallest_tag().cmp(&other.smallest_tag()))
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TagTree {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+        self.smallest_tag().cmp(&other.smallest_tag())
     }
 }
 

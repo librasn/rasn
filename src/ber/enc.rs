@@ -358,6 +358,51 @@ impl crate::Encoder for Encoder {
         self.encode_octet_string_(tag, &value.to_iso646_bytes())
     }
 
+    fn encode_ia5_string(
+        &mut self,
+        tag: Tag,
+        _constraints: Constraints,
+        value: &types::Ia5String,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned().to_be_bytes())
+    }
+
+    fn encode_printable_string(
+        &mut self,
+        tag: Tag,
+        _constraints: Constraints,
+        value: &types::PrintableString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned().to_be_bytes())
+    }
+
+    fn encode_numeric_string(
+        &mut self,
+        tag: Tag,
+        _constraints: Constraints,
+        value: &types::NumericString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned().to_be_bytes())
+    }
+
+    fn encode_teletex_string(
+        &mut self,
+        tag: Tag,
+        _: Constraints,
+        value: &types::TeletexString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <_>::default(), value)
+    }
+
+    fn encode_bmp_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::BmpString,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
     fn encode_utf8_string(&mut self, tag: Tag, _: Constraints, value: &str) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string_(tag, value.as_bytes())
     }

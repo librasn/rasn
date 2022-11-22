@@ -106,12 +106,49 @@ pub trait Decoder: Sized {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::Utf8String, Self::Error>;
-    /// Decode a `UTF8 STRING` identified by `tag` from the available input.
+
+    /// Decode a `VisibleString` identified by `tag` from the available input.
     fn decode_visible_string(
         &mut self,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::VisibleString, Self::Error>;
+
+    /// Decode a `Ia5String` identified by `tag` from the available input.
+    fn decode_ia5_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Ia5String, Self::Error>;
+
+    /// Decode a `PrintableString` identified by `tag` from the available input.
+    fn decode_printable_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::PrintableString, Self::Error>;
+
+    /// Decode a `NumericString` identified by `tag` from the available input.
+    fn decode_numeric_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::NumericString, Self::Error>;
+
+    /// Decode a `TeletexString` identified by `tag` from the available input.
+    fn decode_teletex_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::TeletexString, Self::Error>;
+
+    /// Decode a `BmpString` identified by `tag` from the available input.
+    fn decode_bmp_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::BmpString, Self::Error>;
+
     /// Decode an ASN.1 value that has been explicitly prefixed with `tag` from the available input.
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D, Self::Error>;
     /// Decode a `UtcTime` identified by `tag` from the available input.

@@ -87,10 +87,10 @@ type TimeOfDay = OctetString;
 #[test]
 fn it_works() {
     let data = IEC61850SpecificProtocol::GoosePdu(IECGoosePdu {
-        gocb_ref: String::from("").into(),
+        gocb_ref: String::from("").try_into().unwrap(),
         time_allowed_to_live: 200.into(),
-        dat_set: String::from("").into(),
-        go_id: Some(String::from("events").into()),
+        dat_set: String::from("").try_into().unwrap(),
+        go_id: Some(String::from("events").try_into().unwrap()),
         t: UtcTime::from(vec![]),
         st_num: 1.into(),
         sq_num: 1.into(),

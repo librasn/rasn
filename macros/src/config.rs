@@ -1,5 +1,5 @@
 use quote::ToTokens;
-use syn::Path;
+use syn::{Lit, NestedMeta, Path};
 
 use crate::{ext::TypeExt, tag::Tag};
 
@@ -14,6 +14,9 @@ pub struct Config {
     pub delegate: bool,
     pub tag: Option<Tag>,
     pub extensible: bool,
+    pub from: Option<Vec<StringValue>>,
+    pub size: Option<Value>,
+    pub value: Option<Value>,
 }
 
 impl Config {
@@ -25,6 +28,9 @@ impl Config {
         let mut automatic_tags = false;
         let mut tag = None;
         let mut option = None;
+        let mut from = None;
+        let mut size = None;
+        let mut value = None;
         let mut delegate = false;
         let extensible = input
             .attrs
@@ -82,6 +88,12 @@ impl Config {
                     tag = Tag::from_meta(item);
                 } else if path.is_ident("delegate") {
                     delegate = true;
+                } else if path.is_ident("from") {
+                    from = Some(StringValue::from_meta(item));
+                } else if path.is_ident("size") {
+                    size = Some(Value::from_meta(item));
+                } else if path.is_ident("value") {
+                    value = Some(Value::from_meta(item));
                 } else {
                     panic!("unknown input provided: {}", path.to_token_stream());
                 }
@@ -144,8 +156,11 @@ impl Config {
             delegate,
             enumerated,
             extensible,
+            from,
             option_type,
             set,
+            size,
+            value,
             tag,
             crate_root: crate_root.unwrap_or_else(|| {
                 syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site())
@@ -636,5 +651,111 @@ impl<'a> FieldConfig<'a> {
 
     pub fn is_option_or_default_type(&self) -> bool {
         self.is_default_type() || self.is_option_type()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum StringValue {
+    Single(u32),
+    Range(u32, u32),
+}
+
+impl StringValue {
+    fn from_meta(item: &syn::Meta) -> Vec<StringValue> {
+        let mut values = Vec::new();
+
+        fn parse_character(string: &str) -> Option<u32> {
+            (string.len() == 1).then_some(0).and_then(|_| {
+                string.chars()
+                    .next()
+                    .map(u32::from)
+            })
+        }
+
+        let syn::Meta::List(list) = item else {
+            panic!("Unsupported meta item: {:?}", item);
+        };
+
+        for item in &list.nested {
+            let NestedMeta::Lit(Lit::Str(string)) = item else {
+                panic!("Unsupported meta item: {:?}", item);
+            };
+
+            let string = string.value();
+
+            if string.len() == 1 {
+                values.push(parse_character(&string).map(StringValue::Single).unwrap());
+                continue;
+            }
+
+            let Some((start, mut end)) = string.split_once("..") else {
+                panic!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")
+            };
+
+            let Some(start) = parse_character(start) else {
+                panic!("start of range was an invalid character: {start}")
+            };
+
+            let is_inclusive = end.starts_with("=");
+            if is_inclusive {
+                end = &end[1..];
+            }
+
+            let Some(end) = parse_character(end) else {
+                panic!("end of range was an invalid character: {end}")
+            };
+
+            values.push(StringValue::Range(start, end + is_inclusive as u32));
+        }
+
+        values
+    }
+}
+
+#[derive(Clone, Debug)]
+pub enum Value {
+    Single(i128),
+    Range(Option<i128>, Option<i128>),
+}
+
+impl Value {
+    fn from_meta(item: &syn::Meta) -> Value {
+        fn parse_character(string: &str) -> Option<i128> {
+            string.parse().ok()
+        }
+
+        let syn::Meta::List(list) = item else {
+            panic!("Unsupported meta item: {:?}", item);
+        };
+
+        let Some(item) = list.nested.iter().next() else {
+            panic!("value required");
+        };
+
+        let string = match item {
+            NestedMeta::Lit(Lit::Str(string)) => string.value(),
+            NestedMeta::Lit(Lit::Int(int)) => {
+                return int.base10_parse().map(Value::Single).unwrap();
+            }
+            _ => panic!("Unsupported meta item: {item:?}"),
+        };
+
+        if string.len() == 1 {
+            return parse_character(&string).map(Value::Single).unwrap();
+        }
+
+        let Some((start, mut end)) = string.split_once("..") else {
+            panic!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")
+        };
+
+        let start = parse_character(start);
+        let is_inclusive = end.starts_with("=");
+        if is_inclusive {
+            end = &end[1..];
+        }
+
+        let end = parse_character(end).map(|end| end + is_inclusive as i128);
+
+        Value::Range(start, end)
     }
 }

@@ -291,14 +291,55 @@ impl<'input> crate::Decoder for Decoder<'input> {
         constraints: Constraints,
     ) -> Result<types::VisibleString> {
         let mut bit_string = types::BitString::default();
+        let char_width = constraints.permitted_alphabet().map(|alphabet| crate::per::log2(alphabet.len() as i128) as usize).unwrap_or(7);
 
         self.decode_extensible_container(constraints, |input, length| {
-            let (input, part) = nom::bytes::streaming::take(length * 7)(input)?;
+            let (input, part) = nom::bytes::streaming::take(length * char_width)(input)?;
             bit_string.extend(&*part);
             Ok(input)
         })?;
 
         Ok(types::VisibleString::from_raw_bits(bit_string))
+    }
+
+    fn decode_ia5_string(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<types::Ia5String> {
+        todo!()
+    }
+
+    fn decode_printable_string(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<types::PrintableString> {
+        todo!()
+    }
+
+    fn decode_numeric_string(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<types::NumericString> {
+        todo!()
+    }
+
+    fn decode_teletex_string(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<types::TeletexString> {
+        todo!()
+    }
+
+    fn decode_bmp_string(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<types::BmpString> {
+        todo!()
     }
 
     fn decode_utf8_string(

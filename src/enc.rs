@@ -98,6 +98,46 @@ pub trait Encoder {
         value: &types::VisibleString,
     ) -> Result<Self::Ok, Self::Error>;
 
+    /// Encode a `Ia5String` value.
+    fn encode_ia5_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::Ia5String,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `Ia5String` value.
+    fn encode_printable_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::PrintableString,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `NumericString` value.
+    fn encode_numeric_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::NumericString,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `TeletexString` value.
+    fn encode_teletex_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::TeletexString,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `BmpString` value.
+    fn encode_bmp_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::BmpString,
+    ) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a `GeneralizedTime` value.
     fn encode_generalized_time(
         &mut self,

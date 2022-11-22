@@ -7,15 +7,15 @@ use crate::{Decode, Encode};
 #[rasn(choice)]
 pub enum Open {
     BitString(BitString),
-    BmpString(BmpString),
+    // BmpString(BmpString),
     Bool(bool),
     GeneralizedTime(GeneralizedTime),
-    Ia5String(Ia5String),
+    // Ia5String(Ia5String),
     Integer(Integer),
     Null,
     ObjectIdentifier(ObjectIdentifier),
     OctetString(OctetString),
-    PrintableString(PrintableString),
+    // PrintableString(PrintableString),
     UniversalString(UniversalString),
     UtcTime(UtcTime),
     VisibleString(VisibleString),

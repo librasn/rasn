@@ -39,7 +39,7 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(options: enc::EncoderOpt
     Ok(enc.output())
 }
 
-fn log2(x: i128) -> u32 {
+pub(crate) fn log2(x: i128) -> u32 {
     i128::BITS - (x - 1).leading_zeros()
 }
 
