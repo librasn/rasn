@@ -8,11 +8,10 @@ impl<'r> Constraints<'r> {
         Self(constraints)
     }
 
-    pub fn size(&self) -> Range<usize> {
+    pub fn size(&self) -> Option<Range<usize>> {
         self.0
             .iter()
             .find_map(|constraint| constraint.to_size())
-            .unwrap_or_default()
     }
 
     pub fn permitted_alphabet(&self) -> Option<&'static [u32]> {
@@ -209,6 +208,10 @@ impl<T> Range<T> {
 
     pub const fn as_start(&self) -> Option<&T> {
         self.start.as_ref()
+    }
+
+    pub const fn start_and_end(&self) -> (Option<&T>, Option<&T>) {
+        (self.start.as_ref(), self.end.as_ref())
     }
 }
 

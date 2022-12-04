@@ -85,21 +85,23 @@ impl<'input> Decoder<'input> {
     ) -> Result<()> {
         let extensible_is_present = self.parse_extensible_bit(&constraints)?;
 
-        let constraints = if constraints.size().range() == Some(0) {
+        let constraints = if constraints.size().map_or(false, |size| matches!(size.range(), Some(0))) {
             // NO-OP
             <_>::default()
         } else {
-            let constraints = extensible_is_present
-                .then(Default::default)
-                .unwrap_or_else(|| constraints.size());
+            let constraints = if !extensible_is_present {
+                constraints.size()
+            } else {
+                None
+            };
 
             let input = self.decode_length(self.input, constraints, &mut decode_fn)?;
             self.input = input;
             constraints
         };
 
-        if let Some(min) = constraints.as_start().filter(|min| **min != 0) {
-            (decode_fn)(self.input, *min)?;
+        if let Some(min) = constraints.and_then(|range| range.as_start().copied()).filter(|min| *min != 0) {
+            (decode_fn)(self.input, min)?;
         }
 
         Ok(())
@@ -118,65 +120,76 @@ impl<'input> Decoder<'input> {
         Ok(buffer)
     }
 
+    fn decode_unknown_length(
+        &mut self,
+        input: InputSlice<'input>,
+        decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
+    ) -> Result<InputSlice<'input>> {
+        let (input, mask) = nom::bytes::streaming::take(1u8)(input)?;
+
+        if mask[0] == false {
+            let (input, length) = nom::bytes::streaming::take(7u8)(input)
+                .map(|(i, bs)| (i, bs.to_bitvec()))?;
+            (decode_fn)(input, length.load_be::<usize>())
+        } else {
+            let (input, mask) = nom::bytes::streaming::take(1u8)(input)?;
+
+            if mask[0] == false {
+                let (input, length) = nom::bytes::streaming::take(14u8)(input)
+                    .map(|(i, bs)| (i, bs.to_bitvec()))?;
+                (decode_fn)(input, length.load_be::<usize>())
+            } else {
+                let (input, mask) = nom::bytes::streaming::take(6u8)(input)?;
+                let length: usize = match mask.load_be::<u8>() {
+                    1 => SIXTEEN_K.into(),
+                    2 => THIRTY_TWO_K.into(),
+                    3 => FOURTY_EIGHT_K.into(),
+                    4 => SIXTY_FOUR_K as usize,
+                    _ => {
+                        return Err(error::Kind::Parser {
+                            msg: "Invalid length fragment".into(),
+                        }
+                        .into())
+                    }
+                }.into();
+
+                let mut input = (decode_fn)(input, length)?;
+
+                loop {
+                    let new_input = self.decode_length(input, <_>::default(), decode_fn)?;
+
+                    if input.len() == new_input.len() || new_input.is_empty() {
+                        break;
+                    } else {
+                        input = (decode_fn)(new_input, length)?;
+                    }
+                }
+
+                Ok(input)
+            }
+        }
+    }
+
     pub fn decode_length(
         &mut self,
         input: InputSlice<'input>,
-        constraints: constraints::Range<usize>,
+        constraints: Option<constraints::Range<usize>>,
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
-        Ok(
-            if let Some(range) = constraints.range().filter(|range| *range <= u16::MAX.into()) {
-                let (input, length) = nom::bytes::streaming::take(range)(input)?;
-                (decode_fn)(input, length.load_be::<usize>())?
-            } else if let Some(min) = constraints.as_start() {
-                let input = self.decode_length(input, <_>::default(), decode_fn)?;
-                (decode_fn)(input, *min)?
-            } else {
-                let (input, mask) = nom::bytes::streaming::take(1u8)(input)?;
 
-                if mask[0] == false {
-                    let (input, length) = nom::bytes::streaming::take(7u8)(input)
-                        .map(|(i, bs)| (i, bs.to_bitvec()))?;
-                    (decode_fn)(input, length.load_be::<usize>())?
-                } else {
-                    let (input, mask) = nom::bytes::streaming::take(1u8)(input)?;
+        let Some(constraints) = constraints else {
+            return self.decode_unknown_length(input, decode_fn)
+        };
 
-                    if mask[0] == false {
-                        let (input, length) = nom::bytes::streaming::take(14u8)(input)
-                            .map(|(i, bs)| (i, bs.to_bitvec()))?;
-                        (decode_fn)(input, length.load_be::<usize>())?
-                    } else {
-                        let (input, mask) = nom::bytes::streaming::take(6u8)(input)?;
-                        let length: usize = match mask.load_be::<u8>() {
-                            1 => SIXTEEN_K.into(),
-                            2 => THIRTY_TWO_K.into(),
-                            3 => FOURTY_EIGHT_K.into(),
-                            4 => SIXTY_FOUR_K as usize,
-                            _ => {
-                                return Err(error::Kind::Parser {
-                                    msg: "Invalid length fragment".into(),
-                                }
-                                .into())
-                            }
-                        }.into();
-
-                        let mut input = (decode_fn)(input, length)?;
-
-                        loop {
-                            let new_input = self.decode_length(input, <_>::default(), decode_fn)?;
-
-                            if input.len() == new_input.len() || new_input.is_empty() {
-                                break;
-                            } else {
-                                input = (decode_fn)(new_input, length)?;
-                            }
-                        }
-
-                        input
-                    }
-                }
-            },
-        )
+        if let Some(range) = constraints.range().filter(|range| *range <= u16::MAX.into()) {
+            let (input, length) = nom::bytes::streaming::take(range)(input)?;
+            (decode_fn)(input, length.load_be::<usize>())
+        } else if let Some(min) = constraints.as_start() {
+            let input = self.decode_length(input, <_>::default(), decode_fn)?;
+            (decode_fn)(input, *min)
+        } else {
+            self.decode_unknown_length(input, decode_fn)
+        }
     }
 
     fn parse_one_bit(&mut self) -> Result<bool> {

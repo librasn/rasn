@@ -182,36 +182,54 @@ impl Encoder {
         &mut self,
         buffer: &mut BitString,
         length: usize,
-        constraints: constraints::Range<usize>,
+        constraints: Option<constraints::Range<usize>>,
         encode_fn: impl Fn(core::ops::Range<usize>) -> Result<BitString>,
     ) -> Result<()> {
-        Error::check_length(length, constraints)?;
 
-        let range = constraints.range().unwrap_or(usize::MAX);
-        let effective_length = constraints.effective_value(length).into_inner();
-        let encode_min = |buffer: &mut BitString| -> Result<()> {
-            if let Some(min) = constraints.as_start() {
-                buffer.extend((encode_fn)(0..*min)?);
-            }
-
-            Ok(())
+        let Some(constraints) = constraints else {
+            return self.encode_unconstrained_length(buffer, length, None, encode_fn);
         };
 
-        if range == 0 {
-            (encode_min)(buffer)?;
-        } else if effective_length <= 127 {
-            buffer.extend((effective_length as u8).to_be_bytes());
+        Error::check_length(length, constraints)?;
+
+        // let range = constraints.range().unwrap_or(usize::MAX);
+
+        match constraints.start_and_end() {
+            (Some(_), Some(_)) => {
+                let range = constraints.range().unwrap();
+                let effective_length = constraints.effective_value(length).into_inner();
+
+                if super::log2(range as i128) <= 1 {
+                    Ok(())
+                } else if range < SIXTY_FOUR_K as usize && self.options.aligned {
+                    self.encode_non_negative_binary_integer(buffer, range as i128, &(effective_length as u32).to_be_bytes());
+                    Ok(())
+                } else {
+                    self.encode_unconstrained_length(buffer, length, None, encode_fn)
+                }
+            }
+            _ => self.encode_unconstrained_length(buffer, length, None, encode_fn),
+        }
+   }
+
+    fn encode_unconstrained_length(
+        &mut self,
+        buffer: &mut BitString,
+        mut length: usize,
+        min: Option<usize>,
+        encode_fn: impl Fn(core::ops::Range<usize>) -> Result<BitString>,
+    ) -> Result<()> {
+        let mut min = min.unwrap_or_default();
+
+        if length <= 127 {
+            buffer.extend((length as u8).to_be_bytes());
             self.pad_to_alignment(buffer);
             buffer.extend((encode_fn)(0..length)?);
-        } else if effective_length < SIXTEEN_K.into() {
+        } else if length < SIXTEEN_K.into() {
             const SIXTEENTH_BIT: u16 = 0x8000;
-            buffer.extend((SIXTEENTH_BIT | effective_length as u16).to_be_bytes());
+            buffer.extend((SIXTEENTH_BIT | length as u16).to_be_bytes());
             buffer.extend((encode_fn)(0..length)?);
         } else {
-            let mut effective_length = effective_length;
-            let mut min = constraints.start();
-            (encode_min)(buffer)?;
-
             loop {
                 // Hack to get around no exclusive syntax.
                 const K64: usize = SIXTY_FOUR_K as usize;
@@ -221,14 +239,13 @@ impl Encoder {
                 const K64_MAX: usize = K64 - 1;
                 const K48_MAX: usize = K48 - 1;
                 const K32_MAX: usize = K32 - 1;
-                let (fragment_index, amount) = match effective_length {
+                let (fragment_index, amount) = match length {
                     K64..=usize::MAX => (4, K64),
                     K48..=K64_MAX => (3, K48),
                     K32..=K48_MAX => (2, K32),
                     K16..=K32_MAX => (1, K16),
                     _ => {
-                        self.encode_length(buffer, effective_length, <_>::default(), encode_fn)?;
-                        break;
+                        break self.encode_unconstrained_length(buffer, length, Some(min), encode_fn)?;
                     }
                 };
 
@@ -237,7 +254,14 @@ impl Encoder {
 
                 buffer.extend((encode_fn)(min..min + amount)?);
                 min += amount;
-                effective_length = effective_length.saturating_sub(amount);
+
+                if length == SIXTEEN_K as usize {
+                    // Add final fragment in the frame.
+                    buffer.extend(&[0]);
+                    break;
+                } else {
+                    length = length.saturating_sub(amount);
+                }
             }
         }
 
@@ -280,15 +304,20 @@ impl Encoder {
         buffer: &mut BitString,
     ) -> Result<()> {
         let extensible_is_present = self.encode_extensible_bit(&constraints, buffer, || todo!());
+        let Some(constraints) = constraints.size() else {
+            return self.encode_length(buffer, value.len(), <_>::default(), |range| {
+                Ok(BitString::from_slice(&value[range]))
+            });
+        };
 
-        if constraints.size().effective_value(value.len()).into_inner() == 0 {
-            // NO-OP
-        } else if extensible_is_present {
+        if extensible_is_present {
             self.encode_length(buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&value[range]))
             })?;
+        } else if 0 == constraints.effective_value(value.len()).into_inner() {
+            // NO-OP
         } else {
-            self.encode_length(buffer, value.len(), constraints.size(), |range| {
+            self.encode_length(buffer, value.len(), Some(constraints), |range| {
                 Ok(BitString::from_slice(&value[range]))
             })?;
         }
@@ -314,13 +343,7 @@ impl Encoder {
             .range()
             .filter(|range| *range < SIXTY_FOUR_K.into())
         {
-            let total_bits = super::log2(range) as usize;
-            let mut bits = BitString::from_vec(bytes);
-            bits.resize(total_bits, false);
-            if range >= super::TWO_FIFTY_SIX.into() {
-                self.pad_to_alignment(buffer);
-            }
-            buffer.extend(bits);
+            self.encode_non_negative_binary_integer(buffer, range, &bytes);
         } else {
             self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
@@ -328,6 +351,16 @@ impl Encoder {
         }
 
         Ok(())
+    }
+
+    fn encode_non_negative_binary_integer(&self, buffer: &mut BitString, range: i128, bytes: &[u8]) {
+        let total_bits = super::log2(range) as usize;
+        let mut bits = BitString::from_slice(bytes);
+        bits.resize(total_bits, false);
+        if range >= super::TWO_FIFTY_SIX.into() {
+            self.pad_to_alignment(buffer);
+        }
+        buffer.extend(bits);
     }
 }
 
@@ -384,13 +417,14 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::default();
         let extensible_is_present = self.encode_extensible_bit(&constraints, &mut buffer, || todo!());
+        let size = constraints.size();
 
-        if constraints.size().effective_value(value.len()).into_inner() == 0 {
-            // NO-OP
-        } else if extensible_is_present {
+        if extensible_is_present || size.is_none() {
             self.encode_length(&mut buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from(&value[range]))
             })?;
+        } else if size.map(|size| size.effective_value(value.len()).into_inner()) == Some(0) {
+            // NO-OP
         } else {
             self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
                 Ok(BitString::from(&value[range]))
