@@ -1,8 +1,71 @@
 use alloc::collections::BTreeMap;
 
 use bitvec::prelude::*;
+use once_cell::race::OnceBox;
 
 use crate::types;
+
+#[derive(Debug, snafu::Snafu)]
+pub(crate) enum FromPermittedAlphabetError {
+    #[snafu(display("error converting to string: {}", message))]
+    Other {
+        message: String,
+    },
+    #[snafu(display("index not found {}", 0))]
+    IndexNotFound {
+        index: u32,
+    }
+}
+
+pub(crate) trait StaticPermittedAlphabet: Sized {
+    const CHARACTER_SET: &'static [u32];
+
+    fn character_width() -> u32 {
+        crate::per::log2(Self::CHARACTER_SET.len() as i128)
+    }
+
+    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        static MAP: OnceBox<BTreeMap<u32, u32>> = OnceBox::new();
+
+        MAP.get_or_init(|| {
+            Box::new(Self::CHARACTER_SET.into_iter().copied().enumerate().map(|(i, e)| (e, i as u32)).collect())
+        })
+    }
+
+    fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        static MAP: OnceBox<BTreeMap<u32, u32>> = OnceBox::new();
+
+        MAP.get_or_init(|| {
+            Box::new(Self::CHARACTER_SET.into_iter().copied().enumerate().map(|(i, e)| (i as u32, e)).collect())
+        })
+    }
+
+    fn try_from_permitted_alphabet<E>(input: &types::BitStr) -> Result<Self, FromPermittedAlphabetError>
+        where Self: TryFrom<types::BitString, Error=E>,
+              E: std::fmt::Display,
+    {
+        try_from_permitted_alphabet(input, Self::character_map(), Self::character_width())
+    }
+}
+
+pub(crate) fn try_from_permitted_alphabet<T: TryFrom<types::BitString, Error=E>, E: std::fmt::Display>(input: &types::BitStr, alphabet: &BTreeMap<u32, u32>, original_width: u32) -> Result<T, FromPermittedAlphabetError> {
+    let mut bit_string = types::BitString::new();
+    let permitted_alphabet_char_width = crate::per::log2(alphabet.len() as i128);
+
+    for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
+        let index = ch.load_be();
+
+        bit_string.extend_from_bitslice(
+            dbg!(&alphabet.get(&dbg!(index))
+                .ok_or_else(|| FromPermittedAlphabetError::IndexNotFound { index })?
+                .view_bits::<Msb0>()[(u32::BITS-original_width) as usize..u32::BITS as usize])
+        );
+    }
+
+    dbg!(&bit_string);
+
+    T::try_from(bit_string).map_err(|error| FromPermittedAlphabetError::Other { message: error.to_string() })
+}
 
 pub enum OctetAlignedString {
     U8(types::BitString),
@@ -131,14 +194,13 @@ impl DynConstrainedCharacterString {
         let char_width = crate::per::log2(character_set.len() as i128) as u32;
         let alphabet = BTreeMap::from_iter(character_set.into_iter().enumerate().map(|(i, a)| (*a, i as u32)));
 
-        for ch in data.chunks(original_character_width as usize) {
+        for ch in data.chunks(original_character_width) {
             let ch = ch.load_be::<u32>();
             let Some(index) = alphabet.get(&ch).copied() else {
                 return Err(ConstrainedConversionError)
             };
             let range = ((u32::BITS-char_width) as usize)..(u32::BITS as usize);
-            let bit_ch = dbg!(&index.view_bits::<Msb0>()[range]);
-            dbg!(bit_ch.load_be::<u8>());
+            let bit_ch = &index.view_bits::<Msb0>()[range];
             buffer.extend_from_bitslice(bit_ch);
         }
 

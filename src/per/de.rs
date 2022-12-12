@@ -7,7 +7,7 @@ use snafu::*;
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
     de::Error as _,
-    types::{self, constraints, Constraints, Tag, fields::{Field, Fields}},
+    types::{self, constraints, Constraints, Tag, strings::StaticPermittedAlphabet, fields::{Field, Fields}},
     Decode,
 };
 
@@ -84,26 +84,9 @@ impl<'input> Decoder<'input> {
         mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<()> {
         let extensible_is_present = self.parse_extensible_bit(&constraints)?;
-
-        let constraints = if constraints.size().map_or(false, |size| matches!(size.range(), Some(0))) {
-            // NO-OP
-            <_>::default()
-        } else {
-            let constraints = if !extensible_is_present {
-                constraints.size()
-            } else {
-                None
-            };
-
-            let input = self.decode_length(self.input, constraints, &mut decode_fn)?;
-            self.input = input;
-            constraints
-        };
-
-        if let Some(min) = constraints.and_then(|range| range.as_start().copied()).filter(|min| *min != 0) {
-            (decode_fn)(self.input, min)?;
-        }
-
+        let constraints = constraints.size().filter(|_| !extensible_is_present);
+        let input = self.decode_length(self.input, constraints, &mut decode_fn)?;
+        self.input = input;
         Ok(())
     }
 
@@ -176,17 +159,13 @@ impl<'input> Decoder<'input> {
         constraints: Option<constraints::Range<usize>>,
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
-
         let Some(constraints) = constraints else {
             return self.decode_unknown_length(input, decode_fn)
         };
 
         if let Some(range) = constraints.range().filter(|range| *range <= u16::MAX.into()) {
-            let (input, length) = nom::bytes::streaming::take(range)(input)?;
-            (decode_fn)(input, length.load_be::<usize>())
-        } else if let Some(min) = constraints.as_start() {
-            let input = self.decode_length(input, <_>::default(), decode_fn)?;
-            (decode_fn)(input, *min)
+            let (input, length) = nom::bytes::streaming::take(super::log2(range as i128))(input)?;
+            (decode_fn)(input, length.load_be::<usize>() + constraints.start())
         } else {
             self.decode_unknown_length(input, decode_fn)
         }
@@ -312,7 +291,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
             Ok(input)
         })?;
 
-        Ok(types::VisibleString::from_raw_bits(bit_string))
+        match constraints.permitted_alphabet() {
+            Some(alphabet) => {
+                let map = alphabet.into_iter().copied().enumerate().map(|(i, e)| (i as u32, e)).collect();
+                types::strings::try_from_permitted_alphabet::<types::VisibleString, _>(&bit_string, &map, types::VisibleString::character_width()).map_err(Error::custom)
+            }
+            None => Ok(types::VisibleString::from_raw_bits(bit_string)),
+        }
     }
 
     fn decode_ia5_string(

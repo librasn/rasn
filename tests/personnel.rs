@@ -256,7 +256,8 @@ test! {
         0x5B, 0xF7, 0x65, 0xE6, 0x10, 0xC5, 0xCB, 0x57, 0x2C, 0x1B, 0xB1, 0x6E,
     ];
 
-    constrained_uper_name(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0b00001100, 0b10111010, 0b10100011, 0b10100100];
+    constrained_uper_name(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0xC, 0xBA, 0xA3, 0xA4];
+    constrained_aper_name(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0xC, 0x4A, 0x6F, 0x68, 0x6E];
     constrained_uper_date(uper): DateWithConstraints = DateWithConstraints(VisibleString::try_from("19710917").unwrap()) => &[0b00011001, 0b01110001, 0b00001001, 0b00010111];
 
     constrained_uper(uper): PersonnelRecordWithConstraints = <_>::default() => &[

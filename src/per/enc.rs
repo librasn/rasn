@@ -2,6 +2,7 @@ mod error;
 
 use alloc::vec::Vec;
 
+use bitvec::prelude::*;
 use snafu::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
@@ -106,34 +107,35 @@ impl Encoder {
 
     fn encode_known_multipler_string<const WIDTH: usize>(&mut self, tag: Tag, constraints: &Constraints, value: &ConstrainedCharacterString<WIDTH>) -> Result<()> {
         let mut buffer = BitString::default();
-        let characters = match constraints.permitted_alphabet() {
+        match constraints.permitted_alphabet() {
             Some(alphabet)  => {
                 let alphabet_width = crate::per::log2(alphabet.len() as i128);
-                if WIDTH as u32 > self.options.aligned.then(|| alphabet_width.next_power_of_two()).unwrap_or(alphabet_width) {
+                let characters = if WIDTH as u32 > self.options.aligned.then(|| alphabet_width.next_power_of_two()).unwrap_or(alphabet_width) {
                     Some(DynConstrainedCharacterString::from_known_multiplier_string(value, alphabet).map_err(Error::custom)?)
                 } else {
                     None
-                }
+                };
+
+                let ref characters = characters;
+                self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
+                    Ok(match characters {
+                        Some(value) => value[range].to_bitvec(),
+                        None => value[range].to_bitvec(),
+                    })
+                })?;
             }
-            None => None,
+            None => {
+                let octet_aligned_value = self.options.aligned.then(|| value.to_octet_aligned());
+                let ref octet_aligned_value = octet_aligned_value;
+                self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
+                    Ok(match octet_aligned_value {
+                        Some(value) => value[range].to_bitvec(),
+                        None => value[range].to_bitvec(),
+                    })
+                })?;
+
+            },
         };
-
-        let is_aligned = self.options.aligned;
-        let ref characters = characters;
-
-        self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
-            Ok(if is_aligned {
-                match characters {
-                    Some(characters) => characters.to_octet_aligned()[range].to_bitvec(),
-                    None => value.to_octet_aligned()[range].to_bitvec(),
-                }
-            } else {
-                match characters {
-                    Some(characters) => characters[range].to_bitvec(),
-                    None => value[range].to_bitvec(),
-                }
-            })
-        })?;
 
         self.extend(tag, &buffer);
         Ok(())
@@ -179,7 +181,7 @@ impl Encoder {
     }
 
     fn encode_length(
-        &mut self,
+        &self,
         buffer: &mut BitString,
         length: usize,
         constraints: Option<constraints::Range<usize>>,
@@ -192,8 +194,6 @@ impl Encoder {
 
         Error::check_length(length, constraints)?;
 
-        // let range = constraints.range().unwrap_or(usize::MAX);
-
         match constraints.start_and_end() {
             (Some(_), Some(_)) => {
                 let range = constraints.range().unwrap();
@@ -201,8 +201,9 @@ impl Encoder {
 
                 if super::log2(range as i128) <= 1 {
                     Ok(())
-                } else if range < SIXTY_FOUR_K as usize && self.options.aligned {
+                } else if range < SIXTY_FOUR_K as usize && !self.options.aligned {
                     self.encode_non_negative_binary_integer(buffer, range as i128, &(effective_length as u32).to_be_bytes());
+                    buffer.extend((encode_fn)(0..length)?);
                     Ok(())
                 } else {
                     self.encode_unconstrained_length(buffer, length, None, encode_fn)
@@ -213,7 +214,7 @@ impl Encoder {
    }
 
     fn encode_unconstrained_length(
-        &mut self,
+        &self,
         buffer: &mut BitString,
         mut length: usize,
         min: Option<usize>,
@@ -355,8 +356,16 @@ impl Encoder {
 
     fn encode_non_negative_binary_integer(&self, buffer: &mut BitString, range: i128, bytes: &[u8]) {
         let total_bits = super::log2(range) as usize;
-        let mut bits = BitString::from_slice(bytes);
-        bits.resize(total_bits, false);
+        let mut bits = BitVec::<u8, Msb0>::from_slice(bytes);
+        let bits = if total_bits > bits.len() {
+            bits.resize(total_bits, false);
+            bits
+        } else if total_bits < bits.len() {
+            bits[bits.len()-total_bits..].to_owned()
+        } else {
+            bits
+        };
+
         if range >= super::TWO_FIFTY_SIX.into() {
             self.pad_to_alignment(buffer);
         }
@@ -761,6 +770,14 @@ mod tests {
             seven: true,
             eight: true,
         };
+    }
+
+    #[test]
+    fn length() {
+        let encoder = Encoder::new(EncoderOptions::unaligned());
+        let mut buffer = types::BitString::new();
+        encoder.encode_length(&mut buffer, 4, Some(constraints::Range::new(1, 64)), |_| Ok(<_>::default())).unwrap();
+        assert_eq!(&[0xC], buffer.as_raw_slice());
     }
 
     #[test]

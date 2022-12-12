@@ -701,7 +701,7 @@ mod tests {
         type Type5 = Implicit<C2, Type2>;
 
         let jones = String::from("Jones");
-        let jones1 = Type1::from(jones.try_into().unwrap());
+        let jones1 = Type1::try_from(jones).unwrap();
         let jones2 = Type2::from(jones1.clone());
         let jones3 = Type3::from(jones2.clone());
         let jones4 = Type4::from(jones3.clone());

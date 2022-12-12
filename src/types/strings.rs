@@ -12,9 +12,11 @@ pub use {
     alloc::string::String as Utf8String,
 };
 
-pub(crate) use constrained::{DynConstrainedCharacterString, ConstrainedCharacterString, OctetAlignedString};
+// ///  The `GeneralString` type.
+// pub type GeneralString = Implicit<tag::GENERAL_STRING, Utf8String>;
 
-const IA5_WIDTH: usize = 7;
+pub(crate) use constrained::{DynConstrainedCharacterString, ConstrainedCharacterString, StaticPermittedAlphabet, try_from_permitted_alphabet};
+
 const PRINTABLE_WIDTH: usize = 7;
 const NUMERIC_WIDTH: usize = 4;
 const BMP_WIDTH: usize = u16::BITS as usize;
@@ -22,18 +24,20 @@ const BMP_WIDTH: usize = u16::BITS as usize;
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PrintableString(ConstrainedCharacterString<PRINTABLE_WIDTH>);
 
-impl PrintableString {
-    const CHARACTER_SET: &[u8] = &[
+impl StaticPermittedAlphabet for PrintableString {
+    const CHARACTER_SET: &'static [u32] = &bytes_to_chars([
         b'A', b'B', b'C', b'E', b'D', b'E', b'F', b'G', b'H', b'I', b'J', b'K',
         b'L', b'M', b'N', b'O', b'P', b'Q', b'R', b'S', b'T', b'U', b'V', b'W',
         b'X', b'Y', b'Z', b'a', b'b', b'c', b'e', b'd', b'e', b'f', b'g', b'h',
         b'i', b'j', b'k', b'l', b'm', b'n', b'o', b'p', b'q', b'r', b's', b't',
         b'u', b'v', b'w', b'x', b'y', b'z', b'\'', b'(',b')', b'+', b',', b'-',
         b'.', b'/', b':', b'=', b'?'
-    ];
+    ]);
+}
 
+impl PrintableString {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidPrintableString> {
-        if bytes.iter().all(|b| Self::CHARACTER_SET.contains(b)) {
+        if bytes.iter().copied().map(u32::from).all(|b| Self::CHARACTER_SET.contains(&b)) {
             Ok(Self(ConstrainedCharacterString::from_raw_bits(bytes.into_iter().flat_map(|b| b.view_bits::<Msb0>()[1..8].to_owned()).collect())))
         } else {
             Err(InvalidPrintableString)
@@ -91,20 +95,12 @@ impl Decode for PrintableString {
 pub struct NumericString(ConstrainedCharacterString<NUMERIC_WIDTH>);
 
 impl NumericString {
-    const CHARACTER_SET: &[u8] = &[
-        b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9', b' ',
-    ];
-
-    fn character_map() -> alloc::collections::BTreeMap<u8, usize> {
-        Self::CHARACTER_SET.into_iter().copied().enumerate().map(|(i, e)| (e, i)).collect()
-    }
-
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidNumericString> {
         let mut buffer = BitString::new();
-        let map = Self::character_map();
+        let map = Self::index_map();
 
         for byte in bytes {
-            match map.get(byte) {
+            match map.get(&(*byte as u32)) {
                 Some(index) => buffer.extend_from_bitslice(&index.view_bits::<Msb0>()[0..4]),
                 None => return Err(InvalidNumericString),
             }
@@ -112,6 +108,24 @@ impl NumericString {
 
         Ok(Self(ConstrainedCharacterString::from_raw_bits(buffer)))
     }
+}
+
+const fn bytes_to_chars<const N: usize>(input: [u8; N]) -> [u32; N] {
+    let mut chars: [u32; N] = [0; N];
+
+    let mut index = 0;
+    while index < N {
+        chars[index] = input[index] as u32;
+        index += 1;
+    }
+
+    chars
+}
+
+impl StaticPermittedAlphabet for NumericString {
+    const CHARACTER_SET: &'static [u32] = &bytes_to_chars([
+        b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9', b' ',
+    ]);
 }
 
 #[derive(snafu::Snafu, Debug)]
@@ -217,6 +231,3 @@ impl Decode for BmpString {
         decoder.decode_bmp_string(tag, constraints)
     }
 }
-
-// ///  The `GeneralString` type.
-// pub type GeneralString = Implicit<tag::GENERAL_STRING, Utf8String>;
