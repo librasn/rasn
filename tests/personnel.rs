@@ -1,6 +1,11 @@
 use pretty_assertions::assert_eq;
 use rasn::prelude::*;
 
+#[test]
+fn print_array() {
+    panic!("{:x?}", include_bytes!("/Users/ep/Downloads/b30e2515b6344e9582b69e43092d7a61.PDU.uper"));
+}
+
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(set, tag(application, 0))]
 pub struct PersonnelRecord {
@@ -174,6 +179,13 @@ impl From<VisibleString> for NameString {
     }
 }
 
+#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[rasn(tag(application, 1))]
+pub struct InitialString {
+    #[rasn(size(1))]
+    pub initial: NameString,
+}
+
 macro_rules! test {
     ($($name:ident ( $codec:ident ) : $typ:ty = $value:expr => $expected:expr;)+) => {
         $(
@@ -256,9 +268,17 @@ test! {
         0x5B, 0xF7, 0x65, 0xE6, 0x10, 0xC5, 0xCB, 0x57, 0x2C, 0x1B, 0xB1, 0x6E,
     ];
 
-    constrained_uper_name(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0xC, 0xBA, 0xA3, 0xA4];
-    constrained_aper_name(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0xC, 0x4A, 0x6F, 0x68, 0x6E];
+    constrained_uper_name_string(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0xC, 0xBA, 0xA3, 0xA4];
+    constrained_aper_name_string(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0xC, 0x4A, 0x6F, 0x68, 0x6E];
     constrained_uper_date(uper): DateWithConstraints = DateWithConstraints(VisibleString::try_from("19710917").unwrap()) => &[0b00011001, 0b01110001, 0b00001001, 0b00010111];
+    constrained_uper_name(uper): NameWithConstraints = Name {
+        given_name: String::from("John").try_into().unwrap(),
+        initial: String::from("P").try_into().unwrap(),
+        family_name: String::from("Smith").try_into().unwrap(),
+    }.into() => &[0xC, 0xBA, 0xA3, 0xA5, 0x11, 0x14, 0xA2, 0x4B, 0xE3];
+    constrained_uper_initial(uper): InitialString = InitialString {
+        initial: VisibleString::try_from("P").unwrap().into(),
+    }.into() => &[0x44];
 
     constrained_uper(uper): PersonnelRecordWithConstraints = <_>::default() => &[
         0x86, 0x4A, 0x6F, 0x68, 0x6E, 0x50, 0x10, 0x53, 0x6D, 0x69, 0x74, 0x68,

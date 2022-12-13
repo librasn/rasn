@@ -164,8 +164,12 @@ impl<'input> Decoder<'input> {
         };
 
         if let Some(range) = constraints.range().filter(|range| *range <= u16::MAX.into()) {
-            let (input, length) = nom::bytes::streaming::take(super::log2(range as i128))(input)?;
-            (decode_fn)(input, length.load_be::<usize>() + constraints.start())
+            if range == 0 {
+                (decode_fn)(input, constraints.start())
+            } else {
+                let (input, length) = nom::bytes::streaming::take(super::log2(range as i128))(input)?;
+                (decode_fn)(input, length.load_be::<usize>() + constraints.start())
+            }
         } else {
             self.decode_unknown_length(input, decode_fn)
         }
@@ -285,7 +289,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let mut bit_string = types::BitString::default();
         let char_width = constraints.permitted_alphabet().map(|alphabet| crate::per::log2(alphabet.len() as i128) as usize).unwrap_or(7);
 
-        self.decode_extensible_container(constraints, |input, length| {
+        self.decode_extensible_container(constraints.clone(), |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * char_width)(input)?;
             bit_string.extend(&*part);
             Ok(input)

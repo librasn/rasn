@@ -199,7 +199,8 @@ impl Encoder {
                 let range = constraints.range().unwrap();
                 let effective_length = constraints.effective_value(length).into_inner();
 
-                if super::log2(range as i128) <= 1 {
+                if range == 0 || super::log2(range as i128) <= 1 {
+                    buffer.extend((encode_fn)(0..length)?);
                     Ok(())
                 } else if range < SIXTY_FOUR_K as usize && !self.options.aligned {
                     self.encode_non_negative_binary_integer(buffer, range as i128, &(effective_length as u32).to_be_bytes());

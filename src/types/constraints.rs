@@ -1,11 +1,24 @@
-#[derive(Debug, Default, Copy, Clone)]
-pub struct Constraints<'constraint>(pub &'constraint [Constraint]);
+use alloc::borrow::Cow;
+
+#[derive(Debug, Default, Clone)]
+pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
 
 impl<'r> Constraints<'r> {
-    pub const NONE: Self = Self(&[]);
+    pub const NONE: Self = Self(Cow::Borrowed(&[]));
 
     pub const fn new(constraints: &'r [Constraint]) -> Self {
-        Self(constraints)
+        Self(Cow::Borrowed(constraints))
+    }
+
+    /// Overrides a set of constraints with another set.
+    pub fn override_constraints<'rhs>(lhs: Self, mut rhs: Constraints<'rhs>) -> Constraints<'rhs> {
+        for parent in lhs.0.iter() {
+            if !rhs.0.iter().any(|child| child.kind() == parent.kind()) {
+                rhs.0.to_mut().push(parent.clone());
+            }
+        }
+
+        rhs
     }
 
     pub fn size(&self) -> Option<Range<usize>> {
@@ -34,13 +47,13 @@ impl<'r> Constraints<'r> {
 
 impl<'r> From<&'r [Constraint]> for Constraints<'r> {
     fn from(constraints: &'r [Constraint]) -> Self {
-        Self(constraints)
+        Self::new(constraints)
     }
 }
 
 impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
     fn from(constraints: &'r [Constraint; N]) -> Self {
-        Self(constraints)
+        Self::new(constraints)
     }
 }
 
@@ -52,7 +65,24 @@ pub enum Constraint {
     Extensible,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ConstraintKind {
+    Value,
+    Size,
+    PermittedAlphabet,
+    Extensible,
+}
+
 impl Constraint {
+    pub const fn kind(&self) -> ConstraintKind {
+        match self {
+            Self::Value(_) => ConstraintKind::Value,
+            Self::Size(_) => ConstraintKind::Size,
+            Self::PermittedAlphabet(_) => ConstraintKind::PermittedAlphabet,
+            Self::Extensible => ConstraintKind::Extensible,
+        }
+    }
+
     pub const fn as_value(&self) -> Option<&Value> {
         match self {
             Self::Value(integer) => Some(integer),

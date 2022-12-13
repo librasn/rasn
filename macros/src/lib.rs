@@ -32,7 +32,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let name = input.ident;
     let generics = input.generics;
 
-    match input.data {
+    __print_stream(match input.data {
         syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
         syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
             name,
@@ -43,7 +43,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         .impl_decode(),
         _ => panic!("Union types are not supported."),
     }
-    .into()
+    .into())
 }
 
 /// An automatic derive of the `Encode` trait.

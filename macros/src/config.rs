@@ -433,6 +433,7 @@ pub struct FieldConfig<'a> {
     pub container_config: &'a Config,
     pub tag: Option<Tag>,
     pub default: Option<Option<syn::Path>>,
+    pub size: Option<Value>,
 }
 
 pub enum FieldType {
@@ -445,6 +446,7 @@ impl<'a> FieldConfig<'a> {
     pub fn new(field: &'a syn::Field, container_config: &'a Config) -> Self {
         let mut default = None;
         let mut tag = None;
+        let mut size = None;
         let mut iter = field
             .attrs
             .iter()
@@ -467,15 +469,20 @@ impl<'a> FieldConfig<'a> {
                         },
                         _ => None,
                     });
+                } else if path.is_ident("size") {
+                    size = Some(Value::from_meta(item));
+                } else {
+                    panic!("unknown field tag {:?}", path.get_ident().map(ToString::to_string));
                 }
             }
         }
 
         Self {
-            field,
             container_config,
-            tag,
             default,
+            field,
+            size,
+            tag,
         }
     }
 
@@ -496,7 +503,9 @@ impl<'a> FieldConfig<'a> {
             None => quote!(<#ty>::default),
         });
 
-        if self.tag.is_some() || self.container_config.automatic_tags {
+        let constraints = self.size.is_some().then(|| self.constraints_def());
+
+        let encode = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;);
                 if self.is_option_type() {
@@ -510,19 +519,31 @@ impl<'a> FieldConfig<'a> {
                     encode
                 }
             } else {
-                match self.default.is_some() {
-                    true => {
-
+                match (constraints.is_some(), self.default.is_some()) {
+                    (true, true) => {
+                        quote!(encoder.encode_default_with_tag_and_constraints(#tag, constraints, &#this #field, #default_fn)?;)
+                    },
+                    (true, false) => {
+                        quote!(encoder.encode_with_tag_and_constraints(#tag, constraints, &#this #field, #default_fn)?;)
+                    },
+                    (false, true) => {
                         quote!(encoder.encode_default_with_tag(#tag, &#this #field, #default_fn)?;)
                     },
-                    false => quote!(#this #field.encode_with_tag(encoder, #tag)?;),
+                    (false, false) => quote!(#this #field.encode_with_tag(encoder, #tag)?;),
                 }
             }
         } else {
-            match self.default.is_some() {
-                true => quote!(encoder.encode_default(&#this #field, #default_fn)?;),
-                false => quote!(#this #field.encode(encoder)?;),
+            match (constraints.is_some(), self.default.is_some()) {
+                (true, true) => quote!(encoder.encode_default_with_constraints(constraints, &#this #field, #default_fn)?;),
+                (true, false) => quote!(#this #field.encode_with_constraints(encoder, constraints)?;),
+                (false, true) => quote!(encoder.encode_default(&#this #field, #default_fn)?;),
+                (false, false) => quote!(#this #field.encode(encoder)?;),
             }
+        };
+
+        quote! {
+            #constraints
+            #encode
         }
     }
 
@@ -548,26 +569,46 @@ impl<'a> FieldConfig<'a> {
         };
 
         let tag = self.tag(context);
+        let constraints = self.constraints_def();
 
-        if self.tag.is_some() || self.container_config.automatic_tags {
+        let decode = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 quote!(decoder.decode_explicit_prefix(#tag) #or_else)
             } else {
                 if let Some(path) = &self.default {
                     let path = path.as_ref().map(|path| quote!(#path)).unwrap_or_else(|| quote!(<_>::default));
-                    quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
+                    if constraints.is_some() {
+                        quote!(decoder.decode_default_with_tag_and_constraints(#tag, #path, constraints) #or_else)
+                    } else {
+                        quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
+                    }
                 } else {
-                    quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
+                    if constraints.is_some() {
+                        quote!(<_>::decode_with_tag_and_constraints(#tag, constraints) #or_else)
+                    } else {
+                        quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
+                    }
                 }
             }
         } else if let Some(path) = self.default.as_ref() {
-            match path {
-                Some(path) => quote!(decoder.decode_default_with_tag(#tag, #path) #or_else),
-                None => quote!(decoder.decode_default(<_>::default) #or_else),
+            match (constraints.is_some(), path) {
+                (true, Some(path)) => quote!(decoder.decode_default_with_tag_and_constraints(#tag, constraints, #path) #or_else),
+                (true, None) => quote!(decoder.decode_default_with_constraints(constraints, <_>::default) #or_else),
+                (false, Some(path)) => quote!(decoder.decode_default_with_tag(#tag, #path) #or_else),
+                (false, None) => quote!(decoder.decode_default(<_>::default) #or_else),
             }
         } else {
-            quote!(<_>::decode(decoder) #or_else)
-        }
+            if constraints.is_some() {
+                quote!(<_>::decode_with_constraints(decoder, constraints) #or_else)
+            } else {
+                quote!(<_>::decode(decoder) #or_else)
+            }
+        };
+
+        quote!({
+            #constraints
+            #decode
+        })
     }
 
     pub fn tag_derive(&self, context: usize) -> proc_macro2::TokenStream {
@@ -652,6 +693,40 @@ impl<'a> FieldConfig<'a> {
     pub fn is_option_or_default_type(&self) -> bool {
         self.is_default_type() || self.is_option_type()
     }
+
+    fn size_def(&self) -> Option<proc_macro2::TokenStream> {
+        let crate_root = &self.container_config.crate_root;
+        self.size.as_ref().map(|value| match value {
+            Value::Range(Some(min), Some(max)) => {
+                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::new(#min as usize, #max as usize)))
+            }
+            Value::Range(Some(min), None) => {
+                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::start_from(#min as usize)))
+            }
+            Value::Range(None, Some(max)) => {
+                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::up_to(#max as usize)))
+            }
+            Value::Range(None, None) => {
+                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::new(usize::MIN, usize::MAX)))
+            }
+            Value::Single(length) => {
+                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::single_value(#length as usize)))
+            }
+        })
+    }
+
+    fn constraints_def(&self) -> Option<proc_macro2::TokenStream> {
+        let crate_root = &self.container_config.crate_root;
+        let size_constraint = self.size_def();
+        let ty = &self.field.ty;
+
+       size_constraint.is_some().then(|| quote! {
+            let constraints: &[_] = &[#crate_root::types::Constraint::Size(#size_constraint)];
+            let constraints: #crate_root::types::Constraints = #crate_root::types::Constraints::new(constraints);
+            let constraints = #crate_root::types::Constraints::override_constraints(<#ty>::CONSTRAINTS, constraints);
+        })
+    }
+
 }
 
 #[derive(Clone, Debug)]
