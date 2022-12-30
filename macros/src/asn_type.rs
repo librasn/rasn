@@ -57,49 +57,58 @@ pub fn derive_struct_impl(
         }
     });
 
-    let size = config.size.as_ref().map(|size| match size {
-        Value::Single(value) => quote!{
-            #crate_root::types::Constraint::Size(
-                #crate_root::types::constraints::Size::new(
-                    #crate_root::types::constraints::Range::single_value(#value as usize)
-                )
-            ),
-        },
-        Value::Range(start, end) => {
-            let range = match (start, end) {
-                (Some(start), Some(end)) => quote! {
-                    #crate_root::types::constraints::Range::const_new(#start as usize, #end as usize)
-                },
-                (Some(start), None) => quote! {
-                    #crate_root::types::constraints::Range::start_from(#start as usize)
-                },
-                (None, Some(end)) => quote! {
-                    #crate_root::types::constraints::Range::up_to(#end as usize)
-                },
-                (None, None) => return quote!(),
-            };
+    let size = config.size.as_ref().map(|size| {
+        let extensible = size.extensible;
 
-            quote!(
+        match size.constraint {
+            Value::Single(value) => quote!{
                 #crate_root::types::Constraint::Size(
-                    #crate_root::types::constraints::Size::new(#range)
+                    #crate_root::types::constraints::Size::new(
+                        #crate_root::types::constraints::Range::single_value(#value as usize)
+                    )
+                    .into()
+                    .set_extensible(#extensible)
                 ),
-            )
+            },
+            Value::Range(start, end) => {
+                let range = match (start, end) {
+                    (Some(start), Some(end)) => quote! {
+                        #crate_root::types::constraints::Range::const_new(#start as usize, #end as usize)
+                    },
+                    (Some(start), None) => quote! {
+                        #crate_root::types::constraints::Range::start_from(#start as usize)
+                    },
+                    (None, Some(end)) => quote! {
+                        #crate_root::types::constraints::Range::up_to(#end as usize)
+                    },
+                    (None, None) => return quote!(),
+                };
+
+                quote!(
+                    #crate_root::types::Constraint::Size(
+                        #crate_root::types::constraints::Size::new(#range)
+                        .into()
+                        .set_extensible(#extensible)
+                    ),
+                )
+            }
         }
     });
 
-    let mut from_constraint = config.from.as_ref().iter().flat_map(|from| from.iter()).flat_map(|from| match from {
-        StringValue::Single(value) => vec![*value],
-        StringValue::Range(start, end) => (*start..*end).into_iter().collect(),
-    }).collect::<Vec<u32>>();
+    let from_constraint = config.from.as_ref().map(|from| {
+        let extensible = from.extensible;
+        let mut set = from.constraint.iter().flat_map(|from| match from {
+            StringValue::Single(value) => vec![*value],
+            StringValue::Range(start, end) => (*start..*end).into_iter().collect(),
+        }).collect::<Vec<u32>>();
+        set.sort();
+        set.dedup();
 
-    from_constraint.dedup();
-    from_constraint.sort();
-
-    let from_constraint = (!from_constraint.is_empty()).then(|| {
-        let iter = from_constraint.into_iter();
         quote!(
             #crate_root::types::constraints::Constraint::PermittedAlphabet(
-                #crate_root::types::constraints::PermittedAlphabet::new(&[#(#iter,)*])
+                #crate_root::types::constraints::PermittedAlphabet::new(&[#(#set,)*])
+                    .into()
+                    .set_extensible(#extensible)
             ),
         )
     });

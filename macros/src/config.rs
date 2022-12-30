@@ -14,9 +14,9 @@ pub struct Config {
     pub delegate: bool,
     pub tag: Option<Tag>,
     pub extensible: bool,
-    pub from: Option<Vec<StringValue>>,
-    pub size: Option<Value>,
-    pub value: Option<Value>,
+    pub from: Option<Constraint<Vec<StringValue>>>,
+    pub size: Option<Constraint<Value>>,
+    pub value: Option<Constraint<Value>>,
 }
 
 impl Config {
@@ -433,7 +433,7 @@ pub struct FieldConfig<'a> {
     pub container_config: &'a Config,
     pub tag: Option<Tag>,
     pub default: Option<Option<syn::Path>>,
-    pub size: Option<Value>,
+    pub size: Option<Constraint<Value>>,
 }
 
 pub enum FieldType {
@@ -696,22 +696,27 @@ impl<'a> FieldConfig<'a> {
 
     fn size_def(&self) -> Option<proc_macro2::TokenStream> {
         let crate_root = &self.container_config.crate_root;
-        self.size.as_ref().map(|value| match value {
-            Value::Range(Some(min), Some(max)) => {
-                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::new(#min as usize, #max as usize)))
-            }
-            Value::Range(Some(min), None) => {
-                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::start_from(#min as usize)))
-            }
-            Value::Range(None, Some(max)) => {
-                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::up_to(#max as usize)))
-            }
-            Value::Range(None, None) => {
-                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::new(usize::MIN, usize::MAX)))
-            }
-            Value::Single(length) => {
-                quote!(#crate_root::types::constraints::Size::new(#crate_root::types::constraints::Range::single_value(#length as usize)))
-            }
+        self.size.as_ref().map(|value| {
+            let extensible = value.extensible;
+            let constraint = match value.constraint {
+                Value::Range(Some(min), Some(max)) => {
+                    quote!(#crate_root::types::constraints::Range::new(#min as usize, #max as usize))
+                }
+                Value::Range(Some(min), None) => {
+                    quote!(#crate_root::types::constraints::Range::start_from(#min as usize))
+                }
+                Value::Range(None, Some(max)) => {
+                    quote!(#crate_root::types::constraints::Range::up_to(#max as usize))
+                }
+                Value::Range(None, None) => {
+                    quote!(#crate_root::types::constraints::Range::new(usize::MIN, usize::MAX))
+                }
+                Value::Single(length) => {
+                    quote!(#crate_root::types::constraints::Range::single_value(#length as usize))
+                }
+            };
+
+            quote!(#crate_root::types::constraints::Size::new(#constraint.into().set_extensible(#extensible)))
         })
     }
 
@@ -729,6 +734,22 @@ impl<'a> FieldConfig<'a> {
 
 }
 
+
+#[derive(Clone, Debug)]
+pub struct Constraint<T> {
+    pub constraint: T,
+    pub extensible: bool,
+}
+
+impl<T> From<T> for Constraint<T> {
+    fn from(constraint: T) -> Self {
+        Self {
+            constraint,
+            extensible: false,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum StringValue {
     Single(u32),
@@ -736,8 +757,9 @@ pub enum StringValue {
 }
 
 impl StringValue {
-    fn from_meta(item: &syn::Meta) -> Vec<StringValue> {
+    fn from_meta(item: &syn::Meta) -> Constraint<Vec<StringValue>> {
         let mut values = Vec::new();
+        let mut extensible = false;
 
         fn parse_character(string: &str) -> Option<u32> {
             (string.len() == 1).then_some(0).and_then(|_| {
@@ -757,6 +779,10 @@ impl StringValue {
             };
 
             let string = string.value();
+
+            if string == "extensible" {
+                extensible = true;
+            }
 
             if string.len() == 1 {
                 values.push(parse_character(&string).map(StringValue::Single).unwrap());
@@ -783,7 +809,10 @@ impl StringValue {
             values.push(StringValue::Range(start, end + is_inclusive as u32));
         }
 
-        values
+        Constraint {
+            constraint: values,
+            extensible,
+        }
     }
 }
 
@@ -794,7 +823,8 @@ pub enum Value {
 }
 
 impl Value {
-    fn from_meta(item: &syn::Meta) -> Value {
+    fn from_meta(item: &syn::Meta) -> Constraint<Value> {
+        let mut extensible = false;
         fn parse_character(string: &str) -> Option<i128> {
             string.parse().ok()
         }
@@ -810,13 +840,15 @@ impl Value {
         let string = match item {
             NestedMeta::Lit(Lit::Str(string)) => string.value(),
             NestedMeta::Lit(Lit::Int(int)) => {
-                return int.base10_parse().map(Value::Single).unwrap();
+                return int.base10_parse().map(Value::Single).unwrap().into();
             }
             _ => panic!("Unsupported meta item: {item:?}"),
         };
 
-        if string.len() == 1 {
-            return parse_character(&string).map(Value::Single).unwrap();
+        if let Some(number) = parse_character(&string) {
+            return Constraint::from(Value::Single(number));
+        } else if string == "extensible" {
+            extensible = true;
         }
 
         let Some((start, mut end)) = string.split_once("..") else {
@@ -831,6 +863,9 @@ impl Value {
 
         let end = parse_character(end).map(|end| end + is_inclusive as i128);
 
-        Value::Range(start, end)
+        Constraint {
+            constraint: Value::Range(start, end),
+            extensible,
+        }
     }
 }

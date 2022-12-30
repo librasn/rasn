@@ -21,13 +21,13 @@ impl<'r> Constraints<'r> {
         rhs
     }
 
-    pub fn size(&self) -> Option<Range<usize>> {
+    pub fn size(&self) -> Option<&Extensible<Size>> {
         self.0
             .iter()
             .find_map(|constraint| constraint.to_size())
     }
 
-    pub fn permitted_alphabet(&self) -> Option<&'static [u32]> {
+    pub fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
         self.0
             .iter()
             .find_map(|constraint| constraint.as_permitted_alphabet())
@@ -37,7 +37,7 @@ impl<'r> Constraints<'r> {
         self.0.iter().any(|constraint| constraint.is_extensible())
     }
 
-    pub fn value(&self) -> Value {
+    pub fn value(&self) -> Extensible<Value> {
         self.0
             .iter()
             .find_map(|constraint| constraint.to_value())
@@ -59,52 +59,49 @@ impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Constraint {
-    Value(Value),
-    Size(Size),
-    PermittedAlphabet(PermittedAlphabet),
-    Extensible,
+    Value(Extensible<Value>),
+    Size(Extensible<Size>),
+    PermittedAlphabet(Extensible<PermittedAlphabet>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ConstraintKind {
+pub enum ConstraintDiscriminant {
     Value,
     Size,
     PermittedAlphabet,
-    Extensible,
 }
 
 impl Constraint {
-    pub const fn kind(&self) -> ConstraintKind {
+    pub const fn kind(&self) -> ConstraintDiscriminant {
         match self {
-            Self::Value(_) => ConstraintKind::Value,
-            Self::Size(_) => ConstraintKind::Size,
-            Self::PermittedAlphabet(_) => ConstraintKind::PermittedAlphabet,
-            Self::Extensible => ConstraintKind::Extensible,
+            Self::Value(_) => ConstraintDiscriminant::Value,
+            Self::Size(_) => ConstraintDiscriminant::Size,
+            Self::PermittedAlphabet(_) => ConstraintDiscriminant::PermittedAlphabet,
         }
     }
 
-    pub const fn as_value(&self) -> Option<&Value> {
+    pub const fn as_value(&self) -> Option<&Extensible<Value>> {
         match self {
             Self::Value(integer) => Some(integer),
             _ => None,
         }
     }
 
-    pub fn as_permitted_alphabet(&self) -> Option<&'static [u32]> {
+    pub fn as_permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
         match self {
-            Self::PermittedAlphabet(alphabet) => Some(alphabet.as_inner()),
+            Self::PermittedAlphabet(alphabet) => Some(alphabet),
             _ => None,
         }
     }
 
-    pub fn to_size(&self) -> Option<Range<usize>> {
+    pub fn to_size(&self) -> Option<&Extensible<Size>> {
         match self {
-            Self::Size(size) => Some(**size),
+            Self::Size(size) => Some(size),
             _ => None,
         }
     }
 
-    pub fn to_value(&self) -> Option<Value> {
+    pub fn to_value(&self) -> Option<Extensible<Value>> {
         match self {
             Self::Value(integer) => Some(integer.clone()),
             _ => None,
@@ -113,7 +110,57 @@ impl Constraint {
 
     /// Returns whether the type is extensible.
     pub const fn is_extensible(&self) -> bool {
-        matches!(self, Self::Extensible)
+        match self {
+            Self::Value(value) => value.extensible.is_some(),
+            Self::Size(size) => size.extensible.is_some(),
+            Self::PermittedAlphabet(alphabet) => alphabet.extensible.is_some(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Extensible<T : 'static> {
+    pub constraint: T,
+    /// Whether the constraint is extensible, and if it is, a list of extensible
+    /// constraints.
+    pub extensible: Option<&'static [T]>,
+}
+
+impl<T> Extensible<T> {
+    pub fn set_extensible(mut self, extensible: bool) -> Self {
+        self.extensible_with_constraints(extensible.then(|| Some(&[])))
+    }
+
+    pub fn extensible_with_constraints(mut self, constraints: Option<&'static [T]>) -> Self {
+        self.extensible = constraints;
+        self
+    }
+}
+
+impl From<Value> for Extensible<Value> {
+    fn from(value: Value) -> Self {
+        Self {
+            constraint: value,
+            extensible: None,
+        }
+    }
+}
+
+impl From<Size> for Extensible<Size> {
+    fn from(size: Size) -> Self {
+        Self {
+            constraint: size,
+            extensible: None,
+        }
+    }
+}
+
+impl From<PermittedAlphabet> for Extensible<PermittedAlphabet> {
+    fn from(alphabet: PermittedAlphabet) -> Self {
+        Self {
+            constraint: alphabet,
+            extensible: None,
+        }
     }
 }
 
@@ -310,13 +357,37 @@ impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + Partia
 
 impl From<Value> for Constraint {
     fn from(size: Value) -> Self {
+        Self::Value(size.into())
+    }
+}
+
+impl From<Extensible<Value>> for Constraint {
+    fn from(size: Extensible<Value>) -> Self {
         Self::Value(size)
     }
 }
 
 impl From<Size> for Constraint {
     fn from(size: Size) -> Self {
+        Self::Size(size.into())
+    }
+}
+
+impl From<Extensible<Size>> for Constraint {
+    fn from(size: Extensible<Size>) -> Self {
         Self::Size(size)
+    }
+}
+
+impl From<PermittedAlphabet> for Constraint {
+    fn from(size: PermittedAlphabet) -> Self {
+        Self::PermittedAlphabet(size.into())
+    }
+}
+
+impl From<Extensible<PermittedAlphabet>> for Constraint {
+    fn from(size: Extensible<PermittedAlphabet>) -> Self {
+        Self::PermittedAlphabet(size)
     }
 }
 

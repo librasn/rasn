@@ -3,7 +3,7 @@ use rasn::prelude::*;
 
 #[test]
 fn print_array() {
-    panic!("{:x?}", include_bytes!("/Users/ep/Downloads/b30e2515b6344e9582b69e43092d7a61.PDU.uper"));
+    panic!("{:x?}", include_bytes!("/Users/ep/Downloads/0f81dcbf8f5745338f2099b499411f6f.PDU.per"));
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
@@ -24,36 +24,14 @@ pub struct PersonnelRecord {
 impl Default for PersonnelRecord {
     fn default() -> Self {
         Self {
-            name: Name {
-                given_name: String::from("John").try_into().unwrap(),
-                initial: String::from("P").try_into().unwrap(),
-                family_name: String::from("Smith").try_into().unwrap(),
-            },
+            name: Name::john(),
             title: String::from("Director").try_into().unwrap(),
             number: <_>::default(),
             date_of_hire: Date(String::from("19710917").try_into().unwrap()),
-            name_of_spouse: Name {
-                given_name: String::from("Mary").try_into().unwrap(),
-                initial: String::from("T").try_into().unwrap(),
-                family_name: String::from("Smith").try_into().unwrap(),
-            },
+            name_of_spouse: Name::mary(),
             children: vec![
-                ChildInformation {
-                    name: Name {
-                        given_name: String::from("Ralph").try_into().unwrap(),
-                        initial: String::from("T").try_into().unwrap(),
-                        family_name: String::from("Smith").try_into().unwrap(),
-                    },
-                    date_of_birth: Date(String::from("19571111").try_into().unwrap()),
-                },
-                ChildInformation {
-                    name: Name {
-                        given_name: String::from("Susan").try_into().unwrap(),
-                        initial: String::from("B").try_into().unwrap(),
-                        family_name: String::from("Jones").try_into().unwrap(),
-                    },
-                    date_of_birth: Date(String::from("19590717").try_into().unwrap()),
-                },
+                ChildInformation::ralph(),
+                ChildInformation::susan()
             ],
         }
     }
@@ -67,12 +45,64 @@ pub struct ChildInformation {
     pub date_of_birth: Date,
 }
 
+impl ChildInformation {
+    pub fn ralph() -> Self {
+        Self {
+            name: Name {
+                given_name: String::from("Ralph").try_into().unwrap(),
+                initial: String::from("T").try_into().unwrap(),
+                family_name: String::from("Smith").try_into().unwrap(),
+            },
+            date_of_birth: Date(String::from("19571111").try_into().unwrap()),
+        }
+    }
+
+    pub fn susan() -> Self {
+        Self {
+            name: Name {
+                given_name: String::from("Susan").try_into().unwrap(),
+                initial: String::from("B").try_into().unwrap(),
+                family_name: String::from("Jones").try_into().unwrap(),
+            },
+            date_of_birth: Date(String::from("19590717").try_into().unwrap()),
+        }
+    }
+}
+
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(tag(application, 1))]
 pub struct Name {
     pub given_name: VisibleString,
     pub initial: VisibleString,
     pub family_name: VisibleString,
+}
+
+impl Name {
+    pub fn john() -> Self {
+        Self {
+            given_name: String::from("John").try_into().unwrap(),
+            initial: String::from("P").try_into().unwrap(),
+            family_name: String::from("Smith").try_into().unwrap(),
+        }
+    }
+
+    pub fn mary() -> Self {
+        Self {
+            given_name: String::from("Mary").try_into().unwrap(),
+            initial: String::from("T").try_into().unwrap(),
+            family_name: String::from("Smith").try_into().unwrap(),
+        }
+    }
+}
+
+#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[rasn(tag(application, 2), delegate, value(0..9999, ...))]
+pub struct ExtensibleEmployeeNumber(pub Integer);
+
+impl From<EmployeeNumber> for ExtensibleEmployeeNumber {
+    fn from(number: EmployeeNumber) -> Self {
+        Self(number.0)
+    }
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
@@ -124,6 +154,71 @@ impl From<PersonnelRecord> for PersonnelRecordWithConstraints {
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[rasn(set, tag(application, 0))]
+pub struct ExtensiblePersonnelRecord {
+    pub name: ExtensibleName,
+    #[rasn(tag(explicit(0)))]
+    pub title: VisibleString,
+    pub number: ExtensibleEmployeeNumber,
+    #[rasn(tag(explicit(1)))]
+    pub date_of_hire: DateWithConstraints,
+    #[rasn(tag(explicit(2)))]
+    pub name_of_spouse: ExtensibleName,
+    #[rasn(tag(3), default)]
+    pub children: Vec<ChildInformationWithConstraints>,
+}
+
+impl Default for ExtensiblePersonnelRecord {
+    fn default() -> Self {
+        Self {
+            name: Name::john().into(),
+            number: ExtensibleEmployeeNumber(5.into()),
+            date_of_hire: ExtensibleDate(VisibleString::try_from("19710917").unwrap()),
+            name_of_spouse: Name::mary().into(),
+            children: vec![ChildInformation::ralph().into(), ExtensibleChildInformation::susan()],
+        }
+    }
+}
+
+#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[rasn(set)]
+#[non_exhaustive]
+pub struct ExtensibleChildInformation {
+    name: ExtensibleName,
+    #[rasn(tag(explicit(0)))]
+    date_of_birth: ExtensibleDate,
+    #[rasn(extension_addition)]
+    sex: Option<Sex>,
+}
+
+#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[rasn(enumerated)]
+pub enum Sex {
+    Male = 1,
+    Female = 2,
+    Unknown = 3,
+}
+
+impl ExtensibleChildInformation {
+    pub fn susan() -> Self {
+        Self {
+            name: Name::susan().into(),
+            date_of_birth: ExtensibleDate(String::from("19590717").try_into().unwrap()),
+            sex: Some(Sex::Female),
+        }
+    }
+}
+
+impl From<ChildInformation> for ExtensibleChildInformation {
+    fn from(info: ChildInformation) -> Self {
+        Self {
+            name: info.name.into(),
+            date_of_birth: info.date_of_birth.into(),
+        }
+    }
+}
+
+#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(set)]
 pub struct ChildInformationWithConstraints {
     name: NameWithConstraints,
@@ -136,6 +231,26 @@ impl From<ChildInformation> for ChildInformationWithConstraints {
         Self {
             name: info.name.into(),
             date_of_birth: info.date_of_birth.into(),
+        }
+    }
+}
+
+#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[rasn(tag(application, 1))]
+#[non_exhaustive]
+pub struct ExtensibleName {
+    pub given_name: ExtensibleNameString,
+    #[rasn(size(1))]
+    pub initial: ExtensibleNameString,
+    pub family_name: ExtensibleNameString,
+}
+
+impl From<Name> for ExtensibleName {
+    fn from(name: Name) -> Self {
+        Self {
+            given_name: name.given_name.into(),
+            initial: name.initial.into(),
+            family_name: name.family_name.into(),
         }
     }
 }
@@ -160,12 +275,32 @@ impl From<Name> for NameWithConstraints {
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[rasn(tag(application, 3), delegate, from("0..=9"), size(8, ..., 9..20))]
+pub struct ExtensibleDate(pub VisibleString);
+
+impl From<Date> for ExtensibleDate {
+    fn from(name: Date) -> Self {
+        Self(name.0)
+    }
+}
+
+#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(tag(application, 3), delegate, from("0..=9"), size(8))]
 pub struct DateWithConstraints(pub VisibleString);
 
 impl From<Date> for DateWithConstraints {
     fn from(name: Date) -> Self {
         Self(name.0)
+    }
+}
+
+#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64", ...))]
+pub struct ExtensibleNameString(pub VisibleString);
+
+impl From<VisibleString> for ExtensibleName {
+    fn from(name: VisibleString) -> Self {
+        Self(name)
     }
 }
 
@@ -279,14 +414,26 @@ test! {
     constrained_uper_initial(uper): InitialString = InitialString {
         initial: VisibleString::try_from("P").unwrap().into(),
     }.into() => &[0x44];
+    constrained_aper_initial(uper): InitialString = InitialString {
+        initial: VisibleString::try_from("P").unwrap().into(),
+    }.into() => &[0x50];
 
     constrained_uper(uper): PersonnelRecordWithConstraints = <_>::default() => &[
-        0x86, 0x4A, 0x6F, 0x68, 0x6E, 0x50, 0x10, 0x53, 0x6D, 0x69, 0x74, 0x68,
-        0x01, 0x33, 0x08, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6F, 0x72, 0x19,
-        0x71, 0x09, 0x17, 0x0C, 0x4D, 0x61, 0x72, 0x79, 0x54, 0x10, 0x53, 0x6D,
-        0x69, 0x74, 0x68, 0x02, 0x10, 0x52, 0x61, 0x6C, 0x70, 0x68, 0x54, 0x10,
-        0x53, 0x6D, 0x69, 0x74, 0x68, 0x19, 0x57, 0x11, 0x11, 0x10, 0x53, 0x75,
-        0x73, 0x61, 0x6E, 0x42, 0x10, 0x4A, 0x6F, 0x6E, 0x65, 0x73, 0x19, 0x59,
-        0x07, 0x17,
+        0x86, 0x5D, 0x51, 0xD2, 0x88, 0x8A, 0x51, 0x25, 0xF1, 0x80, 0x99, 0x84,
+        0x44, 0xD3, 0xCB, 0x2E, 0x3E, 0x9B, 0xF9, 0x0c, 0xB8, 0x84, 0x8B, 0x86,
+        0x73, 0x96, 0xE8, 0xA8, 0x8A, 0x51, 0x25, 0xF1, 0x81, 0x08, 0x9B, 0x93,
+        0xD7, 0x1A, 0xA2, 0x29, 0x44, 0x97, 0xC6, 0x32, 0xAE, 0x22, 0x22, 0x22,
+        0x98, 0x5C, 0xE5, 0x21, 0x88, 0x5D, 0x54, 0xC1, 0x70, 0xCA, 0xC8,
+        0x38, 0xB8
+    ];
+
+    constrained_aper(aper): PersonnelRecordWithConstraints = <_>::default() => &[
+        0x86, 0x4a, 0x6f, 0x68, 0x6e, 0x50, 0x10, 0x53, 0x6d, 0x69, 0x74, 0x68,
+        0x01, 0x33, 0x08, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x19,
+        0x71, 0x09, 0x17, 0x0c, 0x4d, 0x61, 0x72, 0x79, 0x54, 0x10, 0x53, 0x6d,
+        0x69, 0x74, 0x68, 0x02, 0x10, 0x52, 0x61, 0x6c, 0x70, 0x68, 0x54, 0x10,
+        0x53, 0x6d, 0x69, 0x74, 0x68, 0x19, 0x57, 0x11, 0x11, 0x10, 0x53, 0x75,
+        0x73, 0x61, 0x6e, 0x42, 0x10, 0x4a, 0x6f, 0x6e, 0x65, 0x73, 0x19, 0x59,
+        0x07, 0x17
     ];
 }
