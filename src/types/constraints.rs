@@ -37,11 +37,10 @@ impl<'r> Constraints<'r> {
         self.0.iter().any(|constraint| constraint.is_extensible())
     }
 
-    pub fn value(&self) -> Extensible<Value> {
+    pub fn value(&self) -> Option<Extensible<Value>> {
         self.0
             .iter()
             .find_map(|constraint| constraint.to_value())
-            .unwrap_or_default()
     }
 }
 
@@ -127,6 +126,20 @@ pub struct Extensible<T : 'static> {
 }
 
 impl<T> Extensible<T> {
+    pub const fn new(constraint: T) -> Self {
+        Self {
+            constraint,
+            extensible: None,
+        }
+    }
+
+    pub const fn new_extensible(constraint: T, constraints: &'static [T]) -> Self {
+        Self {
+            constraint,
+            extensible: Some(constraints),
+        }
+    }
+
     pub fn set_extensible(mut self, extensible: bool) -> Self {
         self.extensible_with_constraints(extensible.then(|| Some(&[])))
     }

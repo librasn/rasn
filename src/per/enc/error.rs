@@ -1,4 +1,4 @@
-use crate::types::constraints::Range;
+use crate::types::constraints::{Range, Size};
 use snafu::*;
 
 #[derive(Snafu, Debug)]
@@ -16,8 +16,8 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn check_length(length: usize, expected: Range<usize>) -> Result<(), Self> {
-        expected.contains_or_else(&length, || Self::InvalidLength { length, expected })
+    pub fn check_length(length: usize, expected: &Size) -> Result<(), Self> {
+        expected.contains_or_else(&length, || Self::InvalidLength { length, expected: (**expected).clone() })
     }
 }
 

@@ -7,7 +7,7 @@ use snafu::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
-    types::{self, constraints, BitString, Constraints, Tag, strings::{DynConstrainedCharacterString, ConstrainedCharacterString}},
+    types::{self, constraints::{self, Extensible}, BitString, Constraints, Tag, strings::{DynConstrainedCharacterString, ConstrainedCharacterString}},
     Encode, enc::Error as _,
 };
 
@@ -109,9 +109,10 @@ impl Encoder {
         let mut buffer = BitString::default();
         match constraints.permitted_alphabet() {
             Some(alphabet)  => {
+                let alphabet = alphabet.constraint;
                 let alphabet_width = crate::per::log2(alphabet.len() as i128);
                 let characters = if WIDTH as u32 > self.options.aligned.then(|| alphabet_width.next_power_of_two()).unwrap_or(alphabet_width) {
-                    Some(DynConstrainedCharacterString::from_known_multiplier_string(value, alphabet).map_err(Error::custom)?)
+                    Some(DynConstrainedCharacterString::from_known_multiplier_string(value, &alphabet).map_err(Error::custom)?)
                 } else {
                     None
                 };
@@ -184,7 +185,7 @@ impl Encoder {
         &self,
         buffer: &mut BitString,
         length: usize,
-        constraints: Option<constraints::Range<usize>>,
+        constraints: Option<&Extensible<constraints::Size>>,
         encode_fn: impl Fn(core::ops::Range<usize>) -> Result<BitString>,
     ) -> Result<()> {
 
@@ -192,8 +193,11 @@ impl Encoder {
             return self.encode_unconstrained_length(buffer, length, None, encode_fn);
         };
 
-        Error::check_length(length, constraints)?;
+        if matches!(constraints.extensible, None) {
+            Error::check_length(length, &constraints.constraint)?;
+        }
 
+        let constraints = constraints.constraint;
         match constraints.start_and_end() {
             (Some(_), Some(_)) => {
                 let range = constraints.range().unwrap();
@@ -316,7 +320,7 @@ impl Encoder {
             self.encode_length(buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&value[range]))
             })?;
-        } else if 0 == constraints.effective_value(value.len()).into_inner() {
+        } else if 0 == constraints.constraint.effective_value(value.len()).into_inner() {
             // NO-OP
         } else {
             self.encode_length(buffer, value.len(), Some(constraints), |range| {

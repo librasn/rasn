@@ -7,7 +7,7 @@ use snafu::*;
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
     de::Error as _,
-    types::{self, constraints, Constraints, Tag, strings::StaticPermittedAlphabet, fields::{Field, Fields}},
+    types::{self, constraints::{self, Extensible}, Constraints, Tag, strings::StaticPermittedAlphabet, fields::{Field, Fields}},
     Decode,
 };
 
@@ -156,19 +156,21 @@ impl<'input> Decoder<'input> {
     pub fn decode_length(
         &mut self,
         input: InputSlice<'input>,
-        constraints: Option<constraints::Range<usize>>,
+        constraints: Option<&Extensible<constraints::Size>>,
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
         let Some(constraints) = constraints else {
             return self.decode_unknown_length(input, decode_fn)
         };
 
-        if let Some(range) = constraints.range().filter(|range| *range <= u16::MAX.into()) {
+        let size_constraint = constraints.constraint;
+
+        if let Some(range) = size_constraint.range().filter(|range| *range <= u16::MAX.into()) {
             if range == 0 {
-                (decode_fn)(input, constraints.start())
+                (decode_fn)(input, size_constraint.start())
             } else {
                 let (input, length) = nom::bytes::streaming::take(super::log2(range as i128))(input)?;
-                (decode_fn)(input, length.load_be::<usize>() + constraints.start())
+                (decode_fn)(input, length.load_be::<usize>() + size_constraint.start())
             }
         } else {
             self.decode_unknown_length(input, decode_fn)
@@ -194,25 +196,21 @@ impl<'input> Decoder<'input> {
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
         let extensible = self.parse_extensible_bit(&constraints)?;
-        let value_constraint = constraints.value();
-
-        let number = if let Some(range) = value_constraint
-            .range()
-            .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
-        {
-            let bits = super::log2(range);
-            let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
-            self.input = input;
-            num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec()).into()
-        } else {
+        let Some(value_constraint) = constraints.value().filter(|_| !extensible).map(|c| c.constraint) else {
             let bytes = self.decode_octets()?.into_vec();
-            value_constraint
-                .as_start()
-                .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
-                .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
+            return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
-        Ok(value_constraint.start() + number)
+        let Some(range) = value_constraint.range().filter(|range| !extensible && *range < SIXTY_FOUR_K.into()) else {
+            let bytes = self.decode_octets()?.into_vec();
+            return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
+        };
+
+        let bits = super::log2(range);
+        let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
+        self.input = input;
+        let number = num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec());
+        Ok(types::Integer::from(value_constraint.start()) + types::Integer::from(number))
     }
 }
 
@@ -287,7 +285,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         constraints: Constraints,
     ) -> Result<types::VisibleString> {
         let mut bit_string = types::BitString::default();
-        let char_width = constraints.permitted_alphabet().map(|alphabet| crate::per::log2(alphabet.len() as i128) as usize).unwrap_or(7);
+        let char_width = constraints.permitted_alphabet().map(|c| c.constraint).map(|alphabet| crate::per::log2(alphabet.len() as i128) as usize).unwrap_or(7);
 
         self.decode_extensible_container(constraints.clone(), |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * char_width)(input)?;
@@ -297,7 +295,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         match constraints.permitted_alphabet() {
             Some(alphabet) => {
-                let map = alphabet.into_iter().copied().enumerate().map(|(i, e)| (i as u32, e)).collect();
+                let map = alphabet.constraint.into_iter().copied().enumerate().map(|(i, e)| (i as u32, e)).collect();
                 types::strings::try_from_permitted_alphabet::<types::VisibleString, _>(&bit_string, &map, types::VisibleString::character_width()).map_err(Error::custom)
             }
             None => Ok(types::VisibleString::from_raw_bits(bit_string)),
