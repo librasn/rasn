@@ -196,21 +196,31 @@ impl<'input> Decoder<'input> {
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
         let extensible = self.parse_extensible_bit(&constraints)?;
-        let Some(value_constraint) = constraints.value().filter(|_| !extensible).map(|c| c.constraint) else {
+        let value_constraint = constraints.value();
+
+        let Some(value_constraint) = value_constraint else {
             let bytes = self.decode_octets()?.into_vec();
             return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
-        let Some(range) = value_constraint.range().filter(|range| !extensible && *range < SIXTY_FOUR_K.into()) else {
+        let number = if let Some(range) = value_constraint.constraint
+            .range()
+            .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
+        {
+            let bits = super::log2(range);
+            let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
+            self.input = input;
+            num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec()).into()
+        } else {
             let bytes = self.decode_octets()?.into_vec();
-            return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
+            value_constraint
+                .constraint
+                .as_start()
+                .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
+                .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
-        let bits = super::log2(range);
-        let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
-        self.input = input;
-        let number = num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec());
-        Ok(types::Integer::from(value_constraint.start()) + types::Integer::from(number))
+        Ok(value_constraint.constraint.start() + number)
     }
 }
 
@@ -285,7 +295,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         constraints: Constraints,
     ) -> Result<types::VisibleString> {
         let mut bit_string = types::BitString::default();
-        let char_width = constraints.permitted_alphabet().map(|c| c.constraint).map(|alphabet| crate::per::log2(alphabet.len() as i128) as usize).unwrap_or(7);
+        let char_width = constraints.permitted_alphabet().map(|alphabet| crate::per::log2(alphabet.constraint.len() as i128) as usize).unwrap_or(7);
 
         self.decode_extensible_container(constraints.clone(), |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * char_width)(input)?;

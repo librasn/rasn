@@ -189,7 +189,7 @@ pub struct DynConstrainedCharacterString {
 pub struct ConstrainedConversionError;
 
 impl DynConstrainedCharacterString {
-    pub fn from_bits(data: &types::BitStr, original_character_width: usize, character_set: &'static [u32]) -> Result<Self, ConstrainedConversionError> {
+    pub fn from_bits(data: &types::BitStr, original_character_width: usize, character_set: &[u32]) -> Result<Self, ConstrainedConversionError> {
         let mut buffer = types::BitString::new();
         let char_width = crate::per::log2(character_set.len() as i128) as u32;
         let alphabet = BTreeMap::from_iter(character_set.into_iter().enumerate().map(|(i, a)| (*a, i as u32)));
@@ -210,7 +210,7 @@ impl DynConstrainedCharacterString {
         })
     }
 
-    pub fn from_known_multiplier_string<const WIDTH: usize>(string: &ConstrainedCharacterString<WIDTH>, character_set: &'static [u32]) -> Result<Self, ConstrainedConversionError> {
+    pub fn from_known_multiplier_string<const WIDTH: usize>(string: &ConstrainedCharacterString<WIDTH>, character_set: &[u32]) -> Result<Self, ConstrainedConversionError> {
         Self::from_bits(string.as_bitstr(), string.character_width(), character_set)
     }
 

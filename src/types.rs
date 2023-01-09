@@ -24,7 +24,7 @@ pub use {
     num_bigint::BigInt as Integer,
     self::{
         any::Any,
-        constraints::{Constraints, Constraint},
+        constraints::{Constraints, Constraint, Extensible},
         instance::InstanceOf,
         oid::{ConstOid, ObjectIdentifier, Oid},
         open::Open,
@@ -108,7 +108,7 @@ macro_rules! asn_integer_type {
             impl AsnType for $int {
                 const TAG: Tag = Tag::INTEGER;
                 const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-                    constraints::Constraint::Value(constraints::Value::new(constraints::Range::const_new(<$int>::MIN as i128, <$int>::MAX as i128))),
+                    constraints::Constraint::Value(Extensible::new(constraints::Value::new(constraints::Range::const_new(<$int>::MIN as i128, <$int>::MAX as i128)))),
                 ]);
             }
         )+
@@ -160,7 +160,7 @@ impl<T> AsnType for alloc::collections::BTreeSet<T> {
 impl<T: AsnType, const N: usize> AsnType for [T; N] {
     const TAG: Tag = Tag::SEQUENCE;
     const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-        Constraint::Size(constraints::Size::new(constraints::Range::single_value(N)))
+        Constraint::Size(Extensible::new(constraints::Size::new(constraints::Range::single_value(N))))
     ]);
 }
 

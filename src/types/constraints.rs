@@ -61,6 +61,9 @@ pub enum Constraint {
     Value(Extensible<Value>),
     Size(Extensible<Size>),
     PermittedAlphabet(Extensible<PermittedAlphabet>),
+    /// The value itself is extensible, only valid for constructed types,
+    /// choices, or enumerated values.
+    Extensible,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -68,6 +71,7 @@ pub enum ConstraintDiscriminant {
     Value,
     Size,
     PermittedAlphabet,
+    Extensible,
 }
 
 impl Constraint {
@@ -76,6 +80,7 @@ impl Constraint {
             Self::Value(_) => ConstraintDiscriminant::Value,
             Self::Size(_) => ConstraintDiscriminant::Size,
             Self::PermittedAlphabet(_) => ConstraintDiscriminant::PermittedAlphabet,
+            Self::Extensible => ConstraintDiscriminant::Extensible,
         }
     }
 
@@ -113,6 +118,7 @@ impl Constraint {
             Self::Value(value) => value.extensible.is_some(),
             Self::Size(size) => size.extensible.is_some(),
             Self::PermittedAlphabet(alphabet) => alphabet.extensible.is_some(),
+            Self::Extensible => true,
         }
     }
 }
@@ -140,11 +146,18 @@ impl<T> Extensible<T> {
         }
     }
 
-    pub fn set_extensible(mut self, extensible: bool) -> Self {
-        self.extensible_with_constraints(extensible.then(|| Some(&[])))
+    pub const fn set_extensible(self, extensible: bool) -> Self {
+        let extensible = if extensible {
+            let empty: &[T] = &[];
+            Some(empty)
+        } else {
+            None
+        };
+
+        self.extensible_with_constraints(extensible)
     }
 
-    pub fn extensible_with_constraints(mut self, constraints: Option<&'static [T]>) -> Self {
+    pub const fn extensible_with_constraints(mut self, constraints: Option<&'static [T]>) -> Self {
         self.extensible = constraints;
         self
     }

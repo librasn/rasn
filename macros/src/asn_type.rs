@@ -58,15 +58,16 @@ pub fn derive_struct_impl(
     });
 
     let size = config.size.as_ref().map(|size| {
-        let extensible = size.extensible;
+        let extensible = size.extensible.is_some();
 
         match size.constraint {
             Value::Single(value) => quote!{
                 #crate_root::types::Constraint::Size(
-                    #crate_root::types::constraints::Size::new(
-                        #crate_root::types::constraints::Range::single_value(#value as usize)
+                    #crate_root::types::constraints::Extensible::new(
+                        #crate_root::types::constraints::Size::new(
+                            #crate_root::types::constraints::Range::single_value(#value as usize)
+                        )
                     )
-                    .into()
                     .set_extensible(#extensible)
                 ),
             },
@@ -86,9 +87,48 @@ pub fn derive_struct_impl(
 
                 quote!(
                     #crate_root::types::Constraint::Size(
-                        #crate_root::types::constraints::Size::new(#range)
-                        .into()
-                        .set_extensible(#extensible)
+                        #crate_root::types::constraints::Extensible::new(
+                            #crate_root::types::constraints::Size::new(#range)
+                        ).set_extensible(#extensible),
+                    ),
+                )
+            }
+        }
+    });
+
+    let value = config.value.as_ref().map(|size| {
+        let extensible = size.extensible.is_some();
+
+        match size.constraint {
+            Value::Single(value) => quote!{
+                #crate_root::types::Constraint::Value(
+                    #crate_root::types::constraints::Extensible::new(
+                        #crate_root::types::constraints::Value::new(
+                            #crate_root::types::constraints::Range::single_value(#value as i128)
+                        )
+                    )
+                    .set_extensible(#extensible)
+                ),
+            },
+            Value::Range(start, end) => {
+                let range = match (start, end) {
+                    (Some(start), Some(end)) => quote! {
+                        #crate_root::types::constraints::Range::const_new(#start as i128, #end as i128)
+                    },
+                    (Some(start), None) => quote! {
+                        #crate_root::types::constraints::Range::start_from(#start as i128)
+                    },
+                    (None, Some(end)) => quote! {
+                        #crate_root::types::constraints::Range::up_to(#end as i128)
+                    },
+                    (None, None) => return quote!(),
+                };
+
+                quote!(
+                    #crate_root::types::Constraint::Value(
+                        #crate_root::types::constraints::Extensible::new(
+                            #crate_root::types::constraints::Value::new(#range)
+                        ).set_extensible(#extensible),
                     ),
                 )
             }
@@ -96,26 +136,28 @@ pub fn derive_struct_impl(
     });
 
     let from_constraint = config.from.as_ref().map(|from| {
-        let extensible = from.extensible;
-        let mut set = from.constraint.iter().flat_map(|from| match from {
-            StringValue::Single(value) => vec![*value],
-            StringValue::Range(start, end) => (*start..*end).into_iter().collect(),
-        }).collect::<Vec<u32>>();
-        set.sort();
-        set.dedup();
+        let extensible = from.extensible.is_some();
+        let set = &from.constraint.0;
 
         quote!(
             #crate_root::types::constraints::Constraint::PermittedAlphabet(
-                #crate_root::types::constraints::PermittedAlphabet::new(&[#(#set,)*])
-                    .into()
-                    .set_extensible(#extensible)
+                #crate_root::types::constraints::Extensible::new(
+                    #crate_root::types::constraints::PermittedAlphabet::new(&[#(#set,)*])
+                ).set_extensible(#extensible),
             ),
         )
     });
 
-    let constraints_def = (size.is_some() || from_constraint.is_some()).then(|| quote! {
+    let extensible = config.extensible.then(|| {
+        quote!(#crate_root::types::constraints::Constraint::Extensible,)
+    });
+
+
+    let constraints_def = (size.is_some() || value.is_some() || extensible.is_some() || from_constraint.is_some()).then(|| quote! {
         const CONSTRAINTS: #crate_root::types::Constraints<'static> = #crate_root::types::Constraints::new(&[
             #size
+            #value
+            #extensible
             #from_constraint
         ]);
     });

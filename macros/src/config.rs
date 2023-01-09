@@ -14,7 +14,7 @@ pub struct Config {
     pub delegate: bool,
     pub tag: Option<Tag>,
     pub extensible: bool,
-    pub from: Option<Constraint<Vec<StringValue>>>,
+    pub from: Option<Constraint<StringValue>>,
     pub size: Option<Constraint<Value>>,
     pub value: Option<Constraint<Value>>,
 }
@@ -32,11 +32,8 @@ impl Config {
         let mut size = None;
         let mut value = None;
         let mut delegate = false;
-        let extensible = input
-            .attrs
-            .iter()
+        let extensible = input.attrs.iter()
             .any(|a| a.path.is_ident("non_exhaustive"));
-
 
         let mut iter = input
             .attrs
@@ -434,6 +431,7 @@ pub struct FieldConfig<'a> {
     pub tag: Option<Tag>,
     pub default: Option<Option<syn::Path>>,
     pub size: Option<Constraint<Value>>,
+    pub extension_addition: bool,
 }
 
 pub enum FieldType {
@@ -447,6 +445,7 @@ impl<'a> FieldConfig<'a> {
         let mut default = None;
         let mut tag = None;
         let mut size = None;
+        let mut extension_addition = false;
         let mut iter = field
             .attrs
             .iter()
@@ -471,6 +470,8 @@ impl<'a> FieldConfig<'a> {
                     });
                 } else if path.is_ident("size") {
                     size = Some(Value::from_meta(item));
+                } else if path.is_ident("extension_addition") {
+                    extension_addition = true;
                 } else {
                     panic!("unknown field tag {:?}", path.get_ident().map(ToString::to_string));
                 }
@@ -483,6 +484,7 @@ impl<'a> FieldConfig<'a> {
             field,
             size,
             tag,
+            extension_addition,
         }
     }
 
@@ -697,7 +699,7 @@ impl<'a> FieldConfig<'a> {
     fn size_def(&self) -> Option<proc_macro2::TokenStream> {
         let crate_root = &self.container_config.crate_root;
         self.size.as_ref().map(|value| {
-            let extensible = value.extensible;
+            let extensible = value.extensible.is_some();
             let constraint = match value.constraint {
                 Value::Range(Some(min), Some(max)) => {
                     quote!(#crate_root::types::constraints::Range::new(#min as usize, #max as usize))
@@ -716,7 +718,13 @@ impl<'a> FieldConfig<'a> {
                 }
             };
 
-            quote!(#crate_root::types::constraints::Size::new(#constraint.into().set_extensible(#extensible)))
+            quote!(
+                #crate_root::types::constraints::Extensible::new(
+                    #crate_root::types::constraints::Size::new(
+                        #constraint
+                    )
+                ).set_extensible(#extensible)
+            )
         })
     }
 
@@ -738,28 +746,30 @@ impl<'a> FieldConfig<'a> {
 #[derive(Clone, Debug)]
 pub struct Constraint<T> {
     pub constraint: T,
-    pub extensible: bool,
+    pub extensible: Option<Vec<T>>,
 }
 
 impl<T> From<T> for Constraint<T> {
     fn from(constraint: T) -> Self {
         Self {
             constraint,
-            extensible: false,
+            extensible: None,
         }
     }
 }
 
 #[derive(Clone, Debug)]
-pub enum StringValue {
-    Single(u32),
-    Range(u32, u32),
-}
+pub struct StringValue(pub Vec<u32>);
 
 impl StringValue {
-    fn from_meta(item: &syn::Meta) -> Constraint<Vec<StringValue>> {
+    fn from_meta(item: &syn::Meta) -> Constraint<StringValue> {
         let mut values = Vec::new();
-        let mut extensible = false;
+        let mut extensible: Option<_> = None;
+
+        enum StringRange {
+            Single(u32),
+            Range(u32, u32),
+        }
 
         fn parse_character(string: &str) -> Option<u32> {
             (string.len() == 1).then_some(0).and_then(|_| {
@@ -774,18 +784,19 @@ impl StringValue {
         };
 
         for item in &list.nested {
-            let NestedMeta::Lit(Lit::Str(string)) = item else {
-                panic!("Unsupported meta item: {:?}", item);
+            let string = match item {
+                NestedMeta::Lit(Lit::Str(string)) => string.value(),
+                NestedMeta::Meta(syn::Meta::Path(path)) => path.get_ident().unwrap().to_string(),
+                item => panic!("Unsupported meta item: {:?}", item),
             };
 
-            let string = string.value();
-
             if string == "extensible" {
-                extensible = true;
+                extensible = Some(Vec::new());
+                continue;
             }
 
             if string.len() == 1 {
-                values.push(parse_character(&string).map(StringValue::Single).unwrap());
+                values.push(parse_character(&string).map(StringRange::Single).unwrap());
                 continue;
             }
 
@@ -806,12 +817,26 @@ impl StringValue {
                 panic!("end of range was an invalid character: {end}")
             };
 
-            values.push(StringValue::Range(start, end + is_inclusive as u32));
+            if let Some(extensible_values) = extensible.as_mut() {
+                extensible_values.push(StringRange::Range(start, end + is_inclusive as u32));
+            } else {
+                values.push(StringRange::Range(start, end + is_inclusive as u32));
+            }
         }
 
+        let into_flat_set = |constraints: Vec<_>| {
+            let mut set = constraints.iter().flat_map(|from| match from {
+                StringRange::Single(value) => vec![*value],
+                StringRange::Range(start, end) => (*start..*end).into_iter().collect(),
+            }).collect::<Vec<u32>>();
+            set.sort();
+            set.dedup();
+            set
+        };
+
         Constraint {
-            constraint: values,
-            extensible,
+            constraint: Self((into_flat_set)(values)),
+            extensible: extensible.map(|values| vec![Self((into_flat_set)(values))]),
         }
     }
 }
@@ -824,7 +849,9 @@ pub enum Value {
 
 impl Value {
     fn from_meta(item: &syn::Meta) -> Constraint<Value> {
-        let mut extensible = false;
+        let mut extensible = None;
+        let mut constraint = None;
+
         fn parse_character(string: &str) -> Option<i128> {
             string.parse().ok()
         }
@@ -833,38 +860,50 @@ impl Value {
             panic!("Unsupported meta item: {:?}", item);
         };
 
-        let Some(item) = list.nested.iter().next() else {
-            panic!("value required");
-        };
+        for item in list.nested.iter() {
+            let string = match item {
+                NestedMeta::Lit(Lit::Str(string)) => string.value(),
+                NestedMeta::Meta(syn::Meta::Path(path)) => path.get_ident().unwrap().to_string(),
+                NestedMeta::Lit(Lit::Int(int)) => {
+                    constraint = Some(int.base10_parse().map(Value::Single).unwrap().into());
+                    continue;
+                }
+                _ => panic!("Unsupported meta item: {item:?}"),
+            };
 
-        let string = match item {
-            NestedMeta::Lit(Lit::Str(string)) => string.value(),
-            NestedMeta::Lit(Lit::Int(int)) => {
-                return int.base10_parse().map(Value::Single).unwrap().into();
+            if string == "extensible" {
+                extensible = Some(Vec::new());
+                continue;
             }
-            _ => panic!("Unsupported meta item: {item:?}"),
-        };
 
-        if let Some(number) = parse_character(&string) {
-            return Constraint::from(Value::Single(number));
-        } else if string == "extensible" {
-            extensible = true;
+            let value = if let Some(number) = parse_character(&string) {
+                Value::Single(number)
+            } else {
+                let Some((start, mut end)) = string.split_once("..") else {
+                    panic!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")
+                };
+
+                let start = parse_character(start);
+                let is_inclusive = end.starts_with("=");
+                if is_inclusive {
+                    end = &end[1..];
+                }
+
+                let end = parse_character(end).map(|end| end + is_inclusive as i128);
+                Value::Range(start, end)
+            };
+
+            if let Some(extensible_values) = extensible.as_mut() {
+                extensible_values.push(value)
+            } else if constraint.is_none() {
+                constraint = Some(value);
+            } else {
+                panic!("Multiple non-extensible value constraints are not permitted.");
+            }
         }
-
-        let Some((start, mut end)) = string.split_once("..") else {
-            panic!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")
-        };
-
-        let start = parse_character(start);
-        let is_inclusive = end.starts_with("=");
-        if is_inclusive {
-            end = &end[1..];
-        }
-
-        let end = parse_character(end).map(|end| end + is_inclusive as i128);
 
         Constraint {
-            constraint: Value::Range(start, end),
+            constraint: constraint.unwrap(),
             extensible,
         }
     }

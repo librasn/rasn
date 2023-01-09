@@ -1,11 +1,6 @@
 use pretty_assertions::assert_eq;
 use rasn::prelude::*;
 
-#[test]
-fn print_array() {
-    panic!("{:x?}", include_bytes!("/Users/ep/Downloads/0f81dcbf8f5745338f2099b499411f6f.PDU.per"));
-}
-
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(set, tag(application, 0))]
 pub struct PersonnelRecord {
@@ -93,10 +88,18 @@ impl Name {
             family_name: String::from("Smith").try_into().unwrap(),
         }
     }
+
+    pub fn susan() -> Self {
+        Self {
+            given_name: String::from("Susan").try_into().unwrap(),
+            initial: String::from("B").try_into().unwrap(),
+            family_name: String::from("Jones").try_into().unwrap(),
+        }
+    }
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-#[rasn(tag(application, 2), delegate, value(0..9999, ...))]
+#[rasn(tag(application, 2), delegate, value("0..9999", extensible))]
 pub struct ExtensibleEmployeeNumber(pub Integer);
 
 impl From<EmployeeNumber> for ExtensibleEmployeeNumber {
@@ -161,17 +164,18 @@ pub struct ExtensiblePersonnelRecord {
     pub title: VisibleString,
     pub number: ExtensibleEmployeeNumber,
     #[rasn(tag(explicit(1)))]
-    pub date_of_hire: DateWithConstraints,
+    pub date_of_hire: ExtensibleDate,
     #[rasn(tag(explicit(2)))]
     pub name_of_spouse: ExtensibleName,
     #[rasn(tag(3), default)]
-    pub children: Vec<ChildInformationWithConstraints>,
+    pub children: Vec<ExtensibleChildInformation>,
 }
 
 impl Default for ExtensiblePersonnelRecord {
     fn default() -> Self {
         Self {
             name: Name::john().into(),
+            title: String::from("Director").try_into().unwrap(),
             number: ExtensibleEmployeeNumber(5.into()),
             date_of_hire: ExtensibleDate(VisibleString::try_from("19710917").unwrap()),
             name_of_spouse: Name::mary().into(),
@@ -191,7 +195,7 @@ pub struct ExtensibleChildInformation {
     sex: Option<Sex>,
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, Clone, Copy, PartialEq)]
 #[rasn(enumerated)]
 pub enum Sex {
     Male = 1,
@@ -214,6 +218,7 @@ impl From<ChildInformation> for ExtensibleChildInformation {
         Self {
             name: info.name.into(),
             date_of_birth: info.date_of_birth.into(),
+            sex: None,
         }
     }
 }
@@ -275,7 +280,7 @@ impl From<Name> for NameWithConstraints {
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-#[rasn(tag(application, 3), delegate, from("0..=9"), size(8, ..., 9..20))]
+#[rasn(tag(application, 3), delegate, from("0..=9"), size(8, extensible, "9..20"))]
 pub struct ExtensibleDate(pub VisibleString);
 
 impl From<Date> for ExtensibleDate {
@@ -295,10 +300,10 @@ impl From<Date> for DateWithConstraints {
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-#[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64", ...))]
+#[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64", extensible))]
 pub struct ExtensibleNameString(pub VisibleString);
 
-impl From<VisibleString> for ExtensibleName {
+impl From<VisibleString> for ExtensibleNameString {
     fn from(name: VisibleString) -> Self {
         Self(name)
     }
@@ -425,6 +430,15 @@ test! {
         0xD7, 0x1A, 0xA2, 0x29, 0x44, 0x97, 0xC6, 0x32, 0xAE, 0x22, 0x22, 0x22,
         0x98, 0x5C, 0xE5, 0x21, 0x88, 0x5D, 0x54, 0xC1, 0x70, 0xCA, 0xC8,
         0x38, 0xB8
+    ];
+
+    extensible_uper(uper): ExtensiblePersonnelRecord = <_>::default() => &[
+        0x40, 0xCB, 0xAA, 0x3A, 0x51, 0x08, 0xA5, 0x12, 0x5F, 0x18, 0x03, 0x30,
+        0x88, 0x9A, 0x79, 0x65, 0xC7, 0xD3, 0x7F, 0x20, 0xCB, 0x88, 0x48, 0xB8,
+        0x19, 0xCE, 0x5B, 0xA2, 0xA1, 0x14, 0xA2, 0x4B, 0xE3, 0x01, 0x13, 0x72,
+        0x7A, 0xE3, 0x54, 0x22, 0x94, 0x49, 0x7C, 0x61, 0x95, 0x71, 0x11, 0x18,
+        0x22, 0x98, 0x5C, 0xE5, 0x21, 0x84, 0x2E, 0xAA, 0x60, 0xB8, 0x32, 0xB2,
+        0x0E, 0x2E, 0x02, 0x02, 0x80,
     ];
 
     constrained_aper(aper): PersonnelRecordWithConstraints = <_>::default() => &[

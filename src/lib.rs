@@ -120,7 +120,7 @@ mod tests {
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
             const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-                Constraint::Value(constraints::Value::new(constraints::Range::start_from(127)))
+                Constraint::Value(constraints::Extensible::new(constraints::Value::new(constraints::Range::start_from(127))))
             ]);
         }
 

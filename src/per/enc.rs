@@ -109,7 +109,7 @@ impl Encoder {
         let mut buffer = BitString::default();
         match constraints.permitted_alphabet() {
             Some(alphabet)  => {
-                let alphabet = alphabet.constraint;
+                let alphabet = &alphabet.constraint;
                 let alphabet_width = crate::per::log2(alphabet.len() as i128);
                 let characters = if WIDTH as u32 > self.options.aligned.then(|| alphabet_width.next_power_of_two()).unwrap_or(alphabet_width) {
                     Some(DynConstrainedCharacterString::from_known_multiplier_string(value, &alphabet).map_err(Error::custom)?)
@@ -337,21 +337,28 @@ impl Encoder {
         value: &num_bigint::BigInt,
         buffer: &mut BitString,
     ) -> Result<()> {
-        let value_range = constraints.value();
-        let bytes = match value_range.effective_bigint_value(value.clone()) {
+        let Some(value_range) = constraints.value() else {
+            let bytes = value.to_signed_bytes_be();
+            self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
+                Ok(BitString::from_slice(&bytes[range]))
+            })?;
+            return Ok(())
+        };
+
+        let bytes = match value_range.constraint.effective_bigint_value(value.clone()) {
             either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
             either::Right(value) => value.to_signed_bytes_be(),
         };
 
         self.encode_extensible_bit(&constraints, buffer, || todo!());
 
-        if let Some(range) = value_range
+        if let Some(range) = value_range.constraint
             .range()
             .filter(|range| *range < SIXTY_FOUR_K.into())
         {
             self.encode_non_negative_binary_integer(buffer, range, &bytes);
         } else {
-            self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
+            self.encode_length(buffer, bytes.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
             })?;
         }
@@ -437,7 +444,7 @@ impl crate::Encoder for Encoder {
             self.encode_length(&mut buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from(&value[range]))
             })?;
-        } else if size.map(|size| size.effective_value(value.len()).into_inner()) == Some(0) {
+        } else if size.map(|size| size.constraint.effective_value(value.len()).into_inner()) == Some(0) {
             // NO-OP
         } else {
             self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
@@ -781,7 +788,7 @@ mod tests {
     fn length() {
         let encoder = Encoder::new(EncoderOptions::unaligned());
         let mut buffer = types::BitString::new();
-        encoder.encode_length(&mut buffer, 4, Some(constraints::Range::new(1, 64)), |_| Ok(<_>::default())).unwrap();
+        encoder.encode_length(&mut buffer, 4, Some(&Extensible::new(constraints::Size::new(constraints::Range::new(1, 64)))), |_| Ok(<_>::default())).unwrap();
         assert_eq!(&[0xC], buffer.as_raw_slice());
     }
 
@@ -805,7 +812,7 @@ mod tests {
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
             const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-                constraints::Constraint::Value(constraints::Value::new(constraints::Range::up_to(65535)))
+                constraints::Constraint::Value(constraints::Extensible::new(constraints::Value::new(constraints::Range::up_to(65535))))
             ]);
         }
 
