@@ -24,10 +24,7 @@ impl Default for PersonnelRecord {
             number: <_>::default(),
             date_of_hire: Date(String::from("19710917").try_into().unwrap()),
             name_of_spouse: Name::mary(),
-            children: vec![
-                ChildInformation::ralph(),
-                ChildInformation::susan()
-            ],
+            children: vec![ChildInformation::ralph(), ChildInformation::susan()],
         }
     }
 }
@@ -179,7 +176,10 @@ impl Default for ExtensiblePersonnelRecord {
             number: ExtensibleEmployeeNumber(5.into()),
             date_of_hire: ExtensibleDate(VisibleString::try_from("19710917").unwrap()),
             name_of_spouse: Name::mary().into(),
-            children: vec![ChildInformation::ralph().into(), ExtensibleChildInformation::susan()],
+            children: vec![
+                ChildInformation::ralph().into(),
+                ExtensibleChildInformation::susan(),
+            ],
         }
     }
 }
@@ -228,7 +228,7 @@ impl From<ChildInformation> for ExtensibleChildInformation {
 pub struct ChildInformationWithConstraints {
     name: NameWithConstraints,
     #[rasn(tag(explicit(0)))]
-    date_of_birth: DateWithConstraints
+    date_of_birth: DateWithConstraints,
 }
 
 impl From<ChildInformation> for ChildInformationWithConstraints {
@@ -280,7 +280,12 @@ impl From<Name> for NameWithConstraints {
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-#[rasn(tag(application, 3), delegate, from("0..=9"), size(8, extensible, "9..20"))]
+#[rasn(
+    tag(application, 3),
+    delegate,
+    from("0..=9"),
+    size(8, extensible, "9..20")
+)]
 pub struct ExtensibleDate(pub VisibleString);
 
 impl From<Date> for ExtensibleDate {
@@ -310,7 +315,7 @@ impl From<VisibleString> for ExtensibleNameString {
 }
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-#[rasn(delegate, from("a..=z" , "A..=Z", "-", "."), size("1..=64"))]
+#[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64"))]
 pub struct NameString(pub VisibleString);
 
 impl From<VisibleString> for NameString {

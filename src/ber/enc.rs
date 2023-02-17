@@ -283,7 +283,7 @@ impl crate::Encoder for Encoder {
     fn encode_choice<E: Encode>(
         &mut self,
         _: Constraints,
-        encode_fn: impl FnOnce(&mut Self)  -> Result<Tag, Self::Error>,
+        encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         (encode_fn)(self).map(drop)
     }
@@ -296,7 +296,9 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_integer(
             tag,
-            Constraints::from(&[constraints::Size::new(constraints::Range::up_to(variance)).into()]),
+            Constraints::from(
+                &[constraints::Size::new(constraints::Range::up_to(variance)).into()],
+            ),
             &(value.into()),
         )
     }
@@ -403,7 +405,12 @@ impl crate::Encoder for Encoder {
         todo!()
     }
 
-    fn encode_utf8_string(&mut self, tag: Tag, _: Constraints, value: &str) -> Result<Self::Ok, Self::Error> {
+    fn encode_utf8_string(
+        &mut self,
+        tag: Tag,
+        _: Constraints,
+        value: &str,
+    ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string_(tag, value.as_bytes())
     }
 
@@ -551,6 +558,26 @@ impl crate::Encoder for Encoder {
         self.encode_constructed(tag, &encoder.output());
 
         Ok(())
+    }
+
+    fn encode_extension_addition<E: Encode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: E,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    /// Encode a extension addition group value.
+    fn encode_extension_addition_group<F>(
+        &mut self,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+    {
+        todo!()
     }
 }
 
@@ -701,11 +728,12 @@ mod tests {
         struct Set;
 
         impl crate::types::Constructed for Set {
-            const FIELDS: crate::types::fields::Fields = crate::types::fields::Fields::from_static(&[
-                crate::types::fields::Field::new_required(C0::TAG, C0::TAG_TREE),
-                crate::types::fields::Field::new_required(C1::TAG, C1::TAG_TREE),
-                crate::types::fields::Field::new_required(C2::TAG, C2::TAG_TREE),
-            ]);
+            const FIELDS: crate::types::fields::Fields =
+                crate::types::fields::Fields::from_static(&[
+                    crate::types::fields::Field::new_required(C0::TAG, C0::TAG_TREE),
+                    crate::types::fields::Field::new_required(C1::TAG, C1::TAG_TREE),
+                    crate::types::fields::Field::new_required(C2::TAG, C2::TAG_TREE),
+                ]);
         }
 
         let output = {

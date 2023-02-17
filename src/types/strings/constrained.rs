@@ -8,13 +8,9 @@ use crate::types;
 #[derive(Debug, snafu::Snafu)]
 pub(crate) enum FromPermittedAlphabetError {
     #[snafu(display("error converting to string: {}", message))]
-    Other {
-        message: String,
-    },
+    Other { message: String },
     #[snafu(display("index not found {}", 0))]
-    IndexNotFound {
-        index: u32,
-    }
+    IndexNotFound { index: u32 },
 }
 
 pub(crate) trait StaticPermittedAlphabet: Sized {
@@ -28,7 +24,14 @@ pub(crate) trait StaticPermittedAlphabet: Sized {
         static MAP: OnceBox<BTreeMap<u32, u32>> = OnceBox::new();
 
         MAP.get_or_init(|| {
-            Box::new(Self::CHARACTER_SET.into_iter().copied().enumerate().map(|(i, e)| (e, i as u32)).collect())
+            Box::new(
+                Self::CHARACTER_SET
+                    .into_iter()
+                    .copied()
+                    .enumerate()
+                    .map(|(i, e)| (e, i as u32))
+                    .collect(),
+            )
         })
     }
 
@@ -36,35 +39,55 @@ pub(crate) trait StaticPermittedAlphabet: Sized {
         static MAP: OnceBox<BTreeMap<u32, u32>> = OnceBox::new();
 
         MAP.get_or_init(|| {
-            Box::new(Self::CHARACTER_SET.into_iter().copied().enumerate().map(|(i, e)| (i as u32, e)).collect())
+            Box::new(
+                Self::CHARACTER_SET
+                    .into_iter()
+                    .copied()
+                    .enumerate()
+                    .map(|(i, e)| (i as u32, e))
+                    .collect(),
+            )
         })
     }
 
-    fn try_from_permitted_alphabet<E>(input: &types::BitStr) -> Result<Self, FromPermittedAlphabetError>
-        where Self: TryFrom<types::BitString, Error=E>,
-              E: std::fmt::Display,
+    fn try_from_permitted_alphabet<E>(
+        input: &types::BitStr,
+    ) -> Result<Self, FromPermittedAlphabetError>
+    where
+        Self: TryFrom<types::BitString, Error = E>,
+        E: std::fmt::Display,
     {
         try_from_permitted_alphabet(input, Self::character_map(), Self::character_width())
     }
 }
 
-pub(crate) fn try_from_permitted_alphabet<T: TryFrom<types::BitString, Error=E>, E: std::fmt::Display>(input: &types::BitStr, alphabet: &BTreeMap<u32, u32>, original_width: u32) -> Result<T, FromPermittedAlphabetError> {
+pub(crate) fn try_from_permitted_alphabet<
+    T: TryFrom<types::BitString, Error = E>,
+    E: std::fmt::Display,
+>(
+    input: &types::BitStr,
+    alphabet: &BTreeMap<u32, u32>,
+    original_width: u32,
+) -> Result<T, FromPermittedAlphabetError> {
     let mut bit_string = types::BitString::new();
     let permitted_alphabet_char_width = crate::per::log2(alphabet.len() as i128);
 
     for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
         let index = ch.load_be();
 
-        bit_string.extend_from_bitslice(
-            dbg!(&alphabet.get(&dbg!(index))
+        bit_string.extend_from_bitslice(dbg!(
+            &alphabet
+                .get(&dbg!(index))
                 .ok_or_else(|| FromPermittedAlphabetError::IndexNotFound { index })?
-                .view_bits::<Msb0>()[(u32::BITS-original_width) as usize..u32::BITS as usize])
-        );
+                .view_bits::<Msb0>()[(u32::BITS - original_width) as usize..u32::BITS as usize]
+        ));
     }
 
     dbg!(&bit_string);
 
-    T::try_from(bit_string).map_err(|error| FromPermittedAlphabetError::Other { message: error.to_string() })
+    T::try_from(bit_string).map_err(|error| FromPermittedAlphabetError::Other {
+        message: error.to_string(),
+    })
 }
 
 pub enum OctetAlignedString {
@@ -85,8 +108,14 @@ impl OctetAlignedString {
     pub fn to_be_bytes(&self) -> Vec<u8> {
         match self {
             Self::U8(vec) => vec.clone().into_vec(),
-            Self::U16(vec) => vec.chunks_exact(u16::BITS as usize).flat_map(|item| item.load::<u16>().to_be_bytes()).collect(),
-            Self::U32(vec) => vec.chunks_exact(u32::BITS as usize).flat_map(|item| item.load::<u16>().to_be_bytes()).collect(),
+            Self::U16(vec) => vec
+                .chunks_exact(u16::BITS as usize)
+                .flat_map(|item| item.load::<u16>().to_be_bytes())
+                .collect(),
+            Self::U32(vec) => vec
+                .chunks_exact(u32::BITS as usize)
+                .flat_map(|item| item.load::<u16>().to_be_bytes())
+                .collect(),
         }
     }
 }
@@ -98,9 +127,9 @@ impl core::ops::Index<usize> for OctetAlignedString {
         let width = self.width();
 
         match self {
-            Self::U8(vec) => &vec[index..index*width],
-            Self::U16(vec) => &vec[index..index*width],
-            Self::U32(vec) => &vec[index..index*width],
+            Self::U8(vec) => &vec[index..index * width],
+            Self::U16(vec) => &vec[index..index * width],
+            Self::U32(vec) => &vec[index..index * width],
         }
     }
 }
@@ -149,9 +178,15 @@ impl<const WIDTH: usize> ConstrainedCharacterString<WIDTH> {
 
     pub fn to_octet_aligned(&self) -> OctetAlignedString {
         match WIDTH.next_power_of_two() {
-            0..=8 => OctetAlignedString::U8(collapse_bit_storage(self.iter().map(|slice| slice.load_be::<u8>()))),
-            9..=16 => OctetAlignedString::U16(collapse_bit_storage(self.iter().map(|slice| slice.load_be::<u16>()))),
-            17..=32 => OctetAlignedString::U32(collapse_bit_storage(self.iter().map(|slice| slice.load_be::<u32>()))),
+            0..=8 => OctetAlignedString::U8(collapse_bit_storage(
+                self.iter().map(|slice| slice.load_be::<u8>()),
+            )),
+            9..=16 => OctetAlignedString::U16(collapse_bit_storage(
+                self.iter().map(|slice| slice.load_be::<u16>()),
+            )),
+            17..=32 => OctetAlignedString::U32(collapse_bit_storage(
+                self.iter().map(|slice| slice.load_be::<u32>()),
+            )),
             _ => unreachable!("character widths beyond 32 bits are unsupported"),
         }
     }
@@ -169,7 +204,9 @@ impl<const WIDTH: usize> core::ops::Index<usize> for ConstrainedCharacterString<
     }
 }
 
-impl<const WIDTH: usize> core::ops::Index<core::ops::Range<usize>> for ConstrainedCharacterString<WIDTH> {
+impl<const WIDTH: usize> core::ops::Index<core::ops::Range<usize>>
+    for ConstrainedCharacterString<WIDTH>
+{
     type Output = types::BitStr;
 
     fn index(&self, index: core::ops::Range<usize>) -> &Self::Output {
@@ -189,17 +226,26 @@ pub struct DynConstrainedCharacterString {
 pub struct ConstrainedConversionError;
 
 impl DynConstrainedCharacterString {
-    pub fn from_bits(data: &types::BitStr, original_character_width: usize, character_set: &[u32]) -> Result<Self, ConstrainedConversionError> {
+    pub fn from_bits(
+        data: &types::BitStr,
+        original_character_width: usize,
+        character_set: &[u32],
+    ) -> Result<Self, ConstrainedConversionError> {
         let mut buffer = types::BitString::new();
         let char_width = crate::per::log2(character_set.len() as i128) as u32;
-        let alphabet = BTreeMap::from_iter(character_set.into_iter().enumerate().map(|(i, a)| (*a, i as u32)));
+        let alphabet = BTreeMap::from_iter(
+            character_set
+                .into_iter()
+                .enumerate()
+                .map(|(i, a)| (*a, i as u32)),
+        );
 
         for ch in data.chunks(original_character_width) {
             let ch = ch.load_be::<u32>();
             let Some(index) = alphabet.get(&ch).copied() else {
                 return Err(ConstrainedConversionError)
             };
-            let range = ((u32::BITS-char_width) as usize)..(u32::BITS as usize);
+            let range = ((u32::BITS - char_width) as usize)..(u32::BITS as usize);
             let bit_ch = &index.view_bits::<Msb0>()[range];
             buffer.extend_from_bitslice(bit_ch);
         }
@@ -210,7 +256,10 @@ impl DynConstrainedCharacterString {
         })
     }
 
-    pub fn from_known_multiplier_string<const WIDTH: usize>(string: &ConstrainedCharacterString<WIDTH>, character_set: &[u32]) -> Result<Self, ConstrainedConversionError> {
+    pub fn from_known_multiplier_string<const WIDTH: usize>(
+        string: &ConstrainedCharacterString<WIDTH>,
+        character_set: &[u32],
+    ) -> Result<Self, ConstrainedConversionError> {
         Self::from_bits(string.as_bitstr(), string.character_width(), character_set)
     }
 
@@ -232,9 +281,15 @@ impl DynConstrainedCharacterString {
 
     pub fn to_octet_aligned(&self) -> OctetAlignedString {
         match self.character_width().next_power_of_two() {
-            0..=8 => OctetAlignedString::U8(collapse_bit_storage(self.iter().map(|slice| slice.load_be::<u8>()))),
-            9..=16 => OctetAlignedString::U16(collapse_bit_storage(self.iter().map(|slice| slice.load_be::<u16>()))),
-            17..=32 => OctetAlignedString::U32(collapse_bit_storage(self.iter().map(|slice| slice.load_be::<u32>()))),
+            0..=8 => OctetAlignedString::U8(collapse_bit_storage(
+                self.iter().map(|slice| slice.load_be::<u8>()),
+            )),
+            9..=16 => OctetAlignedString::U16(collapse_bit_storage(
+                self.iter().map(|slice| slice.load_be::<u16>()),
+            )),
+            17..=32 => OctetAlignedString::U32(collapse_bit_storage(
+                self.iter().map(|slice| slice.load_be::<u32>()),
+            )),
             _ => unreachable!("character widths beyond 32 bits are unsupported"),
         }
     }
@@ -261,7 +316,9 @@ impl core::ops::Index<core::ops::Range<usize>> for DynConstrainedCharacterString
     }
 }
 
-fn collapse_bit_storage<'bits, T: bitvec::store::BitStore>(iter: impl IntoIterator<Item = T>) -> types::BitString {
+fn collapse_bit_storage<'bits, T: bitvec::store::BitStore>(
+    iter: impl IntoIterator<Item = T>,
+) -> types::BitString {
     let mut string = types::BitString::new();
     for slice in iter {
         string.extend_from_bitslice(slice.view_bits::<bitvec::order::Msb0>());

@@ -20,11 +20,7 @@ pub fn derive_struct_impl(
     let encode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
 
-        if let Some(tag) = config
-            .tag
-            .as_ref()
-            .filter(|tag| tag.is_explicit())
-        {
+        if let Some(tag) = config.tag.as_ref().filter(|tag| tag.is_explicit()) {
             let tag = tag.to_tokens(crate_root);
             let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.0).map(drop));
             if config.option_type.is_option_type(&ty) {
@@ -61,7 +57,7 @@ pub fn derive_struct_impl(
                 &container.fields,
                 &generics,
                 &crate_root,
-                true
+                true,
             )
         } else {
             encode_impl
@@ -90,8 +86,13 @@ pub fn map_to_inner_type(
 ) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
     let mut inner_generics = generics.clone();
-    let lifetime = syn::Lifetime::new(&format!("'inner{}", uuid::Uuid::new_v4().as_u128()), proc_macro2::Span::call_site());
-    inner_generics.params.push(syn::LifetimeDef::new(lifetime.clone()).into());
+    let lifetime = syn::Lifetime::new(
+        &format!("'inner{}", uuid::Uuid::new_v4().as_u128()),
+        proc_macro2::Span::call_site(),
+    );
+    inner_generics
+        .params
+        .push(syn::LifetimeDef::new(lifetime.clone()).into());
 
     let (field_defs, init_fields) = match &fields {
         syn::Fields::Named(_) => {

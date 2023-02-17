@@ -119,9 +119,10 @@ mod tests {
 
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
-            const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-                Constraint::Value(constraints::Extensible::new(constraints::Value::new(constraints::Range::start_from(127))))
-            ]);
+            const CONSTRAINTS: Constraints<'static> =
+                Constraints::new(&[Constraint::Value(constraints::Extensible::new(
+                    constraints::Value::new(constraints::Range::start_from(127)),
+                ))]);
         }
 
         impl crate::Encode for CustomInt {
@@ -132,11 +133,7 @@ mod tests {
                 constraints: Constraints,
             ) -> Result<(), E::Error> {
                 encoder
-                    .encode_integer(
-                        tag,
-                        constraints,
-                        &self.0.into(),
-                    )
+                    .encode_integer(tag, constraints, &self.0.into())
                     .map(drop)
             }
         }
@@ -150,10 +147,7 @@ mod tests {
                 use crate::de::Error;
                 use core::convert::TryFrom;
 
-                let integer = decoder.decode_integer(
-                    tag,
-                    constraints,
-                )?;
+                let integer = decoder.decode_integer(tag, constraints)?;
 
                 Ok(Self(<_>::try_from(integer).map_err(D::Error::custom)?))
             }

@@ -12,12 +12,21 @@ const SIXTY_FOUR_K: u32 = 65536;
 const TWO_FIFTY_SIX: u32 = 256;
 
 /// Attempts to decode `T` from `input` using DER.
-pub(crate) fn decode<T: crate::Decode>(options: de::DecoderOptions, input: &[u8]) -> Result<T, crate::per::de::Error> {
-    T::decode(&mut crate::per::de::Decoder::new(crate::types::BitStr::from_slice(input), options))
+pub(crate) fn decode<T: crate::Decode>(
+    options: de::DecoderOptions,
+    input: &[u8],
+) -> Result<T, crate::per::de::Error> {
+    T::decode(&mut crate::per::de::Decoder::new(
+        crate::types::BitStr::from_slice(input),
+        options,
+    ))
 }
 
 /// Attempts to encode `value` to DER.
-pub(crate) fn encode<T: crate::Encode>(options: enc::EncoderOptions, value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+pub(crate) fn encode<T: crate::Encode>(
+    options: enc::EncoderOptions,
+    value: &T,
+) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
     let mut enc = crate::per::enc::Encoder::new(options);
 
     value.encode(&mut enc)?;
@@ -26,12 +35,23 @@ pub(crate) fn encode<T: crate::Encode>(options: enc::EncoderOptions, value: &T) 
 }
 
 /// Attempts to decode `T` from `input` using DER.
-pub(crate) fn decode_with_constraints<T: crate::Decode>(options: de::DecoderOptions, constraints: Constraints, input: &[u8]) -> Result<T, crate::per::de::Error> {
-    T::decode_with_constraints(&mut crate::per::de::Decoder::new(crate::types::BitStr::from_slice(input), options), constraints)
+pub(crate) fn decode_with_constraints<T: crate::Decode>(
+    options: de::DecoderOptions,
+    constraints: Constraints,
+    input: &[u8],
+) -> Result<T, crate::per::de::Error> {
+    T::decode_with_constraints(
+        &mut crate::per::de::Decoder::new(crate::types::BitStr::from_slice(input), options),
+        constraints,
+    )
 }
 
 /// Attempts to encode `value` to DER.
-pub(crate) fn encode_with_constraints<T: crate::Encode>(options: enc::EncoderOptions, constraints: Constraints, value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+pub(crate) fn encode_with_constraints<T: crate::Encode>(
+    options: enc::EncoderOptions,
+    constraints: Constraints,
+    value: &T,
+) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
     let mut enc = crate::per::enc::Encoder::new(options);
 
     value.encode_with_constraints(&mut enc, constraints)?;
@@ -45,7 +65,7 @@ pub(crate) fn log2(x: i128) -> u32 {
 
 #[cfg(test)]
 mod tests {
-    use crate::{types::*, prelude::*};
+    use crate::{prelude::*, types::*};
 
     macro_rules! round_trip {
         ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
@@ -57,7 +77,7 @@ mod tests {
             let decoded_value: $typ = crate::$codec::decode(&actual_encoding).unwrap();
 
             assert_eq!(value, decoded_value);
-        }}
+        }};
     }
 
     #[test]
@@ -76,11 +96,66 @@ mod tests {
             Normal,
             High,
             #[rasn(extension_addition)]
-            Medium
+            Medium,
         }
 
         round_trip!(uper, Choice, Choice::Normal, &[0]);
         round_trip!(uper, Choice, Choice::Medium, &[0x80, 1, 0]);
         round_trip!(aper, Choice, Choice::Medium, &[0x80, 1, 0]);
+    }
+
+    #[test]
+    fn extension_additions() {
+        #[derive(AsnType, Clone, Copy, Debug, Decode, Default, Encode, PartialEq)]
+        #[rasn(enumerated, crate_root = "crate")]
+        enum Urgency {
+            #[default]
+            Normal,
+            High,
+        }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct MySequenceValExtension {
+            #[rasn(value("0..254"))]
+            alternate_item_code: u8,
+            #[rasn(size("3..10"))]
+            alternate_item_name: Option<Ia5String>,
+        }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct MySequenceVal {
+            #[rasn(value("0..254"))]
+            item_code: u8,
+            #[rasn(size("3..10"))]
+            item_name: Option<Ia5String>,
+            #[rasn(extension_addition, default)]
+            urgency: Urgency,
+            #[rasn(extension_addition_group)]
+            v2: MySequenceValExtension,
+        }
+
+        let value = MySequenceVal {
+            item_code: 29,
+            item_name: Some(Ia5String::try_from("SHERRY").unwrap()),
+            urgency: Urgency::High,
+            v2: MySequenceValExtension {
+                alternate_item_code: 45,
+                alternate_item_name: Some(Ia5String::try_from("PORT").unwrap()),
+            },
+        };
+
+        round_trip!(
+            uper,
+            MySequenceVal,
+            value,
+            &[
+                0xc7, 0x5d, 0x39, 0x11, 0x69, 0x52, 0xb2, 0x7, 0x1, 0x80, 0x5, 0x96, 0x9a, 0x13,
+                0xe9, 0x54
+            ]
+        );
     }
 }

@@ -76,7 +76,12 @@ pub enum ApplicationSyntax {
 pub struct ExtUtcTime(pub chrono::DateTime<chrono::Utc>);
 
 impl Encode for ExtUtcTime {
-    fn encode_with_tag_and_constraints<EN: Encoder>(&self, encoder: &mut EN, tag: Tag, _: Constraints) -> Result<(), EN::Error> {
+    fn encode_with_tag_and_constraints<EN: Encoder>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<(), EN::Error> {
         encoder
             .encode_octet_string(
                 tag,
@@ -88,7 +93,11 @@ impl Encode for ExtUtcTime {
 }
 
 impl Decode for ExtUtcTime {
-    fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, _: Constraints) -> Result<Self, D::Error> {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<Self, D::Error> {
         let bytes = OctetString::decode_with_tag(decoder, tag)?;
         let len = bytes.len();
         let error = || Err(rasn::de::Error::custom("Invalid `ExtUtcTime` encoding"));

@@ -54,7 +54,7 @@ pub enum Tag {
     },
     Delegate {
         ty: syn::Type,
-    }
+    },
 }
 
 impl Tag {
@@ -129,7 +129,13 @@ impl Tag {
 
     pub fn from_fields(fields: &syn::Fields) -> Self {
         match fields {
-            syn::Fields::Unit => Self::Delegate { ty: syn::TypeTuple { paren_token: <_>::default(), elems: <_>::default() }.into() },
+            syn::Fields::Unit => Self::Delegate {
+                ty: syn::TypeTuple {
+                    paren_token: <_>::default(),
+                    elems: <_>::default(),
+                }
+                .into(),
+            },
             syn::Fields::Named(_) => Self::SEQUENCE(),
             syn::Fields::Unnamed(_) => {
                 if fields.iter().count() != 1 {
@@ -159,7 +165,11 @@ impl Tag {
 
     pub fn to_attribute_tokens(&self) -> proc_macro2::TokenStream {
         match self {
-            Self::Value { class, value, explicit } => {
+            Self::Value {
+                class,
+                value,
+                explicit,
+            } => {
                 let class = class.to_ident();
                 let mut attribute = quote!(#class, #value);
 
@@ -167,10 +177,9 @@ impl Tag {
                     attribute = quote!(explicit(#attribute));
                 }
                 quote!(#[rasn(tag(#attribute))])
-            },
+            }
             Self::Delegate { .. } => quote!(#[rasn(delegate)]),
         }
-
     }
 }
 
@@ -223,4 +232,3 @@ consts! {
     CHARACTER_STRING = 29,
     BMP_STRING = 30
 }
-

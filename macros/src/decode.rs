@@ -13,7 +13,6 @@ pub fn derive_struct_impl(
     generics.add_trait_bounds(crate_root, quote::format_ident!("Decode"));
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
-
     let decode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
 
@@ -147,21 +146,22 @@ pub fn derive_struct_impl(
         }
     };
 
-    let decode_impl = if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
-        let tag = config.tag_for_struct(&container.fields);
-        map_from_inner_type(
-            tag,
-            &name,
-            &generics,
-            &container.fields,
-            container.semi_token,
-            None,
-            &config,
-            true,
-        )
-    } else {
-        decode_impl
-    };
+    let decode_impl =
+        if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
+            let tag = config.tag_for_struct(&container.fields);
+            map_from_inner_type(
+                tag,
+                &name,
+                &generics,
+                &container.fields,
+                container.semi_token,
+                None,
+                &config,
+                true,
+            )
+        } else {
+            decode_impl
+        };
 
     quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
@@ -199,7 +199,6 @@ pub fn map_from_inner_type(
         let field_config = FieldConfig::new(field, config);
         field_config.decode_field_def(name, i)
     });
-
 
     let decode_op = if is_explicit {
         quote!(decoder.decode_explicit_prefix::<#inner_name>(#tag)?)

@@ -136,7 +136,10 @@ impl crate::de::Error for Error {
     }
 
     fn field_error<D: core::fmt::Display>(name: &'static str, error: D) -> Self {
-        Self::from(Kind::FieldError { name, msg: error.to_string() })
+        Self::from(Kind::FieldError {
+            name,
+            msg: error.to_string(),
+        })
     }
 
     fn duplicate_field(name: &'static str) -> Self {

@@ -70,13 +70,22 @@ impl AsnType for Ia5String {
 }
 
 impl Encode for Ia5String {
-    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(&self, encoder: &mut E, tag: Tag, constraints: Constraints<'constraints>) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        constraints: Constraints<'constraints>,
+    ) -> Result<(), E::Error> {
         encoder.encode_ia5_string(tag, constraints, &self).map(drop)
     }
 }
 
 impl Decode for Ia5String {
-    fn decode_with_tag_and_constraints<'constraints, D: Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints<'constraints>) -> Result<Self, D::Error> {
+    fn decode_with_tag_and_constraints<'constraints, D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        constraints: Constraints<'constraints>,
+    ) -> Result<Self, D::Error> {
         decoder.decode_ia5_string(tag, constraints)
     }
 }

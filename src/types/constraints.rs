@@ -22,9 +22,7 @@ impl<'r> Constraints<'r> {
     }
 
     pub fn size(&self) -> Option<&Extensible<Size>> {
-        self.0
-            .iter()
-            .find_map(|constraint| constraint.to_size())
+        self.0.iter().find_map(|constraint| constraint.to_size())
     }
 
     pub fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
@@ -38,9 +36,7 @@ impl<'r> Constraints<'r> {
     }
 
     pub fn value(&self) -> Option<Extensible<Value>> {
-        self.0
-            .iter()
-            .find_map(|constraint| constraint.to_value())
+        self.0.iter().find_map(|constraint| constraint.to_value())
     }
 }
 
@@ -124,7 +120,7 @@ impl Constraint {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub struct Extensible<T : 'static> {
+pub struct Extensible<T: 'static> {
     pub constraint: T,
     /// Whether the constraint is extensible, and if it is, a list of extensible
     /// constraints.
@@ -337,16 +333,24 @@ impl<T: Default + Clone> Range<T> {
     }
 }
 
-impl<T: PartialEq + PartialOrd + num_traits::WrappingSub<Output = T> + std::ops::Add<Output = T> + From<u8> + Clone + core::fmt::Debug> Range<T> {
+impl<
+        T: PartialEq
+            + PartialOrd
+            + num_traits::WrappingSub<Output = T>
+            + std::ops::Add<Output = T>
+            + From<u8>
+            + Clone
+            + core::fmt::Debug,
+    > Range<T>
+{
     pub fn range(&self) -> Option<T> {
         match (&self.start, &self.end) {
-            (Some(start), Some(end)) => {
-                Some(
-                    end.wrapping_sub(start) + (start == &T::from(0))
+            (Some(start), Some(end)) => Some(
+                end.wrapping_sub(start)
+                    + (start == &T::from(0))
                         .then(|| T::from(1))
-                        .unwrap_or_else(|| T::from(0))
-                )
-            }
+                        .unwrap_or_else(|| T::from(0)),
+            ),
             _ => None,
         }
     }
@@ -368,10 +372,14 @@ impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + Partia
 }
 
 impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd<T>> Range<T>
-    where crate::types::Integer: From<T>
+where
+    crate::types::Integer: From<T>,
 {
     /// The same as [`effective_value`] except using [`crate::types::Integer`].
-    pub fn effective_bigint_value(&self, value: crate::types::Integer) -> either::Either<crate::types::Integer, crate::types::Integer> {
+    pub fn effective_bigint_value(
+        &self,
+        value: crate::types::Integer,
+    ) -> either::Either<crate::types::Integer, crate::types::Integer> {
         if let Some(start) = self.start.clone().map(crate::types::Integer::from) {
             debug_assert!(value >= start);
             either::Left(value - start)
@@ -414,6 +422,18 @@ impl From<PermittedAlphabet> for Constraint {
 impl From<Extensible<PermittedAlphabet>> for Constraint {
     fn from(size: Extensible<PermittedAlphabet>) -> Self {
         Self::PermittedAlphabet(size)
+    }
+}
+
+impl Range<i128> {
+    pub fn bigint_contains(&self, element: &num_bigint::BigInt) -> bool {
+        self.start
+            .as_ref()
+            .map_or(true, |&start| element >= &start.into())
+            && self
+                .end
+                .as_ref()
+                .map_or(true, |&end| element <= &end.into())
     }
 }
 

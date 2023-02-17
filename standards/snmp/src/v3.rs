@@ -10,7 +10,10 @@
 //! - [RFC 3416](https://datatracker.ietf.org/doc/html/rfc3416): Version 2 of the Protocol
 //!   Operations for the Simple Network Management Protocol (SNMP)
 
-use rasn::{prelude::*, types::{Integer, OctetString}};
+use rasn::{
+    prelude::*,
+    types::{Integer, OctetString},
+};
 
 pub use crate::v2::{
     GetBulkRequest, GetNextRequest, GetRequest, InformRequest, Pdus, Response, SetRequest, Trap,

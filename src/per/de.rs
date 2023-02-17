@@ -7,7 +7,13 @@ use snafu::*;
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
     de::Error as _,
-    types::{self, constraints::{self, Extensible}, Constraints, Tag, strings::StaticPermittedAlphabet, fields::{Field, Fields}},
+    types::{
+        self,
+        constraints::{self, Extensible},
+        fields::{Field, Fields},
+        strings::StaticPermittedAlphabet,
+        Constraints, Tag,
+    },
     Decode,
 };
 
@@ -55,10 +61,19 @@ impl<'input> Decoder<'input> {
 
     #[track_caller]
     fn require_field(&mut self, tag: Tag) -> Result<bool> {
-        if self.fields.front().map(|field| field.0.tag_tree.smallest_tag() == tag).unwrap_or_default() {
+        if self
+            .fields
+            .front()
+            .map(|field| field.0.tag_tree.smallest_tag() == tag)
+            .unwrap_or_default()
+        {
             Ok(self.fields.pop_front().unwrap().1)
         } else {
-            Err(Error::custom(alloc::format!("expected class: {}, value: {} in sequence or set", tag.class, tag.value)))
+            Err(Error::custom(alloc::format!(
+                "expected class: {}, value: {} in sequence or set",
+                tag.class,
+                tag.value
+            )))
         }
     }
 
@@ -70,9 +85,12 @@ impl<'input> Decoder<'input> {
             .map(|opt| opt.unwrap_or_default())
     }
 
-    fn parse_optional_and_default_field_bitmap(&mut self, fields: &Fields) -> Result<InputSlice<'input>> {
+    fn parse_optional_and_default_field_bitmap(
+        &mut self,
+        fields: &Fields,
+    ) -> Result<InputSlice<'input>> {
         let (input, bitset) = nom::bytes::streaming::take(
-            fields.number_of_optional_and_default_fields()
+            fields.number_of_optional_and_default_fields(),
         )(self.input)?;
         self.input = input;
         Ok(bitset)
@@ -111,15 +129,15 @@ impl<'input> Decoder<'input> {
         let (input, mask) = nom::bytes::streaming::take(1u8)(input)?;
 
         if mask[0] == false {
-            let (input, length) = nom::bytes::streaming::take(7u8)(input)
-                .map(|(i, bs)| (i, bs.to_bitvec()))?;
+            let (input, length) =
+                nom::bytes::streaming::take(7u8)(input).map(|(i, bs)| (i, bs.to_bitvec()))?;
             (decode_fn)(input, length.load_be::<usize>())
         } else {
             let (input, mask) = nom::bytes::streaming::take(1u8)(input)?;
 
             if mask[0] == false {
-                let (input, length) = nom::bytes::streaming::take(14u8)(input)
-                    .map(|(i, bs)| (i, bs.to_bitvec()))?;
+                let (input, length) =
+                    nom::bytes::streaming::take(14u8)(input).map(|(i, bs)| (i, bs.to_bitvec()))?;
                 (decode_fn)(input, length.load_be::<usize>())
             } else {
                 let (input, mask) = nom::bytes::streaming::take(6u8)(input)?;
@@ -134,7 +152,8 @@ impl<'input> Decoder<'input> {
                         }
                         .into())
                     }
-                }.into();
+                }
+                .into();
 
                 let mut input = (decode_fn)(input, length)?;
 
@@ -165,11 +184,15 @@ impl<'input> Decoder<'input> {
 
         let size_constraint = constraints.constraint;
 
-        if let Some(range) = size_constraint.range().filter(|range| *range <= u16::MAX.into()) {
+        if let Some(range) = size_constraint
+            .range()
+            .filter(|range| *range <= u16::MAX.into())
+        {
             if range == 0 {
                 (decode_fn)(input, size_constraint.start())
             } else {
-                let (input, length) = nom::bytes::streaming::take(super::log2(range as i128))(input)?;
+                let (input, length) =
+                    nom::bytes::streaming::take(super::log2(range as i128))(input)?;
                 (decode_fn)(input, length.load_be::<usize>() + size_constraint.start())
             }
         } else {
@@ -203,7 +226,8 @@ impl<'input> Decoder<'input> {
             return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
-        let number = if let Some(range) = value_constraint.constraint
+        let number = if let Some(range) = value_constraint
+            .constraint
             .range()
             .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
         {
@@ -270,14 +294,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_object_identifier(&mut self, _: Tag) -> Result<crate::types::ObjectIdentifier> {
         let octets = self.decode_octets()?.into_vec();
 
-        crate::ber::decode(&octets).context(error::BerSnafu).map_err(From::from)
+        crate::ber::decode(&octets)
+            .context(error::BerSnafu)
+            .map_err(From::from)
     }
 
-    fn decode_bit_string(
-        &mut self,
-        _: Tag,
-        constraints: Constraints,
-    ) -> Result<types::BitString> {
+    fn decode_bit_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::BitString> {
         let mut bit_string = types::BitString::default();
 
         self.decode_extensible_container(constraints, |input, length| {
@@ -295,7 +317,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
         constraints: Constraints,
     ) -> Result<types::VisibleString> {
         let mut bit_string = types::BitString::default();
-        let char_width = constraints.permitted_alphabet().map(|alphabet| crate::per::log2(alphabet.constraint.len() as i128) as usize).unwrap_or(7);
+        let char_width = constraints
+            .permitted_alphabet()
+            .map(|alphabet| crate::per::log2(alphabet.constraint.len() as i128) as usize)
+            .unwrap_or(7);
 
         self.decode_extensible_container(constraints.clone(), |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * char_width)(input)?;
@@ -305,18 +330,25 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         match constraints.permitted_alphabet() {
             Some(alphabet) => {
-                let map = alphabet.constraint.into_iter().copied().enumerate().map(|(i, e)| (i as u32, e)).collect();
-                types::strings::try_from_permitted_alphabet::<types::VisibleString, _>(&bit_string, &map, types::VisibleString::character_width()).map_err(Error::custom)
+                let map = alphabet
+                    .constraint
+                    .into_iter()
+                    .copied()
+                    .enumerate()
+                    .map(|(i, e)| (i as u32, e))
+                    .collect();
+                types::strings::try_from_permitted_alphabet::<types::VisibleString, _>(
+                    &bit_string,
+                    &map,
+                    types::VisibleString::character_width(),
+                )
+                .map_err(Error::custom)
             }
             None => Ok(types::VisibleString::from_raw_bits(bit_string)),
         }
     }
 
-    fn decode_ia5_string(
-        &mut self,
-        _: Tag,
-        constraints: Constraints,
-    ) -> Result<types::Ia5String> {
+    fn decode_ia5_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::Ia5String> {
         todo!()
     }
 
@@ -344,11 +376,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         todo!()
     }
 
-    fn decode_bmp_string(
-        &mut self,
-        _: Tag,
-        constraints: Constraints,
-    ) -> Result<types::BmpString> {
+    fn decode_bmp_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::BmpString> {
         todo!()
     }
 
@@ -364,13 +392,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
         let bytes = self.decode_octet_string(tag, <_>::default())?;
 
-        crate::ber::decode(&bytes).context(error::BerSnafu).map_err(From::from)
+        crate::ber::decode(&bytes)
+            .context(error::BerSnafu)
+            .map_err(From::from)
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
         let bytes = self.decode_octet_string(tag, <_>::default())?;
 
-        crate::ber::decode(&bytes).context(error::BerSnafu).map_err(From::from)
+        crate::ber::decode(&bytes)
+            .context(error::BerSnafu)
+            .map_err(From::from)
     }
 
     fn decode_sequence_of<D: Decode>(
@@ -413,16 +445,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
         constraints: Constraints,
         decode_fn: F,
     ) -> Result<D, Self::Error>
-        where
-            D: crate::types::Constructed,
-            F: FnOnce(&mut Self) -> Result<D, Self::Error>,
+    where
+        D: crate::types::Constructed,
+        F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
         let is_extensible = self.parse_extensible_bit(&constraints)?;
         let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
 
         let value = {
             let mut sequence_decoder = Self::new(self.input(), self.options);
-            sequence_decoder.fields = D::FIELDS.optional_and_default_fields().zip(bitmap.into_iter().map(|b| *b)).collect();
+            sequence_decoder.fields = D::FIELDS
+                .optional_and_default_fields()
+                .zip(bitmap.into_iter().map(|b| *b))
+                .collect();
             let value = (decode_fn)(&mut sequence_decoder)?;
 
             self.input = sequence_decoder.input;
@@ -455,18 +490,28 @@ impl<'input> crate::Decoder for Decoder<'input> {
     {
         let is_extensible = self.parse_extensible_bit(&constraints)?;
         let bitmap = self.parse_optional_and_default_field_bitmap(&SET::FIELDS)?;
-        let field_map = SET::FIELDS.optional_and_default_fields().zip(bitmap.into_iter().map(|b| *b)).collect::<alloc::collections::BTreeMap<_, _>>();
+        let field_map = SET::FIELDS
+            .optional_and_default_fields()
+            .zip(bitmap.into_iter().map(|b| *b))
+            .collect::<alloc::collections::BTreeMap<_, _>>();
 
         let fields = {
             let mut fields = Vec::new();
             let mut set_decoder = Self::new(self.input(), self.options);
-            set_decoder.fields = SET::FIELDS.optional_and_default_fields().zip(bitmap.into_iter().map(|b| *b)).collect();
+            set_decoder.fields = SET::FIELDS
+                .optional_and_default_fields()
+                .zip(bitmap.into_iter().map(|b| *b))
+                .collect();
 
             let mut field_indices = SET::FIELDS.iter().enumerate().collect::<Vec<_>>();
-            field_indices.sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+            field_indices.sort_by(|(_, a), (_, b)| {
+                a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag())
+            });
             for (indice, field) in field_indices.into_iter() {
                 match field_map.get(&field).copied() {
-                    Some(true) | None => fields.push((decode_fn)(&mut set_decoder, indice, field.tag)?),
+                    Some(true) | None => {
+                        fields.push((decode_fn)(&mut set_decoder, indice, field.tag)?)
+                    }
                     Some(false) => {}
                 }
             }
@@ -489,10 +534,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
     /// Passing the correct tag is required even when used with codecs where
     /// the tag is not present.
-    fn decode_optional_with_tag<D: Decode>(
-        &mut self,
-        tag: Tag,
-    ) -> Result<Option<D>, Self::Error> {
+    fn decode_optional_with_tag<D: Decode>(&mut self, tag: Tag) -> Result<Option<D>, Self::Error> {
         let is_present = self.require_field(tag)?;
 
         if is_present {
@@ -515,7 +557,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
     }
 
-
     fn decode_optional_with_tag_and_constraints<D: Decode>(
         &mut self,
         tag: Tag,
@@ -530,13 +571,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
     }
 
-    fn decode_choice<D, F>(&mut self, constraints: Constraints, decode_fn: F) -> Result<D, Self::Error>
-        where D: Decode + crate::types::Choice,
-              F: FnOnce(&mut Self, Tag) -> Result<D, Self::Error>
+    fn decode_choice<D, F>(
+        &mut self,
+        constraints: Constraints,
+        decode_fn: F,
+    ) -> Result<D, Self::Error>
+    where
+        D: Decode + crate::types::Choice,
+        F: FnOnce(&mut Self, Tag) -> Result<D, Self::Error>,
     {
         let is_extensible = self.parse_extensible_bit(&constraints)?;
         let variants = crate::types::variants::Variants::from_static(
-            is_extensible.then(|| D::EXTENDED_VARIANTS).unwrap_or(D::VARIANTS)
+            is_extensible
+                .then(|| D::EXTENDED_VARIANTS)
+                .unwrap_or(D::VARIANTS),
         );
 
         let index = if variants.len() != 1 || is_extensible {
@@ -544,16 +592,23 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 self.parse_normally_small_integer()?
             } else {
                 let variance = variants.len();
-                let constraints = constraints::Value::new(constraints::Range::new(0, variance as i128)).into();
+                let constraints =
+                    constraints::Value::new(constraints::Range::new(0, variance as i128)).into();
                 self.parse_integer(Constraints::new(&[constraints]))?
-            }).map_err(|error| Error::choice_index_exceeds_platform_width(usize::BITS, error.into_original().bits()))?
+            })
+            .map_err(|error| {
+                Error::choice_index_exceeds_platform_width(
+                    usize::BITS,
+                    error.into_original().bits(),
+                )
+            })?
         } else {
             0
         };
 
-        let tag = variants.get(index).ok_or_else(|| {
-            Error::choice_index_not_found(index, variants.clone())
-        })?;
+        let tag = variants
+            .get(index)
+            .ok_or_else(|| Error::choice_index_not_found(index, variants.clone()))?;
 
         Ok((decode_fn)(self, *tag)?)
     }

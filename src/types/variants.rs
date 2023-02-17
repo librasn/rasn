@@ -9,19 +9,19 @@ pub struct Variants {
 
 impl Variants {
     pub fn new(fields: Cow<'static, [TagTree]>) -> Self {
-        let fields = (&*fields).iter().flat_map(|tree| {
-            fn flatten_tree(tree: &TagTree) -> Vec<Tag> {
-                match tree {
-                    TagTree::Leaf(tag) => vec![*tag],
-                    TagTree::Choice(tree) => {
-                        tree.iter().flat_map(flatten_tree).collect()
+        let fields = (&*fields)
+            .iter()
+            .flat_map(|tree| {
+                fn flatten_tree(tree: &TagTree) -> Vec<Tag> {
+                    match tree {
+                        TagTree::Leaf(tag) => vec![*tag],
+                        TagTree::Choice(tree) => tree.iter().flat_map(flatten_tree).collect(),
                     }
                 }
-            }
 
-            flatten_tree(tree)
-        })
-        .collect();
+                flatten_tree(tree)
+            })
+            .collect();
 
         Self { fields }
     }

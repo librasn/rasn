@@ -19,19 +19,22 @@ pub(crate) mod strings;
 use alloc::boxed::Box;
 
 pub use {
-    bytes::Bytes as OctetString,
-    rasn_derive::AsnType,
-    num_bigint::BigInt as Integer,
     self::{
         any::Any,
-        constraints::{Constraints, Constraint, Extensible},
+        constraints::{Constraint, Constraints, Extensible},
         instance::InstanceOf,
         oid::{ConstOid, ObjectIdentifier, Oid},
         open::Open,
         prefix::{Explicit, Implicit},
-        strings::{BmpString, Ia5String, PrintableString, NumericString, TeletexString, VisibleString, Utf8String},
+        strings::{
+            BmpString, Ia5String, NumericString, PrintableString, TeletexString, Utf8String,
+            VisibleString,
+        },
         tag::{Class, Tag, TagTree},
-    }
+    },
+    bytes::Bytes as OctetString,
+    num_bigint::BigInt as Integer,
+    rasn_derive::AsnType,
 };
 
 ///  The `BIT STRING` type.
@@ -159,9 +162,9 @@ impl<T> AsnType for alloc::collections::BTreeSet<T> {
 
 impl<T: AsnType, const N: usize> AsnType for [T; N] {
     const TAG: Tag = Tag::SEQUENCE;
-    const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-        Constraint::Size(Extensible::new(constraints::Size::new(constraints::Range::single_value(N))))
-    ]);
+    const CONSTRAINTS: Constraints<'static> = Constraints::new(&[Constraint::Size(
+        Extensible::new(constraints::Size::new(constraints::Range::single_value(N))),
+    )]);
 }
 
 impl<T> AsnType for &'_ [T] {

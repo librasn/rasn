@@ -52,7 +52,10 @@ impl Enum {
 
         let name = &self.name;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
-        let return_val = self.config.tag.is_some()
+        let return_val = self
+            .config
+            .tag
+            .is_some()
             .then(|| quote!(#crate_root::types::TagTree::Leaf(Self::TAG)))
             .unwrap_or_else(|| quote!(TAG_TREE));
 
@@ -69,10 +72,7 @@ impl Enum {
                 }
             });
 
-        let constraints_def = self.config.extensible.then(|| quote! {
-            const CONSTRAINTS: #crate_root::types::Constraints<'static> =
-                #crate_root::types::Constraints::new(&[#crate_root::types::constraints::Constraint::Extensible]);
-        });
+        let constraints_def = self.config.constraints.const_static_def(&crate_root);
 
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
@@ -146,10 +146,12 @@ impl Enum {
         };
 
         let decode_op = if self.config.choice {
-            let (consts, variants): (Vec<_>, Vec<_>) =
-                self.variants.iter().enumerate().map(|(i, v)| {
-                    VariantConfig::new(v, &generics, &self.config).decode(&self.name, i)
-                }).unzip();
+            let (consts, variants): (Vec<_>, Vec<_>) = self
+                .variants
+                .iter()
+                .enumerate()
+                .map(|(i, v)| VariantConfig::new(v, &generics, &self.config).decode(&self.name, i))
+                .unzip();
 
             let name = syn::LitStr::new(&self.name.to_string(), proc_macro2::Span::call_site());
             quote! {

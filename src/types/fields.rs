@@ -17,7 +17,9 @@ impl Fields {
     }
 
     pub const fn from_static(fields: &'static [Field]) -> Self {
-        Self { fields: Cow::Borrowed(fields) }
+        Self {
+            fields: Cow::Borrowed(fields),
+        }
     }
 
     pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
@@ -36,7 +38,9 @@ impl Fields {
 
     /// Sorts the fields by their canonical tag order.
     pub fn canonical_sort(&mut self) {
-        self.fields.to_mut().sort_by(|a, b| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+        self.fields
+            .to_mut()
+            .sort_by(|a, b| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
     }
 
     pub fn iter(&self) -> impl Iterator<Item = Field> + '_ {

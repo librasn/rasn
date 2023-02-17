@@ -245,11 +245,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifierSnafu)
     }
 
-    fn decode_bit_string(
-        &mut self,
-        tag: Tag,
-        _: Constraints,
-    ) -> Result<types::BitString> {
+    fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(&self.config, self.input, tag, |input| {
                 let unused_bits = if let Some(bits) = input.get(0).copied() {
@@ -300,9 +296,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::VisibleString, Self::Error> {
-        types::VisibleString::try_from(
-            self.decode_octet_string(tag, constraints)?
-        ).map_err(Error::custom)
+        types::VisibleString::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
     }
 
     fn decode_ia5_string(
@@ -310,9 +305,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::Ia5String> {
-        types::Ia5String::try_from(
-            self.decode_octet_string(tag, constraints)?
-        ).map_err(Error::custom)
+        types::Ia5String::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
     }
 
     fn decode_printable_string(
@@ -320,9 +314,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::PrintableString> {
-        types::PrintableString::try_from(
-            self.decode_octet_string(tag, constraints)?
-        ).map_err(Error::custom)
+        types::PrintableString::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
     }
 
     fn decode_numeric_string(
@@ -330,9 +323,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::NumericString> {
-        types::NumericString::try_from(
-            self.decode_octet_string(tag, constraints)?
-        ).map_err(Error::custom)
+        types::NumericString::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
     }
 
     fn decode_teletex_string(
@@ -340,16 +332,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::TeletexString> {
-        types::TeletexString::try_from(
-            self.decode_octet_string(tag, constraints)?
-        ).map_err(Error::custom)
+        types::TeletexString::try_from(self.decode_octet_string(tag, constraints)?)
+            .map_err(Error::custom)
     }
 
-    fn decode_bmp_string(
-        &mut self,
-        _: Tag,
-        constraints: Constraints,
-    ) -> Result<types::BmpString> {
+    fn decode_bmp_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::BmpString> {
         todo!()
     }
 
@@ -456,10 +443,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
     /// Passing the correct tag is required even when used with codecs where
     /// the tag is not present.
-    fn decode_optional_with_tag<D: Decode>(
-        &mut self,
-        tag: Tag,
-    ) -> Result<Option<D>, Self::Error> {
+    fn decode_optional_with_tag<D: Decode>(&mut self, tag: Tag) -> Result<Option<D>, Self::Error> {
         Ok(D::decode_with_tag(self, tag).ok())
     }
 
@@ -479,10 +463,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_choice<D, F>(&mut self, _: Constraints, decode_fn: F) -> Result<D, Self::Error>
-        where D: Decode + crate::types::Choice,
-              F: FnOnce(&mut Self, Tag) -> Result<D, Self::Error>
+    where
+        D: Decode + crate::types::Choice,
+        F: FnOnce(&mut Self, Tag) -> Result<D, Self::Error>,
     {
-        let (_, identifier) = parser::parse_identifier_octet(&self.input).map_err(error::map_nom_err)?;
+        let (_, identifier) =
+            parser::parse_identifier_octet(&self.input).map_err(error::map_nom_err)?;
         (decode_fn)(self, identifier.tag)
     }
 }

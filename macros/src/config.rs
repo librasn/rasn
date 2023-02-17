@@ -3,6 +3,133 @@ use syn::{Lit, NestedMeta, Path};
 
 use crate::{ext::TypeExt, tag::Tag};
 
+#[derive(Clone, Debug, Default)]
+pub struct Constraints {
+    pub extensible: bool,
+    pub from: Option<Constraint<StringValue>>,
+    pub size: Option<Constraint<Value>>,
+    pub value: Option<Constraint<Value>>,
+}
+
+impl Constraints {
+    pub fn const_static_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
+        self.const_expr(crate_root).map(
+            |expr| quote!(const CONSTRAINTS: #crate_root::types::Constraints<'static> = #expr;),
+        )
+    }
+
+    pub fn const_expr(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
+        self.has_constraints().then(|| {
+            let add_comma = |stream| quote!(#stream,);
+            let size = self.size_def(crate_root).map(add_comma);
+            let from = self.from_def(crate_root).map(add_comma);
+            let extensible = self.extensible_def(crate_root).map(add_comma);
+            let value = self.value_def(crate_root).map(add_comma);
+
+            quote! {
+                #crate_root::types::Constraints::new(&[
+                    #size
+                    #value
+                    #extensible
+                    #from
+                ])
+            }
+        })
+    }
+
+    fn size_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
+        self.size.as_ref().map(|value| {
+            let extensible = value.extensible.is_some();
+            let constraint = match value.constraint {
+                Value::Range(Some(min), Some(max)) => {
+                    quote!(#crate_root::types::constraints::Range::const_new(#min as usize, #max as usize))
+                }
+                Value::Range(Some(min), None) => {
+                    quote!(#crate_root::types::constraints::Range::start_from(#min as usize))
+                }
+                Value::Range(None, Some(max)) => {
+                    quote!(#crate_root::types::constraints::Range::up_to(#max as usize))
+                }
+                Value::Range(None, None) => {
+                    quote!(#crate_root::types::constraints::Range::const_new(usize::MIN, usize::MAX))
+                }
+                Value::Single(length) => {
+                    quote!(#crate_root::types::constraints::Range::single_value(#length as usize))
+                }
+            };
+
+            quote!(
+                #crate_root::types::Constraint::Size(
+                    #crate_root::types::constraints::Extensible::new(
+                        #crate_root::types::constraints::Size::new(
+                            #constraint
+                        )
+                    ).set_extensible(#extensible)
+                )
+            )
+        })
+    }
+
+    fn value_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
+        self.value.as_ref().map(|value| {
+            let extensible = value.extensible.is_some();
+            let constraint = match value.constraint {
+                Value::Range(Some(min), Some(max)) => {
+                    quote!(#crate_root::types::constraints::Range::const_new(#min as i128, #max as i128))
+                }
+                Value::Range(Some(min), None) => {
+                    quote!(#crate_root::types::constraints::Range::start_from(#min as i128))
+                }
+                Value::Range(None, Some(max)) => {
+                    quote!(#crate_root::types::constraints::Range::up_to(#max as i128))
+                }
+                Value::Range(None, None) => {
+                    quote!(#crate_root::types::constraints::Range::const_new(i128::MIN, i128::MAX))
+                }
+                Value::Single(length) => {
+                    quote!(#crate_root::types::constraints::Range::single_value(#length as i128))
+                }
+            };
+
+            quote!(
+                #crate_root::types::Constraint::Value(
+                    #crate_root::types::constraints::Extensible::new(
+                        #crate_root::types::constraints::Value::new(
+                            #constraint
+                        )
+                    ).set_extensible(#extensible)
+                )
+            )
+        })
+    }
+
+    fn from_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
+        self.from.as_ref().map(|value| {
+            let extensible = value.extensible.is_some();
+            let StringValue(set) = &value.constraint;
+
+            quote!(
+                #crate_root::types::Constraint::PermittedAlphabet(
+                    #crate_root::types::constraints::Extensible::new(
+                        #crate_root::types::constraints::PermittedAlphabet::new(
+                            &[#(#set,)*]
+                        )
+                    ).set_extensible(#extensible)
+                )
+            )
+        })
+    }
+
+    fn extensible_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
+        self.extensible
+            .then(|| quote!(#crate_root::types::Constraint::Extensible))
+    }
+
+    fn has_constraints(&self) -> bool {
+        self.extensible || self.from.is_some() || self.size.is_some() || self.value.is_some()
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub crate_root: Path,
@@ -13,10 +140,7 @@ pub struct Config {
     pub option_type: OptionalEnum,
     pub delegate: bool,
     pub tag: Option<Tag>,
-    pub extensible: bool,
-    pub from: Option<Constraint<StringValue>>,
-    pub size: Option<Constraint<Value>>,
-    pub value: Option<Constraint<Value>>,
+    pub constraints: Constraints,
 }
 
 impl Config {
@@ -32,7 +156,9 @@ impl Config {
         let mut size = None;
         let mut value = None;
         let mut delegate = false;
-        let extensible = input.attrs.iter()
+        let extensible = input
+            .attrs
+            .iter()
             .any(|a| a.path.is_ident("non_exhaustive"));
 
         let mut iter = input
@@ -152,13 +278,15 @@ impl Config {
             choice,
             delegate,
             enumerated,
-            extensible,
-            from,
             option_type,
             set,
-            size,
-            value,
             tag,
+            constraints: Constraints {
+                extensible,
+                from,
+                size,
+                value,
+            },
             crate_root: crate_root.unwrap_or_else(|| {
                 syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site())
                     .parse()
@@ -290,9 +418,15 @@ impl<'config> VariantConfig<'config> {
         self.tag.as_ref().map_or(false, |tag| tag.is_explicit())
     }
 
-    pub fn decode(&self, name: &syn::Ident, context: usize) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+    pub fn decode(
+        &self,
+        name: &syn::Ident,
+        context: usize,
+    ) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
         let crate_root = &self.container_config.crate_root;
-        let tag = self.tag(context).to_tokens(&self.container_config.crate_root);
+        let tag = self
+            .tag(context)
+            .to_tokens(&self.container_config.crate_root);
         let ident = &self.variant.ident;
         let const_name = quote::format_ident!("{ident}{context}");
         let is_explicit = self.has_explicit_tag();
@@ -306,33 +440,46 @@ impl<'config> VariantConfig<'config> {
                     quote!(<()>::decode_with_tag(decoder, #tag))
                 };
 
-                (const_name_def, quote!(#const_name => #decode_op.map(|_| Self::#ident)))
+                (
+                    const_name_def,
+                    quote!(#const_name => #decode_op.map(|_| Self::#ident)),
+                )
             }
             syn::Fields::Unnamed(_) => {
                 if self.variant.fields.len() != 1 {
                     panic!("Tuple struct variants should contain only a single element.");
                 }
 
-                let field = FieldConfig::new(self.variant.fields.iter().next().unwrap(), self.container_config);
+                let field = FieldConfig::new(
+                    self.variant.fields.iter().next().unwrap(),
+                    self.container_config,
+                );
                 let decode_operation = if is_explicit {
                     quote!(decoder.decode_explicit_prefix(#tag))
                 } else if self.container_config.automatic_tags || self.tag.is_some() {
                     if let Some(path) = field.default {
-                        let path = path.map(|path| quote!(#path)).unwrap_or_else(|| quote!(<_>::default));
+                        let path = path
+                            .map(|path| quote!(#path))
+                            .unwrap_or_else(|| quote!(<_>::default));
                         quote!(decoder.decode_default_with_tag(#tag, #path))
                     } else {
                         quote!(<_>::decode_with_tag(decoder, #tag))
                     }
                 } else {
                     if let Some(path) = field.default {
-                        let path = path.map(|path| quote!(#path)).unwrap_or_else(|| quote!(<_>::default));
+                        let path = path
+                            .map(|path| quote!(#path))
+                            .unwrap_or_else(|| quote!(<_>::default));
                         quote!(<_>::decode_default(decoder, <_>::TAG, #path))
                     } else {
                         quote!(<_>::decode(decoder))
                     }
                 };
 
-                (const_name_def, quote!(#const_name => #decode_operation.map(Self::#ident)))
+                (
+                    const_name_def,
+                    quote!(#const_name => #decode_operation.map(Self::#ident)),
+                )
             }
             syn::Fields::Named(_) => {
                 let crate_root = &self.container_config.crate_root;
@@ -353,15 +500,18 @@ impl<'config> VariantConfig<'config> {
                     is_explicit,
                 );
 
-                (const_name_def, quote! {
-                    #const_name => {
-                        let decode_fn = |decoder: &mut D| -> core::result::Result<_, D::Error> {
-                            #decode_impl
-                        };
+                (
+                    const_name_def,
+                    quote! {
+                        #const_name => {
+                            let decode_fn = |decoder: &mut D| -> core::result::Result<_, D::Error> {
+                                #decode_impl
+                            };
 
-                        (decode_fn)(decoder)
-                    }
-                })
+                            (decode_fn)(decoder)
+                        }
+                    },
+                )
             }
         }
     }
@@ -370,7 +520,12 @@ impl<'config> VariantConfig<'config> {
         if let Some(tag) = &self.tag {
             tag.clone()
         } else if self.container_config.automatic_tags {
-            Tag::Value { class: crate::tag::Class::Context, value: syn::LitInt::new(&context.to_string(), proc_macro2::Span::call_site()).into(), explicit: false }
+            Tag::Value {
+                class: crate::tag::Class::Context,
+                value: syn::LitInt::new(&context.to_string(), proc_macro2::Span::call_site())
+                    .into(),
+                explicit: false,
+            }
         } else {
             Tag::from_fields(&self.variant.fields)
         }
@@ -430,14 +585,15 @@ pub struct FieldConfig<'a> {
     pub container_config: &'a Config,
     pub tag: Option<Tag>,
     pub default: Option<Option<syn::Path>>,
-    pub size: Option<Constraint<Value>>,
     pub extension_addition: bool,
+    pub extension_addition_group: bool,
+    pub constraints: Constraints,
 }
 
 pub enum FieldType {
     Required,
     Optional,
-    Default
+    Default,
 }
 
 impl<'a> FieldConfig<'a> {
@@ -445,7 +601,11 @@ impl<'a> FieldConfig<'a> {
         let mut default = None;
         let mut tag = None;
         let mut size = None;
+        let mut from = None;
+        let mut value = None;
+        let mut extensible = false;
         let mut extension_addition = false;
+        let mut extension_addition_group = false;
         let mut iter = field
             .attrs
             .iter()
@@ -470,10 +630,21 @@ impl<'a> FieldConfig<'a> {
                     });
                 } else if path.is_ident("size") {
                     size = Some(Value::from_meta(item));
+                } else if path.is_ident("value") {
+                    value = Some(Value::from_meta(item));
+                } else if path.is_ident("from") {
+                    from = Some(StringValue::from_meta(item));
+                } else if path.is_ident("extensible") {
+                    extensible = true;
                 } else if path.is_ident("extension_addition") {
                     extension_addition = true;
+                } else if path.is_ident("extension_addition_group") {
+                    extension_addition_group = true;
                 } else {
-                    panic!("unknown field tag {:?}", path.get_ident().map(ToString::to_string));
+                    panic!(
+                        "unknown field tag {:?}",
+                        path.get_ident().map(ToString::to_string)
+                    );
                 }
             }
         }
@@ -482,9 +653,15 @@ impl<'a> FieldConfig<'a> {
             container_config,
             default,
             field,
-            size,
             tag,
             extension_addition,
+            extension_addition_group,
+            constraints: Constraints {
+                extensible,
+                from,
+                size,
+                value,
+            },
         }
     }
 
@@ -505,8 +682,6 @@ impl<'a> FieldConfig<'a> {
             None => quote!(<#ty>::default),
         });
 
-        let constraints = self.size.is_some().then(|| self.constraints_def());
-
         let encode = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;);
@@ -521,30 +696,39 @@ impl<'a> FieldConfig<'a> {
                     encode
                 }
             } else {
-                match (constraints.is_some(), self.default.is_some()) {
+                match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
                         quote!(encoder.encode_default_with_tag_and_constraints(#tag, constraints, &#this #field, #default_fn)?;)
-                    },
+                    }
                     (true, false) => {
                         quote!(encoder.encode_with_tag_and_constraints(#tag, constraints, &#this #field, #default_fn)?;)
-                    },
+                    }
                     (false, true) => {
                         quote!(encoder.encode_default_with_tag(#tag, &#this #field, #default_fn)?;)
-                    },
+                    }
                     (false, false) => quote!(#this #field.encode_with_tag(encoder, #tag)?;),
                 }
             }
         } else {
-            match (constraints.is_some(), self.default.is_some()) {
-                (true, true) => quote!(encoder.encode_default_with_constraints(constraints, &#this #field, #default_fn)?;),
-                (true, false) => quote!(#this #field.encode_with_constraints(encoder, constraints)?;),
+            match (self.constraints.has_constraints(), self.default.is_some()) {
+                (true, true) => {
+                    let constraints = self
+                        .constraints
+                        .const_expr(&self.container_config.crate_root);
+                    quote!(encoder.encode_default_with_constraints(#constraints, &#this #field, #default_fn)?;)
+                }
+                (true, false) => {
+                    let constraints = self
+                        .constraints
+                        .const_expr(&self.container_config.crate_root);
+                    quote!(#this #field.encode_with_constraints(encoder, #constraints)?;)
+                }
                 (false, true) => quote!(encoder.encode_default(&#this #field, #default_fn)?;),
                 (false, false) => quote!(#this #field.encode(encoder)?;),
             }
         };
 
         quote! {
-            #constraints
             #encode
         }
     }
@@ -571,51 +755,62 @@ impl<'a> FieldConfig<'a> {
         };
 
         let tag = self.tag(context);
-        let constraints = self.constraints_def();
 
         let decode = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 quote!(decoder.decode_explicit_prefix(#tag) #or_else)
             } else {
                 if let Some(path) = &self.default {
-                    let path = path.as_ref().map(|path| quote!(#path)).unwrap_or_else(|| quote!(<_>::default));
-                    if constraints.is_some() {
-                        quote!(decoder.decode_default_with_tag_and_constraints(#tag, #path, constraints) #or_else)
+                    let path = path
+                        .as_ref()
+                        .map(|path| quote!(#path))
+                        .unwrap_or_else(|| quote!(<_>::default));
+                    if self.constraints.has_constraints() {
+                        let constraints = self.constraints.const_expr(crate_root);
+                        quote!(decoder.decode_default_with_tag_and_constraints(#tag, #path, #constraints) #or_else)
                     } else {
                         quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
                     }
                 } else {
-                    if constraints.is_some() {
-                        quote!(<_>::decode_with_tag_and_constraints(#tag, constraints) #or_else)
+                    if self.constraints.has_constraints() {
+                        let constraints = self.constraints.const_expr(crate_root);
+                        quote!(<_>::decode_with_tag_and_constraints(#tag, #constraints) #or_else)
                     } else {
                         quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
                     }
                 }
             }
         } else if let Some(path) = self.default.as_ref() {
-            match (constraints.is_some(), path) {
-                (true, Some(path)) => quote!(decoder.decode_default_with_tag_and_constraints(#tag, constraints, #path) #or_else),
-                (true, None) => quote!(decoder.decode_default_with_constraints(constraints, <_>::default) #or_else),
-                (false, Some(path)) => quote!(decoder.decode_default_with_tag(#tag, #path) #or_else),
+            match (self.constraints.has_constraints(), path) {
+                (true, Some(path)) => {
+                    let constraints = self.constraints.const_expr(crate_root);
+                    quote!(decoder.decode_default_with_tag_and_constraints(#tag, #constraints, #path) #or_else)
+                }
+                (true, None) => {
+                    let constraints = self.constraints.const_expr(crate_root);
+                    quote!(decoder.decode_default_with_constraints(#constraints, <_>::default) #or_else)
+                }
+                (false, Some(path)) => {
+                    quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
+                }
                 (false, None) => quote!(decoder.decode_default(<_>::default) #or_else),
             }
         } else {
-            if constraints.is_some() {
-                quote!(<_>::decode_with_constraints(decoder, constraints) #or_else)
+            if self.constraints.has_constraints() {
+                let constraints = self.constraints.const_expr(crate_root);
+                quote!(<_>::decode_with_constraints(decoder, #constraints) #or_else)
             } else {
                 quote!(<_>::decode(decoder) #or_else)
             }
         };
 
         quote!({
-            #constraints
             #decode
         })
     }
 
     pub fn tag_derive(&self, context: usize) -> proc_macro2::TokenStream {
-        if let Some(tag) = &self.tag
-        {
+        if let Some(tag) = &self.tag {
             if self.container_config.automatic_tags {
                 panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
             }
@@ -663,11 +858,14 @@ impl<'a> FieldConfig<'a> {
         let tag = self.tag(context);
         let tag_tree = self.tag_tree(context);
 
-        let constructor = quote::format_ident!("{}", match self.field_type() {
-            FieldType::Required => "new_required",
-            FieldType::Optional => "new_optional",
-            FieldType::Default => "new_default",
-        });
+        let constructor = quote::format_ident!(
+            "{}",
+            match self.field_type() {
+                FieldType::Required => "new_required",
+                FieldType::Optional => "new_optional",
+                FieldType::Default => "new_default",
+            }
+        );
 
         quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree) })
     }
@@ -695,53 +893,7 @@ impl<'a> FieldConfig<'a> {
     pub fn is_option_or_default_type(&self) -> bool {
         self.is_default_type() || self.is_option_type()
     }
-
-    fn size_def(&self) -> Option<proc_macro2::TokenStream> {
-        let crate_root = &self.container_config.crate_root;
-        self.size.as_ref().map(|value| {
-            let extensible = value.extensible.is_some();
-            let constraint = match value.constraint {
-                Value::Range(Some(min), Some(max)) => {
-                    quote!(#crate_root::types::constraints::Range::new(#min as usize, #max as usize))
-                }
-                Value::Range(Some(min), None) => {
-                    quote!(#crate_root::types::constraints::Range::start_from(#min as usize))
-                }
-                Value::Range(None, Some(max)) => {
-                    quote!(#crate_root::types::constraints::Range::up_to(#max as usize))
-                }
-                Value::Range(None, None) => {
-                    quote!(#crate_root::types::constraints::Range::new(usize::MIN, usize::MAX))
-                }
-                Value::Single(length) => {
-                    quote!(#crate_root::types::constraints::Range::single_value(#length as usize))
-                }
-            };
-
-            quote!(
-                #crate_root::types::constraints::Extensible::new(
-                    #crate_root::types::constraints::Size::new(
-                        #constraint
-                    )
-                ).set_extensible(#extensible)
-            )
-        })
-    }
-
-    fn constraints_def(&self) -> Option<proc_macro2::TokenStream> {
-        let crate_root = &self.container_config.crate_root;
-        let size_constraint = self.size_def();
-        let ty = &self.field.ty;
-
-       size_constraint.is_some().then(|| quote! {
-            let constraints: &[_] = &[#crate_root::types::Constraint::Size(#size_constraint)];
-            let constraints: #crate_root::types::Constraints = #crate_root::types::Constraints::new(constraints);
-            let constraints = #crate_root::types::Constraints::override_constraints(<#ty>::CONSTRAINTS, constraints);
-        })
-    }
-
 }
-
 
 #[derive(Clone, Debug)]
 pub struct Constraint<T> {
@@ -772,11 +924,9 @@ impl StringValue {
         }
 
         fn parse_character(string: &str) -> Option<u32> {
-            (string.len() == 1).then_some(0).and_then(|_| {
-                string.chars()
-                    .next()
-                    .map(u32::from)
-            })
+            (string.len() == 1)
+                .then_some(0)
+                .and_then(|_| string.chars().next().map(u32::from))
         }
 
         let syn::Meta::List(list) = item else {
@@ -825,10 +975,13 @@ impl StringValue {
         }
 
         let into_flat_set = |constraints: Vec<_>| {
-            let mut set = constraints.iter().flat_map(|from| match from {
-                StringRange::Single(value) => vec![*value],
-                StringRange::Range(start, end) => (*start..*end).into_iter().collect(),
-            }).collect::<Vec<u32>>();
+            let mut set = constraints
+                .iter()
+                .flat_map(|from| match from {
+                    StringRange::Single(value) => vec![*value],
+                    StringRange::Range(start, end) => (*start..*end).into_iter().collect(),
+                })
+                .collect::<Vec<u32>>();
             set.sort();
             set.dedup();
             set

@@ -1,8 +1,8 @@
 use alloc::vec::Vec;
 
 use nom::IResult;
-use num_traits::ToPrimitive;
 use num_bigint::BigInt;
+use num_traits::ToPrimitive;
 
 use super::{error, DecoderOptions};
 use crate::{

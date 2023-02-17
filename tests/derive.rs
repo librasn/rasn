@@ -148,4 +148,3 @@ pub struct BasicConstraints {
     pub ca: bool,
     pub path_len_constraint: Option<Integer>,
 }
-

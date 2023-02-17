@@ -17,7 +17,10 @@ pub enum Error {
 
 impl Error {
     pub fn check_length(length: usize, expected: &Size) -> Result<(), Self> {
-        expected.contains_or_else(&length, || Self::InvalidLength { length, expected: (**expected).clone() })
+        expected.contains_or_else(&length, || Self::InvalidLength {
+            length,
+            expected: (**expected).clone(),
+        })
     }
 }
 

@@ -3,7 +3,7 @@
 use core::convert::TryInto;
 
 use rasn::{
-    types::{ConstOid, Integer, ObjectIdentifier, OctetString, Oid, Constraints},
+    types::{ConstOid, Constraints, Integer, ObjectIdentifier, OctetString, Oid},
     AsnType, Decode, Encode, Tag,
 };
 
@@ -90,7 +90,11 @@ impl AsRef<[u8]> for Opaque {
 }
 
 impl Decode for Opaque {
-    fn decode_with_tag_and_constraints<D: rasn::Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints) -> Result<Self, D::Error> {
+    fn decode_with_tag_and_constraints<D: rasn::Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Self, D::Error> {
         decoder.decode_octet_string(tag, constraints).map(Self)
     }
 }
