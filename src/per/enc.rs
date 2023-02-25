@@ -79,6 +79,15 @@ impl Encoder {
         encoder
     }
 
+    fn new_sequence_encoder<C: crate::types::Constructed>(&self) -> Self {
+        let mut encoder = Self::new(self.options.without_set_encoding());
+        encoder.field_bitfield = C::FIELDS
+            .optional_and_default_fields()
+            .map(|field| (field.tag_tree.smallest_tag(), false))
+            .collect();
+        encoder
+    }
+
     pub fn output(self) -> Vec<u8> {
         self.bitstring_output().into_vec()
     }
@@ -180,11 +189,7 @@ impl Encoder {
     fn require_fields(&self) -> Result<()> {
         self.field_bitfield
             .is_empty()
-            .then(|| {
-                Err(Error::custom(
-                    "only sequence or set types are permitted for this method",
-                ))
-            })
+            .then(|| panic!("only sequence or set types are permitted for this method",))
             .unwrap_or(Ok(()))
     }
 
@@ -746,7 +751,7 @@ impl crate::Encoder for Encoder {
         C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
-        let mut sequence = Self::new(self.options.without_set_encoding());
+        let mut sequence = self.new_sequence_encoder::<C>();
         (encoder_scope)(&mut sequence)?;
         self.encode_constructed(tag, &constraints, sequence)
     }
@@ -853,16 +858,13 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_extension_addition_group<F>(
-        &mut self,
-        encoder_scope: F,
-    ) -> Result<Self::Ok, Self::Error>
+    fn encode_extension_addition_group<E>(&mut self, value: &E) -> Result<Self::Ok, Self::Error>
     where
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+        E: Encode + crate::types::Constructed,
     {
         self.require_fields()?;
-        let mut encoder = Self::new(self.options.without_set_encoding());
-        (encoder_scope)(&mut encoder)?;
+        let mut encoder = self.new_sequence_encoder::<E>();
+        value.encode(&mut encoder)?;
 
         if encoder.field_bitfield.values().any(|v| *v) {
             self.extension_fields.push(encoder.output());

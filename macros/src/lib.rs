@@ -100,7 +100,7 @@ pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
     let name = input.ident;
     let generics = input.generics;
 
-    __print_stream(match input.data {
+    match input.data {
         syn::Data::Struct(v) => asn_type::derive_struct_impl(name, generics, v, &config),
         syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
             name,
@@ -110,6 +110,6 @@ pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
         }
         .impl_asntype(),
         _ => panic!("Union types are not supported."),
-    })
+    }
     .into()
 }

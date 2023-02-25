@@ -70,7 +70,7 @@ mod tests {
     macro_rules! round_trip {
         ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
             let value = $value;
-            let actual_encoding = crate::$codec::encode(&value).unwrap();
+            let actual_encoding = dbg!(crate::$codec::encode(&value).unwrap());
 
             assert_eq!($expected, &*actual_encoding);
 

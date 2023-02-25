@@ -231,6 +231,15 @@ pub trait Decoder: Sized {
             .decode_optional_with_tag::<D>(tag)?
             .unwrap_or_else(default_fn))
     }
+
+    fn decode_extension_addition<D, F>(&mut self, extension: F) -> Result<D, Self::Error>
+    where
+        D: Decode,
+        F: FnOnce(&mut Self) -> Result<D, Self::Error>;
+
+    fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
+        &mut self,
+    ) -> Result<D, Self::Error>;
 }
 
 /// A generic error that can occur while decoding ASN.1.

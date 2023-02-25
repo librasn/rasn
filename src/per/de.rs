@@ -24,6 +24,7 @@ type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
+    #[allow(unused)]
     aligned: bool,
 }
 
@@ -348,14 +349,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
     }
 
-    fn decode_ia5_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::Ia5String> {
+    fn decode_ia5_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::Ia5String> {
         todo!()
     }
 
     fn decode_printable_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        _constraints: Constraints,
     ) -> Result<types::PrintableString> {
         todo!()
     }
@@ -363,7 +364,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_numeric_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        _constraints: Constraints,
     ) -> Result<types::NumericString> {
         todo!()
     }
@@ -371,12 +372,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_teletex_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        _constraints: Constraints,
     ) -> Result<types::TeletexString> {
         todo!()
     }
 
-    fn decode_bmp_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::BmpString> {
+    fn decode_bmp_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::BmpString> {
         todo!()
     }
 
@@ -611,5 +612,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .ok_or_else(|| Error::choice_index_not_found(index, variants.clone()))?;
 
         Ok((decode_fn)(self, *tag)?)
+    }
+
+    fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
+        &mut self,
+    ) -> Result<D, Self::Error> {
+        todo!()
+    }
+
+    fn decode_extension_addition<D, F>(&mut self, _extension: F) -> Result<D, Self::Error>
+    where
+        D: Decode,
+        F: FnOnce(&mut Self) -> Result<D, Self::Error>,
+    {
+        todo!()
     }
 }

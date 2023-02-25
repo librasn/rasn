@@ -267,19 +267,23 @@ impl DynConstrainedCharacterString {
         crate::per::log2(self.character_set.len() as i128) as usize
     }
 
+    #[allow(unused)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    #[allow(unused)]
     pub fn len(&self) -> usize {
         self.buffer.len() / self.character_width()
     }
 
-    pub fn as_bitstr(&self) -> &types::BitStr {
+    #[allow(unused)]
+    fn as_bitstr(&self) -> &types::BitStr {
         &self.buffer
     }
 
-    pub fn to_octet_aligned(&self) -> OctetAlignedString {
+    #[allow(unused)]
+    fn to_octet_aligned(&self) -> OctetAlignedString {
         match self.character_width().next_power_of_two() {
             0..=8 => OctetAlignedString::U8(collapse_bit_storage(
                 self.iter().map(|slice| slice.load_be::<u8>()),
@@ -294,7 +298,8 @@ impl DynConstrainedCharacterString {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &types::BitStr> + '_ {
+    #[allow(unused)]
+    fn iter(&self) -> impl Iterator<Item = &types::BitStr> + '_ {
         self.buffer.chunks_exact(self.character_width())
     }
 }

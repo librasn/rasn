@@ -649,6 +649,10 @@ impl<'a> FieldConfig<'a> {
             }
         }
 
+        if extension_addition && extension_addition_group {
+            panic!("field cannot be both `extension_addition` and `extension_addition_group`, choose one");
+        }
+
         Self {
             container_config,
             default,
@@ -695,6 +699,8 @@ impl<'a> FieldConfig<'a> {
                 } else {
                     encode
                 }
+            } else if self.extension_addition_group {
+                quote!(encoder.encode_extension_addition_group(&#this #field)?;)
             } else {
                 match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
@@ -710,21 +716,25 @@ impl<'a> FieldConfig<'a> {
                 }
             }
         } else {
-            match (self.constraints.has_constraints(), self.default.is_some()) {
-                (true, true) => {
-                    let constraints = self
-                        .constraints
-                        .const_expr(&self.container_config.crate_root);
-                    quote!(encoder.encode_default_with_constraints(#constraints, &#this #field, #default_fn)?;)
+            if self.extension_addition_group {
+                quote!(encoder.encode_extension_addition_group(&#this #field)?;)
+            } else {
+                match (self.constraints.has_constraints(), self.default.is_some()) {
+                    (true, true) => {
+                        let constraints = self
+                            .constraints
+                            .const_expr(&self.container_config.crate_root);
+                        quote!(encoder.encode_default_with_constraints(#constraints, &#this #field, #default_fn)?;)
+                    }
+                    (true, false) => {
+                        let constraints = self
+                            .constraints
+                            .const_expr(&self.container_config.crate_root);
+                        quote!(#this #field.encode_with_constraints(encoder, #constraints)?;)
+                    }
+                    (false, true) => quote!(encoder.encode_default(&#this #field, #default_fn)?;),
+                    (false, false) => quote!(#this #field.encode(encoder)?;),
                 }
-                (true, false) => {
-                    let constraints = self
-                        .constraints
-                        .const_expr(&self.container_config.crate_root);
-                    quote!(#this #field.encode_with_constraints(encoder, #constraints)?;)
-                }
-                (false, true) => quote!(encoder.encode_default(&#this #field, #default_fn)?;),
-                (false, false) => quote!(#this #field.encode(encoder)?;),
             }
         };
 
@@ -755,58 +765,56 @@ impl<'a> FieldConfig<'a> {
         };
 
         let tag = self.tag(context);
-
-        let decode = if self.tag.is_some() || self.container_config.automatic_tags {
-            if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
-                quote!(decoder.decode_explicit_prefix(#tag) #or_else)
-            } else {
-                if let Some(path) = &self.default {
-                    let path = path
-                        .as_ref()
-                        .map(|path| quote!(#path))
-                        .unwrap_or_else(|| quote!(<_>::default));
-                    if self.constraints.has_constraints() {
-                        let constraints = self.constraints.const_expr(crate_root);
-                        quote!(decoder.decode_default_with_tag_and_constraints(#tag, #path, #constraints) #or_else)
-                    } else {
-                        quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
-                    }
-                } else {
-                    if self.constraints.has_constraints() {
-                        let constraints = self.constraints.const_expr(crate_root);
-                        quote!(<_>::decode_with_tag_and_constraints(#tag, #constraints) #or_else)
-                    } else {
-                        quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
-                    }
-                }
+        let constraints = self.constraints.const_expr(crate_root);
+        let decode = match (
+            self.extension_addition_group,
+            (self.tag.is_some() || self.container_config.automatic_tags)
+                .then(|| self.tag.as_ref().map_or(false, |tag| tag.is_explicit())),
+            self.default.as_ref().map(|path| {
+                path.as_ref()
+                    .map_or(quote!(<_>::default), |path| quote!(#path))
+            }),
+            self.constraints.has_constraints(),
+        ) {
+            (true, _, _, _) => {
+                quote!(decoder.decode_extension_addition_group() #or_else)
             }
-        } else if let Some(path) = self.default.as_ref() {
-            match (self.constraints.has_constraints(), path) {
-                (true, Some(path)) => {
-                    let constraints = self.constraints.const_expr(crate_root);
-                    quote!(decoder.decode_default_with_tag_and_constraints(#tag, #constraints, #path) #or_else)
-                }
-                (true, None) => {
-                    let constraints = self.constraints.const_expr(crate_root);
-                    quote!(decoder.decode_default_with_constraints(#constraints, <_>::default) #or_else)
-                }
-                (false, Some(path)) => {
-                    quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
-                }
-                (false, None) => quote!(decoder.decode_default(<_>::default) #or_else),
+            (_, Some(true), _, _) => quote!(decoder.decode_explicit_prefix(#tag) #or_else),
+            (_, Some(false), Some(path), true) => {
+                quote!(decoder.decode_default_with_tag_and_constraints(#tag, #path, #constraints) #or_else)
             }
-        } else {
-            if self.constraints.has_constraints() {
-                let constraints = self.constraints.const_expr(crate_root);
+            (_, Some(false), Some(path), false) => {
+                quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
+            }
+            (_, Some(false), None, true) => {
+                quote!(<_>::decode_with_tag_and_constraints(decoder, #tag, #constraints) #or_else)
+            }
+            (_, Some(false), None, false) => {
+                quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
+            }
+            (_, None, Some(path), true) => {
+                quote!(decoder.decode_default_with_constraints(#path, #constraints) #or_else)
+            }
+            (_, None, Some(path), false) => {
+                quote!(decoder.decode_default(#path) #or_else)
+            }
+            (_, None, None, true) => {
                 quote!(<_>::decode_with_constraints(decoder, #constraints) #or_else)
-            } else {
+            }
+            (_, None, None, false) => {
                 quote!(<_>::decode(decoder) #or_else)
             }
         };
 
-        quote!({
-            #decode
-        })
+        if self.extension_addition {
+            quote! {
+                decoder.decode_extension_addition(move |decoder| { Ok(#decode) }) #or_else
+            }
+        } else {
+            quote!({
+                #decode
+            })
+        }
     }
 
     pub fn tag_derive(&self, context: usize) -> proc_macro2::TokenStream {

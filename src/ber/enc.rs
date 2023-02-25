@@ -398,9 +398,9 @@ impl crate::Encoder for Encoder {
 
     fn encode_bmp_string(
         &mut self,
-        tag: Tag,
-        constraints: Constraints,
-        value: &types::BmpString,
+        _tag: Tag,
+        _constraints: Constraints,
+        _value: &types::BmpString,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
@@ -562,20 +562,17 @@ impl crate::Encoder for Encoder {
 
     fn encode_extension_addition<E: Encode>(
         &mut self,
-        tag: Tag,
-        constraints: Constraints,
-        value: E,
+        _tag: Tag,
+        _constraints: Constraints,
+        _value: E,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
     /// Encode a extension addition group value.
-    fn encode_extension_addition_group<F>(
-        &mut self,
-        encoder_scope: F,
-    ) -> Result<Self::Ok, Self::Error>
+    fn encode_extension_addition_group<E>(&mut self, _value: &E) -> Result<Self::Ok, Self::Error>
     where
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+        E: Encode + crate::types::Constructed,
     {
         todo!()
     }

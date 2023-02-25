@@ -336,7 +336,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .map_err(Error::custom)
     }
 
-    fn decode_bmp_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::BmpString> {
+    fn decode_bmp_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::BmpString> {
         todo!()
     }
 
@@ -470,6 +470,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let (_, identifier) =
             parser::parse_identifier_octet(&self.input).map_err(error::map_nom_err)?;
         (decode_fn)(self, identifier.tag)
+    }
+
+    fn decode_extension_addition<D, F>(&mut self, _extension: F) -> Result<D, Self::Error>
+    where
+        D: Decode,
+        F: FnOnce(&mut Self) -> Result<D, Self::Error>,
+    {
+        todo!()
+    }
+
+    fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
+        &mut self,
+    ) -> Result<D, Self::Error> {
+        todo!()
     }
 }
 
