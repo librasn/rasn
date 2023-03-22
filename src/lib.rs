@@ -121,7 +121,7 @@ mod tests {
             const TAG: Tag = Tag::INTEGER;
             const CONSTRAINTS: Constraints<'static> =
                 Constraints::new(&[Constraint::Value(constraints::Extensible::new(
-                    constraints::Value::new(constraints::Range::start_from(127)),
+                    constraints::Value::new(constraints::Bounded::start_from(127)),
                 ))]);
         }
 

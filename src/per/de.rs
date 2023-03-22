@@ -190,11 +190,13 @@ impl<'input> Decoder<'input> {
             .filter(|range| *range <= u16::MAX.into())
         {
             if range == 0 {
-                (decode_fn)(input, size_constraint.start())
+                Ok(input)
+            } else if range == 1 {
+                (decode_fn)(input, size_constraint.minimum())
             } else {
                 let (input, length) =
                     nom::bytes::streaming::take(super::log2(range as i128))(input)?;
-                (decode_fn)(input, length.load_be::<usize>() + size_constraint.start())
+                (decode_fn)(input, length.load_be::<usize>() + size_constraint.minimum())
             }
         } else {
             self.decode_unknown_length(input, decode_fn)
@@ -210,9 +212,9 @@ impl<'input> Decoder<'input> {
     fn parse_normally_small_integer(&mut self) -> Result<types::Integer> {
         let is_large = self.parse_one_bit()?;
         let constraints = if is_large {
-            constraints::Value::new(constraints::Range::start_from(0)).into()
+            constraints::Value::new(constraints::Bounded::start_from(0)).into()
         } else {
-            constraints::Value::new(constraints::Range::new(0, 63)).into()
+            constraints::Value::new(constraints::Bounded::new(0, 63)).into()
         };
 
         self.parse_integer(Constraints::new(&[constraints]))
@@ -232,6 +234,9 @@ impl<'input> Decoder<'input> {
             .range()
             .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
         {
+            if range == 0 {
+                return Ok(value_constraint.constraint.minimum().into())
+            }
             let bits = super::log2(range);
             let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
             self.input = input;
@@ -245,7 +250,7 @@ impl<'input> Decoder<'input> {
                 .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
-        Ok(value_constraint.constraint.start() + number)
+        Ok(value_constraint.constraint.minimum() + number)
     }
 }
 
@@ -594,7 +599,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             } else {
                 let variance = variants.len();
                 let constraints =
-                    constraints::Value::new(constraints::Range::new(0, variance as i128)).into();
+                    constraints::Value::new(constraints::Bounded::new(0, variance as i128)).into();
                 self.parse_integer(Constraints::new(&[constraints]))?
             })
             .map_err(|error| {

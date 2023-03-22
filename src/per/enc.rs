@@ -252,9 +252,9 @@ impl Encoder {
         buffer.push(is_large);
 
         let size_constraints = if is_large {
-            constraints::Value::new(constraints::Range::start_from(0)).into()
+            constraints::Value::new(constraints::Bounded::start_from(0)).into()
         } else {
-            constraints::Value::new(constraints::Range::new(0, 63)).into()
+            constraints::Value::new(constraints::Bounded::new(0, 63)).into()
         };
 
         self.encode_integer_into_buffer(
@@ -283,12 +283,14 @@ impl Encoder {
         match constraints.start_and_end() {
             (Some(_), Some(_)) => {
                 let range = constraints.range().unwrap();
-                let effective_length = constraints.effective_value(length).into_inner();
 
-                if range == 0 || super::log2(range as i128) <= 1 {
+                if range == 0 {
+                    Ok(())
+                } else if range == 1 {
                     buffer.extend((encode_fn)(0..length)?);
                     Ok(())
                 } else if range < SIXTY_FOUR_K as usize && !self.options.aligned {
+                    let effective_length = constraints.effective_value(length).into_inner();
                     self.encode_non_negative_binary_integer(
                         buffer,
                         range as i128,
@@ -540,7 +542,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_integer(
             tag,
-            Constraints::new(&[constraints::Size::new(constraints::Range::up_to(variance)).into()]),
+            Constraints::new(&[constraints::Size::new(constraints::Bounded::up_to(variance)).into()]),
             &value.into(),
         )
     }
@@ -811,7 +813,7 @@ impl crate::Encoder for Encoder {
         match (index, bounds) {
             (index, Some(Some(variance))) => {
                 self.encode_integer_into_buffer(
-                    Constraints::new(&[constraints::Value::new(constraints::Range::new(
+                    Constraints::new(&[constraints::Value::new(constraints::Bounded::new(
                         0,
                         variance as i128,
                     ))
@@ -953,7 +955,7 @@ mod tests {
                 &mut buffer,
                 4,
                 Some(&Extensible::new(constraints::Size::new(
-                    constraints::Range::new(1, 64),
+                    constraints::Bounded::new(1, 64),
                 ))),
                 |_| Ok(<_>::default()),
             )
@@ -983,7 +985,7 @@ mod tests {
             const CONSTRAINTS: Constraints<'static> =
                 Constraints::new(&[constraints::Constraint::Value(
                     constraints::Extensible::new(constraints::Value::new(
-                        constraints::Range::up_to(65535),
+                        constraints::Bounded::up_to(65535),
                     )),
                 )]);
         }
@@ -1022,7 +1024,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(&[
-                    constraints::Value::from(constraints::Range::start_from(-1)).into()
+                    constraints::Value::from(constraints::Bounded::start_from(-1)).into()
                 ]),
                 &4096.into(),
             )
@@ -1034,7 +1036,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(&[
-                    constraints::Value::from(constraints::Range::start_from(1)).into()
+                    constraints::Value::from(constraints::Bounded::start_from(1)).into()
                 ]),
                 &127.into(),
             )
@@ -1045,7 +1047,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(&[
-                    constraints::Value::from(constraints::Range::start_from(0)).into()
+                    constraints::Value::from(constraints::Bounded::start_from(0)).into()
                 ]),
                 &128.into(),
             )

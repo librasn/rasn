@@ -297,7 +297,7 @@ impl crate::Encoder for Encoder {
         self.encode_integer(
             tag,
             Constraints::from(
-                &[constraints::Size::new(constraints::Range::up_to(variance)).into()],
+                &[constraints::Size::new(constraints::Bounded::up_to(variance)).into()],
             ),
             &(value.into()),
         )

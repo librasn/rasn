@@ -187,16 +187,16 @@ impl From<PermittedAlphabet> for Extensible<PermittedAlphabet> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Value(Range<i128>);
+pub struct Value(Bounded<i128>);
 
 impl Value {
-    pub const fn new(value: Range<i128>) -> Self {
+    pub const fn new(value: Bounded<i128>) -> Self {
         Self(value)
     }
 }
 
 impl core::ops::Deref for Value {
-    type Target = Range<i128>;
+    type Target = Bounded<i128>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -212,11 +212,15 @@ impl core::ops::DerefMut for Value {
 macro_rules! from_primitives {
     ($($int:ty),+ $(,)?) => {
         $(
-            impl From<Range<$int>> for Value {
-                fn from(range: Range<$int>) -> Self {
-                    Self(Range {
-                        start: range.start.map(From::from),
-                        end: range.end.map(From::from),
+            impl From<Bounded<$int>> for Value {
+                fn from(bounded: Bounded<$int>) -> Self {
+                    Self(match bounded {
+                        Bounded::Range { start, end } => Bounded::Range {
+                            start: start.map(From::from),
+                            end: end.map(From::from),
+                        },
+                        Bounded::Single(value) => Bounded::Single(value.into()),
+                        Bounded::None => Bounded::None,
                     })
                 }
             }
@@ -229,28 +233,32 @@ from_primitives! {
     i8, i16, i32, i64, i128,
 }
 
-impl TryFrom<Range<usize>> for Value {
+impl TryFrom<Bounded<usize>> for Value {
     type Error = <i128 as TryFrom<usize>>::Error;
 
-    fn try_from(range: Range<usize>) -> Result<Self, Self::Error> {
-        Ok(Self(Range {
-            start: range.start.map(TryFrom::try_from).transpose()?,
-            end: range.end.map(TryFrom::try_from).transpose()?,
+    fn try_from(bounded: Bounded<usize>) -> Result<Self, Self::Error> {
+        Ok(Self(match bounded {
+            Bounded::Range { start, end } => Bounded::Range {
+                start: start.map(TryFrom::try_from).transpose()?,
+                end: end.map(TryFrom::try_from).transpose()?,
+            },
+            Bounded::Single(value) => Bounded::Single(value.try_into()?),
+            Bounded::None => Bounded::None,
         }))
     }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Size(Range<usize>);
+pub struct Size(Bounded<usize>);
 
 impl Size {
-    pub const fn new(range: Range<usize>) -> Self {
+    pub const fn new(range: Bounded<usize>) -> Self {
         Self(range)
     }
 }
 
 impl core::ops::Deref for Size {
-    type Target = Range<usize>;
+    type Target = Bounded<usize>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -285,93 +293,91 @@ impl core::ops::Deref for PermittedAlphabet {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Range<T> {
-    start: Option<T>,
-    end: Option<T>,
+pub enum Bounded<T> {
+    #[default]
+    None,
+    Single(T),
+    Range {
+        start: Option<T>,
+        end: Option<T>,
+    }
 }
 
-impl<T> Range<T> {
+impl<T> Bounded<T> {
     pub const fn start_from(value: T) -> Self {
-        Self {
+        Self::Range {
             start: Some(value),
             end: None,
         }
     }
 
     pub const fn up_to(value: T) -> Self {
-        Self {
+        Self::Range {
             start: None,
             end: Some(value),
         }
     }
 
     pub const fn as_start(&self) -> Option<&T> {
-        self.start.as_ref()
+        match &self {
+            Self::Range { start, .. } => start.as_ref(),
+            _ => None
+        }
     }
 
     pub const fn start_and_end(&self) -> (Option<&T>, Option<&T>) {
-        (self.start.as_ref(), self.end.as_ref())
-    }
-}
-
-impl<T: Clone + Copy> Range<T> {
-    pub const fn single_value(value: T) -> Self {
-        Self {
-            start: Some(value),
-            end: Some(value),
+        match &self {
+            Self::Range { start, end } => (start.as_ref(), end.as_ref()),
+            _ => (None, None),
         }
     }
-}
 
-impl<T: Default + Clone> Range<T> {
-    pub fn start(&self) -> T {
-        self.start.clone().unwrap_or_default()
-    }
-
-    pub fn end(&self) -> Option<T> {
-        self.end.clone()
+    pub const fn single_value(value: T) -> Self {
+        Self::Single(value)
     }
 }
 
-impl<
-        T: PartialEq
-            + PartialOrd
-            + num_traits::WrappingSub<Output = T>
-            + std::ops::Add<Output = T>
-            + From<u8>
-            + Clone
-            + core::fmt::Debug,
-    > Range<T>
-{
+impl<T: Default + Clone> Bounded<T> {
+    pub fn as_minimum(&self) -> Option<&T> {
+        match self {
+            Self::Single(value) => Some(value),
+            Self::Range {start: Some(start), .. } => Some(start),
+            _ => None,
+        }
+    }
+
+    pub fn minimum(&self) -> T {
+        self.as_minimum().cloned().unwrap_or_default()
+    }
+}
+
+impl<T: num_traits::WrappingSub<Output = T> + num_traits::SaturatingAdd<Output = T> + From<u8>> Bounded<T> {
     pub fn range(&self) -> Option<T> {
-        match (&self.start, &self.end) {
-            (Some(start), Some(end)) => Some(
-                end.wrapping_sub(start)
-                    + (start == &T::from(0))
-                        .then(|| T::from(1))
-                        .unwrap_or_else(|| T::from(0)),
-            ),
+        match self {
+            Self::Single(_) => Some(T::from(1u8)),
+            Self::Range {start: Some(start), end: Some(end) } => Some(end.wrapping_sub(start).saturating_add(&1.into())),
             _ => None,
         }
     }
 }
 
-impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd> Range<T> {
+impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd> Bounded<T> {
     /// Returns the effective value which is either the number, or the positive
     /// offset of that number from the start of the value range. `Either::Left`
     /// represents the positive offset, and `Either::Right` represents
     /// the number.
     pub fn effective_value(&self, value: T) -> either::Either<T, T> {
-        if let Some(start) = self.start.clone() {
-            debug_assert!(value >= start);
-            either::Left(value - start)
-        } else {
-            either::Right(value)
+        match &self {
+            Self::Range {start: Some(start), .. } => {
+                debug_assert!(&value >= start);
+                either::Left(value - start.clone())
+            },
+            _ => either::Right(value),
         }
     }
 }
 
-impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd<T>> Range<T>
+impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd<T>> Bounded<T>
 where
     crate::types::Integer: From<T>,
 {
@@ -380,7 +386,8 @@ where
         &self,
         value: crate::types::Integer,
     ) -> either::Either<crate::types::Integer, crate::types::Integer> {
-        if let Some(start) = self.start.clone().map(crate::types::Integer::from) {
+        if let Bounded::Range { start: Some(start), .. } = self {
+            let start = crate::types::Integer::from(start.clone());
             debug_assert!(value >= start);
             either::Left(value - start)
         } else {
@@ -425,19 +432,20 @@ impl From<Extensible<PermittedAlphabet>> for Constraint {
     }
 }
 
-impl Range<i128> {
-    pub fn bigint_contains(&self, element: &num_bigint::BigInt) -> bool {
-        self.start
-            .as_ref()
-            .map_or(true, |&start| element >= &start.into())
-            && self
-                .end
-                .as_ref()
-                .map_or(true, |&end| element <= &end.into())
+impl Bounded<i128> {
+    pub fn bigint_contains(&self, element: &crate::types::Integer) -> bool {
+        match &self {
+            Self::Single(value) => crate::types::Integer::from(*value) == *element,
+            Self::Range { start, end } => {
+                start.as_ref().map_or(true, |&start| element >= &start.into())
+                    && end.as_ref().map_or(true, |&end| element <= &end.into())
+            }
+            Self::None => true,
+        }
     }
 }
 
-impl<T: PartialEq + PartialOrd> Range<T> {
+impl<T: PartialEq + PartialOrd> Bounded<T> {
     /// Creates a new range from `start` to `end`.
     ///
     /// # Panics
@@ -454,15 +462,21 @@ impl<T: PartialEq + PartialOrd> Range<T> {
     /// In general you should prefer [`Self::new`] which has debug assertions
     /// to ensure this.
     pub const fn const_new(start: T, end: T) -> Self {
-        Self {
+        Self::Range {
             start: Some(start),
             end: Some(end),
         }
     }
 
     pub fn contains(&self, element: &T) -> bool {
-        self.start.as_ref().map_or(true, |start| element >= start)
-            && self.end.as_ref().map_or(true, |end| element <= end)
+        match &self {
+            Self::Single(value) => value == element,
+            Self::Range { start, end } => {
+                start.as_ref().map_or(true, |start| element >= start)
+                    && end.as_ref().map_or(true, |end| element <= end)
+            }
+            Self::None => true,
+        }
     }
 
     pub fn contains_or<E>(&self, element: &T, error: E) -> Result<(), E> {
@@ -477,13 +491,17 @@ impl<T: PartialEq + PartialOrd> Range<T> {
     }
 }
 
-impl<T: core::fmt::Display> core::fmt::Display for Range<T> {
+impl<T: core::fmt::Display> core::fmt::Display for Bounded<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match (self.start.as_ref(), self.end.as_ref()) {
-            (Some(start), Some(end)) => write!(f, "{start}..{end}"),
-            (Some(start), None) => write!(f, "{start}.."),
-            (None, Some(end)) => write!(f, "..{end}"),
-            (None, None) => write!(f, ".."),
+        match self {
+            Self::Range { start, end } => match (start.as_ref(), end.as_ref()) {
+                (Some(start), Some(end)) => write!(f, "{start}..{end}"),
+                (Some(start), None) => write!(f, "{start}.."),
+                (None, Some(end)) => write!(f, "..{end}"),
+                (None, None) => write!(f, ".."),
+            }
+            Self::Single(value) => value.fmt(f),
+            Self::None => write!(f, ".."),
         }
     }
 }
@@ -494,7 +512,7 @@ mod tests {
 
     #[test]
     fn range() {
-        let constraints = Range::new(0, 255);
+        let constraints = Bounded::new(0, 255);
         assert_eq!(256, constraints.range().unwrap());
     }
 }

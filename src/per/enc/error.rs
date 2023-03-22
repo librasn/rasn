@@ -1,4 +1,4 @@
-use crate::types::constraints::{Range, Size};
+use crate::types::constraints::{Bounded, Size};
 use snafu::*;
 
 #[derive(Snafu, Debug)]
@@ -7,7 +7,7 @@ pub enum Error {
     #[snafu(display("invalid length, expected: {expected}; actual: {length}"))]
     InvalidLength {
         length: usize,
-        expected: Range<usize>,
+        expected: Bounded<usize>,
     },
     #[snafu(display("wrapped der encoding error: {source}"))]
     Der { source: crate::der::enc::Error },
