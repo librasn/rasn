@@ -70,6 +70,10 @@ pub type BuiltInDomainDefinedAttributes = SequenceOf<BuiltInDomainDefinedAttribu
 pub type KeyIdentifier = OctetString;
 pub type SubjectKeyIdentifier = KeyIdentifier;
 pub type PolicyQualifierId = ObjectIdentifier;
+pub type TrustAnchorTitle = Utf8String;
+pub type TrustAnchorInfoVersion = Integer;
+pub type TrustAnchorList = SequenceOf<TrustAnchorChoice>;
+pub type CertPolicyFlags = BitString;
 
 /// An X.509 certificate
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -174,6 +178,111 @@ impl core::fmt::Display for Version {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         core::write!(f, "{}", self.0.saturating_add(1))
     }
+}
+
+/// Trust anchors are widely used to verify digital signatures and
+/// validate certification paths [RFC5280][X.509].  They are required
+/// when validating certification paths.  Though widely used, there is no
+/// standard format for representing trust anchor information.  The RFC-5914
+/// document describes the TrustAnchorInfo structure.
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct TrustAnchorInfo {
+    /// version identifies the version of TrustAnchorInfo.  Defaults to 1.
+    #[rasn(tag(explicit(1)), default)]
+    pub version: TrustAnchorInfoVersion,
+    /// pubKey identifies the public key and algorithm associated with the
+    /// trust anchor using the SubjectPublicKeyInfo structure [RFC5280].  The
+    /// SubjectPublicKeyInfo structure contains the algorithm identifier
+    /// followed by the public key itself.
+    pub pub_key: SubjectPublicKeyInfo,
+    /// keyId contains the public key identifier of the trust anchor public key.
+    pub key_id: KeyIdentifier,
+    /// taTitle is OPTIONAL.  When it is present, it provides a human-readable name
+    /// for the trust anchor.
+    pub ta_title: Option<TrustAnchorTitle>,
+    /// certPath is OPTIONAL.  When it is present, it provides the controls
+    /// needed to initialize an X.509 certification path validation algorithm
+    /// implementation (see Section 6 of [RFC5280]).  When absent, the trust
+    /// anchor cannot be used to validate the signature on an X.509
+    /// certificate.
+    pub cert_path: Option<CertPathControls>,
+    #[rasn(tag(explicit(1)))]
+    /// exts is OPTIONAL.  When it is present, it can be used to associate
+    /// additional information with the trust anchor using the standard
+    /// Extensions structure.  Extensions that are anticipated to be widely
+    /// used have been included in the CertPathControls structure to avoid
+    /// overhead associated with use of the Extensions structure.  To avoid
+    /// duplication with the CertPathControls field, the following types of
+    /// extensions MUST NOT appear in the exts field and are ignored if they
+    /// do appear: id-ce-certificatePolicies, id-ce-policyConstraints, id-ce-
+    /// inhibitAnyPolicy, or id-ce-nameConstraints.
+    pub exts: Option<Extensions>,
+    #[rasn(tag(2))]
+    /// The taTitleLangTag field identifies the language used to express the
+    /// taTitle.  When taTitleLangTag is absent, English ("en" language tag)
+    /// is used.
+    pub ta_title_lang_tag: Option<Utf8String>,
+}
+
+/// CertPathControls provides the controls needed to initialize an X.509 
+// certification path validation algorithm implementation
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CertPathControls {
+    /// taName provides the X.500 distinguished name associated with the
+    /// trust anchor, and this distinguished name is used to construct and
+    /// validate an X.509 certification path.  The name MUST NOT be an empty
+    /// sequence.
+    pub ta_name: Name,
+    #[rasn(tag(0))]
+    /// certificate provides an OPTIONAL X.509 certificate, which can be used
+    /// in some environments to represent the trust anchor in certification
+    /// path development and validation
+    pub certificate: Option<Certificate>,
+    #[rasn(tag(1))]
+    /// policySet contains a sequence of
+    /// certificate policy identifiers to be provided as inputs to the
+    /// certification path validation algorithm.
+    pub policy_set: Option<CertificatePolicies>,
+    #[rasn(tag(2))]
+    /// policyFlags is OPTIONAL.  When present, three Boolean values for
+    /// input to the certification path validation algorithm are provided in
+    /// a BIT STRING.  When absent, the input to the certification path
+    /// validation algorithm is { FALSE, FALSE, FALSE }, which represents the
+    /// most liberal setting for these flags.
+    pub policy_flags: Option<CertPolicyFlags>,
+    #[rasn(tag(3))]
+    /// nameConstrhas the same syntax and semantics as the
+    /// Name Constraints certificate extension [RFC5280], which includes a
+    /// list of permitted names and a list of excluded names.
+    pub name_constr: Option<NameConstraints>,
+    #[rasn(tag(4))]
+    /// The pathLenConstraint field gives the maximum number of non-self-
+    /// issued intermediate certificates that may follow this certificate in
+    /// a valid certification path.  (Note: The last certificate in the
+    /// certification path is not an intermediate certificate and is not
+    /// included in this limit.  Usually, the last certificate is an end
+    /// entity certificate, but it can be a CA certificate.
+    pub path_len_constraint: Option<Integer>,
+}
+
+/// TrustAnchorChoice provides three options for representing a trust anchor.
+///
+/// The certificate option allows for the use of a certificate with no additional
+/// associated constraints.
+///
+/// The tbsCert option allows for associating constraints by removing a signature
+/// on a certificate and changing the extensions field.  
+///
+/// The taInfo option allows for use of the TrustAnchorInfo structure defined
+/// in RFC-5914.
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum TrustAnchorChoice {
+     Certificate(Certificate),
+     #[rasn(tag(explicit(1)))]
+     TbsCertificate(TbsCertificate),
+     #[rasn(tag(explicit(2)))]
+     TrustAnchorInfo(TrustAnchorInfo),
 }
 
 /// The validity period of the certificate.
