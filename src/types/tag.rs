@@ -181,7 +181,7 @@ impl TagTree {
         match self {
             Self::Leaf(tag) => *tag,
             Self::Choice(tree) => {
-                let i = 0;
+                let mut i = 0;
                 let mut tag: Tag = Tag::new_private(u32::MAX);
 
                 while i < tree.len() {
@@ -189,6 +189,8 @@ impl TagTree {
                     if next_tag.const_less_than(tag) {
                         tag = next_tag;
                     }
+                    
+                    i += 1;
                 }
 
                 tag

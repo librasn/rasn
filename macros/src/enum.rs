@@ -74,6 +74,18 @@ impl Enum {
 
         let constraints_def = self.config.constraints.const_static_def(&crate_root);
 
+
+        let choice_impl = self.config.choice.then(|| quote! {
+            impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
+                const VARIANTS: &'static [#crate_root::types::TagTree] = &[
+                    #(#base_variants)*
+                ];
+                const EXTENDED_VARIANTS: &'static [#crate_root::types::TagTree] = &[
+                    #(#extended_variants)*
+                ];
+            }
+        });
+
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
                 const TAG: #crate_root::Tag = {
@@ -89,14 +101,7 @@ impl Enum {
                 #constraints_def
             }
 
-            impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
-                const VARIANTS: &'static [#crate_root::types::TagTree] = &[
-                    #(#base_variants)*
-                ];
-                const EXTENDED_VARIANTS: &'static [#crate_root::types::TagTree] = &[
-                    #(#extended_variants)*
-                ];
-            }
+            #choice_impl
         }
     }
 

@@ -15,7 +15,7 @@ pub trait Encode: AsnType {
     /// such as a `CHOICE` type, in which case you want to implement encoding
     /// in `encode`.
     fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
-        self.encode_with_tag(encoder, Self::TAG)
+        self.encode_with_tag_and_constraints(encoder, Self::TAG, Self::CONSTRAINTS)
     }
 
     /// Encode this value with `tag` into the given `Encoder`.
@@ -393,9 +393,11 @@ impl<E: Encode> Encode for Option<E> {
         encoder: &mut EN,
         constraints: Constraints<'constraints>,
     ) -> Result<(), EN::Error> {
-        encoder
-            .encode_some_with_tag_and_constraints(Self::TAG, constraints, self)
-            .map(drop)
+        match self {
+            Some(value) => encoder.encode_some_with_tag_and_constraints(Self::TAG, constraints, value),
+            None => encoder.encode_none::<E>(),
+        }
+        .map(drop)
     }
 
     fn encode_with_tag_and_constraints<'constraints, EN: Encoder>(
@@ -404,9 +406,12 @@ impl<E: Encode> Encode for Option<E> {
         tag: Tag,
         constraints: Constraints<'constraints>,
     ) -> Result<(), EN::Error> {
-        encoder
-            .encode_some_with_tag_and_constraints(tag, constraints, self)
-            .map(drop)
+        match self {
+            Some(value) => encoder.encode_some_with_tag_and_constraints(tag, constraints, value),
+
+            None => encoder.encode_none::<E>(),
+        }
+        .map(drop)
     }
 }
 

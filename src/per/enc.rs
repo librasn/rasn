@@ -81,10 +81,10 @@ impl Encoder {
 
     fn new_sequence_encoder<C: crate::types::Constructed>(&self) -> Self {
         let mut encoder = Self::new(self.options.without_set_encoding());
-        encoder.field_bitfield = C::FIELDS
-            .optional_and_default_fields()
-            .map(|field| (field.tag_tree.smallest_tag(), false))
-            .collect();
+        let fields = C::FIELDS;
+        let iter = fields.optional_and_default_fields();
+        let iter = iter .map(|field| (field.tag_tree.smallest_tag(), false));
+        encoder.field_bitfield = iter.collect();
         encoder
     }
 
@@ -235,7 +235,7 @@ impl Encoder {
         })?;
 
         for field in extension_fields {
-            self.encode_length(&mut buffer, bitfield.len(), <_>::default(), |range| {
+            self.encode_length(&mut buffer, field.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&field[range]))
             })?;
         }
@@ -681,7 +681,7 @@ impl crate::Encoder for Encoder {
             let mut buffer = BitString::default();
             for value in &values[range] {
                 let mut encoder = Self::new(options);
-                value.encode(&mut encoder)?;
+                E::encode(value, &mut encoder)?;
                 buffer.extend(encoder.bitstring_output());
             }
             Ok(buffer)
