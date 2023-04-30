@@ -89,7 +89,7 @@ impl Enum {
         let enumerated_impl = self.config.enumerated.then(|| {
             let (variants, extended_variants): (Vec<_>, Vec<_>) = self.variants.iter()
                 .map(|variant| VariantConfig::new(variant, &self.generics, &self.config))
-                .partition(|config| config.extension_addition);
+                .partition(|config| !config.extension_addition);
 
             let discriminants = variants.iter().enumerate().map(|(i, config)| {
                 let discriminant = config.discriminant().unwrap_or(i) as isize;

@@ -221,6 +221,21 @@ impl<'input> Decoder<'input> {
         self.parse_integer(Constraints::new(&[constraints]))
     }
 
+    fn parse_non_negative_binary_integer(&mut self, range: i128) -> Result<types::Integer> {
+        let bits = super::log2(range);
+        let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
+        self.input = input;
+        let data = if data.len() < 8 {
+            let mut buffer = types::BitString::repeat(false, 8-data.len());
+            buffer.extend_from_bitslice(&data);
+            buffer
+        } else {
+            data.to_bitvec()
+        };
+
+        Ok(num_bigint::BigUint::from_bytes_le(&dbg!(data).into_vec()).into())
+    }
+
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
         let extensible = self.parse_extensible_bit(&constraints)?;
         let value_constraint = constraints.value();
@@ -237,11 +252,9 @@ impl<'input> Decoder<'input> {
         {
             if range == 0 {
                 return Ok(value_constraint.constraint.minimum().into())
+            } else {
+                self.parse_non_negative_binary_integer(range)?
             }
-            let bits = super::log2(range);
-            let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
-            self.input = input;
-            num_bigint::BigUint::from_bytes_be(&data.to_bitvec().into_vec()).into()
         } else {
             let bytes = self.decode_octets()?.into_vec();
             value_constraint
@@ -277,12 +290,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_enumerated<E: Enumerated>(&mut self, _: Tag) -> Result<E> {
         let extensible = E::EXTENDED_VARIANTS.is_some().then(|| self.parse_one_bit()).transpose()?.unwrap_or_default();
 
-        if extensible {
+        if dbg!(extensible) {
             let index: usize = self.parse_normally_small_integer()?.try_into().map_err(Error::custom)?;
             E::from_extended_enumeration_index(index)
                 .ok_or_else(|| Error::custom(format!("Extended index {} not found", index)))
         } else {
-            let index = self.parse_non_negative_binary_integer(E::variance() as i128)?.try_into().map_err(Error::custom)?;
+            let index = dbg!(self.parse_non_negative_binary_integer(E::variance() as i128)?).try_into().map_err(Error::custom)?;
             E::from_enumeration_index(index)
                 .ok_or_else(|| Error::custom(format!("Index {} not found", index)))
         }

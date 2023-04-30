@@ -556,8 +556,8 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::default();
         let index = value.enumeration_index();
-        if E::EXTENDED_VARIANTS.is_some() {
-            buffer.push(value.is_extended_variant());
+        if dbg!(E::EXTENDED_VARIANTS.is_some()) {
+            buffer.push(dbg!(value.is_extended_variant()));
         }
 
         if value.is_extended_variant() {

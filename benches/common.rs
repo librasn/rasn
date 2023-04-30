@@ -24,7 +24,7 @@ pub struct Bench {
 #[derive(AsnType, Decode, Encode)]
 pub struct EmptySequence {}
 
-#[derive(AsnType, Clone, Copy, Decode, Encode, PartialEq)]
+#[derive(AsnType, Clone, Copy, Decode, Debug, Encode, PartialEq)]
 #[rasn(enumerated)]
 pub enum BenchEnum {
     A,

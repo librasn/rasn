@@ -111,9 +111,9 @@ mod tests {
         #[rasn(enumerated, crate_root = "crate")]
         enum Enum1 { Green, Red, Blue, }
 
-        // round_trip!(uper, Enum1, Enum1::Green, &[0]);
-        // round_trip!(uper, Enum1, Enum1::Red, &[0x40]);
-        // round_trip!(uper, Enum1, Enum1::Blue, &[0x80]);
+        round_trip!(uper, Enum1, Enum1::Green, &[0]);
+        round_trip!(uper, Enum1, Enum1::Red, &[0x40]);
+        round_trip!(uper, Enum1, Enum1::Blue, &[0x80]);
 
         #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
         #[rasn(enumerated, crate_root = "crate")]
@@ -128,7 +128,7 @@ mod tests {
             Purple,
         }
 
-        // round_trip!(uper, Enum2, Enum2::Red, &[0]);
+        round_trip!(uper, Enum2, Enum2::Red, &[0]);
         round_trip!(uper, Enum2, Enum2::Yellow, &[0x80]);
         round_trip!(uper, Enum2, Enum2::Purple, &[0x81]);
     }
