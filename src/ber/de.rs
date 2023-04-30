@@ -300,15 +300,35 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
         let string = self.decode_utf8_string(tag)?;
-        chrono::NaiveDateTime::parse_from_str(&string, "%Y%m%d%H%M%SZ")
+        // Reference https://obj-sys.com/asn1tutorial/node14.html
+        // If data contains ., 3 decimal places of seconds are expected
+        // If data contains explict Z, result is UTC 
+        // If data contains + or -, explicit timezone is given
+        // If neither Z nor + nor -, purely local time is implied
+        // FIXME for future, NaiveDatetime is right in last case. Others want DateTime<UTC>
+        // or DateTime<FixedOffset> respectively
+        // FIXME, supposedly, minutes and seconds are optional, and would have to be handled
+        // in the no decimal point cases
+        let format = if string.contains('Z') {
+                         if string.contains('.') {"%Y%m%d%H%M%S%.3fZ"} else {"%Y%m%d%H%M%SZ"}
+                     } else if string.contains('+') || string.contains('-') {
+                         if string.contains('.') {"%Y%m%d%H%M%S%.3f%z"} else {"%Y%m%d%H%M%S%z"}
+                     } else {
+                         if string.contains('.') {"%Y%m%d%H%M%S%.3fZ"} else {"%Y%m%d%H%M%SZ"}
+                     };
+        chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
             .context(error::InvalidDateSnafu)
             .map(|date| types::GeneralizedTime::from_utc(date, chrono::FixedOffset::east(0)))
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
+        // Reference https://obj-sys.com/asn1tutorial/node15.html
+        // FIXME - handle optional seconds
+        // FIXME - should this be DateTime<UTC> rather than NaiveDateTime ?
         let string = self.decode_utf8_string(tag)?;
-        chrono::NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
+        let format = if string.contains('Z') {"%y%m%d%H%M%SZ"} else {"%y%m%d%H%M%S%z"};
+        chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
             .context(error::InvalidDateSnafu)
             .map(|date| types::UtcTime::from_utc(date, chrono::Utc))
