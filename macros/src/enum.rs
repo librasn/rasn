@@ -86,6 +86,42 @@ impl Enum {
             }
         });
 
+        let enumerated_impl = self.config.enumerated.then(|| {
+            let (variants, extended_variants): (Vec<_>, Vec<_>) = self.variants.iter()
+                .map(|variant| VariantConfig::new(variant, &self.generics, &self.config))
+                .partition(|config| config.extension_addition);
+
+            let discriminants = variants.iter().enumerate().map(|(i, config)| {
+                let discriminant = config.discriminant().unwrap_or(i) as isize;
+                let variant = &config.variant.ident;
+                quote!((Self::#variant, #discriminant))
+            });
+            let extended_discriminants = extended_variants.iter().enumerate().map(|(i, config)| {
+                let discriminant = config.discriminant().unwrap_or(i) as isize;
+                let variant = &config.variant.ident;
+                quote!((Self::#variant, #discriminant))
+            });
+
+            let variants = variants.iter().map(|config| config.variant.ident.clone());
+            let extended_variant_idents = extended_variants.iter().map(|config| config.variant.ident.clone());
+            let extended_variants = (!extended_variants.is_empty())
+                .then(|| quote!(Some(&[#(Self::#extended_variant_idents,)*])))
+                .unwrap_or(quote!(None));
+            let extended_discriminants = (!extended_variants.is_empty())
+                .then(|| quote!(Some(&[#(#extended_discriminants,)*])))
+                .unwrap_or(quote!(None));
+
+            quote! {
+                impl #impl_generics #crate_root::types::Enumerated for #name #ty_generics #where_clause {
+                    const VARIANTS: &'static [Self] = &[#(Self::#variants,)*];
+                    const EXTENDED_VARIANTS: Option<&'static [Self]> = #extended_variants;
+
+                    const DISCRIMINANTS: &'static [(Self, isize)] = &[#(#discriminants,)*];
+                    const EXTENDED_DISCRIMINANTS: Option<&'static [(Self, isize)]> = #extended_discriminants;
+                }
+            }
+        });
+
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
                 const TAG: #crate_root::Tag = {
@@ -102,6 +138,7 @@ impl Enum {
             }
 
             #choice_impl
+            #enumerated_impl
         }
     }
 
@@ -129,23 +166,7 @@ impl Enum {
         let mut generics = self.generics.clone();
         generics.add_trait_bounds(&self.config.crate_root, quote::format_ident!("Decode"));
         let decode_with_tag = if self.config.enumerated {
-            let variants = self.variants.iter().map(|v| {
-                let ident = &v.ident;
-                quote!(i if i == #crate_root::types::Integer::from(Self::#ident as isize) => Self::#ident,)
-            });
-
-            quote! {
-                let integer = decoder.decode_enumerated(
-                    tag,
-                    constraints,
-                )?;
-
-                Ok(match integer {
-                    #(#variants)*
-                    _ => return Err(#crate_root::de::Error::custom("Invalid enumerated disrciminant."))
-                })
-
-            }
+            quote!(decoder.decode_enumerated(tag))
         } else {
             quote!(decoder.decode_explicit_prefix(tag))
         };
@@ -244,9 +265,8 @@ impl Enum {
     fn encode_with_tag(&self) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
         let operation = if self.config.enumerated {
-            let variance = self.variants.len();
             quote! {
-                encoder.encode_enumerated(tag, #variance, *self as isize).map(drop)
+                encoder.encode_enumerated(tag, self).map(drop)
             }
         } else {
             quote! {

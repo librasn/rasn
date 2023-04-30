@@ -8,9 +8,9 @@ use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 use super::Identifier;
 use crate::{
     types::{
-        self, constraints,
+        self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Constraints, Tag,
+        Constraints, Tag, Enumerated,
     },
     Encode,
 };
@@ -288,19 +288,13 @@ impl crate::Encoder for Encoder {
         (encode_fn)(self).map(drop)
     }
 
-    fn encode_enumerated(
+    fn encode_enumerated<E: Enumerated>(
         &mut self,
         tag: Tag,
-        variance: usize,
-        value: isize,
+        value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_integer(
-            tag,
-            Constraints::from(
-                &[constraints::Size::new(constraints::Bounded::up_to(variance)).into()],
-            ),
-            &(value.into()),
-        )
+        let value = E::discriminant(value);
+        self.encode_integer(tag, <_>::default(), &value.into())
     }
 
     fn encode_integer(

@@ -3,7 +3,7 @@
 use alloc::{boxed::Box, vec::Vec};
 use core::convert::TryInto;
 
-use crate::types::{self, AsnType, Constraints, Tag};
+use crate::types::{self, AsnType, Constraints, Tag, Enumerated};
 
 pub use nom::Needed;
 pub use rasn_derive::Decode;
@@ -60,11 +60,10 @@ pub trait Decoder: Sized {
     /// Decode a `BOOL` identified by `tag` from the available input.
     fn decode_bool(&mut self, tag: Tag) -> Result<bool, Self::Error>;
     /// Decode an enumerated enum's discriminant identified by `tag` from the available input.
-    fn decode_enumerated(
+    fn decode_enumerated<E: Enumerated>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
-    ) -> Result<types::Integer, Self::Error>;
+    ) -> Result<E, Self::Error>;
     /// Decode a `INTEGER` identified by `tag` from the available input.
     fn decode_integer(
         &mut self,

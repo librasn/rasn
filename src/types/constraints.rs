@@ -187,7 +187,7 @@ impl From<PermittedAlphabet> for Extensible<PermittedAlphabet> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Value(Bounded<i128>);
+pub struct Value(pub(crate) Bounded<i128>);
 
 impl Value {
     pub const fn new(value: Bounded<i128>) -> Self {

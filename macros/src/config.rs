@@ -370,7 +370,7 @@ impl OptionalEnum {
 }
 
 pub struct VariantConfig<'config> {
-    variant: &'config syn::Variant,
+    pub variant: &'config syn::Variant,
     container_config: &'config Config,
     generics: &'config syn::Generics,
     pub tag: Option<Tag>,
@@ -412,6 +412,13 @@ impl<'config> VariantConfig<'config> {
             tag,
             variant,
         }
+    }
+
+    pub fn discriminant(&self) -> Option<usize> {
+        self.variant.discriminant.as_ref().and_then(|(_, expr)| match expr {
+            syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(int), ..})  => int.base10_parse().ok(),
+            _ => None,
+        })
     }
 
     pub fn has_explicit_tag(&self) -> bool {

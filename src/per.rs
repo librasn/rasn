@@ -105,6 +105,35 @@ mod tests {
     }
 
     #[test]
+    fn enumerated() {
+
+        #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
+        #[rasn(enumerated, crate_root = "crate")]
+        enum Enum1 { Green, Red, Blue, }
+
+        // round_trip!(uper, Enum1, Enum1::Green, &[0]);
+        // round_trip!(uper, Enum1, Enum1::Red, &[0x40]);
+        // round_trip!(uper, Enum1, Enum1::Blue, &[0x80]);
+
+        #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
+        #[rasn(enumerated, crate_root = "crate")]
+        #[non_exhaustive]
+        enum Enum2 {
+            Red,
+            Blue,
+            Green,
+            #[rasn(extension_addition)]
+            Yellow,
+            #[rasn(extension_addition)]
+            Purple,
+        }
+
+        // round_trip!(uper, Enum2, Enum2::Red, &[0]);
+        round_trip!(uper, Enum2, Enum2::Yellow, &[0x80]);
+        round_trip!(uper, Enum2, Enum2::Purple, &[0x81]);
+    }
+
+    #[test]
     fn extension_additions() {
         #[derive(AsnType, Clone, Copy, Debug, Decode, Default, Encode, PartialEq)]
         #[rasn(enumerated, crate_root = "crate")]
@@ -139,6 +168,23 @@ mod tests {
         }
 
         let value = MySequenceVal {
+            item_code: 0,
+            item_name: None,
+            urgency: Urgency::High,
+            v2: MySequenceValExtension {
+                alternate_item_code: 0,
+                alternate_item_name: None,
+            },
+        };
+
+        round_trip!(
+            uper,
+            MySequenceVal,
+            value,
+            &[0x80, 0x00, 0xa0, 0x40, 0x00, 0x00, 0x0a]
+        );
+
+        let value = MySequenceVal {
             item_code: 29,
             item_name: Some(Ia5String::try_from("SHERRY").unwrap()),
             urgency: Urgency::High,
@@ -153,8 +199,9 @@ mod tests {
             MySequenceVal,
             value,
             &[
-                0xc7, 0x5d, 0x39, 0x11, 0x69, 0x52, 0xb2, 0x7, 0x1, 0x80, 0x5, 0x96, 0x9a, 0x13,
-                0xe9, 0x54
+            0xc7, 0x5d, 0x39, 0x11, 0x69, 0x52, 0xb2, 0x07, 0x01, 0x80,
+            0x05, 0x96, 0x9a, 0x13, 0xe9, 0x54
+
             ]
         );
     }

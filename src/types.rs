@@ -73,10 +73,68 @@ pub trait Constructed {
     const EXTENDED_FIELDS: self::fields::Fields = self::fields::Fields::empty();
 }
 
-/// a `CHOICE` value.
+/// A `CHOICE` value.
 pub trait Choice {
     const VARIANTS: &'static [TagTree];
     const EXTENDED_VARIANTS: &'static [TagTree] = &[];
+}
+
+/// A `ENUMERATED` value.
+pub trait Enumerated: Sized + 'static + PartialEq + Copy {
+    const VARIANTS: &'static [Self];
+    const EXTENDED_VARIANTS: Option<&'static [Self]>;
+
+    const DISCRIMINANTS: &'static [(Self, isize)];
+    const EXTENDED_DISCRIMINANTS: Option<&'static [(Self, isize)]>;
+
+    fn variance() -> usize {
+        Self::VARIANTS.len()
+    }
+
+    fn extended_variance() -> usize {
+        Self::EXTENDED_VARIANTS.map_or(0, |array| array.len())
+    }
+
+    fn complete_variance() -> usize {
+       Self::variance() + Self::extended_variance()
+    }
+
+    fn is_extended_variant(&self) -> bool {
+        Self::EXTENDED_VARIANTS.map_or(false, |array| array.iter().any(|variant| variant == self))
+    }
+
+    /// Returns the enumeration for the variant, if it's an extended variant
+    /// then it will return it's extended enumeration index.
+    fn enumeration_index(&self) -> usize {
+        if self.is_extended_variant() {
+            Self::EXTENDED_VARIANTS.unwrap().iter().position(|lhs| lhs == self).unwrap()
+        } else {
+            Self::VARIANTS.iter().position(|lhs| lhs == self).expect("Variant not defined in Enumerated::VARIANTS")
+        }
+    }
+
+    fn discriminant(&self) -> isize {
+        Self::DISCRIMINANTS.iter()
+            .chain(Self::EXTENDED_DISCRIMINANTS.iter().flat_map(|array| array.iter()))
+            .find_map(|(lhs, value)| (lhs == self).then_some(*value))
+            .expect("variant not defined in `Enumerated`")
+    }
+
+    fn from_discriminant(value: isize) -> Option<Self> {
+        Self::DISCRIMINANTS.iter()
+            .chain(Self::EXTENDED_DISCRIMINANTS.iter().flat_map(|array| array.iter()))
+            .find_map(|(variant, discriminant)| {
+                (value == *discriminant).then_some(*variant)
+            })
+    }
+
+    fn from_enumeration_index(index: usize) -> Option<Self> {
+        Self::VARIANTS.get(index).copied()
+    }
+
+    fn from_extended_enumeration_index(index: usize) -> Option<Self> {
+        Self::EXTENDED_VARIANTS.and_then(|array| array.get(index).copied())
+    }
 }
 
 macro_rules! asn_type {

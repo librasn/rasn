@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, AsnType, Constraints, Tag};
+use crate::types::{self, AsnType, Constraints, Tag, Enumerated};
 
 pub use rasn_derive::Encode;
 
@@ -63,11 +63,10 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `ENUMERATED` value.
-    fn encode_enumerated(
+    fn encode_enumerated<E: Enumerated>(
         &mut self,
         tag: Tag,
-        variance: usize,
-        value: isize,
+        value: &E,
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `OBJECT IDENTIFIER` value.
