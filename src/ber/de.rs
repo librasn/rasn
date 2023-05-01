@@ -302,7 +302,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let string = self.decode_utf8_string(tag)?;
         // Reference https://obj-sys.com/asn1tutorial/node14.html
         // If data contains ., 3 decimal places of seconds are expected
-        // If data contains explict Z, result is UTC 
+        // If data contains explict Z, result is UTC
         // If data contains + or -, explicit timezone is given
         // If neither Z nor + nor -, purely local time is implied
         // FIXME for future, NaiveDatetime is right in last case. Others want DateTime<UTC>
@@ -310,12 +310,24 @@ impl<'input> crate::Decoder for Decoder<'input> {
         // FIXME, supposedly, minutes and seconds are optional, and would have to be handled
         // in the no decimal point cases
         let format = if string.contains('Z') {
-                         if string.contains('.') {"%Y%m%d%H%M%S%.3fZ"} else {"%Y%m%d%H%M%SZ"}
-                     } else if string.contains('+') || string.contains('-') {
-                         if string.contains('.') {"%Y%m%d%H%M%S%.3f%z"} else {"%Y%m%d%H%M%S%z"}
-                     } else {
-                         if string.contains('.') {"%Y%m%d%H%M%S%.3fZ"} else {"%Y%m%d%H%M%SZ"}
-                     };
+            if string.contains('.') {
+                "%Y%m%d%H%M%S%.3fZ"
+            } else {
+                "%Y%m%d%H%M%SZ"
+            }
+        } else if string.contains('+') || string.contains('-') {
+            if string.contains('.') {
+                "%Y%m%d%H%M%S%.3f%z"
+            } else {
+                "%Y%m%d%H%M%S%z"
+            }
+        } else {
+            if string.contains('.') {
+                "%Y%m%d%H%M%S%.3fZ"
+            } else {
+                "%Y%m%d%H%M%SZ"
+            }
+        };
         chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
             .context(error::InvalidDateSnafu)
@@ -327,7 +339,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         // FIXME - handle optional seconds
         // FIXME - should this be DateTime<UTC> rather than NaiveDateTime ?
         let string = self.decode_utf8_string(tag)?;
-        let format = if string.contains('Z') {"%y%m%d%H%M%SZ"} else {"%y%m%d%H%M%S%z"};
+        let format = if string.contains('Z') {
+            "%y%m%d%H%M%SZ"
+        } else {
+            "%y%m%d%H%M%S%z"
+        };
         chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
             .context(error::InvalidDateSnafu)
@@ -530,6 +546,23 @@ mod tests {
         assert_eq!(name, decode::<String>(primitive).unwrap());
         assert_eq!(name, decode::<String>(definite_constructed).unwrap());
         assert_eq!(name, decode::<String>(indefinite_constructed).unwrap());
+    }
+
+    #[test]
+    fn generalized_time() {
+        let time = crate::types::GeneralizedTime::parse_from_str(
+            "20001231205959.999+0000",
+            "%Y%m%d%H%M%S%.3f%z",
+        )
+        .unwrap();
+        let has_z = &[
+            0x18, 0x13, 0x32, 0x30, 0x30, 0x30, 0x31, 0x32, 0x33, 0x31, 0x32, 0x30, 0x35, 0x39,
+            0x35, 0x39, 0x2E, 0x39, 0x39, 0x39, 0x5A,
+        ];
+        assert_eq!(
+            time,
+            decode::<chrono::DateTime::<chrono::FixedOffset>>(has_z).unwrap()
+        );
     }
 
     #[test]

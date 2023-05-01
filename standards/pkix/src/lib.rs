@@ -224,7 +224,7 @@ pub struct TrustAnchorInfo {
     pub ta_title_lang_tag: Option<Utf8String>,
 }
 
-/// CertPathControls provides the controls needed to initialize an X.509 
+/// CertPathControls provides the controls needed to initialize an X.509
 // certification path validation algorithm implementation
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CertPathControls {
@@ -278,11 +278,11 @@ pub struct CertPathControls {
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum TrustAnchorChoice {
-     Certificate(Certificate),
-     #[rasn(tag(explicit(1)))]
-     TbsCertificate(TbsCertificate),
-     #[rasn(tag(explicit(2)))]
-     TrustAnchorInfo(TrustAnchorInfo),
+    Certificate(Certificate),
+    #[rasn(tag(explicit(1)))]
+    TbsCertificate(TbsCertificate),
+    #[rasn(tag(explicit(2)))]
+    TrustAnchorInfo(TrustAnchorInfo),
 }
 
 /// The validity period of the certificate.
