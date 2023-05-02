@@ -170,7 +170,7 @@ mod tests {
         let value = MySequenceVal {
             item_code: 0,
             item_name: None,
-            urgency: Urgency::High,
+            urgency: Urgency::Normal,
             v2: MySequenceValExtension {
                 alternate_item_code: 0,
                 alternate_item_name: None,
