@@ -335,6 +335,16 @@ impl_integers! {
     usize,
 }
 
+impl<const START: i128, const END: i128> Decode for types::ConstrainedInteger<START, END> {
+    fn decode_with_tag_and_constraints<'constraints, D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        constraints: Constraints<'constraints>,
+    ) -> Result<Self, D::Error> {
+        decoder.decode_integer(tag, constraints).map(Self)
+    }
+}
+
 impl Decode for types::Integer {
     fn decode_with_tag_and_constraints<'constraints, D: Decoder>(
         decoder: &mut D,

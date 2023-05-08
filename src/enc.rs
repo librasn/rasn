@@ -454,7 +454,18 @@ impl_integers! {
     usize
 }
 
-impl Encode for num_bigint::BigInt {
+impl<const START: i128, const END: i128> Encode for types::ConstrainedInteger<START, END> {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        constraints: Constraints<'constraints>,
+    ) -> Result<(), E::Error> {
+        encoder.encode_integer(tag, constraints, self).map(drop)
+    }
+}
+
+impl Encode for types::Integer {
     fn encode_with_tag_and_constraints<'constraints, E: Encoder>(
         &self,
         encoder: &mut E,

@@ -69,15 +69,57 @@ mod tests {
 
     macro_rules! round_trip {
         ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
-            let value = $value;
+            let value: $typ = $value;
+            let expected: &[u8] = $expected;
             let actual_encoding = crate::$codec::encode(&value).unwrap();
 
-            assert_eq!($expected, &*actual_encoding);
+            assert_eq!(expected, &*actual_encoding);
 
             let decoded_value: $typ = crate::$codec::decode(&actual_encoding).unwrap();
 
             assert_eq!(value, decoded_value);
         }};
+    }
+
+    #[test]
+    fn bool() {
+        round_trip!(uper, bool, true, &[0x80]);
+        round_trip!(uper, bool, false, &[0]);
+    }
+
+    #[test]
+    fn integer() {
+        round_trip!(uper, Integer, 32768.into(), &[0x03, 0x00, 0x80, 0x00]);
+        round_trip!(uper, Integer, 32767.into(), &[0x02, 0x7f, 0xff]);
+        round_trip!(uper, Integer, 256.into(), &[0x02, 0x01, 0x00]);
+        round_trip!(uper, Integer, 255.into(), &[0x02, 0x00, 0xff]);
+        round_trip!(uper, Integer, 128.into(), &[0x02, 0x00, 0x80]);
+        round_trip!(uper, Integer, 127.into(), &[0x01, 0x7f]);
+        round_trip!(uper, Integer, 1.into(), &[0x01, 0x01]);
+        round_trip!(uper, Integer, 0.into(), &[0x01, 0x00]);
+        round_trip!(uper, Integer, (-1).into(), &[0x01, 0xff]);
+        round_trip!(uper, Integer, (-128).into(), &[0x01, 0x80]);
+        round_trip!(uper, Integer, (-129).into(), &[0x02, 0xff, 0x7f]);
+        round_trip!(uper, Integer, (-256).into(), &[0x02, 0xff, 0x00]);
+        round_trip!(uper, Integer, (-32768).into(), &[0x02, 0x80, 0x00]);
+        round_trip!(uper, Integer, (-32769).into(), &[0x03, 0xff, 0x7f, 0xff]);
+
+        type B = ConstrainedInteger<5, 99>;
+        type C = ConstrainedInteger<-10, 10>;
+        //type D = ExtensibleConstrainedInteger<5, 99>;
+        type E = ConstrainedInteger<1000, 1000>;
+
+
+        round_trip!(uper, B, 5.into(), &[0x00]);
+        round_trip!(uper, B, 6.into(), &[0x02]);
+        round_trip!(uper, B, 99.into(), &[0xbc]);
+        round_trip!(uper, C, (-10).into(), &[0x00]);
+        round_trip!(uper, C, (-1).into(), &[0x48]);
+        round_trip!(uper, C, 0.into(), &[0x50]);
+        round_trip!(uper, C, 1.into(), &[0x58]);
+        round_trip!(uper, C, 10.into(), &[0xa0]);
+        // round_trip!(uper, D, 99, &[0x5e]);
+        round_trip!(uper, E, Integer::from(1000).into(), &[0]);
     }
 
     #[test]
@@ -106,7 +148,6 @@ mod tests {
 
     #[test]
     fn enumerated() {
-
         #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
         #[rasn(enumerated, crate_root = "crate")]
         enum Enum1 { Green, Red, Blue, }
@@ -134,6 +175,37 @@ mod tests {
     }
 
     #[test]
+    fn sequence_with_default() {
+        #[derive(AsnType, Clone, Debug, Decode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct WithDefault {
+            #[rasn(default)]
+            int: Integer,
+        }
+
+        impl crate::Encode for WithDefault {
+            fn encode_with_tag_and_constraints<'constraints, EN: crate::Encoder>(
+                &self,
+                encoder: &mut EN,
+                tag: crate::Tag,
+                constraints: crate::types::Constraints<'constraints>,
+            ) -> core::result::Result<(), EN::Error> {
+                #[allow(unused)]
+                let int = &self.int;
+                encoder
+                    .encode_sequence::<Self, _>(tag, constraints, |encoder| {
+                        encoder.encode_default(&self.int, <Integer>::default)?;
+                        Ok(())
+                    })
+                    .map(drop)
+            }
+        }
+
+        round_trip!(uper, WithDefault, WithDefault { int: 0.into(), }, &[0]);
+        round_trip!(uper, WithDefault, WithDefault { int: 1.into(), }, &[0x80, 1, 1]);
+    }
+
+    #[test]
     fn extension_additions() {
         #[derive(AsnType, Clone, Copy, Debug, Decode, Default, Encode, PartialEq)]
         #[rasn(enumerated, crate_root = "crate")]
@@ -145,7 +217,6 @@ mod tests {
 
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
-        #[non_exhaustive]
         struct MySequenceValExtension {
             #[rasn(value("0..254"))]
             alternate_item_code: u8,

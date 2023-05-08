@@ -137,6 +137,31 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy {
     }
 }
 
+/// A integer which has encoded constraint range between `START` and `END`.
+#[derive(Debug, Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
+pub struct ConstrainedInteger<const START: i128, const END: i128>(pub(crate) Integer);
+
+impl<const START: i128, const END: i128> AsnType for ConstrainedInteger<START, END> {
+    const TAG: Tag = Tag::INTEGER;
+    const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
+        constraints::Constraint::Value(Extensible::new(constraints::Value::new(constraints::Bounded::const_new(START, END)))),
+    ]);
+}
+
+impl<const START: i128, const END: i128> core::ops::Deref for ConstrainedInteger<START, END> {
+    type Target = Integer;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<T: Into<Integer>, const START: i128, const END: i128> From<T> for ConstrainedInteger<START, END> {
+    fn from(value: T) -> Self {
+        Self(value.into())
+    }
+}
+
 macro_rules! asn_type {
     ($($name:ty: $value:ident),+) => {
         $(
@@ -149,7 +174,7 @@ macro_rules! asn_type {
 
 asn_type! {
     bool: BOOL,
-    num_bigint::BigInt: INTEGER,
+    Integer: INTEGER,
     OctetString: OCTET_STRING,
     ObjectIdentifier: OBJECT_IDENTIFIER,
     Oid: OBJECT_IDENTIFIER,
