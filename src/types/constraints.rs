@@ -300,7 +300,7 @@ pub enum Bounded<T> {
     Range {
         start: Option<T>,
         end: Option<T>,
-    }
+    },
 }
 
 impl<T> Bounded<T> {
@@ -321,7 +321,7 @@ impl<T> Bounded<T> {
     pub const fn as_start(&self) -> Option<&T> {
         match &self {
             Self::Range { start, .. } => start.as_ref(),
-            _ => None
+            _ => None,
         }
     }
 
@@ -341,7 +341,9 @@ impl<T: Default + Clone> Bounded<T> {
     pub fn as_minimum(&self) -> Option<&T> {
         match self {
             Self::Single(value) => Some(value),
-            Self::Range {start: Some(start), .. } => Some(start),
+            Self::Range {
+                start: Some(start), ..
+            } => Some(start),
             _ => None,
         }
     }
@@ -351,11 +353,16 @@ impl<T: Default + Clone> Bounded<T> {
     }
 }
 
-impl<T: num_traits::WrappingSub<Output = T> + num_traits::SaturatingAdd<Output = T> + From<u8>> Bounded<T> {
+impl<T: num_traits::WrappingSub<Output = T> + num_traits::SaturatingAdd<Output = T> + From<u8>>
+    Bounded<T>
+{
     pub fn range(&self) -> Option<T> {
         match self {
             Self::Single(_) => Some(T::from(1u8)),
-            Self::Range {start: Some(start), end: Some(end) } => Some(end.wrapping_sub(start).saturating_add(&1.into())),
+            Self::Range {
+                start: Some(start),
+                end: Some(end),
+            } => Some(end.wrapping_sub(start).saturating_add(&1.into())),
             _ => None,
         }
     }
@@ -368,10 +375,12 @@ impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + Partia
     /// the number.
     pub fn effective_value(&self, value: T) -> either::Either<T, T> {
         match &self {
-            Self::Range {start: Some(start), .. } => {
+            Self::Range {
+                start: Some(start), ..
+            } => {
                 debug_assert!(&value >= start);
                 either::Left(value - start.clone())
-            },
+            }
             _ => either::Right(value),
         }
     }
@@ -386,7 +395,10 @@ where
         &self,
         value: crate::types::Integer,
     ) -> either::Either<crate::types::Integer, crate::types::Integer> {
-        if let Bounded::Range { start: Some(start), .. } = self {
+        if let Bounded::Range {
+            start: Some(start), ..
+        } = self
+        {
             let start = crate::types::Integer::from(start.clone());
             debug_assert!(value >= start);
             either::Left(value - start)
@@ -437,7 +449,9 @@ impl Bounded<i128> {
         match &self {
             Self::Single(value) => crate::types::Integer::from(*value) == *element,
             Self::Range { start, end } => {
-                start.as_ref().map_or(true, |&start| element >= &start.into())
+                start
+                    .as_ref()
+                    .map_or(true, |&start| element >= &start.into())
                     && end.as_ref().map_or(true, |&end| element <= &end.into())
             }
             Self::None => true,
@@ -499,7 +513,7 @@ impl<T: core::fmt::Display> core::fmt::Display for Bounded<T> {
                 (Some(start), None) => write!(f, "{start}.."),
                 (None, Some(end)) => write!(f, "..{end}"),
                 (None, None) => write!(f, ".."),
-            }
+            },
             Self::Single(value) => value.fmt(f),
             Self::None => write!(f, ".."),
         }

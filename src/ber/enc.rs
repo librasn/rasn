@@ -10,7 +10,7 @@ use crate::{
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Constraints, Tag, Enumerated,
+        Constraints, Enumerated, Tag,
     },
     Encode,
 };

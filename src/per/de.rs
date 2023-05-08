@@ -9,11 +9,10 @@ use crate::{
     de::Error as _,
     types::{
         self,
-        Enumerated,
         constraints::{self, Extensible},
         fields::{Field, Fields},
         strings::StaticPermittedAlphabet,
-        Constraints, Tag,
+        Constraints, Enumerated, Tag,
     },
     Decode,
 };
@@ -226,7 +225,7 @@ impl<'input> Decoder<'input> {
         let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
         self.input = input;
         let data = if data.len() < 8 {
-            let mut buffer = types::BitString::repeat(false, 8-data.len());
+            let mut buffer = types::BitString::repeat(false, 8 - data.len());
             buffer.extend_from_bitslice(&data);
             buffer
         } else {
@@ -251,7 +250,7 @@ impl<'input> Decoder<'input> {
             .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
         {
             if range == 0 {
-                return Ok(value_constraint.constraint.minimum().into())
+                return Ok(value_constraint.constraint.minimum().into());
             } else {
                 self.parse_non_negative_binary_integer(range)?
             }
@@ -288,14 +287,23 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, _: Tag) -> Result<E> {
-        let extensible = E::EXTENDED_VARIANTS.is_some().then(|| self.parse_one_bit()).transpose()?.unwrap_or_default();
+        let extensible = E::EXTENDED_VARIANTS
+            .is_some()
+            .then(|| self.parse_one_bit())
+            .transpose()?
+            .unwrap_or_default();
 
         if dbg!(extensible) {
-            let index: usize = self.parse_normally_small_integer()?.try_into().map_err(Error::custom)?;
+            let index: usize = self
+                .parse_normally_small_integer()?
+                .try_into()
+                .map_err(Error::custom)?;
             E::from_extended_enumeration_index(index)
                 .ok_or_else(|| Error::custom(format!("Extended index {} not found", index)))
         } else {
-            let index = dbg!(self.parse_non_negative_binary_integer(E::variance() as i128)?).try_into().map_err(Error::custom)?;
+            let index = dbg!(self.parse_non_negative_binary_integer(E::variance() as i128)?)
+                .try_into()
+                .map_err(Error::custom)?;
             E::from_enumeration_index(index)
                 .ok_or_else(|| Error::custom(format!("Index {} not found", index)))
         }

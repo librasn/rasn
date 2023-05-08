@@ -9,10 +9,11 @@ use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
     enc::Error as _,
     types::{
-        self, Enumerated,
+        self,
         constraints::{self, Extensible},
+        fields::FieldPresence,
         strings::{ConstrainedCharacterString, DynConstrainedCharacterString},
-        BitString, Constraints, Tag, fields::FieldPresence,
+        BitString, Constraints, Enumerated, Tag,
     },
     Encode,
 };
@@ -73,13 +74,20 @@ impl Encoder {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
-        encoder.field_bitfield = C::FIELDS.canonised().iter().map(|field| (field.tag_tree.smallest_tag(), (field.presence, false))).collect();
+        encoder.field_bitfield = C::FIELDS
+            .canonised()
+            .iter()
+            .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
+            .collect();
         encoder
     }
 
     fn new_sequence_encoder<C: crate::types::Constructed>(&self) -> Self {
         let mut encoder = Self::new(self.options.without_set_encoding());
-        encoder.field_bitfield = C::FIELDS.iter().map(|field| (field.tag_tree.smallest_tag(), (field.presence, false))).collect();
+        encoder.field_bitfield = C::FIELDS
+            .iter()
+            .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
+            .collect();
         encoder
     }
 
@@ -204,7 +212,14 @@ impl Encoder {
             encoder.encoded_extension_addition()
         });
 
-        for bit in encoder.field_bitfield.values().filter_map(|(presence, is_present)| presence.is_optional_or_default().then_some(is_present)).copied() {
+        for bit in encoder
+            .field_bitfield
+            .values()
+            .filter_map(|(presence, is_present)| {
+                presence.is_optional_or_default().then_some(is_present)
+            })
+            .copied()
+        {
             buffer.push(bit);
         }
 
@@ -227,13 +242,16 @@ impl Encoder {
         };
 
         for field in &extension_fields {
-             extension_buffer.push(!field.is_empty());
+            extension_buffer.push(!field.is_empty());
         }
 
         for field in extension_fields {
-            self.encode_length(&mut extension_buffer, field.len(), <_>::default(), |range| {
-                Ok(BitString::from_slice(&field[range]))
-            })?;
+            self.encode_length(
+                &mut extension_buffer,
+                field.len(),
+                <_>::default(),
+                |range| Ok(BitString::from_slice(&field[range])),
+            )?;
         }
 
         buffer.extend_from_bitslice(&extension_buffer);
@@ -553,11 +571,23 @@ impl crate::Encoder for Encoder {
             self.encode_normally_small_integer(index, &mut buffer)?;
         } else {
             if std::mem::size_of::<usize>() == 4 {
-                self.encode_non_negative_binary_integer(&mut buffer, E::variance() as i128, &u32::try_from(index).unwrap().to_be_bytes());
+                self.encode_non_negative_binary_integer(
+                    &mut buffer,
+                    E::variance() as i128,
+                    &u32::try_from(index).unwrap().to_be_bytes(),
+                );
             } else if std::mem::size_of::<usize>() == 2 {
-                self.encode_non_negative_binary_integer(&mut buffer, E::variance() as i128, &u16::try_from(index).unwrap().to_be_bytes());
+                self.encode_non_negative_binary_integer(
+                    &mut buffer,
+                    E::variance() as i128,
+                    &u16::try_from(index).unwrap().to_be_bytes(),
+                );
             } else {
-                self.encode_non_negative_binary_integer(&mut buffer, E::variance() as i128, &usize::to_be_bytes(index)[..]);
+                self.encode_non_negative_binary_integer(
+                    &mut buffer,
+                    E::variance() as i128,
+                    &usize::to_be_bytes(index)[..],
+                );
             };
         }
 
@@ -1010,7 +1040,9 @@ mod tests {
     fn normally_small_integer() {
         let mut encoder = Encoder::new(EncoderOptions::unaligned());
         let mut buffer = types::BitString::new();
-        encoder.encode_normally_small_integer(2, &mut buffer).unwrap();
+        encoder
+            .encode_normally_small_integer(2, &mut buffer)
+            .unwrap();
         assert_eq!(buffer.len(), 7);
         assert_eq!(bitvec::bits![0, 0, 0, 0, 0, 1, 0], buffer);
     }
@@ -1066,9 +1098,10 @@ mod tests {
         encoder
             .encode_integer(
                 Tag::INTEGER,
-                Constraints::from(&[
-                    constraints::Value::from(constraints::Bounded::start_from(-1)).into()
-                ]),
+                Constraints::from(&[constraints::Value::from(constraints::Bounded::start_from(
+                    -1,
+                ))
+                .into()]),
                 &4096.into(),
             )
             .unwrap();
@@ -1079,7 +1112,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(&[
-                    constraints::Value::from(constraints::Bounded::start_from(1)).into()
+                    constraints::Value::from(constraints::Bounded::start_from(1)).into(),
                 ]),
                 &127.into(),
             )
@@ -1090,7 +1123,7 @@ mod tests {
             .encode_integer(
                 Tag::INTEGER,
                 Constraints::from(&[
-                    constraints::Value::from(constraints::Bounded::start_from(0)).into()
+                    constraints::Value::from(constraints::Bounded::start_from(0)).into(),
                 ]),
                 &128.into(),
             )

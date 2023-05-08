@@ -415,10 +415,16 @@ impl<'config> VariantConfig<'config> {
     }
 
     pub fn discriminant(&self) -> Option<usize> {
-        self.variant.discriminant.as_ref().and_then(|(_, expr)| match expr {
-            syn::Expr::Lit(syn::ExprLit { lit: syn::Lit::Int(int), ..})  => int.base10_parse().ok(),
-            _ => None,
-        })
+        self.variant
+            .discriminant
+            .as_ref()
+            .and_then(|(_, expr)| match expr {
+                syn::Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Int(int),
+                    ..
+                }) => int.base10_parse().ok(),
+                _ => None,
+            })
     }
 
     pub fn has_explicit_tag(&self) -> bool {
@@ -729,7 +735,7 @@ impl<'a> FieldConfig<'a> {
                 let constraints = dbg!(self
                     .constraints
                     .const_expr(&self.container_config.crate_root))
-                    .unwrap_or_else(|| quote!(<_>::default()));
+                .unwrap_or_else(|| quote!(<_>::default()));
                 quote!(encoder.encode_extension_addition(#tag, #constraints, &#this #field)?;)
             } else if self.extension_addition_group {
                 quote!(encoder.encode_extension_addition_group(&#this #field)?;)
@@ -787,7 +793,7 @@ impl<'a> FieldConfig<'a> {
         } else {
             match (
                 (self.tag.is_some() || self.container_config.automatic_tags)
-                .then(|| self.tag.as_ref().map_or(false, |tag| tag.is_explicit())),
+                    .then(|| self.tag.as_ref().map_or(false, |tag| tag.is_explicit())),
                 self.default.as_ref().map(|path| {
                     path.as_ref()
                         .map_or(quote!(<_>::default), |path| quote!(#path))
@@ -796,25 +802,25 @@ impl<'a> FieldConfig<'a> {
             ) {
                 (Some(true), _, _) => quote!(decoder.decode_explicit_prefix(#tag) #or_else),
                 (Some(false), Some(path), true) => {
-                 quote!(decoder.decode_default_with_tag_and_constraints(#tag, #path, #constraints) #or_else)
+                    quote!(decoder.decode_default_with_tag_and_constraints(#tag, #path, #constraints) #or_else)
                 }
                 (Some(false), Some(path), false) => {
-                 quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
+                    quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
                 }
                 (Some(false), None, true) => {
-                 quote!(<_>::decode_with_tag_and_constraints(decoder, #tag, #constraints) #or_else)
+                    quote!(<_>::decode_with_tag_and_constraints(decoder, #tag, #constraints) #or_else)
                 }
                 (Some(false), None, false) => {
-                 quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
+                    quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
                 }
                 (None, Some(path), true) => {
-                 quote!(decoder.decode_default_with_constraints(#path, #constraints) #or_else)
+                    quote!(decoder.decode_default_with_constraints(#path, #constraints) #or_else)
                 }
                 (None, Some(path), false) => {
-                 quote!(decoder.decode_default(#path) #or_else)
+                    quote!(decoder.decode_default(#path) #or_else)
                 }
                 (None, None, true) => {
-                 quote!(<_>::decode_with_constraints(decoder, #constraints) #or_else)
+                    quote!(<_>::decode_with_constraints(decoder, #constraints) #or_else)
                 }
                 (None, None, false) => {
                     quote!(<_>::decode(decoder) #or_else)

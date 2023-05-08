@@ -96,7 +96,7 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy {
     }
 
     fn complete_variance() -> usize {
-       Self::variance() + Self::extended_variance()
+        Self::variance() + Self::extended_variance()
     }
 
     fn is_extended_variant(&self) -> bool {
@@ -107,25 +107,40 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy {
     /// then it will return it's extended enumeration index.
     fn enumeration_index(&self) -> usize {
         if self.is_extended_variant() {
-            Self::EXTENDED_VARIANTS.unwrap().iter().position(|lhs| lhs == self).unwrap()
+            Self::EXTENDED_VARIANTS
+                .unwrap()
+                .iter()
+                .position(|lhs| lhs == self)
+                .unwrap()
         } else {
-            Self::VARIANTS.iter().position(|lhs| lhs == self).expect("Variant not defined in Enumerated::VARIANTS")
+            Self::VARIANTS
+                .iter()
+                .position(|lhs| lhs == self)
+                .expect("Variant not defined in Enumerated::VARIANTS")
         }
     }
 
     fn discriminant(&self) -> isize {
-        Self::DISCRIMINANTS.iter()
-            .chain(Self::EXTENDED_DISCRIMINANTS.iter().flat_map(|array| array.iter()))
+        Self::DISCRIMINANTS
+            .iter()
+            .chain(
+                Self::EXTENDED_DISCRIMINANTS
+                    .iter()
+                    .flat_map(|array| array.iter()),
+            )
             .find_map(|(lhs, value)| (lhs == self).then_some(*value))
             .expect("variant not defined in `Enumerated`")
     }
 
     fn from_discriminant(value: isize) -> Option<Self> {
-        Self::DISCRIMINANTS.iter()
-            .chain(Self::EXTENDED_DISCRIMINANTS.iter().flat_map(|array| array.iter()))
-            .find_map(|(variant, discriminant)| {
-                (value == *discriminant).then_some(*variant)
-            })
+        Self::DISCRIMINANTS
+            .iter()
+            .chain(
+                Self::EXTENDED_DISCRIMINANTS
+                    .iter()
+                    .flat_map(|array| array.iter()),
+            )
+            .find_map(|(variant, discriminant)| (value == *discriminant).then_some(*variant))
     }
 
     fn from_enumeration_index(index: usize) -> Option<Self> {
@@ -143,9 +158,10 @@ pub struct ConstrainedInteger<const START: i128, const END: i128>(pub(crate) Int
 
 impl<const START: i128, const END: i128> AsnType for ConstrainedInteger<START, END> {
     const TAG: Tag = Tag::INTEGER;
-    const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-        constraints::Constraint::Value(Extensible::new(constraints::Value::new(constraints::Bounded::const_new(START, END)))),
-    ]);
+    const CONSTRAINTS: Constraints<'static> =
+        Constraints::new(&[constraints::Constraint::Value(Extensible::new(
+            constraints::Value::new(constraints::Bounded::const_new(START, END)),
+        ))]);
 }
 
 impl<const START: i128, const END: i128> core::ops::Deref for ConstrainedInteger<START, END> {
@@ -156,7 +172,9 @@ impl<const START: i128, const END: i128> core::ops::Deref for ConstrainedInteger
     }
 }
 
-impl<T: Into<Integer>, const START: i128, const END: i128> From<T> for ConstrainedInteger<START, END> {
+impl<T: Into<Integer>, const START: i128, const END: i128> From<T>
+    for ConstrainedInteger<START, END>
+{
     fn from(value: T) -> Self {
         Self(value.into())
     }
@@ -245,9 +263,10 @@ impl<T> AsnType for alloc::collections::BTreeSet<T> {
 
 impl<T: AsnType, const N: usize> AsnType for [T; N] {
     const TAG: Tag = Tag::SEQUENCE;
-    const CONSTRAINTS: Constraints<'static> = Constraints::new(&[Constraint::Size(
-        Extensible::new(constraints::Size::new(constraints::Bounded::single_value(N))),
-    )]);
+    const CONSTRAINTS: Constraints<'static> =
+        Constraints::new(&[Constraint::Size(Extensible::new(constraints::Size::new(
+            constraints::Bounded::single_value(N),
+        )))]);
 }
 
 impl<T> AsnType for &'_ [T] {

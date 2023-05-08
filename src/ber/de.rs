@@ -12,9 +12,9 @@ use super::identifier::Identifier;
 use crate::{
     de::Error as _,
     types::{
-        self, Enumerated,
+        self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Constraints, Tag,
+        Constraints, Enumerated, Tag,
     },
     Decode,
 };
@@ -149,7 +149,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E> {
-        E::from_discriminant(self.decode_integer(tag, <_>::default())?.try_into().map_err(|error| Error::custom(error))?).ok_or_else(|| Error::custom("no valid discriminant"))
+        E::from_discriminant(
+            self.decode_integer(tag, <_>::default())?
+                .try_into()
+                .map_err(|error| Error::custom(error))?,
+        )
+        .ok_or_else(|| Error::custom("no valid discriminant"))
     }
 
     fn decode_integer(&mut self, tag: Tag, _: Constraints) -> Result<types::Integer> {

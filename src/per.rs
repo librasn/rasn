@@ -109,7 +109,6 @@ mod tests {
         //type D = ExtensibleConstrainedInteger<5, 99>;
         type E = ConstrainedInteger<1000, 1000>;
 
-
         round_trip!(uper, B, 5.into(), &[0x00]);
         round_trip!(uper, B, 6.into(), &[0x02]);
         round_trip!(uper, B, 99.into(), &[0xbc]);
@@ -150,7 +149,11 @@ mod tests {
     fn enumerated() {
         #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
         #[rasn(enumerated, crate_root = "crate")]
-        enum Enum1 { Green, Red, Blue, }
+        enum Enum1 {
+            Green,
+            Red,
+            Blue,
+        }
 
         round_trip!(uper, Enum1, Enum1::Green, &[0]);
         round_trip!(uper, Enum1, Enum1::Red, &[0x40]);
@@ -201,8 +204,13 @@ mod tests {
             }
         }
 
-        round_trip!(uper, WithDefault, WithDefault { int: 0.into(), }, &[0]);
-        round_trip!(uper, WithDefault, WithDefault { int: 1.into(), }, &[0x80, 1, 1]);
+        round_trip!(uper, WithDefault, WithDefault { int: 0.into() }, &[0]);
+        round_trip!(
+            uper,
+            WithDefault,
+            WithDefault { int: 1.into() },
+            &[0x80, 1, 1]
+        );
     }
 
     #[test]
@@ -270,9 +278,8 @@ mod tests {
             MySequenceVal,
             value,
             &[
-            0xc7, 0x5d, 0x39, 0x11, 0x69, 0x52, 0xb2, 0x07, 0x01, 0x80,
-            0x05, 0x96, 0x9a, 0x13, 0xe9, 0x54
-
+                0xc7, 0x5d, 0x39, 0x11, 0x69, 0x52, 0xb2, 0x07, 0x01, 0x80, 0x05, 0x96, 0x9a, 0x13,
+                0xe9, 0x54
             ]
         );
     }

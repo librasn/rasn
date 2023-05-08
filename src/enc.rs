@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, AsnType, Constraints, Tag, Enumerated};
+use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
 
 pub use rasn_derive::Encode;
 
@@ -393,7 +393,9 @@ impl<E: Encode> Encode for Option<E> {
         constraints: Constraints<'constraints>,
     ) -> Result<(), EN::Error> {
         match self {
-            Some(value) => encoder.encode_some_with_tag_and_constraints(Self::TAG, constraints, value),
+            Some(value) => {
+                encoder.encode_some_with_tag_and_constraints(Self::TAG, constraints, value)
+            }
             None => encoder.encode_none::<E>(),
         }
         .map(drop)

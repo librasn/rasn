@@ -189,7 +189,7 @@ impl TagTree {
                     if next_tag.const_less_than(tag) {
                         tag = next_tag;
                     }
-                    
+
                     i += 1;
                 }
 
