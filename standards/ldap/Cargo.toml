@@ -1,6 +1,6 @@
 [package]
 name = "rasn-ldap"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2018"
 description = "Data types for Lightweight Directory Access Protocol."
 license = "Apache-2.0/MIT"
@@ -8,4 +8,4 @@ license = "Apache-2.0/MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rasn = { path = "../..", version = "0.6.0" }
+rasn = { path = "../..", version = "0.7.0" }
