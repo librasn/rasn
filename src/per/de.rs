@@ -1,6 +1,6 @@
 mod error;
 
-use alloc::vec::Vec;
+use alloc::{vec::Vec, collections::VecDeque};
 use bitvec::field::BitField;
 use snafu::*;
 
@@ -43,7 +43,9 @@ pub struct Decoder<'input> {
     options: DecoderOptions,
     /// When the decoder contains fields, we check against optional or default
     /// fields to know the presence of those fields.
-    fields: alloc::collections::VecDeque<(Field, bool)>,
+    fields: VecDeque<(Field, bool)>,
+    extension_fields: Option<Fields>,
+    extensions_present: Option<Option<VecDeque<(Field, bool)>>>,
 }
 
 impl<'input> Decoder<'input> {
@@ -52,6 +54,8 @@ impl<'input> Decoder<'input> {
             input: input.into(),
             options,
             fields: <_>::default(),
+            extension_fields: <_>::default(),
+            extensions_present: <_>::default(),
         }
     }
 
@@ -84,6 +88,34 @@ impl<'input> Decoder<'input> {
             .then(|| self.parse_one_bit())
             .transpose()
             .map(|opt| opt.unwrap_or_default())
+    }
+
+    fn extension_is_present(&mut self) -> Result<Option<(Field, bool)>> {
+        Ok(self.extensions_present.as_mut()
+            .ok_or_else(Error::type_not_extensible)?
+            .as_mut()
+            .ok_or_else(Error::type_not_extensible)?
+            .pop_front())
+    }
+
+    fn parse_padding(&mut self) -> Result<()> {
+        if !self.options.aligned {
+            Ok(())
+        } else {
+            self.force_parse_padding()
+        }
+    }
+
+    fn force_parse_padding(&mut self) -> Result<()> {
+        if self.input.len() % 8 == 0 {
+            Ok(())
+        } else {
+            let (input, _) = nom::bytes::streaming::take(
+                self.input.len() % 8
+            )(self.input)?;
+            self.input = input;
+            Ok(())
+        }
     }
 
     fn parse_optional_and_default_field_bitmap(
@@ -232,7 +264,7 @@ impl<'input> Decoder<'input> {
             data.to_bitvec()
         };
 
-        Ok(num_bigint::BigUint::from_bytes_le(&dbg!(data).into_vec()).into())
+        Ok(num_bigint::BigUint::from_bytes_le(&data.into_vec()).into())
     }
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
@@ -264,6 +296,31 @@ impl<'input> Decoder<'input> {
         };
 
         Ok(value_constraint.constraint.minimum() + number)
+    }
+
+    fn parse_extension_header(&mut self) -> Result<bool> {
+        match self.extensions_present {
+            Some(Some(_)) => return Ok(true),
+            Some(None) => (),
+            None => return Ok(false),
+        }
+
+
+        let extensions_length = self.parse_normally_small_integer()?;
+        let (input, bitfield) = nom::bytes::streaming::take(usize::try_from(extensions_length).map_err(Error::custom)?)(self.input)?;
+        self.input = input;
+
+        let extensions_present: VecDeque<_> = self.extension_fields.as_ref().unwrap().iter().zip(bitfield.iter().map(|b| *b)).collect();
+
+        for (field, is_present) in &extensions_present {
+            if field.is_not_optional_or_default() && !is_present {
+                return Err(Error::required_extension_not_present(field.tag))
+            }
+        }
+
+        self.extensions_present = Some(Some(extensions_present));
+
+        Ok(true)
     }
 }
 
@@ -480,18 +537,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_sequence<D, F>(
         &mut self,
         _: Tag,
-        constraints: Constraints,
         decode_fn: F,
     ) -> Result<D, Self::Error>
     where
         D: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
-        let is_extensible = self.parse_extensible_bit(&constraints)?;
+        let is_extensible = D::EXTENDED_FIELDS.is_some().then(|| self.parse_one_bit()).transpose()?.unwrap_or_default();
         let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
 
         let value = {
             let mut sequence_decoder = Self::new(self.input(), self.options);
+            sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
+            sequence_decoder.extensions_present = is_extensible.then_some(None);
             sequence_decoder.fields = D::FIELDS
                 .optional_and_default_fields()
                 .zip(bitmap.into_iter().map(|b| *b))
@@ -501,10 +559,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
             self.input = sequence_decoder.input;
             value
         };
-
-        if is_extensible {
-            todo!()
-        }
 
         Ok(value)
     }
@@ -516,7 +570,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_set<FIELDS, SET, D, F>(
         &mut self,
         _: Tag,
-        constraints: Constraints,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
@@ -526,7 +579,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        let is_extensible = self.parse_extensible_bit(&constraints)?;
+        let is_extensible = SET::EXTENDED_FIELDS.is_some().then(|| self.parse_one_bit()).transpose()?.unwrap_or_default();
+
         let bitmap = self.parse_optional_and_default_field_bitmap(&SET::FIELDS)?;
         let field_map = SET::FIELDS
             .optional_and_default_fields()
@@ -536,6 +590,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let fields = {
             let mut fields = Vec::new();
             let mut set_decoder = Self::new(self.input(), self.options);
+            set_decoder.extension_fields = SET::EXTENDED_FIELDS;
+            set_decoder.extensions_present = is_extensible.then_some(None);
             set_decoder.fields = SET::FIELDS
                 .optional_and_default_fields()
                 .zip(bitmap.into_iter().map(|b| *b))
@@ -557,10 +613,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
             self.input = set_decoder.input;
             fields
         };
-
-        if is_extensible {
-            todo!()
-        }
 
         (field_fn)(fields)
     }
@@ -653,15 +705,42 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
         &mut self,
-    ) -> Result<D, Self::Error> {
-        todo!()
+    ) -> Result<Option<D>, Self::Error> {
+        if !self.parse_extension_header()? {
+            return Ok(None)
+        }
+
+        self.force_parse_padding()?;
+        let extension_is_present = self.extension_is_present()?.map(|(_, b)| b).unwrap_or_default();
+
+        if !extension_is_present {
+            return Ok(None);
+        }
+
+        let bytes = self.decode_octets()?;
+        let mut decoder = Decoder::new(&bytes, self.options);
+
+        D::decode(&mut decoder).map(Some)
     }
 
-    fn decode_extension_addition<D, F>(&mut self, _extension: F) -> Result<D, Self::Error>
+    fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
     where
-        D: Decode,
-        F: FnOnce(&mut Self) -> Result<D, Self::Error>,
+        D: Decode
     {
-        todo!()
+        if !self.parse_extension_header()? {
+            return Ok(None)
+        }
+
+        self.force_parse_padding()?;
+        let extension_is_present = self.extension_is_present()?.map(|(_, b)| b).unwrap_or_default();
+
+        if !extension_is_present {
+            return Ok(None);
+        }
+
+        let bytes = self.decode_octets()?;
+        let mut decoder = Decoder::new(&bytes, self.options);
+
+        Option::<D>::decode(&mut decoder)
     }
 }

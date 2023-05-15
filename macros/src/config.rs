@@ -622,7 +622,7 @@ impl<'a> FieldConfig<'a> {
         let mut iter = field
             .attrs
             .iter()
-            .filter_map(|a| a.parse_meta().ok())
+            .map(|a| a.parse_meta().unwrap())
             .filter(|m| m.path().is_ident(crate::CRATE_NAME));
 
         while let Some(syn::Meta::List(list)) = iter.next() {
@@ -713,9 +713,13 @@ impl<'a> FieldConfig<'a> {
                     encode
                 }
             } else if self.extension_addition {
-                quote!(encoder.encode_extension_addition(&#this #field)?;)
+                let constraints = self
+                    .constraints
+                    .const_expr(&self.container_config.crate_root)
+                    .unwrap_or_else(|| quote!(<_>::default()));
+                quote!(encoder.encode_extension_addition(#tag, #constraints, &#this #field)?;)
             } else if self.extension_addition_group {
-                quote!(encoder.encode_extension_addition_group(&#this #field)?;)
+                quote!(encoder.encode_extension_addition_group(#this #field.as_ref())?;)
             } else {
                 match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
@@ -732,13 +736,13 @@ impl<'a> FieldConfig<'a> {
             }
         } else {
             if self.extension_addition {
-                let constraints = dbg!(self
+                let constraints = self
                     .constraints
-                    .const_expr(&self.container_config.crate_root))
-                .unwrap_or_else(|| quote!(<_>::default()));
+                    .const_expr(&self.container_config.crate_root)
+                    .unwrap_or_else(|| quote!(<_>::default()));
                 quote!(encoder.encode_extension_addition(#tag, #constraints, &#this #field)?;)
             } else if self.extension_addition_group {
-                quote!(encoder.encode_extension_addition_group(&#this #field)?;)
+                quote!(encoder.encode_extension_addition_group(#this #field.as_ref())?;)
             } else {
                 match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
@@ -772,21 +776,34 @@ impl<'a> FieldConfig<'a> {
 
     pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
-        let or_else = {
-            let ident = format!(
-                "{}.{}",
-                name,
-                self.field
-                    .ident
-                    .as_ref()
-                    .map(|ident| ident.to_string())
-                    .unwrap_or_else(|| context.to_string())
-            );
-            quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error))?)
-        };
+        let ty = &self.field.ty;
+        let ident = format!(
+            "{}.{}",
+            name,
+            self.field
+            .ident
+            .as_ref()
+            .map(|ident| ident.to_string())
+            .unwrap_or_else(|| context.to_string())
+        );
+
+        let or_else =
+            quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error))?);
 
         let tag = self.tag(context);
         let constraints = self.constraints.const_expr(crate_root);
+        let handle_extension = if self.is_not_option_or_default_type() {
+            quote!(.ok_or_else(|| #crate_root::de::Error::field_error(#ident, "extension required but not present"))?)
+        } else if self.is_default_type() {
+            let default_fn = self.default.as_ref().map(|default_fn| match default_fn {
+                Some(path) => quote!(#path),
+                None => quote!(<#ty>::default),
+            });
+
+            quote!(.unwrap_or_else(#default_fn))
+        } else {
+            quote!()
+        };
 
         let decode = if self.extension_addition_group {
             quote!(decoder.decode_extension_addition_group() #or_else)
@@ -830,7 +847,7 @@ impl<'a> FieldConfig<'a> {
 
         if self.extension_addition {
             quote! {
-                decoder.decode_extension_addition(move |decoder| { Ok(#decode) }) #or_else
+                decoder.decode_extension_addition() #or_else #handle_extension
             }
         } else {
             quote!({
@@ -910,6 +927,14 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
+    pub fn is_extension(&self) -> bool {
+        self.extension_addition || self.extension_addition_group
+    }
+
+    pub fn is_not_extension(&self) -> bool {
+        !self.is_extension()
+    }
+
     pub fn is_option_type(&self) -> bool {
         self.container_config
             .option_type
@@ -922,6 +947,10 @@ impl<'a> FieldConfig<'a> {
 
     pub fn is_option_or_default_type(&self) -> bool {
         self.is_default_type() || self.is_option_type()
+    }
+
+    pub fn is_not_option_or_default_type(&self) -> bool {
+        !self.is_option_or_default_type()
     }
 }
 

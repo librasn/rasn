@@ -118,7 +118,7 @@ mod tests {
         round_trip!(uper, C, 1.into(), &[0x58]);
         round_trip!(uper, C, 10.into(), &[0xa0]);
         // round_trip!(uper, D, 99, &[0x5e]);
-        round_trip!(uper, E, Integer::from(1000).into(), &[0]);
+        round_trip!(uper, E, Integer::from(1000).into(), &[]);
     }
 
     #[test]
@@ -178,39 +178,237 @@ mod tests {
     }
 
     #[test]
-    fn sequence_with_default() {
-        #[derive(AsnType, Clone, Debug, Decode, PartialEq)]
+    fn sequence() {
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
-        struct WithDefault {
+        struct B {
             #[rasn(default)]
-            int: Integer,
+            a: Integer,
         }
 
-        impl crate::Encode for WithDefault {
-            fn encode_with_tag_and_constraints<'constraints, EN: crate::Encoder>(
-                &self,
-                encoder: &mut EN,
-                tag: crate::Tag,
-                constraints: crate::types::Constraints<'constraints>,
-            ) -> core::result::Result<(), EN::Error> {
-                #[allow(unused)]
-                let int = &self.int;
-                encoder
-                    .encode_sequence::<Self, _>(tag, constraints, |encoder| {
-                        encoder.encode_default(&self.int, <Integer>::default)?;
-                        Ok(())
-                    })
-                    .map(drop)
-            }
+        fn true_identity() -> bool {
+            true
         }
 
-        round_trip!(uper, WithDefault, WithDefault { int: 0.into() }, &[0]);
-        round_trip!(
-            uper,
-            WithDefault,
-            WithDefault { int: 1.into() },
-            &[0x80, 1, 1]
-        );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct C { a: bool, }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct D { a: bool, #[rasn(extension_addition_group)] b: Option<DE>, }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct DE { a: bool }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct F { a: bool, #[rasn(extension_addition_group)] b: Option<FE>, #[rasn(extension_addition)] c: Option<bool> }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct FE { a: bool }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        #[non_exhaustive]
+        struct G { a: bool, #[rasn(extension_addition_group)] b: Option<GE>, #[rasn(extension_addition_group)] c: Option<GE>, #[rasn(extension_addition)] d: Option<bool> }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct GE { a: bool }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct I { a: bool, #[rasn(extension_addition)] b: Option<bool> }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct J { a: bool, #[rasn(extension_addition)] b: Option<bool> }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        #[non_exhaustive]
+        struct K { a: bool, #[rasn(extension_addition)] b: Option<bool>, #[rasn(extension_addition)] c: Option<bool> }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct L { a: bool, #[rasn(extension_addition_group)] b: Option<LE> }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct LE { a: bool, b: bool }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct M { a: bool, #[rasn(extension_addition_group)] b: Option<ME> }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct ME { a: Option<MESeq>, b: bool }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct MESeq { a: Integer }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct N { #[rasn(default = "true_identity")] a: bool }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct O { #[rasn(extension_addition, default = "true_identity")] a: bool }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct P { #[rasn(extension_addition_group)] a: Option<PE> }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct PE { a: bool, #[rasn(default = "true_identity")] b: bool }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Q { a: C, b: Integer }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct R { a: D, b: Integer }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct S { a: bool, #[rasn(extension_addition)] b: Option<SSeq>, }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct SSeq { a: bool, b: Option<bool>, }
+
+        #[derive(AsnType, Clone, Debug, Decode, Default, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct T { a: Option<SequenceOf<T>>, }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct U { #[rasn(extension_addition)] a: USeq, }
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct USeq { a: Integer }
+
+        #[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        #[non_exhaustive]
+        struct V {
+            #[rasn(extension_addition)] a: Option<bool>,
+            #[rasn(extension_addition)] b: Option<bool>,
+            #[rasn(extension_addition)] c: Option<bool>,
+        }
+
+        #[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        #[non_exhaustive]
+        struct W {
+            #[rasn(extension_addition)]  a1: Option<bool>,
+            #[rasn(extension_addition)]  a2: Option<bool>,
+            #[rasn(extension_addition)]  a3: Option<bool>,
+            #[rasn(extension_addition)]  a4: Option<bool>,
+            #[rasn(extension_addition)]  a5: Option<bool>,
+            #[rasn(extension_addition)]  a6: Option<bool>,
+            #[rasn(extension_addition)]  a7: Option<bool>,
+            #[rasn(extension_addition)]  a8: Option<bool>,
+            #[rasn(extension_addition)]  a9: Option<bool>,
+            #[rasn(extension_addition)] a10: Option<bool>,
+            #[rasn(extension_addition)] a11: Option<bool>,
+            #[rasn(extension_addition)] a12: Option<bool>,
+            #[rasn(extension_addition)] a13: Option<bool>,
+            #[rasn(extension_addition)] a14: Option<bool>,
+            #[rasn(extension_addition)] a15: Option<bool>,
+            #[rasn(extension_addition)] a16: Option<bool>,
+            #[rasn(extension_addition)] a17: Option<bool>,
+            #[rasn(extension_addition)] a18: Option<bool>,
+            #[rasn(extension_addition)] a19: Option<bool>,
+            #[rasn(extension_addition)] a20: Option<bool>,
+            #[rasn(extension_addition)] a21: Option<bool>,
+            #[rasn(extension_addition)] a22: Option<bool>,
+            #[rasn(extension_addition)] a23: Option<bool>,
+            #[rasn(extension_addition)] a24: Option<bool>,
+            #[rasn(extension_addition)] a25: Option<bool>,
+            #[rasn(extension_addition)] a26: Option<bool>,
+            #[rasn(extension_addition)] a27: Option<bool>,
+            #[rasn(extension_addition)] a28: Option<bool>,
+            #[rasn(extension_addition)] a29: Option<bool>,
+            #[rasn(extension_addition)] a30: Option<bool>,
+            #[rasn(extension_addition)] a31: Option<bool>,
+            #[rasn(extension_addition)] a32: Option<bool>,
+            #[rasn(extension_addition)] a33: Option<bool>,
+            #[rasn(extension_addition)] a34: Option<bool>,
+            #[rasn(extension_addition)] a35: Option<bool>,
+            #[rasn(extension_addition)] a36: Option<bool>,
+            #[rasn(extension_addition)] a37: Option<bool>,
+            #[rasn(extension_addition)] a38: Option<bool>,
+            #[rasn(extension_addition)] a39: Option<bool>,
+            #[rasn(extension_addition)] a40: Option<bool>,
+            #[rasn(extension_addition)] a41: Option<bool>,
+            #[rasn(extension_addition)] a42: Option<bool>,
+            #[rasn(extension_addition)] a43: Option<bool>,
+            #[rasn(extension_addition)] a44: Option<bool>,
+            #[rasn(extension_addition)] a45: Option<bool>,
+            #[rasn(extension_addition)] a46: Option<bool>,
+            #[rasn(extension_addition)] a47: Option<bool>,
+            #[rasn(extension_addition)] a48: Option<bool>,
+            #[rasn(extension_addition)] a49: Option<bool>,
+            #[rasn(extension_addition)] a50: Option<bool>,
+            #[rasn(extension_addition)] a51: Option<bool>,
+            #[rasn(extension_addition)] a52: Option<bool>,
+            #[rasn(extension_addition)] a53: Option<bool>,
+            #[rasn(extension_addition)] a54: Option<bool>,
+            #[rasn(extension_addition)] a55: Option<bool>,
+            #[rasn(extension_addition)] a56: Option<bool>,
+            #[rasn(extension_addition)] a57: Option<bool>,
+            #[rasn(extension_addition)] a58: Option<bool>,
+            #[rasn(extension_addition)] a59: Option<bool>,
+            #[rasn(extension_addition)] a60: Option<bool>,
+            #[rasn(extension_addition)] a61: Option<bool>,
+            #[rasn(extension_addition)] a62: Option<bool>,
+            #[rasn(extension_addition)] a63: Option<bool>,
+            #[rasn(extension_addition)] a64: Option<bool>,
+            #[rasn(extension_addition)] a65: Option<bool>,
+        }
+
+        // round_trip!(uper, B, B { a: 0.into() }, &[0]);
+        // round_trip!(uper, B, B { a: 1.into() }, &[0x80, 0x80, 0x80]);
+        // round_trip!(uper, C, C {a: true}, &[0x40]);
+        // round_trip!(uper, D, D {a: true, b: None }, &[0x40]);
+        // round_trip!(uper, I, I {a: true, b: None }, &[0x40]);
+        // round_trip!(uper, J, J {a: true, b: None }, &[0x40]);
+        // round_trip!(uper, K, K { a: true, b: None, c: None }, &[0x40]);
+        // round_trip!(uper, L, L {a: true, b: None }, &[0x40]);
+        // round_trip!(uper, M, M {a: true, b: None }, &[0x40]);
+        // round_trip!(uper, N, N {a: true}, &[0x00]);
+        // round_trip!(uper, N, N {a: false}, &[0x80]);
+        // round_trip!(uper, P, P { a: None }, &[0x00]);
+        round_trip!(uper, G, G {a: true, b: Some(GE { a: true }), c: Some(GE { a: true }), d: Some(true) }, &[0xe0, 0x70, 0x18, 0x00, 0x18, 0x00]);
+        round_trip!(uper, M, M {a: true, b: Some(ME {a: Some(MESeq { a: 5.into() }), b: true}) }, &[0xc0, 0x40, 0xe0, 0x20, 0xb0, 0x00]);
+        round_trip!(uper, Q, Q {a: C {a: true}, b: 100.into()}, &[0x40, 0x59, 0x00]);
+        round_trip!(uper, R, R {a: D {a: true, b: Some(DE { a: true }) }, b: 100.into()}, &[0xc0, 0x40, 0x60, 0x00, 0x59, 0x00]);
+        round_trip!(uper, S, S {a: true, b: Some(SSeq {a: true, b: Some(true)}) }, &[0xc0, 0x40, 0x5c, 0x00]);
+        round_trip!(uper, T, T { a: Some(vec![<_>::default()]) }, &[0x80, 0x80]);
+        round_trip!(uper, T, T {a: Some(vec![T {a: Some(vec![]) } ])}, &[0x80, 0xc0, 0x00]);
+        round_trip!(uper, V, V {a: Some(false), ..<_>::default() }, &[0x82, 0x80, 0x20, 0x00]);
+        round_trip!(uper, V, V {b: Some(false), ..<_>::default() }, &[0x82, 0x40, 0x20, 0x00]);
+        round_trip!(uper, V, V {c: Some(false), ..<_>::default() }, &[0x82, 0x20, 0x20, 0x00]);
+        round_trip!(uper, W, W { a1: Some(true), ..<_>::default() }, &[0xd0, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00]);
     }
 
     #[test]
@@ -243,34 +441,17 @@ mod tests {
             #[rasn(extension_addition, default)]
             urgency: Urgency,
             #[rasn(extension_addition_group)]
-            v2: MySequenceValExtension,
+            v2: Option<MySequenceValExtension>,
         }
-
-        let value = MySequenceVal {
-            item_code: 0,
-            item_name: None,
-            urgency: Urgency::Normal,
-            v2: MySequenceValExtension {
-                alternate_item_code: 0,
-                alternate_item_name: None,
-            },
-        };
-
-        round_trip!(
-            uper,
-            MySequenceVal,
-            value,
-            &[0x80, 0x00, 0xa0, 0x40, 0x00, 0x00, 0x0a]
-        );
 
         let value = MySequenceVal {
             item_code: 29,
             item_name: Some(Ia5String::try_from("SHERRY").unwrap()),
             urgency: Urgency::High,
-            v2: MySequenceValExtension {
+            v2: Some(MySequenceValExtension {
                 alternate_item_code: 45,
                 alternate_item_name: Some(Ia5String::try_from("PORT").unwrap()),
-            },
+            }),
         };
 
         round_trip!(

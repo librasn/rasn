@@ -154,7 +154,6 @@ mod tests {
 
                 decoder.decode_set::<Fields, _, _, _>(
                     tag,
-                    <_>::default(),
                     |decoder, indice, tag| match (indice, tag) {
                         (0, u32::TAG) => <_>::decode(decoder).map(Fields::Age),
                         (1, Utf8String::TAG) => <_>::decode(decoder).map(Fields::Name),
@@ -185,9 +184,9 @@ mod tests {
                 &self,
                 encoder: &mut EN,
                 tag: crate::Tag,
-                constraints: Constraints,
+                _: Constraints,
             ) -> Result<(), EN::Error> {
-                encoder.encode_set::<Self, _>(tag, constraints, |encoder| {
+                encoder.encode_set::<Self, _>(tag, |encoder| {
                     self.age.encode(encoder)?;
                     self.name.encode(encoder)?;
                     Ok(())

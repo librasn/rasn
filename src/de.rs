@@ -79,7 +79,6 @@ pub trait Decoder: Sized {
     fn decode_sequence<D, F>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
         decode_fn: F,
     ) -> Result<D, Self::Error>
     where
@@ -166,8 +165,7 @@ pub trait Decoder: Sized {
     /// have map from `Vec<FIELDS>` to `SET` in `decode_operation`.
     fn decode_set<FIELDS, SET, D, F>(
         &mut self,
-        _: Tag,
-        constraints: Constraints,
+        tag: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
@@ -228,14 +226,13 @@ pub trait Decoder: Sized {
             .unwrap_or_else(default_fn))
     }
 
-    fn decode_extension_addition<D, F>(&mut self, extension: F) -> Result<D, Self::Error>
+    fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
     where
-        D: Decode,
-        F: FnOnce(&mut Self) -> Result<D, Self::Error>;
+        D: Decode;
 
     fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
         &mut self,
-    ) -> Result<D, Self::Error>;
+    ) -> Result<Option<D>, Self::Error>;
 }
 
 /// A generic error that can occur while decoding ASN.1.

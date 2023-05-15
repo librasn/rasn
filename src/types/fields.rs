@@ -22,6 +22,14 @@ impl Fields {
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.fields.is_empty()
+    }
+
+    pub fn is_not_empty(&self) -> bool {
+        !self.is_empty()
+    }
+
     pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
         self.iter().filter(Field::is_optional_or_default)
     }
@@ -88,6 +96,10 @@ impl Field {
 
     pub const fn is_optional_or_default(&self) -> bool {
         self.presence.is_optional_or_default()
+    }
+
+    pub const fn is_not_optional_or_default(&self) -> bool {
+        !self.is_optional_or_default()
     }
 }
 

@@ -18,9 +18,9 @@ impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
     fn decode_with_tag_and_constraints<'constraints, D: crate::Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints<'constraints>,
+        _: Constraints<'constraints>,
     ) -> Result<Self, D::Error> {
-        decoder.decode_sequence(tag, constraints, |sequence| {
+        decoder.decode_sequence(tag, |sequence| {
             let type_id = ObjectIdentifier::decode(sequence)?;
             let value = sequence.decode_explicit_prefix(Tag::new(Class::Context, 0))?;
 
@@ -34,9 +34,9 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints<'constraints>,
+        _: Constraints<'constraints>,
     ) -> core::result::Result<(), EN::Error> {
-        encoder.encode_sequence::<Self, _>(tag, constraints, |sequence| {
+        encoder.encode_sequence::<Self, _>(tag, |sequence| {
             self.type_id.encode(sequence)?;
             sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
             Ok(())

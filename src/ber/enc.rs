@@ -519,7 +519,6 @@ impl crate::Encoder for Encoder {
     fn encode_sequence<C, F>(
         &mut self,
         tag: Tag,
-        _constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
@@ -538,7 +537,6 @@ impl crate::Encoder for Encoder {
     fn encode_set<C, F>(
         &mut self,
         tag: Tag,
-        _constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
@@ -556,19 +554,19 @@ impl crate::Encoder for Encoder {
 
     fn encode_extension_addition<E: Encode>(
         &mut self,
-        _tag: Tag,
-        _constraints: Constraints,
-        _value: E,
+        tag: Tag,
+        constraints: Constraints,
+        value: E,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        value.encode_with_tag_and_constraints(self, tag, constraints)
     }
 
     /// Encode a extension addition group value.
-    fn encode_extension_addition_group<E>(&mut self, _value: &E) -> Result<Self::Ok, Self::Error>
+    fn encode_extension_addition_group<E>(&mut self, value: Option<&E>) -> Result<Self::Ok, Self::Error>
     where
         E: Encode + crate::types::Constructed,
     {
-        todo!()
+        value.encode(self)
     }
 }
 
@@ -730,7 +728,7 @@ mod tests {
         let output = {
             let mut encoder = Encoder::new_set(EncoderOptions::ber());
             encoder
-                .encode_set::<Set, _>(Tag::SET, <_>::default(), |encoder| {
+                .encode_set::<Set, _>(Tag::SET, |encoder| {
                     field3.encode(encoder)?;
                     field2.encode(encoder)?;
                     field1.encode(encoder)?;

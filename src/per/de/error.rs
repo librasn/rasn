@@ -19,6 +19,20 @@ impl Error {
         }
     }
 
+    pub fn type_not_extensible() -> Self {
+        Self {
+            kind: Kind::TypeNotExtensible,
+            backtrace: Backtrace::generate(),
+        }
+    }
+
+    pub fn required_extension_not_present(tag: crate::types::Tag) -> Self {
+        Self {
+            kind: Kind::RequiredExtensionNotPresent { tag },
+            backtrace: Backtrace::generate(),
+        }
+    }
+
     pub fn choice_index_exceeds_platform_width(needed: u32, present: u64) -> Self {
         Self {
             kind: Kind::ChoiceIndexExceedsPlatformWidth { needed, present },
@@ -109,6 +123,10 @@ pub enum Kind {
         /// The field's name.
         name: &'static str,
     },
+    #[snafu(display("Extension with class `{}` and tag `{}` required, but not present", tag.class, tag.value))]
+    RequiredExtensionNotPresent { tag: crate::types::Tag },
+    #[snafu(display("Attempted to decode extension on non-extensible type"))]
+    TypeNotExtensible,
     #[snafu(display("Custom: {}", msg))]
     Custom {
         /// The error's message.

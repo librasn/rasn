@@ -407,7 +407,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_sequence<D, F: FnOnce(&mut Self) -> Result<D>>(
         &mut self,
         tag: Tag,
-        _: Constraints,
         decode_fn: F,
     ) -> Result<D> {
         self.parse_constructed_contents(tag, true, decode_fn)
@@ -420,7 +419,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_set<FIELDS, SET, D, F>(
         &mut self,
         tag: Tag,
-        _constraints: Constraints,
         _decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
@@ -477,18 +475,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
         (decode_fn)(self, identifier.tag)
     }
 
-    fn decode_extension_addition<D, F>(&mut self, _extension: F) -> Result<D, Self::Error>
+    fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
     where
-        D: Decode,
-        F: FnOnce(&mut Self) -> Result<D, Self::Error>,
+        D: Decode
     {
-        todo!()
+        <Option<D>>::decode(self)
     }
 
     fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
         &mut self,
-    ) -> Result<D, Self::Error> {
-        todo!()
+    ) -> Result<Option<D>, Self::Error> {
+        <Option<D>>::decode(self)
     }
 }
 
@@ -676,7 +673,7 @@ mod tests {
                 tag: Tag,
                 _: Constraints,
             ) -> Result<Self, D::Error> {
-                decoder.decode_sequence(tag, <_>::default(), |sequence| {
+                decoder.decode_sequence(tag, |sequence| {
                     let name: Ia5String = Ia5String::decode(sequence)?;
                     let ok: bool = bool::decode(sequence)?;
                     Ok(Self { name, ok })

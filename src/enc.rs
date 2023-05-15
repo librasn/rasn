@@ -176,7 +176,6 @@ pub trait Encoder {
     fn encode_sequence<C, F>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
@@ -195,7 +194,6 @@ pub trait Encoder {
     fn encode_set<C, F>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
         value: F,
     ) -> Result<Self::Ok, Self::Error>
     where
@@ -316,7 +314,7 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a extension addition group value.
-    fn encode_extension_addition_group<E>(&mut self, value: &E) -> Result<Self::Ok, Self::Error>
+    fn encode_extension_addition_group<E>(&mut self, value: Option<&E>) -> Result<Self::Ok, Self::Error>
     where
         E: Encode + crate::types::Constructed;
 }

@@ -19,6 +19,17 @@ pub fn derive_struct_impl(
     let field_metadata = field_groups
         .clone()
         .into_iter()
+        .filter(|(_, field)| field.is_not_extension())
+        .map(|(i, field)| {
+            let metadata = field.to_field_metadata(i);
+            quote!(#metadata)
+        })
+        .collect::<Vec<_>>();
+
+    let extension_metadata = field_groups
+        .clone()
+        .into_iter()
+        .filter(|(_, field)| field.is_extension())
         .map(|(i, field)| {
             let metadata = field.to_field_metadata(i);
             quote!(#metadata)
@@ -48,6 +59,16 @@ pub fn derive_struct_impl(
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    let extended_fields_def = if config.constraints.extensible {
+        let fields = (!extension_metadata.is_empty()).then_some(quote! {
+            #crate_root::types::fields::Fields::from_static(&[#(#extension_metadata),*])
+        }).unwrap_or(quote!(#crate_root::types::fields::Fields::empty()));
+
+        quote!(Some(#fields))
+    } else {
+        quote!(None)
+    };
+
     let constructed_impl = (!config.delegate).then(|| {
         quote! {
             #[automatically_derived]
@@ -55,6 +76,7 @@ pub fn derive_struct_impl(
                 const FIELDS: #crate_root::types::fields::Fields = #crate_root::types::fields::Fields::from_static(&[
                     #(#field_metadata),*
                 ]);
+                const EXTENDED_FIELDS: Option<#crate_root::types::fields::Fields> = #extended_fields_def;
             }
         }
     });

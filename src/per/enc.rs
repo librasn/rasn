@@ -49,6 +49,7 @@ impl EncoderOptions {
     }
 }
 
+#[derive(Debug)]
 pub struct Encoder {
     options: EncoderOptions,
     output: BitString,
@@ -98,19 +99,17 @@ impl Encoder {
     }
 
     pub fn bitstring_output(self) -> BitString {
-        let mut output = self
+        let output = self
             .options
             .set_encoding
             .then(|| self.set_output.values().flatten().collect::<BitString>())
             .unwrap_or(self.output);
 
-        (output.len() < 8).then(|| output.resize(8, false));
-
         output
     }
 
     pub fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
-        self.field_bitfield.entry(tag).and_modify(|(_, b)| *b = bit);
+        dbg!(self.field_bitfield.entry(tag)).and_modify(|(_, b)| *b = bit);
         Ok(())
     }
 
@@ -196,21 +195,21 @@ impl Encoder {
         Ok(())
     }
 
-    fn encoded_extension_addition(&self) -> bool {
-        self.extension_fields.is_empty()
+    fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
+        !extension_fields.is_empty() || !extension_fields.iter().all(|vec| vec.is_empty())
     }
 
-    fn encode_constructed(
+    fn encode_constructed<C: crate::types::Constructed>(
         &mut self,
         tag: Tag,
-        constraints: &Constraints,
         mut encoder: Self,
-    ) -> Result<()> {
+    ) -> Result<()>
+    {
         let mut buffer = BitString::default();
 
-        self.encode_extensible_bit(constraints, &mut buffer, || {
-            encoder.encoded_extension_addition()
-        });
+        if C::EXTENDED_FIELDS.is_some() {
+            buffer.push(dbg!(Self::encoded_extension_addition(&self.extension_fields)));
+        }
 
         for bit in encoder
             .field_bitfield
@@ -220,17 +219,17 @@ impl Encoder {
             })
             .copied()
         {
-            buffer.push(bit);
+            buffer.push(dbg!(bit));
         }
 
         let extension_fields = core::mem::replace(&mut encoder.extension_fields, Vec::new());
 
         if encoder.field_bitfield.values().any(|(_, b)| *b) {
-            buffer.extend(encoder.bitstring_output());
+            buffer.extend(dbg!(encoder.bitstring_output()));
         }
 
-        if extension_fields.is_empty() {
-            self.extend(tag, &buffer);
+        if dbg!(!Self::encoded_extension_addition(&extension_fields)) {
+            self.extend(tag, dbg!(&buffer));
             return Ok(());
         }
 
@@ -246,6 +245,7 @@ impl Encoder {
         }
 
         for field in extension_fields {
+            Self::force_pad_to_alignment(&mut extension_buffer);
             self.encode_length(
                 &mut extension_buffer,
                 field.len(),
@@ -458,8 +458,7 @@ impl Encoder {
         });
         let Some(value_range) = constraints.value() else {
             let bytes = value.to_signed_bytes_be();
-            Self::force_pad_to_alignment(dbg!(&mut *buffer));
-            self.encode_length(dbg!(&mut *buffer), bytes.len(), constraints.size(), |range| {
+            self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
             })?;
             return Ok(())
@@ -809,7 +808,6 @@ impl crate::Encoder for Encoder {
     fn encode_sequence<C, F>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
@@ -818,13 +816,12 @@ impl crate::Encoder for Encoder {
     {
         let mut encoder = self.new_sequence_encoder::<C>();
         (encoder_scope)(&mut encoder)?;
-        self.encode_constructed(tag, &constraints, encoder)
+        self.encode_constructed::<C>(tag, encoder)
     }
 
     fn encode_set<C, F>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
@@ -835,7 +832,7 @@ impl crate::Encoder for Encoder {
 
         (encoder_scope)(&mut set)?;
 
-        self.encode_constructed(tag, &constraints, set)
+        self.encode_constructed::<C>(tag, set)
     }
 
     fn encode_choice<E: Encode + crate::types::Choice>(
@@ -889,10 +886,16 @@ impl crate::Encoder for Encoder {
             }
             (index, Some(None)) => {
                 self.encode_normally_small_integer(index, &mut buffer)?;
-                self.pad_to_alignment(&mut buffer);
+                Self::force_pad_to_alignment(&mut buffer);
+                let mut output = choice_encoder.output();
+
+                if output.is_empty() {
+                    output.push(0);
+                }
+
                 self.encode_octet_string_into_buffer(
                     <_>::default(),
-                    &choice_encoder.output(),
+                    &output,
                     &mut buffer,
                 )?;
             }
@@ -910,27 +913,31 @@ impl crate::Encoder for Encoder {
         value: E,
     ) -> Result<Self::Ok, Self::Error> {
         let mut encoder = Self::new(self.options.without_set_encoding());
-        self.set_bit(tag, true)?;
+        encoder.field_bitfield = <_>::from([(tag, (FieldPresence::Optional, false))]);
         E::encode_with_tag_and_constraints(&value, &mut encoder, tag, constraints)?;
 
         if encoder.field_bitfield.get(&tag).map_or(false, |(_, b)| *b) {
+            self.set_bit(tag, true)?;
             self.extension_fields.push(encoder.output());
-        } else {
-            self.extension_fields.push(Vec::new());
         }
 
         Ok(())
     }
 
-    fn encode_extension_addition_group<E>(&mut self, value: &E) -> Result<Self::Ok, Self::Error>
+    fn encode_extension_addition_group<E>(&mut self, value: Option<&E>) -> Result<Self::Ok, Self::Error>
     where
         E: Encode + crate::types::Constructed,
     {
+        let Some(value) = value else {
+            return Ok(());
+        };
+
         let mut encoder = self.new_sequence_encoder::<E>();
         encoder.is_extension_sequence = true;
         value.encode(&mut encoder)?;
 
         if encoder.field_bitfield.values().any(|(_, v)| *v) {
+            self.set_bit(E::TAG, true)?;
             self.extension_fields.push(encoder.output());
         } else {
             self.extension_fields.push(Vec::new());

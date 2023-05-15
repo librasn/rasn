@@ -70,7 +70,7 @@ pub trait AsnType {
 /// A `SET` or `SEQUENCE` value.
 pub trait Constructed {
     const FIELDS: self::fields::Fields;
-    const EXTENDED_FIELDS: self::fields::Fields = self::fields::Fields::empty();
+    const EXTENDED_FIELDS: Option<self::fields::Fields> = None;
 }
 
 /// A `CHOICE` value.
