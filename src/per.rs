@@ -216,7 +216,7 @@ mod tests {
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate", automatic_tags)]
         #[non_exhaustive]
-        struct G { a: bool, #[rasn(extension_addition_group)] b: Option<GE>, #[rasn(extension_addition_group)] c: Option<GE>, #[rasn(extension_addition)] d: Option<bool> }
+        struct G { a: bool, d: bool, #[rasn(extension_addition_group)] b: Option<GE>, #[rasn(extension_addition_group)] c: Option<GE>, }
 
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
@@ -291,6 +291,7 @@ mod tests {
 
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
         struct SSeq { a: bool, b: Option<bool>, }
 
         #[derive(AsnType, Clone, Debug, Decode, Default, Encode, PartialEq)]
@@ -398,7 +399,7 @@ mod tests {
         // round_trip!(uper, N, N {a: true}, &[0x00]);
         // round_trip!(uper, N, N {a: false}, &[0x80]);
         // round_trip!(uper, P, P { a: None }, &[0x00]);
-        round_trip!(uper, G, G {a: true, b: Some(GE { a: true }), c: Some(GE { a: true }), d: Some(true) }, &[0xe0, 0x70, 0x18, 0x00, 0x18, 0x00]);
+        round_trip!(uper, G, G {a: true, b: Some(GE { a: true }), c: Some(GE { a: true }), d: true }, &[0xe0, 0x70, 0x18, 0x00, 0x18, 0x00]);
         round_trip!(uper, M, M {a: true, b: Some(ME {a: Some(MESeq { a: 5.into() }), b: true}) }, &[0xc0, 0x40, 0xe0, 0x20, 0xb0, 0x00]);
         round_trip!(uper, Q, Q {a: C {a: true}, b: 100.into()}, &[0x40, 0x59, 0x00]);
         round_trip!(uper, R, R {a: D {a: true, b: Some(DE { a: true }) }, b: 100.into()}, &[0xc0, 0x40, 0x60, 0x00, 0x59, 0x00]);

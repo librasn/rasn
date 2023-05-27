@@ -305,8 +305,8 @@ impl<'input> Decoder<'input> {
             None => return Ok(false),
         }
 
-
-        let extensions_length = self.parse_normally_small_integer()?;
+        // The length bitfield has a lower bound of `1..`
+        let extensions_length = self.parse_normally_small_integer()? + 1;
         let (input, bitfield) = nom::bytes::streaming::take(usize::try_from(extensions_length).map_err(Error::custom)?)(self.input)?;
         self.input = input;
 
@@ -710,7 +710,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
             return Ok(None)
         }
 
-        self.force_parse_padding()?;
         let extension_is_present = self.extension_is_present()?.map(|(_, b)| b).unwrap_or_default();
 
         if !extension_is_present {
@@ -731,7 +730,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
             return Ok(None)
         }
 
-        self.force_parse_padding()?;
         let extension_is_present = self.extension_is_present()?.map(|(_, b)| b).unwrap_or_default();
 
         if !extension_is_present {
@@ -741,6 +739,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let bytes = self.decode_octets()?;
         let mut decoder = Decoder::new(&bytes, self.options);
 
-        Option::<D>::decode(&mut decoder)
+        D::decode(&mut decoder).map(Some)
     }
 }

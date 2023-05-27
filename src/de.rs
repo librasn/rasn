@@ -157,6 +157,7 @@ pub trait Decoder: Sized {
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime, Self::Error>;
     /// Decode a `GeneralizedTime` identified by `tag` from the available input.
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime, Self::Error>;
+
     /// Decode a `SET` identified by `tag` from the available input. Decoding
     /// `SET`s works a little different than other methods, as you need to
     /// provide two types `SET` and `FIELDS`, `SET` represents the complete type,
