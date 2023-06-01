@@ -224,7 +224,7 @@ pub struct TrustAnchorInfo {
     pub ta_title_lang_tag: Option<Utf8String>,
 }
 
-/// CertPathControls provides the controls needed to initialize an X.509 
+/// CertPathControls provides the controls needed to initialize an X.509
 // certification path validation algorithm implementation
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CertPathControls {
@@ -271,7 +271,7 @@ pub struct CertPathControls {
 /// associated constraints.
 ///
 /// The tbsCert option allows for associating constraints by removing a signature
-/// on a certificate and changing the extensions field.  
+/// on a certificate and changing the extensions field.
 ///
 /// The taInfo option allows for use of the TrustAnchorInfo structure defined
 /// in RFC-5914.
@@ -767,9 +767,9 @@ mod tests {
                 policy_qualifiers: Some(alloc::vec![PolicyQualifierInfo {
                     id: ObjectIdentifier::new_unchecked((&[1, 3, 6, 1, 5, 5, 7, 2, 1][..]).into()),
                     qualifier: Any::new(
-                        rasn::der::encode(&Ia5String::from(alloc::string::String::from(
+                        rasn::der::encode(&Ia5String::try_from(alloc::string::String::from(
                             "http://cps.root-x1.letsencrypt.org"
-                        )))
+                        )).unwrap())
                         .unwrap()
                     ),
                 }]),

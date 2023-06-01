@@ -12,13 +12,114 @@ pub use {alloc::string::String as Utf8String, ia5::Ia5String, visible::VisibleSt
 // pub type GeneralString = Implicit<tag::GENERAL_STRING, Utf8String>;
 
 pub(crate) use constrained::{
-    try_from_permitted_alphabet, ConstrainedCharacterString, DynConstrainedCharacterString,
-    StaticPermittedAlphabet,
+    ConstrainedCharacterString, DynConstrainedCharacterString,
+    StaticPermittedAlphabet, FromPermittedAlphabetError,
 };
 
 const PRINTABLE_WIDTH: usize = 7;
 const NUMERIC_WIDTH: usize = 4;
 const BMP_WIDTH: usize = u16::BITS as usize;
+
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct GeneralString(Vec<u8>);
+
+impl GeneralString {
+    fn is_valid(bytes: &[u8]) -> bool {
+        for byte in bytes {
+            let is_in_set = matches!(byte,
+                | 0x00..=0x1F // C0 Controls (C set)
+                | 0x20        // SPACE
+                | 0x21..=0x7E // Basic Latin (G set)
+                | 0x7F        // DELETE
+                | 0xA1..=0xFF // Latin-1 Supplement (G set)
+            );
+
+            if !is_in_set {
+                return false
+            }
+        }
+
+        true
+    }
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidGeneralString> {
+        if Self::is_valid(bytes) {
+            Ok(Self(bytes.to_owned()))
+        } else {
+            Err(InvalidGeneralString)
+        }
+    }
+}
+
+#[derive(snafu::Snafu, Debug)]
+#[snafu(visibility(pub(crate)))]
+#[snafu(display("Invalid general string character"))]
+pub struct InvalidGeneralString;
+
+impl TryFrom<Vec<u8>> for GeneralString {
+    type Error = InvalidGeneralString;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        if Self::is_valid(&value) {
+            Ok(Self(value))
+        } else {
+            Err(InvalidGeneralString)
+        }
+    }
+}
+
+impl TryFrom<String> for GeneralString {
+    type Error = InvalidGeneralString;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        if Self::is_valid(value.as_bytes()) {
+            Ok(Self(value.into_bytes()))
+        } else {
+            Err(InvalidGeneralString)
+        }
+    }
+}
+
+impl core::ops::Deref for GeneralString {
+    type Target = Vec<u8>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl core::ops::DerefMut for GeneralString {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl AsnType for GeneralString {
+    const TAG: Tag = Tag::GENERAL_STRING;
+}
+
+impl Decode for GeneralString {
+    fn decode_with_tag_and_constraints<'constraints, D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        constraints: Constraints<'constraints>,
+    ) -> Result<Self, D::Error> {
+        decoder.decode_general_string(tag, constraints)
+    }
+}
+
+impl Encode for GeneralString {
+    fn encode_with_tag_and_constraints<'constraints, E: Encoder>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        constraints: Constraints<'constraints>,
+    ) -> Result<(), E::Error> {
+        encoder
+            .encode_general_string(tag, constraints, &self)
+            .map(drop)
+    }
+}
 
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PrintableString(ConstrainedCharacterString<PRINTABLE_WIDTH>);
@@ -31,6 +132,10 @@ impl StaticPermittedAlphabet for PrintableString {
         b'r', b's', b't', b'u', b'v', b'w', b'x', b'y', b'z', b'\'', b'(', b')', b'+', b',', b'-',
         b'.', b'/', b':', b'=', b'?',
     ]);
+
+    fn from_raw_bits(value: BitString) -> Self {
+        Self(ConstrainedCharacterString::from_raw_bits(value))
+    }
 }
 
 impl PrintableString {
@@ -58,11 +163,27 @@ impl PrintableString {
 #[snafu(display("Invalid printable string"))]
 pub struct InvalidPrintableString;
 
+impl TryFrom<String> for PrintableString {
+    type Error = InvalidPrintableString;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::from_bytes(value.as_bytes())
+    }
+}
+
 impl TryFrom<alloc::vec::Vec<u8>> for PrintableString {
     type Error = InvalidPrintableString;
 
     fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
         Self::from_bytes(&value)
+    }
+}
+
+impl TryFrom<BitString> for PrintableString {
+    type Error = FromPermittedAlphabetError;
+
+    fn try_from(value: BitString) -> Result<Self, Self::Error> {
+        constrained::try_from_permitted_alphabet(&value, Self::character_map(), Self::character_width()).map(ConstrainedCharacterString::from_raw_bits).map(Self)
     }
 }
 
@@ -128,6 +249,14 @@ impl NumericString {
     }
 }
 
+impl TryFrom<BitString> for NumericString {
+    type Error = FromPermittedAlphabetError;
+
+    fn try_from(string: BitString) -> Result<Self, Self::Error> {
+        Self::try_from_permitted_alphabet(&string, None)
+    }
+}
+
 const fn bytes_to_chars<const N: usize>(input: [u8; N]) -> [u32; N] {
     let mut chars: [u32; N] = [0; N];
 
@@ -144,6 +273,10 @@ impl StaticPermittedAlphabet for NumericString {
     const CHARACTER_SET: &'static [u32] = &bytes_to_chars([
         b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9', b' ',
     ]);
+
+    fn from_raw_bits(value: BitString) -> Self {
+        Self(ConstrainedCharacterString::from_raw_bits(value))
+    }
 }
 
 #[derive(snafu::Snafu, Debug)]

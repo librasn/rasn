@@ -80,9 +80,9 @@ mod tests {
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::PrintableString::new(
+                        rasn::der::encode(&rasn::types::PrintableString::try_from(
                             "And me second".to_string(),
-                        ))
+                        ).unwrap())
                         .unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(rasn::der::encode(&false).unwrap()));
@@ -90,7 +90,7 @@ mod tests {
                         rasn::der::encode(&rasn::types::Open::Null).unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::VisibleString::from("Me first!")).unwrap(),
+                        rasn::der::encode(&rasn::types::VisibleString::try_from("Me first!").unwrap()).unwrap(),
                     ));
                     b
                 })(),
@@ -179,9 +179,9 @@ mod tests {
                 values: (|| {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::PrintableString::new(
+                        rasn::der::encode(&rasn::types::PrintableString::try_from(
                             "Parse SET as 2.999.1 data".to_string(),
-                        ))
+                        ).unwrap())
                         .unwrap(),
                     ));
                     b
@@ -208,9 +208,9 @@ mod tests {
                         .unwrap(),
                     ));
                     b.insert(rasn::types::Any::new(
-                        rasn::der::encode(&rasn::types::PrintableString::new(
+                        rasn::der::encode(&rasn::types::PrintableString::try_from(
                             "Parse SET as 2.999.2 data".to_string(),
-                        ))
+                        ).unwrap())
                         .unwrap(),
                     ));
                     b

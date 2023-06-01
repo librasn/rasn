@@ -109,7 +109,8 @@ impl Encoder {
     }
 
     pub fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
-        self.field_bitfield.entry(tag).and_modify(|(_, b)| *b = bit);
+        self.field_bitfield.entry(dbg!(tag)).and_modify(|(_, b)| *b = bit);
+        dbg!(self.field_bitfield.entry(tag));
         Ok(())
     }
 
@@ -196,7 +197,7 @@ impl Encoder {
     }
 
     fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
-        !extension_fields.is_empty() || !extension_fields.iter().all(|vec| vec.is_empty())
+        !extension_fields.iter().all(|vec| vec.is_empty())
     }
 
     fn encode_constructed<C: crate::types::Constructed>(
@@ -209,7 +210,7 @@ impl Encoder {
         let mut buffer = BitString::default();
 
         if C::EXTENDED_FIELDS.is_some() {
-            buffer.push(Self::encoded_extension_addition(&encoder.extension_fields));
+            buffer.push(dbg!(Self::encoded_extension_addition(&encoder.extension_fields)));
         }
 
         for bit in encoder
@@ -225,8 +226,8 @@ impl Encoder {
 
         let extension_fields = core::mem::replace(&mut encoder.extension_fields, Vec::new());
 
-        if encoder.field_bitfield.values().any(|(_, b)| *b) {
-            buffer.extend(encoder.bitstring_output());
+        if dbg!(&encoder.field_bitfield).values().any(|(_, b)| *b) {
+            buffer.extend(dbg!(encoder.bitstring_output()));
         }
 
         if !Self::encoded_extension_addition(&extension_fields) {
@@ -237,7 +238,7 @@ impl Encoder {
         let bitfield_length = extension_fields.len();
         let mut extension_buffer = {
             let mut buffer = BitString::new();
-            self.encode_normally_small_integer(bitfield_length, &mut buffer)?;
+            self.encode_normally_small_length(bitfield_length, &mut buffer)?;
             buffer
         };
 
@@ -260,6 +261,16 @@ impl Encoder {
         Ok(())
     }
 
+    fn encode_normally_small_length(
+        &mut self,
+        value: usize,
+        buffer: &mut BitString,
+    ) -> Result<()> {
+        debug_assert!(value >= 1);
+        let value = (value >= 64).then_some(value).unwrap_or(value - 1);
+        self.encode_normally_small_integer(value, buffer)
+    }
+
     fn encode_normally_small_integer(
         &mut self,
         value: usize,
@@ -273,8 +284,6 @@ impl Encoder {
         } else {
             constraints::Value::new(constraints::Bounded::new(0, 63)).into()
         };
-
-        let value = (!is_large).then(|| value - 1).unwrap_or(value);
 
         self.encode_integer_into_buffer(
             Constraints::new(&[size_constraints]),
@@ -551,7 +560,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true)?;
+        self.set_bit(dbg!(tag), true)?;
         self.extend(tag, value);
         Ok(())
     }
@@ -652,6 +661,16 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         self.encode_known_multipler_string(tag, &constraints, value)
+    }
+
+    fn encode_general_string(
+        &mut self,
+        tag: Tag,
+        _: Constraints,
+        value: &types::GeneralString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
+        self.encode_octet_string(tag, <_>::default(), value)
     }
 
     fn encode_printable_string(

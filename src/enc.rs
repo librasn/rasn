@@ -95,6 +95,14 @@ pub trait Encoder {
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error>;
 
+    /// Encode a `GeneralString` value.
+    fn encode_general_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::GeneralString,
+    ) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a `Utf8String` value.
     fn encode_utf8_string(
         &mut self,

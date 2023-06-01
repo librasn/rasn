@@ -1,7 +1,7 @@
 [package]
 name = "rasn-pkix"
 version = "0.7.0"
-edition = "2018"
+edition.workspace = true
 description = "Data types for handling Public Key Infrastructure (PKIX) objects."
 license = "Apache-2.0/MIT"
 repository = "https://github.com/XAMPPRocky/rasn"

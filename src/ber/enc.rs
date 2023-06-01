@@ -363,6 +363,15 @@ impl crate::Encoder for Encoder {
         self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned().to_be_bytes())
     }
 
+    fn encode_general_string(
+        &mut self,
+        tag: Tag,
+        _constraints: Constraints,
+        value: &types::GeneralString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <_>::default(), &value)
+    }
+
     fn encode_printable_string(
         &mut self,
         tag: Tag,

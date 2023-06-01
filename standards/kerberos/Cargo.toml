@@ -2,7 +2,7 @@
 name = "rasn-kerberos"
 version = "0.7.0"
 authors = ["Erin Power <xampprocky@gmail.com>"]
-edition = "2018"
+edition.workspace = true
 description = "Data types for Kerberos V5"
 license = "Apache-2.0/MIT"
 

@@ -85,7 +85,7 @@ impl Encode for ExtUtcTime {
         encoder
             .encode_octet_string(
                 tag,
-                <_>::from(&[constraints::Size::new(constraints::Range::single_value(13)).into()]),
+                <_>::from(&[constraints::Size::new(constraints::Bounded::single_value(13)).into()]),
                 self.0.format(FULL_DATE_FORMAT).to_string().as_bytes(),
             )
             .map(drop)

@@ -22,6 +22,17 @@ pub use error::Error;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
+// Workaround for https://github.com/ferrilab/bitvec/issues/228
+fn to_vec(slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>) -> Vec<u8> {
+    let mut vec = Vec::new();
+
+    for slice in slice.chunks(8) {
+        vec.push(slice.load_be());
+    }
+
+    vec
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
     #[allow(unused)]
@@ -144,7 +155,7 @@ impl<'input> Decoder<'input> {
     fn decode_octets(&mut self) -> Result<types::BitString> {
         let mut buffer = types::BitString::default();
 
-        let input = self.decode_length(self.input, <_>::default(), &mut |input, length| {
+        let input = self.decode_length(dbg!(self.input), <_>::default(), &mut |input, length| {
             let (input, data) = nom::bytes::streaming::take(length * 8)(input)?;
             buffer.extend(&*data);
             Ok(input)
@@ -253,18 +264,18 @@ impl<'input> Decoder<'input> {
     }
 
     fn parse_non_negative_binary_integer(&mut self, range: i128) -> Result<types::Integer> {
-        let bits = super::log2(range);
-        let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
+        let bits = super::log2(dbg!(range));
+        let (input, data) = nom::bytes::streaming::take(dbg!(bits))(dbg!(self.input))?;
         self.input = input;
         let data = if data.len() < 8 {
             let mut buffer = types::BitString::repeat(false, 8 - data.len());
             buffer.extend_from_bitslice(&data);
             buffer
         } else {
-            data.to_bitvec()
+            dbg!(data.to_bitvec())
         };
 
-        Ok(num_bigint::BigUint::from_bytes_le(&data.into_vec()).into())
+        Ok(dbg!(num_bigint::BigUint::from_bytes_be(&dbg!(to_vec(&data))).into()))
     }
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
@@ -272,7 +283,7 @@ impl<'input> Decoder<'input> {
         let value_constraint = constraints.value();
 
         let Some(value_constraint) = value_constraint else {
-            let bytes = self.decode_octets()?.into_vec();
+            let bytes = dbg!(to_vec(dbg!(&self.decode_octets()?)));
             return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
@@ -287,7 +298,7 @@ impl<'input> Decoder<'input> {
                 self.parse_non_negative_binary_integer(range)?
             }
         } else {
-            let bytes = self.decode_octets()?.into_vec();
+            let bytes = to_vec(&self.decode_octets()?);
             value_constraint
                 .constraint
                 .as_start()
@@ -322,6 +333,38 @@ impl<'input> Decoder<'input> {
 
         Ok(true)
     }
+
+    fn parse_fixed_width_string<ALPHABET: StaticPermittedAlphabet>(&mut self, constraints: Constraints) -> Result<ALPHABET> {
+        let mut bit_string = types::BitString::default();
+        let char_width = constraints
+            .permitted_alphabet()
+            .map(|alphabet| crate::per::log2(alphabet.constraint.len() as i128) as usize)
+            .unwrap_or(ALPHABET::character_width() as usize);
+
+        self.decode_extensible_container(constraints.clone(), |input, length| {
+            let (input, part) = nom::bytes::streaming::take(length * char_width)(input)?;
+            bit_string.extend(&*part);
+            Ok(input)
+        })?;
+
+        match constraints.permitted_alphabet() {
+            Some(alphabet) => {
+                let map = alphabet
+                    .constraint
+                    .into_iter()
+                    .copied()
+                    .enumerate()
+                    .map(|(i, e)| (i as u32, e))
+                    .collect();
+                ALPHABET::try_from_permitted_alphabet(
+                    &bit_string,
+                    Some(&map),
+                )
+                .map_err(Error::custom)
+            }
+            None => ALPHABET::try_from_permitted_alphabet(&bit_string, None).map_err(Error::custom),
+        }
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -336,7 +379,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             Ok(input)
         })?;
 
-        Ok(types::Any::new(octet_string.into_vec()))
+        Ok(types::Any::new(to_vec(&octet_string)))
     }
 
     fn decode_bool(&mut self, _: Tag) -> Result<bool> {
@@ -411,48 +454,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         constraints: Constraints,
     ) -> Result<types::VisibleString> {
-        let mut bit_string = types::BitString::default();
-        let char_width = constraints
-            .permitted_alphabet()
-            .map(|alphabet| crate::per::log2(alphabet.constraint.len() as i128) as usize)
-            .unwrap_or(7);
-
-        self.decode_extensible_container(constraints.clone(), |input, length| {
-            let (input, part) = nom::bytes::streaming::take(length * char_width)(input)?;
-            bit_string.extend(&*part);
-            Ok(input)
-        })?;
-
-        match constraints.permitted_alphabet() {
-            Some(alphabet) => {
-                let map = alphabet
-                    .constraint
-                    .into_iter()
-                    .copied()
-                    .enumerate()
-                    .map(|(i, e)| (i as u32, e))
-                    .collect();
-                types::strings::try_from_permitted_alphabet::<types::VisibleString, _>(
-                    &bit_string,
-                    &map,
-                    types::VisibleString::character_width(),
-                )
-                .map_err(Error::custom)
-            }
-            None => Ok(types::VisibleString::from_raw_bits(bit_string)),
-        }
+        self.parse_fixed_width_string(constraints)
     }
 
-    fn decode_ia5_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::Ia5String> {
-        todo!()
+    fn decode_ia5_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::Ia5String> {
+        self.parse_fixed_width_string(constraints)
     }
 
     fn decode_printable_string(
         &mut self,
         _: Tag,
-        _constraints: Constraints,
+        constraints: Constraints,
     ) -> Result<types::PrintableString> {
-        todo!()
+        self.parse_fixed_width_string(constraints)
     }
 
     fn decode_numeric_string(
@@ -482,6 +496,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
     ) -> Result<types::Utf8String> {
         self.decode_octet_string(tag, constraints)
             .and_then(|bytes| String::from_utf8(bytes).map_err(Error::custom))
+    }
+
+    fn decode_general_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::GeneralString> {
+        <_>::try_from(self.decode_octet_string(tag, constraints)?).map_err(Error::custom)
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
@@ -543,6 +565,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
+        dbg!(&self.input);
         let is_extensible = D::EXTENDED_FIELDS.is_some().then(|| self.parse_one_bit()).transpose()?.unwrap_or_default();
         let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
 
@@ -740,5 +763,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let mut decoder = Decoder::new(&bytes, self.options);
 
         D::decode(&mut decoder).map(Some)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bitvec() {
+        use bitvec::prelude::*;
+        assert_eq!(to_vec(&bitvec::bits![u8, Msb0;       0, 0, 0, 1, 1, 1, 0, 1]), vec![29]);
+        assert_eq!(to_vec(&bitvec::bits![u8, Msb0; 1, 1, 0, 0, 0, 1, 1, 1, 0, 1][2..]), vec![29]);
     }
 }

@@ -6,15 +6,20 @@ use once_cell::race::OnceBox;
 use crate::types;
 
 #[derive(Debug, snafu::Snafu)]
-pub(crate) enum FromPermittedAlphabetError {
+pub enum FromPermittedAlphabetError {
     #[snafu(display("error converting to string: {}", message))]
     Other { message: String },
+    #[snafu(display("length of bits ({length}) provided not divisible by character width ({width})"))]
+    InvalidData { length: usize, width: usize },
     #[snafu(display("index not found {}", 0))]
     IndexNotFound { index: u32 },
 }
 
 pub(crate) trait StaticPermittedAlphabet: Sized {
     const CHARACTER_SET: &'static [u32];
+    const CHARACTER_WIDTH: u32 = crate::per::log2(Self::CHARACTER_SET.len() as i128);
+
+    fn from_raw_bits(value: types::BitString) -> Self;
 
     fn character_width() -> u32 {
         crate::per::log2(Self::CHARACTER_SET.len() as i128)
@@ -50,44 +55,35 @@ pub(crate) trait StaticPermittedAlphabet: Sized {
         })
     }
 
-    fn try_from_permitted_alphabet<E>(
+    fn try_from_permitted_alphabet(
         input: &types::BitStr,
-    ) -> Result<Self, FromPermittedAlphabetError>
-    where
-        Self: TryFrom<types::BitString, Error = E>,
-        E: std::fmt::Display,
-    {
-        try_from_permitted_alphabet(input, Self::character_map(), Self::character_width())
+        alphabet: Option<&BTreeMap<u32, u32>>,
+    ) -> Result<Self, FromPermittedAlphabetError> {
+        let alphabet = alphabet.unwrap_or_else(|| Self::character_map());
+        try_from_permitted_alphabet(input, alphabet, Self::CHARACTER_WIDTH).map(Self::from_raw_bits)
     }
 }
 
-pub(crate) fn try_from_permitted_alphabet<
-    T: TryFrom<types::BitString, Error = E>,
-    E: std::fmt::Display,
->(
+pub(crate) fn try_from_permitted_alphabet(
     input: &types::BitStr,
     alphabet: &BTreeMap<u32, u32>,
     original_width: u32,
-) -> Result<T, FromPermittedAlphabetError> {
+) -> Result<types::BitString, FromPermittedAlphabetError> {
     let mut bit_string = types::BitString::new();
     let permitted_alphabet_char_width = crate::per::log2(alphabet.len() as i128);
 
     for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
         let index = ch.load_be();
 
-        bit_string.extend_from_bitslice(dbg!(
+        bit_string.extend_from_bitslice(
             &alphabet
-                .get(&dbg!(index))
+                .get(&index)
                 .ok_or_else(|| FromPermittedAlphabetError::IndexNotFound { index })?
                 .view_bits::<Msb0>()[(u32::BITS - original_width) as usize..u32::BITS as usize]
-        ));
+        );
     }
 
-    dbg!(&bit_string);
-
-    T::try_from(bit_string).map_err(|error| FromPermittedAlphabetError::Other {
-        message: error.to_string(),
-    })
+    Ok(bit_string)
 }
 
 pub enum OctetAlignedString {
@@ -193,6 +189,21 @@ impl<const WIDTH: usize> ConstrainedCharacterString<WIDTH> {
 
     pub fn iter(&self) -> impl Iterator<Item = &types::BitStr> + '_ {
         self.buffer.chunks_exact(WIDTH)
+    }
+}
+
+impl<const WIDTH: usize> TryFrom<types::BitString> for ConstrainedCharacterString<WIDTH> {
+    type Error = FromPermittedAlphabetError;
+
+    fn try_from(value: types::BitString) -> Result<Self, Self::Error> {
+        if value.len() % WIDTH != 0 {
+            Err(FromPermittedAlphabetError::InvalidData {
+                length: value.len(),
+                width: WIDTH,
+            })
+        } else {
+            Ok(Self::from_raw_bits(value))
+        }
     }
 }
 

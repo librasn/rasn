@@ -4,7 +4,7 @@ use crate::config::*;
 
 pub fn derive_struct_impl(
     name: syn::Ident,
-    generics: syn::Generics,
+    mut generics: syn::Generics,
     container: syn::DataStruct,
     config: &Config,
 ) -> proc_macro2::TokenStream {
@@ -56,6 +56,15 @@ pub fn derive_struct_impl(
             })
         })
         .collect::<Vec<_>>();
+
+    for param in generics.type_params_mut() {
+        param.bounds.push(syn::TypeParamBound::Trait(syn::TraitBound {
+            paren_token: Some(<_>::default()),
+            modifier: syn::TraitBoundModifier::None,
+            lifetimes: None,
+            path: syn::parse_str("rasn::AsnType").unwrap(),
+        }));
+    }
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 

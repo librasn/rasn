@@ -22,7 +22,7 @@ fn extensions() {
             i: Integer,
         }
 
-        encoder.encode_sequence::<Sequence, _>(Tag::SEQUENCE, <_>::default(), |encoder| {
+        encoder.encode_sequence::<Sequence, _>(Tag::SEQUENCE, |encoder| {
             encoder.encode_bool(Tag::BOOL, true)?;
             encoder.encode_integer(Tag::INTEGER, <_>::default(), &0u32.into())?;
             Ok(())
@@ -83,9 +83,9 @@ fn lets_encrypt_x3() {
                     set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 10][..]).into()),
                         value: Any::new(
-                            rasn::der::encode(&PrintableString::from(String::from(
+                            rasn::der::encode(&PrintableString::try_from(String::from(
                                 "Digital Signature Trust Co.",
-                            )))
+                            )).unwrap())
                             .unwrap(),
                         ),
                     });
@@ -97,9 +97,9 @@ fn lets_encrypt_x3() {
                     set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 3][..]).into()),
                         value: Any::new(
-                            rasn::der::encode(&PrintableString::from(String::from(
+                            rasn::der::encode(&PrintableString::try_from(String::from(
                                 "DST Root CA X3",
-                            )))
+                            )).unwrap())
                             .unwrap(),
                         ),
                     });
@@ -116,7 +116,7 @@ fn lets_encrypt_x3() {
                     set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 6][..]).into()),
                         value: Any::new(
-                            rasn::der::encode(&PrintableString::from(String::from("US"))).unwrap(),
+                            rasn::der::encode(&PrintableString::try_from(String::from("US")).unwrap()).unwrap(),
                         ),
                     });
                     set
@@ -126,9 +126,9 @@ fn lets_encrypt_x3() {
                     set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 10][..]).into()),
                         value: Any::new(
-                            rasn::der::encode(&PrintableString::from(String::from(
+                            rasn::der::encode(&PrintableString::try_from(String::from(
                                 "Let's Encrypt",
-                            )))
+                            )).unwrap())
                             .unwrap(),
                         ),
                     });
@@ -139,9 +139,9 @@ fn lets_encrypt_x3() {
                     set.insert(AttributeTypeAndValue {
                         r#type: ObjectIdentifier::new_unchecked((&[2, 5, 4, 3][..]).into()),
                         value: Any::new(
-                            rasn::der::encode(&PrintableString::from(String::from(
+                            rasn::der::encode(&PrintableString::try_from(String::from(
                                 "Let's Encrypt Authority X3",
-                            )))
+                            )).unwrap())
                             .unwrap(),
                         ),
                     });
@@ -212,7 +212,7 @@ fn lets_encrypt_x3() {
                                 (&[1, 3, 6, 1, 5, 5, 7, 48, 1][..]).into(),
                             ),
                             access_location: GeneralName::Uri(
-                                String::from("http://isrg.trustid.ocsp.identrust.com").into(),
+                                String::from("http://isrg.trustid.ocsp.identrust.com").try_into().unwrap(),
                             ),
                         },
                         AccessDescription {
@@ -221,7 +221,7 @@ fn lets_encrypt_x3() {
                             ),
                             access_location: GeneralName::Uri(
                                 String::from("http://apps.identrust.com/roots/dstrootcax3.p7c")
-                                    .into(),
+                                    .try_into().unwrap(),
                             ),
                         },
                     ])
@@ -262,9 +262,9 @@ fn lets_encrypt_x3() {
                                     (&[1, 3, 6, 1, 5, 5, 7, 2, 1][..]).into(),
                                 ),
                                 qualifier: Any::new(
-                                    rasn::der::encode(&Ia5String::from(String::from(
+                                    rasn::der::encode(&Ia5String::try_from(String::from(
                                         "http://cps.root-x1.letsencrypt.org",
-                                    )))
+                                    )).unwrap())
                                     .unwrap(),
                                 ),
                             }]),
@@ -279,7 +279,7 @@ fn lets_encrypt_x3() {
                     extn_value: rasn::der::encode(&vec![DistributionPoint {
                         distribution_point: Some(DistributionPointName::FullName(vec![
                             GeneralName::Uri(
-                                String::from("http://crl.identrust.com/DSTROOTCAX3CRL.crl").into(),
+                                String::from("http://crl.identrust.com/DSTROOTCAX3CRL.crl").try_into().unwrap(),
                             ),
                         ])),
                         ..<_>::default()

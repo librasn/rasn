@@ -117,6 +117,13 @@ pub trait Decoder: Sized {
     ) -> Result<types::VisibleString, Self::Error>;
 
     /// Decode a `Ia5String` identified by `tag` from the available input.
+    fn decode_general_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::GeneralString, Self::Error>;
+
+    /// Decode a `Ia5String` identified by `tag` from the available input.
     fn decode_ia5_string(
         &mut self,
         tag: Tag,

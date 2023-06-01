@@ -356,6 +356,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .context(error::InvalidUtf8Snafu)
     }
 
+    fn decode_general_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::GeneralString> {
+        <_>::try_from(self.decode_octet_string(tag, constraints)?).map_err(Error::custom)
+    }
+
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
         let string = self.decode_utf8_string(tag, <_>::default())?;
         chrono::NaiveDateTime::parse_from_str(&string, "%Y%m%d%H%M%SZ")

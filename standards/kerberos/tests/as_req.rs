@@ -18,14 +18,14 @@ fn as_req() {
             kdc_options: KdcOptions(KerberosFlags::from_slice(&[0x40, 0x81, 0x00, 0x10])),
             cname: Some(PrincipalName {
                 r#type: 1,
-                string: vec![KerberosString::new(String::from("user"))],
+                string: vec![KerberosString::try_from(String::from("user")).unwrap()],
             }),
-            realm: KerberosString::new("COMPANY.INT".to_string()),
+            realm: KerberosString::try_from("COMPANY.INT".to_string()).unwrap(),
             sname: Some(PrincipalName {
                 r#type: 2,
                 string: vec![
-                    KerberosString::new(String::from("krbtgt")),
-                    KerberosString::new(String::from("COMPANY.INT")),
+                    KerberosString::try_from(String::from("krbtgt")).unwrap(),
+                    KerberosString::try_from(String::from("COMPANY.INT")).unwrap(),
                 ],
             }),
             from: None,

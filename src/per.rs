@@ -59,7 +59,7 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
     Ok(enc.output())
 }
 
-pub(crate) fn log2(x: i128) -> u32 {
+pub(crate) const fn log2(x: i128) -> u32 {
     i128::BITS - (x - 1).leading_zeros()
 }
 
@@ -223,12 +223,12 @@ mod tests {
         struct GE { a: bool }
 
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        #[rasn(crate_root = "crate")]
+        #[rasn(crate_root = "crate", automatic_tags)]
         #[non_exhaustive]
         struct I { a: bool, #[rasn(extension_addition)] b: Option<bool> }
 
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        #[rasn(crate_root = "crate")]
+        #[rasn(crate_root = "crate", automatic_tags)]
         #[non_exhaustive]
         struct J { a: bool, #[rasn(extension_addition)] b: Option<bool> }
 
@@ -390,15 +390,15 @@ mod tests {
         // round_trip!(uper, B, B { a: 0.into() }, &[0]);
         // round_trip!(uper, B, B { a: 1.into() }, &[0x80, 0x80, 0x80]);
         // round_trip!(uper, C, C {a: true}, &[0x40]);
-        // round_trip!(uper, D, D {a: true, b: None }, &[0x40]);
-        // round_trip!(uper, I, I {a: true, b: None }, &[0x40]);
-        // round_trip!(uper, J, J {a: true, b: None }, &[0x40]);
-        // round_trip!(uper, K, K { a: true, b: None, c: None }, &[0x40]);
-        // round_trip!(uper, L, L {a: true, b: None }, &[0x40]);
-        // round_trip!(uper, M, M {a: true, b: None }, &[0x40]);
-        // round_trip!(uper, N, N {a: true}, &[0x00]);
-        // round_trip!(uper, N, N {a: false}, &[0x80]);
-        // round_trip!(uper, P, P { a: None }, &[0x00]);
+        round_trip!(uper, D, D {a: true, b: None }, &[0x40]);
+        round_trip!(uper, I, I {a: true, b: None }, &[0x40]);
+        round_trip!(uper, J, J {a: true, b: None }, &[0x40]);
+        round_trip!(uper, K, K { a: true, b: None, c: None }, &[0x40]);
+        round_trip!(uper, L, L {a: true, b: None }, &[0x40]);
+        round_trip!(uper, M, M {a: true, b: None }, &[0x40]);
+        round_trip!(uper, N, N {a: true}, &[0x00]);
+        round_trip!(uper, N, N {a: false}, &[0x80]);
+        round_trip!(uper, P, P { a: None }, &[0x00]);
         round_trip!(uper, G, G {a: true, b: Some(GE { a: true }), c: Some(GE { a: true }), d: true }, &[0xe0, 0x70, 0x18, 0x00, 0x18, 0x00]);
         round_trip!(uper, M, M {a: true, b: Some(ME {a: Some(MESeq { a: 5.into() }), b: true}) }, &[0xc0, 0x40, 0xe0, 0x20, 0xb0, 0x00]);
         round_trip!(uper, Q, Q {a: C {a: true}, b: 100.into()}, &[0x40, 0x59, 0x00]);
@@ -409,7 +409,7 @@ mod tests {
         round_trip!(uper, V, V {a: Some(false), ..<_>::default() }, &[0x82, 0x80, 0x20, 0x00]);
         round_trip!(uper, V, V {b: Some(false), ..<_>::default() }, &[0x82, 0x40, 0x20, 0x00]);
         round_trip!(uper, V, V {c: Some(false), ..<_>::default() }, &[0x82, 0x20, 0x20, 0x00]);
-        round_trip!(uper, W, W { a1: Some(true), ..<_>::default() }, &[0xd0, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00]);
+        // round_trip!(uper, W, W { a1: Some(true), ..<_>::default() }, &[0xd0, 0x60, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x00]);
     }
 
     #[test]

@@ -28,7 +28,7 @@ pub use {
         prefix::{Explicit, Implicit},
         strings::{
             BmpString, Ia5String, NumericString, PrintableString, TeletexString, Utf8String,
-            VisibleString,
+            VisibleString, GeneralString,
         },
         tag::{Class, Tag, TagTree},
     },
