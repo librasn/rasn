@@ -313,36 +313,57 @@ impl<'input> crate::Decoder for Decoder<'input> {
             if string.contains('.') {
                 "%Y%m%d%H%M%S%.3fZ"
             } else {
-                "%Y%m%d%H%M%SZ"
+                match string.len() {
+                    11 => "%Y%m%d%HZ",
+                    13 => "%Y%m%d%H%MZ",
+                    _ => "%Y%m%d%H%M%SZ",
+                }
             }
         } else if string.contains('+') || string.contains('-') {
             if string.contains('.') {
                 "%Y%m%d%H%M%S%.3f%z"
             } else {
-                "%Y%m%d%H%M%S%z"
+                match string.len() {
+                    15 => "%Y%m%d%H%%z",
+                    17 => "%Y%m%d%H%M%z",
+                    _ => "%Y%m%d%H%M%S%z",
+                }
             }
         } else {
             if string.contains('.') {
-                "%Y%m%d%H%M%S%.3fZ"
+                "%Y%m%d%H%M%S%.3f"
             } else {
-                "%Y%m%d%H%M%SZ"
+                match string.len() {
+                    10 => "%Y%m%d%H",
+                    12 => "%Y%m%d%H%M",
+                    _ => "%Y%m%d%H%M%S",
+                }
             }
         };
         chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
             .context(error::InvalidDateSnafu)
-            .map(|date| types::GeneralizedTime::from_utc(date, chrono::FixedOffset::east_opt(0).unwrap()))
+            .map(|date| {
+                types::GeneralizedTime::from_utc(date, chrono::FixedOffset::east_opt(0).unwrap())
+            })
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
         // Reference https://obj-sys.com/asn1tutorial/node15.html
-        // FIXME - handle optional seconds
         // FIXME - should this be DateTime<UTC> rather than NaiveDateTime ?
         let string = self.decode_utf8_string(tag)?;
         let format = if string.contains('Z') {
-            "%y%m%d%H%M%SZ"
+            if string.len() == 11 {
+                "%y%m%d%H%MZ"
+            } else {
+                "%y%m%d%H%M%SZ"
+            }
         } else {
-            "%y%m%d%H%M%S%z"
+            if string.len() == 15 {
+                "%y%m%d%H%M%z"
+            } else {
+                "%y%m%d%H%M%S%z"
+            }
         };
         chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
@@ -546,6 +567,29 @@ mod tests {
         assert_eq!(name, decode::<String>(primitive).unwrap());
         assert_eq!(name, decode::<String>(definite_constructed).unwrap());
         assert_eq!(name, decode::<String>(indefinite_constructed).unwrap());
+    }
+
+    #[test]
+    fn utc_time() {
+        let time =
+            crate::types::GeneralizedTime::parse_from_str("991231235959+0000", "%y%m%d%H%M%S%z")
+                .unwrap();
+        let has_z = &[
+            0x17, 0x0D, 0x39, 0x39, 0x31, 0x32, 0x33, 0x31, 0x32, 0x33, 0x35, 0x39, 0x35, 0x39,
+            0x5A,
+        ];
+        let has_noz = &[
+            0x17, 0x11, 0x39, 0x39, 0x31, 0x32, 0x33, 0x31, 0x32, 0x33, 0x35, 0x39, 0x35, 0x39,
+            0x2B, 0x30, 0x32, 0x30, 0x30,
+        ];
+        assert_eq!(
+            time,
+            decode::<chrono::DateTime::<chrono::Utc>>(has_z).unwrap()
+        );
+        assert_eq!(
+            time,
+            decode::<chrono::DateTime::<chrono::Utc>>(has_noz).unwrap()
+        );
     }
 
     #[test]
