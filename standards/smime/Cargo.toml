@@ -1,6 +1,6 @@
 [package]
 name = "rasn-smime"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
 description = "Data types for Secure/Multipurpose Internet Mail Extensions"
@@ -9,6 +9,6 @@ license = "Apache-2.0/MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rasn = { path = "../..", version = "0.6.0" }
-rasn-cms = { path = "../cms", version = "0.6.0" }
-rasn-pkix = { path = "../pkix", version = "0.6.0" }
+rasn = { path = "../..", version = "0.7.0" }
+rasn-cms = { path = "../cms", version = "0.7.0" }
+rasn-pkix = { path = "../pkix", version = "0.7.0" }

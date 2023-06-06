@@ -331,7 +331,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         chrono::NaiveDateTime::parse_from_str(&string, format)
             .ok()
             .context(error::InvalidDateSnafu)
-            .map(|date| types::GeneralizedTime::from_utc(date, chrono::FixedOffset::east(0)))
+            .map(|date| types::GeneralizedTime::from_utc(date, chrono::FixedOffset::east_opt(0).unwrap()))
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
