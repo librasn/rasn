@@ -1,63 +1,23 @@
-use bitvec::prelude::*;
-
-use crate::{prelude::*, types};
-
-use super::ConstrainedCharacterString;
-
-const BIT_WIDTH: usize = 7;
+use super::*;
 
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct VisibleString(ConstrainedCharacterString<BIT_WIDTH>);
-
-#[derive(snafu::Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
-#[snafu(display("Invalid ISO 646 bytes"))]
-pub struct InvalidIso646Bytes;
+pub struct VisibleString(Vec<u8>);
 
 impl VisibleString {
     pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, InvalidIso646Bytes> {
-        let mut buffer = types::BitString::new();
-
-        for byte in bytes {
-            if byte & 0x80 != 0 {
-                return Err(InvalidIso646Bytes);
-            }
-
-            let bv = &byte.view_bits::<Msb0>()[1..8];
-            debug_assert_eq!(*byte, bv.load_be::<u8>());
-            buffer.extend(bv);
+        if !bytes.iter().all(|byte| byte & 0x80 == 0) {
+            Err(InvalidIso646Bytes)
+        } else {
+            Ok(Self(bytes.to_owned()))
         }
-
-        debug_assert!(buffer.is_empty() || buffer.len() >= BIT_WIDTH);
-        debug_assert!(buffer.len() % BIT_WIDTH == 0);
-
-        Ok(Self(ConstrainedCharacterString::from_raw_bits(buffer)))
     }
 
-    pub fn from_raw_bits(bits: types::BitString) -> Self {
-        Self(ConstrainedCharacterString::from_raw_bits(bits))
-    }
-
-    pub fn to_iso646_bytes(&self) -> Vec<u8> {
-        self.iter().map(|bv| bv.load_be::<u8>()).collect()
-    }
-
-    pub fn chars(&self) -> impl Iterator<Item = u8> + '_ {
-        self.to_iso646_bytes().into_iter()
-    }
-
-    pub fn get(&self, index: usize) -> Option<u8> {
-        self.iter().nth(index).map(|bv| bv.load_be::<u8>())
+    pub fn as_iso646_bytes(&self) -> &[u8] {
+        &self.0
     }
 }
 
-impl From<types::BitString> for VisibleString {
-    fn from(value: types::BitString) -> Self {
-        Self::from_raw_bits(value)
-    }
-}
-
-impl super::StaticPermittedAlphabet for VisibleString {
+impl StaticPermittedAlphabet for VisibleString {
     const CHARACTER_SET: &'static [u32] = &[
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
         0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D,
@@ -70,22 +30,19 @@ impl super::StaticPermittedAlphabet for VisibleString {
         0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
     ];
 
-    fn from_raw_bits(value: BitString) -> Self {
-        Self(ConstrainedCharacterString::from_raw_bits(value))
+    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
+        Box::from(self.0.iter().map(|byte| *byte as u32))
     }
-}
 
-impl core::ops::Deref for VisibleString {
-    type Target = ConstrainedCharacterString<BIT_WIDTH>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    fn push_char(&mut self, ch: u32) {
+        debug_assert!(Self::CHARACTER_SET.contains(&ch), "{} not in character set", ch);
+        self.0.push(ch as u8);
     }
 }
 
 impl core::fmt::Display for VisibleString {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(&String::from_utf8(self.to_iso646_bytes()).unwrap())
+        f.write_str(&String::from_utf8(self.as_iso646_bytes().to_owned()).unwrap())
     }
 }
 
@@ -158,35 +115,17 @@ impl TryFrom<bytes::Bytes> for VisibleString {
 
 impl From<VisibleString> for bytes::Bytes {
     fn from(value: VisibleString) -> Self {
-        value.to_iso646_bytes().into()
+        value.0.into()
     }
 }
 
 impl From<VisibleString> for alloc::string::String {
     fn from(value: VisibleString) -> Self {
-        Self::from_utf8(value.to_iso646_bytes()).unwrap()
+        Self::from_utf8(value.as_iso646_bytes().to_owned()).unwrap()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn string_compatibility() {
-        let john = VisibleString::try_from("John").unwrap();
-        let mut chars = john.chars();
-        assert_eq!(b'J', chars.next().unwrap());
-        assert_eq!(b'o', chars.next().unwrap());
-        assert_eq!(b'h', chars.next().unwrap());
-        assert_eq!(b'n', chars.next().unwrap());
-        assert!(chars.next().is_none());
-        assert_eq!(
-            bitvec::bits![
-                1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0
-            ],
-            john.as_bitstr()
-        );
-        assert_eq!(b"John", &*john.to_iso646_bytes());
-    }
-}
+#[derive(snafu::Snafu, Debug)]
+#[snafu(visibility(pub(crate)))]
+#[snafu(display("Invalid ISO 646 bytes"))]
+pub struct InvalidIso646Bytes;

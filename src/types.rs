@@ -74,9 +74,14 @@ pub trait Constructed {
 }
 
 /// A `CHOICE` value.
-pub trait Choice {
+pub trait Choice: Sized {
     const VARIANTS: &'static [TagTree];
     const EXTENDED_VARIANTS: &'static [TagTree] = &[];
+}
+
+/// A `CHOICE` value.
+pub trait DecodeChoice: Choice + crate::Decode {
+    fn from_tag<D: crate::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error>;
 }
 
 /// A `ENUMERATED` value.

@@ -1,13 +1,9 @@
-use bitvec::prelude::*;
-
-use crate::{prelude::*, types};
-
-use super::ConstrainedCharacterString;
+use super::*;
 
 const BIT_WIDTH: usize = 7;
 
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Ia5String(ConstrainedCharacterString<BIT_WIDTH>);
+pub struct Ia5String(Vec<u8>);
 
 #[derive(snafu::Snafu, Debug)]
 #[snafu(visibility(pub(crate)))]
@@ -16,52 +12,21 @@ pub struct InvalidIso646Bytes;
 
 impl Ia5String {
     pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, InvalidIso646Bytes> {
-        let mut buffer = types::BitString::new();
-
-        for byte in bytes {
-            if byte & 0x80 != 0 {
-                return Err(InvalidIso646Bytes);
-            }
-
-            let bv = &byte.view_bits::<Msb0>()[1..8];
-            debug_assert_eq!(*byte, bv.load_be::<u8>());
-            buffer.extend(bv);
+        if !bytes.iter().all(|byte| Self::CHARACTER_SET.contains(&(*byte as u32))) {
+            return Err(InvalidIso646Bytes);
         }
 
-        debug_assert!(buffer.is_empty() || buffer.len() >= BIT_WIDTH);
-        debug_assert!(buffer.len() % BIT_WIDTH == 0);
-
-        Ok(Self(ConstrainedCharacterString::from_raw_bits(buffer)))
+        Ok(Self(bytes.to_owned()))
     }
 
-    pub fn from_raw_bits(bits: types::BitString) -> Self {
-        Self(ConstrainedCharacterString::from_raw_bits(bits))
-    }
-
-    pub fn to_iso646_bytes(&self) -> Vec<u8> {
-        self.iter().map(|bv| bv.load_be::<u8>()).collect()
-    }
-
-    pub fn chars(&self) -> impl Iterator<Item = u8> + '_ {
-        self.to_iso646_bytes().into_iter()
-    }
-
-    pub fn get(&self, index: usize) -> Option<u8> {
-        self.iter().nth(index).map(|bv| bv.load_be::<u8>())
-    }
-}
-
-impl core::ops::Deref for Ia5String {
-    type Target = ConstrainedCharacterString<BIT_WIDTH>;
-
-    fn deref(&self) -> &Self::Target {
+    pub fn as_iso646_bytes(&self) -> &[u8] {
         &self.0
     }
 }
 
 impl core::fmt::Display for Ia5String {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(&String::from_utf8(self.to_iso646_bytes()).unwrap())
+        f.write_str(&String::from_utf8(self.as_iso646_bytes().to_owned()).unwrap())
     }
 }
 
@@ -132,13 +97,13 @@ impl TryFrom<bytes::Bytes> for Ia5String {
 
 impl From<Ia5String> for bytes::Bytes {
     fn from(value: Ia5String) -> Self {
-        value.to_iso646_bytes().into()
+        value.0.into()
     }
 }
 
 impl From<Ia5String> for alloc::string::String {
     fn from(value: Ia5String) -> Self {
-        Self::from_utf8(value.to_iso646_bytes()).unwrap()
+        Self::from_utf8(value.as_iso646_bytes().to_owned()).unwrap()
     }
 }
 
@@ -155,31 +120,12 @@ impl super::StaticPermittedAlphabet for Ia5String {
         0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
     ];
 
-    fn from_raw_bits(value: BitString) -> Self {
-        Self(ConstrainedCharacterString::from_raw_bits(value))
+    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
+        Box::from(self.0.iter().map(|byte| *byte as u32))
     }
-}
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn string_compatibility() {
-        let john = Ia5String::try_from("John").unwrap();
-        let mut chars = john.chars();
-        assert_eq!(b'J', chars.next().unwrap());
-        assert_eq!(b'o', chars.next().unwrap());
-        assert_eq!(b'h', chars.next().unwrap());
-        assert_eq!(b'n', chars.next().unwrap());
-        assert!(chars.next().is_none());
-        assert_eq!(
-            bitvec::bits![
-                1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0
-            ],
-            john.as_bitstr()
-        );
-        assert_eq!(b"John", &*john.to_iso646_bytes());
+    fn push_char(&mut self, ch: u32) {
+        debug_assert!(Self::CHARACTER_SET.contains(&ch), "{} not in character set", ch);
+        self.0.push(ch as u8);
     }
 }

@@ -62,6 +62,18 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 pub(crate) const fn log2(x: i128) -> u32 {
     i128::BITS - (x - 1).leading_zeros()
 }
+// Workaround for https://github.com/ferrilab/bitvec/issues/228
+pub(crate) fn to_vec(slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>) -> Vec<u8> {
+    use bitvec::prelude::*;
+    let mut vec = Vec::new();
+
+    for slice in slice.chunks(8) {
+        vec.push(slice.load_be());
+    }
+
+    vec
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -76,6 +88,20 @@ mod tests {
             assert_eq!(expected, &*actual_encoding);
 
             let decoded_value: $typ = crate::$codec::decode(&actual_encoding).unwrap();
+
+            assert_eq!(value, decoded_value);
+        }};
+    }
+
+    macro_rules! round_trip_with_constraints {
+        ($codec:ident, $typ:ty, $constraints:expr, $value:expr, $expected:expr) => {{
+            let value: $typ = $value;
+            let expected: &[u8] = $expected;
+            let actual_encoding = crate::$codec::encode_with_constraints(&value, $constraints).unwrap();
+
+            assert_eq!(expected, &*actual_encoding);
+
+            let decoded_value: $typ = crate::$codec::decode_with_constraints(&actual_encoding, $constraints).unwrap();
 
             assert_eq!(value, decoded_value);
         }};
@@ -125,6 +151,22 @@ mod tests {
     fn sequence_of() {
         round_trip!(uper, Vec<u8>, vec![1; 5], &[0b00000101, 1, 1, 1, 1, 1]);
         round_trip!(aper, Vec<u8>, vec![1; 5], &[0b00000101, 1, 1, 1, 1, 1]);
+    }
+
+    #[test]
+    fn numeric_string() {
+        round_trip!(uper, NumericString, " 0123456789".try_into().unwrap(), &[0x0b, 0x01, 0x23, 0x45, 0x67, 0x89, 0xa0]);
+
+            // ('B',              '1 9 5', b'\x20\xa0\x60'),
+            // ('C',
+            //  '0123456789 9876543210',
+            //  b'\x04\x24\x68\xac\xf1\x34\x15\x30\xec\xa8\x64\x20'),
+            // ('D',                  '5', b'\x01\xa0'),
+            // #('E',                  '2', b'\x01\x30'),
+            // #('E',                  '5', b'\x01\x60')
+            // ('F',                   '0', b'\x02'),
+            // ('G',                    '', b'\x00'),
+            // ('H',                 '345', b'\x03\x45\x60')
     }
 
     #[test]

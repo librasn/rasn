@@ -12,7 +12,7 @@ use crate::{
         self,
         constraints::{self, Extensible},
         fields::FieldPresence,
-        strings::{ConstrainedCharacterString, DynConstrainedCharacterString},
+        strings::{StaticPermittedAlphabet, DynConstrainedCharacterString},
         BitString, Constraints, Enumerated, Tag,
     },
     Encode,
@@ -109,8 +109,7 @@ impl Encoder {
     }
 
     pub fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
-        self.field_bitfield.entry(dbg!(tag)).and_modify(|(_, b)| *b = bit);
-        dbg!(self.field_bitfield.entry(tag));
+        self.field_bitfield.entry(tag).and_modify(|(_, b)| *b = bit);
         Ok(())
     }
 
@@ -144,49 +143,42 @@ impl Encoder {
             .unwrap_or_default()
     }
 
-    fn encode_known_multipler_string<const WIDTH: usize>(
+    fn encode_known_multipler_string<S: StaticPermittedAlphabet>(
         &mut self,
         tag: Tag,
         constraints: &Constraints,
-        value: &ConstrainedCharacterString<WIDTH>,
+        value: &S
     ) -> Result<()> {
         let mut buffer = BitString::default();
         match constraints.permitted_alphabet() {
-            Some(alphabet) => {
-                let alphabet = &alphabet.constraint;
-                let alphabet_width = crate::per::log2(alphabet.len() as i128);
-                let characters = if WIDTH as u32
+            Some(alphabet) => if S::CHARACTER_WIDTH as u32
                     > self
                         .options
                         .aligned
-                        .then(|| alphabet_width.next_power_of_two())
-                        .unwrap_or(alphabet_width)
-                {
-                    Some(
-                        DynConstrainedCharacterString::from_known_multiplier_string(
-                            value, &alphabet,
-                        )
-                        .map_err(Error::custom)?,
-                    )
-                } else {
-                    None
-                };
+                        .then(|| {
+                            let alphabet_width = crate::per::log2(alphabet.constraint.len() as i128);
+                            alphabet_width.is_power_of_two().then_some(alphabet_width).unwrap_or_else(|| alphabet_width.next_power_of_two())
+                        })
+                        .unwrap_or(crate::per::log2(alphabet.constraint.len() as i128)){
+                let alphabet = &alphabet.constraint;
+                let alphabet_width = crate::per::log2(alphabet.len() as i128);
+                let ref characters = DynConstrainedCharacterString::from_bits(
+                    value.chars(), alphabet_width as usize, &alphabet,
+                ).map_err(Error::custom)?;
 
-                let ref characters = characters;
                 self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
-                    Ok(match characters {
-                        Some(value) => value[range].to_bitvec(),
-                        None => value[range].to_bitvec(),
-                    })
+                    Ok(characters[range].to_bitvec())
                 })?;
             }
             None => {
-                let octet_aligned_value = self.options.aligned.then(|| value.to_octet_aligned());
+                let char_length = value.len();
+                let octet_aligned_value = self.options.aligned.then(|| value.to_octet_aligned_index_string());
+                let value = value.to_index_string();
                 let ref octet_aligned_value = octet_aligned_value;
-                self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
+                self.encode_length(&mut buffer, char_length, constraints.size(), |range| {
                     Ok(match octet_aligned_value {
-                        Some(value) => value[range].to_bitvec(),
-                        None => value[range].to_bitvec(),
+                        Some(value) => types::BitString::from_slice(&value[range]),
+                        None => value[S::char_range_to_bit_range(range)].to_bitvec(),
                     })
                 })?;
             }
@@ -210,7 +202,7 @@ impl Encoder {
         let mut buffer = BitString::default();
 
         if C::EXTENDED_FIELDS.is_some() {
-            buffer.push(dbg!(Self::encoded_extension_addition(&encoder.extension_fields)));
+            buffer.push(Self::encoded_extension_addition(&encoder.extension_fields));
         }
 
         for bit in encoder
@@ -226,8 +218,8 @@ impl Encoder {
 
         let extension_fields = core::mem::replace(&mut encoder.extension_fields, Vec::new());
 
-        if dbg!(&encoder.field_bitfield).values().any(|(_, b)| *b) {
-            buffer.extend(dbg!(encoder.bitstring_output()));
+        if encoder.field_bitfield.values().any(|(_, b)| *b) {
+            buffer.extend(encoder.bitstring_output());
         }
 
         if !Self::encoded_extension_addition(&extension_fields) {
@@ -487,7 +479,6 @@ impl Encoder {
         {
             self.encode_non_negative_binary_integer(buffer, range, &bytes);
         } else {
-            dbg!("unconstrained");
             self.encode_length(buffer, bytes.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
             })?;
@@ -560,7 +551,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(dbg!(tag), true)?;
+        self.set_bit(tag, true)?;
         self.extend(tag, value);
         Ok(())
     }
@@ -1160,6 +1151,7 @@ mod tests {
         assert_eq!(&[1, 0b10000000], &*encoder.output.into_vec());
     }
 
+    #[track_caller]
     fn assert_encode<T: Encode>(options: EncoderOptions, value: T, expected: &[u8]) {
         let mut encoder = Encoder::new(options);
         T::encode(&value, &mut encoder).unwrap();

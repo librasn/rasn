@@ -473,14 +473,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         Ok(D::decode_with_tag_and_constraints(self, tag, constraints).ok())
     }
 
-    fn decode_choice<D, F>(&mut self, _: Constraints, decode_fn: F) -> Result<D, Self::Error>
+    fn decode_choice<D>(&mut self, _: Constraints) -> Result<D, Self::Error>
     where
-        D: Decode + crate::types::Choice,
-        F: FnOnce(&mut Self, Tag) -> Result<D, Self::Error>,
+        D: crate::types::DecodeChoice,
     {
         let (_, identifier) =
             parser::parse_identifier_octet(&self.input).map_err(error::map_nom_err)?;
-        (decode_fn)(self, identifier.tag)
+        D::from_tag(self, identifier.tag)
     }
 
     fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>

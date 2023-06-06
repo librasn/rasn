@@ -4,7 +4,7 @@ use alloc::{vec::Vec, collections::VecDeque};
 use bitvec::field::BitField;
 use snafu::*;
 
-use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
+use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K, to_vec};
 use crate::{
     de::Error as _,
     types::{
@@ -21,17 +21,6 @@ pub type Result<T, E = Error> = core::result::Result<T, E>;
 pub use error::Error;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
-
-// Workaround for https://github.com/ferrilab/bitvec/issues/228
-fn to_vec(slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>) -> Vec<u8> {
-    let mut vec = Vec::new();
-
-    for slice in slice.chunks(8) {
-        vec.push(slice.load_be());
-    }
-
-    vec
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
@@ -155,7 +144,7 @@ impl<'input> Decoder<'input> {
     fn decode_octets(&mut self) -> Result<types::BitString> {
         let mut buffer = types::BitString::default();
 
-        let input = self.decode_length(dbg!(self.input), <_>::default(), &mut |input, length| {
+        let input = self.decode_length(self.input, <_>::default(), &mut |input, length| {
             let (input, data) = nom::bytes::streaming::take(length * 8)(input)?;
             buffer.extend(&*data);
             Ok(input)
@@ -264,18 +253,18 @@ impl<'input> Decoder<'input> {
     }
 
     fn parse_non_negative_binary_integer(&mut self, range: i128) -> Result<types::Integer> {
-        let bits = super::log2(dbg!(range));
-        let (input, data) = nom::bytes::streaming::take(dbg!(bits))(dbg!(self.input))?;
+        let bits = super::log2(range);
+        let (input, data) = nom::bytes::streaming::take(bits)(self.input)?;
         self.input = input;
         let data = if data.len() < 8 {
             let mut buffer = types::BitString::repeat(false, 8 - data.len());
             buffer.extend_from_bitslice(&data);
             buffer
         } else {
-            dbg!(data.to_bitvec())
+            data.to_bitvec()
         };
 
-        Ok(dbg!(num_bigint::BigUint::from_bytes_be(&dbg!(to_vec(&data))).into()))
+        Ok(num_bigint::BigUint::from_bytes_be(&to_vec(&data)).into())
     }
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
@@ -283,7 +272,7 @@ impl<'input> Decoder<'input> {
         let value_constraint = constraints.value();
 
         let Some(value_constraint) = value_constraint else {
-            let bytes = dbg!(to_vec(dbg!(&self.decode_octets()?)));
+            let bytes = to_vec(&self.decode_octets()?);
             return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
@@ -393,7 +382,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .transpose()?
             .unwrap_or_default();
 
-        if dbg!(extensible) {
+        if extensible {
             let index: usize = self
                 .parse_normally_small_integer()?
                 .try_into()
@@ -401,7 +390,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             E::from_extended_enumeration_index(index)
                 .ok_or_else(|| Error::custom(format!("Extended index {} not found", index)))
         } else {
-            let index = dbg!(self.parse_non_negative_binary_integer(E::variance() as i128)?)
+            let index = self.parse_non_negative_binary_integer(E::variance() as i128)?
                 .try_into()
                 .map_err(Error::custom)?;
             E::from_enumeration_index(index)
@@ -472,9 +461,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_numeric_string(
         &mut self,
         _: Tag,
-        _constraints: Constraints,
+        constraints: Constraints,
     ) -> Result<types::NumericString> {
-        todo!()
+        self.parse_fixed_width_string(constraints)
     }
 
     fn decode_teletex_string(
@@ -565,7 +554,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
-        dbg!(&self.input);
         let is_extensible = D::EXTENDED_FIELDS.is_some().then(|| self.parse_one_bit()).transpose()?.unwrap_or_default();
         let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
 
@@ -684,14 +672,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
     }
 
-    fn decode_choice<D, F>(
+    fn decode_choice<D>(
         &mut self,
         constraints: Constraints,
-        decode_fn: F,
     ) -> Result<D, Self::Error>
     where
-        D: Decode + crate::types::Choice,
-        F: FnOnce(&mut Self, Tag) -> Result<D, Self::Error>,
+        D: crate::types::DecodeChoice,
     {
         let is_extensible = self.parse_extensible_bit(&constraints)?;
         let variants = crate::types::variants::Variants::from_static(
@@ -723,7 +709,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .get(index)
             .ok_or_else(|| Error::choice_index_not_found(index, variants.clone()))?;
 
-        Ok((decode_fn)(self, *tag)?)
+
+        if is_extensible {
+            let bytes = self.decode_octets()?;
+            let mut decoder = Decoder::new(&bytes, self.options);
+            D::from_tag(&mut decoder, *tag)
+        } else {
+            D::from_tag(self, *tag)
+        }
     }
 
     fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(

@@ -11,8 +11,8 @@ impl<'r> Constraints<'r> {
     }
 
     /// Overrides a set of constraints with another set.
-    pub fn override_constraints<'rhs>(lhs: Self, mut rhs: Constraints<'rhs>) -> Constraints<'rhs> {
-        for parent in lhs.0.iter() {
+    pub fn override_constraints<'rhs>(self, mut rhs: Constraints<'rhs>) -> Constraints<'rhs> {
+        for parent in self.0.iter() {
             if !rhs.0.iter().any(|child| child.kind() == parent.kind()) {
                 rhs.0.to_mut().push(parent.clone());
             }
@@ -328,6 +328,7 @@ impl<T> Bounded<T> {
     pub const fn start_and_end(&self) -> (Option<&T>, Option<&T>) {
         match &self {
             Self::Range { start, end } => (start.as_ref(), end.as_ref()),
+            Self::Single(value) => (Some(value), Some(value)),
             _ => (None, None),
         }
     }

@@ -82,6 +82,7 @@ impl Enum {
                 const EXTENDED_VARIANTS: &'static [#crate_root::types::TagTree] = &[
                     #(#extended_variants)*
                 ];
+
             }
         });
 
@@ -171,22 +172,7 @@ impl Enum {
         };
 
         let decode_op = if self.config.choice {
-            let (consts, variants): (Vec<_>, Vec<_>) = self
-                .variants
-                .iter()
-                .enumerate()
-                .map(|(i, v)| VariantConfig::new(v, &generics, &self.config).decode(&self.name, i))
-                .unzip();
-
-            let name = syn::LitStr::new(&self.name.to_string(), proc_macro2::Span::call_site());
-            quote! {
-                #(#consts)*
-
-                decoder.decode_choice(Self::CONSTRAINTS, |decoder, tag| match tag {
-                    #(#variants,)*
-                    _ => Err(#crate_root::de::Error::no_valid_choice(#name)),
-                })
-            }
+            quote!(decoder.decode_choice(Self::CONSTRAINTS))
         } else {
             let name = &self.name;
             quote!(Self::decode_with_tag(decoder, <#name as #crate_root::AsnType>::TAG))
@@ -249,7 +235,37 @@ impl Enum {
 
         let name = &self.name;
         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+        let decode_choice_impl = self.config.choice.then(|| {
+            let (consts, variants): (Vec<_>, Vec<_>) = self
+                                     .variants
+                                     .iter()
+                                     .enumerate()
+                                     .map(|(i, v)| VariantConfig::new(v, &generics, &self.config).decode(&self.name, i))
+                                     .unzip();
+
+            let str_name = syn::LitStr::new(&self.name.to_string(), proc_macro2::Span::call_site());
+            let from_tag = quote! {
+                #(#consts)*
+
+                match tag {
+                    #(#variants,)*
+                    _ => Err(#crate_root::de::Error::no_valid_choice(#str_name)),
+                }
+            };
+            quote! {
+                #[automatically_derived]
+                impl #impl_generics #crate_root::types::DecodeChoice for #name #ty_generics #where_clause {
+                    fn from_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+                        #from_tag
+                    }
+                }
+            }
+        });
+
         quote! {
+            #decode_choice_impl
+
             #[automatically_derived]
             impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
                 fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {

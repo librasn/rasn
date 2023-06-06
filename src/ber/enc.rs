@@ -11,6 +11,7 @@ use crate::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
         Constraints, Enumerated, Tag,
+        strings::StaticPermittedAlphabet,
     },
     Encode,
 };
@@ -351,7 +352,7 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &types::VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string_(tag, &value.to_iso646_bytes())
+        self.encode_octet_string_(tag, &value.as_iso646_bytes())
     }
 
     fn encode_ia5_string(
@@ -360,7 +361,7 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &types::Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned().to_be_bytes())
+        self.encode_octet_string_(tag, &value.as_iso646_bytes())
     }
 
     fn encode_general_string(
@@ -369,7 +370,7 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &types::GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, <_>::default(), &value)
+        self.encode_octet_string_(tag, &value)
     }
 
     fn encode_printable_string(
@@ -378,7 +379,7 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &types::PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned().to_be_bytes())
+        self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned_string())
     }
 
     fn encode_numeric_string(
@@ -387,7 +388,7 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &types::NumericString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned().to_be_bytes())
+        self.encode_octet_string(tag, <_>::default(), &value.to_octet_aligned_string())
     }
 
     fn encode_teletex_string(

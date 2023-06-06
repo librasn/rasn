@@ -34,7 +34,14 @@ pub fn derive_struct_impl(
                 encode
             }
         } else {
-            quote!(<#ty as #crate_root::Encode>::encode_with_tag_and_constraints(&self.0, encoder, tag, constraints))
+            quote!(
+                <#ty as #crate_root::Encode>::encode_with_tag_and_constraints(
+                    &self.0,
+                    encoder,
+                    tag,
+                    <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints)
+                )
+            )
         }
     } else {
         let operation = config
