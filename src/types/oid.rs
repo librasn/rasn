@@ -230,6 +230,12 @@ impl PartialEq<ObjectIdentifier> for Oid {
     }
 }
 
+impl PartialEq<ConstOid> for ObjectIdentifier {
+    fn eq(&self, rhs: &ConstOid) -> bool {
+        self == &**rhs
+    }
+}
+
 impl PartialEq<ObjectIdentifier> for ConstOid {
     fn eq(&self, rhs: &ObjectIdentifier) -> bool {
         self == &**rhs
@@ -625,7 +631,10 @@ oids! {
     JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES256_CBC => 2, 16, 840, 1, 101, 3, 4, 1, 42;
     JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES256_WRAP => 2, 16, 840, 1, 101, 3, 4, 1, 45;
 
+    JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA224 => 2, 16, 840, 1, 101, 3, 4, 2, 4;
     JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA256 => 2, 16, 840, 1, 101, 3, 4, 2, 1;
+    JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA384 => 2, 16, 840, 1, 101, 3, 4, 2, 2;
+    JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512 => 2, 16, 840, 1, 101, 3, 4, 2, 3;
 
     JOINT_ISO_ITU_T_REGISTRATION_PROCEDURES_MODULE_DIRECTORY_DEFS => 2, 17, 1, 2;
 }
@@ -633,6 +642,7 @@ oids! {
 #[cfg(test)]
 mod test {
     use super::ObjectIdentifier;
+    use super::Oid;
 
     #[test]
     fn transmute() {
@@ -641,5 +651,12 @@ mod test {
         assert_eq!([1u32, 3, 6][..], *oid);
         oid.reverse();
         assert_eq!([6u32, 3, 1][..], *oid);
+    }
+
+    #[test]
+    fn equals() {
+        let oid = ObjectIdentifier::new_unchecked(alloc::vec![2, 16, 840, 1, 101, 3, 4, 2, 3].into());
+        assert_eq!(Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512, oid);
+        assert!(Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512 == oid);
     }
 }
