@@ -358,7 +358,7 @@ pub struct TbsCertList {
     /// The list of revoked certificates.
     pub revoked_certificates: SequenceOf<RevokedCerificate>,
     /// Extensions to the list.
-    #[rasn(tag(0))]
+    #[rasn(tag(explicit(0)))]
     pub crl_extensions: Option<Extensions>,
 }
 
