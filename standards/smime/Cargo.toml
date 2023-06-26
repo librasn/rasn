@@ -1,10 +1,10 @@
 [package]
 name = "rasn-smime"
-version = "0.7.0"
-authors = ["Erin Power <xampprocky@gmail.com>"]
-edition = "2018"
+version.workspace = true
+edition.workspace = true
 description = "Data types for Secure/Multipurpose Internet Mail Extensions"
-license = "Apache-2.0/MIT"
+license.workspace = true
+repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

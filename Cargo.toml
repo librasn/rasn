@@ -1,13 +1,12 @@
 [package]
 name = "rasn"
-version = "0.7.0"
+version.workspace = true
 categories = ["encoding", "no-std", "parser-implementations"]
-authors = ["Erin Power <xampprocky@gmail.com>"]
 description = "A safe no_std ASN.1 codec framework."
-license = "MIT/Apache-2.0"
+license.workspace = true
 exclude = ["fuzzing"]
 keywords = ["asn1", "der", "ber", "cer", "per"]
-repository = "https://github.com/XAMPPRocky/rasn.git"
+repository.workspace = true
 edition.workspace = true
 
 [lib]
@@ -19,9 +18,14 @@ exclude = ["fuzzing"]
 
 [workspace.package]
 edition = "2021"
+license = "MIT/Apache-2.0"
+version = "0.7.0"
+repository = "https://github.com/XAMPPRocky/rasn.git"
 
 [workspace.dependencies]
 pretty_assertions = "1.1"
+chrono = { version = "0.4.19", default-features = false, features = ["alloc"] }
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 
 [features]
 default = ["macros"]
@@ -44,9 +48,9 @@ num-bigint = { version = "0.4.2", default-features = false }
 num-traits = { version = "0.2.14", default-features = false }
 snafu = { version = "0.7", default-features = false, features = ["backtraces"] }
 bytes = { version = "1.1.0", default-features = false }
-bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
+bitvec.workspace = true
 rasn-derive = { version = "0.6.0", path = "macros", optional = true }
-chrono = { version = "0.4.19", default-features = false, features = ["alloc"] }
+chrono.workspace = true
 konst = { version = "0.2.13", default-features = false }
 nom-bitvec = { package = "bitvec-nom", version = "0.2.0", git = "https://github.com/XAMPPRocky/nom-bitvec.git" }
 arrayvec = { version = "0.7.2", default-features = false }
