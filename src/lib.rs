@@ -8,6 +8,37 @@ pub mod de;
 pub mod enc;
 pub mod types;
 
+#[cfg(test)]
+macro_rules! round_trip {
+    ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
+        let value: $typ = $value;
+        let expected: &[u8] = $expected;
+        let actual_encoding = crate::$codec::encode(&value).unwrap();
+
+        pretty_assertions::assert_eq!(expected, &*actual_encoding);
+
+        let decoded_value: $typ = crate::$codec::decode(&actual_encoding).unwrap();
+
+        pretty_assertions::assert_eq!(value, decoded_value);
+    }};
+}
+
+#[cfg(test)]
+macro_rules! round_trip_with_constraints {
+    ($codec:ident, $typ:ty, $constraints:expr, $value:expr, $expected:expr) => {{
+        let value: $typ = $value;
+        let expected: &[u8] = $expected;
+        let actual_encoding = crate::$codec::encode_with_constraints($constraints, &value).unwrap();
+
+        pretty_assertions::assert_eq!(expected, &*actual_encoding);
+
+        let decoded_value: $typ =
+            crate::$codec::decode_with_constraints($constraints, &actual_encoding).unwrap();
+
+        pretty_assertions::assert_eq!(value, decoded_value);
+    }};
+}
+
 // Data Formats
 
 pub mod aper;
@@ -42,7 +73,7 @@ mod tests {
         macro_rules! codecs {
             ($($codec:ident),+ $(,)?) => {
                 $(
-                    assert_eq!(
+                    pretty_assertions::assert_eq!(
                         value,
                         &match crate::$codec::decode::<T>(
                             &match crate::$codec::encode(value).map_err(|error| error.to_string()) {

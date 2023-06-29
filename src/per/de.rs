@@ -100,21 +100,20 @@ impl<'input> Decoder<'input> {
             .pop_front())
     }
 
-    fn parse_padding(&mut self) -> Result<()> {
+    fn parse_padding(&self, input: InputSlice<'input>) -> Result<InputSlice<'input>> {
         if !self.options.aligned {
-            Ok(())
+            Ok(input)
         } else {
-            self.force_parse_padding()
+            Self::force_parse_padding(input)
         }
     }
 
-    fn force_parse_padding(&mut self) -> Result<()> {
-        if self.input.len() % 8 == 0 {
-            Ok(())
+    fn force_parse_padding(input: InputSlice<'input>) -> Result<InputSlice<'input>> {
+        if input.len() % 8 == 0 {
+            Ok(input)
         } else {
-            let (input, _) = nom::bytes::streaming::take(self.input.len() % 8)(self.input)?;
-            self.input = input;
-            Ok(())
+            let (input, _) = nom::bytes::streaming::take(input.len() % 8)(input)?;
+            Ok(input)
         }
     }
 
@@ -127,6 +126,20 @@ impl<'input> Decoder<'input> {
         )(self.input)?;
         self.input = input;
         Ok(bitset)
+    }
+
+    fn decode_extensible_string(
+        &mut self,
+        constraints: Constraints,
+        is_large_string: bool,
+        mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
+    ) -> Result<()> {
+        let extensible_is_present = self.parse_extensible_bit(&constraints)?;
+        let constraints = constraints.size().filter(|_| !extensible_is_present);
+        let input =
+            self.decode_string_length(self.input, constraints, is_large_string, &mut decode_fn)?;
+        self.input = input;
+        Ok(())
     }
 
     fn decode_extensible_container(
@@ -156,9 +169,10 @@ impl<'input> Decoder<'input> {
 
     fn decode_unknown_length(
         &mut self,
-        input: InputSlice<'input>,
+        mut input: InputSlice<'input>,
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
+        input = self.parse_padding(input)?;
         let (input, mask) = nom::bytes::streaming::take(1u8)(input)?;
 
         if !mask[0] {
@@ -204,27 +218,19 @@ impl<'input> Decoder<'input> {
         }
     }
 
-    pub fn decode_length(
+    pub fn decode_string_length(
         &mut self,
-        input: InputSlice<'input>,
+        mut input: InputSlice<'input>,
         constraints: Option<&Extensible<constraints::Size>>,
+        is_large_string: bool,
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
         let Some(constraints) = constraints else {
             return self.decode_unknown_length(input, decode_fn)
         };
 
-        let extensible = constraints
-            .extensible
-            .is_some()
-            .then(|| self.parse_one_bit())
-            .transpose()?
-            .unwrap_or_default();
         let size_constraint = constraints.constraint;
-
-        if extensible {
-            self.decode_unknown_length(input, decode_fn)
-        } else if let Some(range) = size_constraint
+        if let Some(range) = size_constraint
             .range()
             .filter(|range| *range <= u16::MAX.into())
         {
@@ -233,8 +239,67 @@ impl<'input> Decoder<'input> {
             } else if range == 1 {
                 (decode_fn)(input, size_constraint.minimum())
             } else {
-                let (input, length) =
+                let range = if self.options.aligned && range > 256 {
+                    input = self.parse_padding(input)?;
+                    let range = super::log2(range as i128);
+                    super::range_from_bits(
+                        range
+                            .is_power_of_two()
+                            .then_some(range)
+                            .unwrap_or_else(|| range.next_power_of_two()),
+                    )
+                } else {
+                    range as i128
+                };
+
+                let (mut input, length) =
                     nom::bytes::streaming::take(super::log2(range as i128))(input)?;
+                if is_large_string {
+                    input = self.parse_padding(input)?;
+                }
+                (decode_fn)(input, length.load_be::<usize>() + size_constraint.minimum())
+            }
+        } else {
+            self.decode_unknown_length(input, decode_fn)
+        }
+    }
+
+    pub fn decode_length(
+        &mut self,
+        mut input: InputSlice<'input>,
+        constraints: Option<&Extensible<constraints::Size>>,
+        decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
+    ) -> Result<InputSlice<'input>> {
+        let Some(constraints) = constraints else {
+            return self.decode_unknown_length(input, decode_fn)
+        };
+
+        let size_constraint = constraints.constraint;
+        if let Some(range) = size_constraint
+            .range()
+            .filter(|range| *range <= u16::MAX.into())
+        {
+            if range == 0 {
+                Ok(input)
+            } else if range == 1 {
+                (decode_fn)(input, size_constraint.minimum())
+            } else {
+                let range = if self.options.aligned && range > 256 {
+                    input = self.parse_padding(input)?;
+                    let range = super::log2(range as i128);
+                    super::range_from_bits(
+                        range
+                            .is_power_of_two()
+                            .then_some(range)
+                            .unwrap_or_else(|| range.next_power_of_two()),
+                    )
+                } else {
+                    range as i128
+                };
+
+                let (mut input, length) =
+                    nom::bytes::streaming::take(super::log2(range as i128))(input)?;
+                input = self.parse_padding(input)?;
                 (decode_fn)(input, length.load_be::<usize>() + size_constraint.minimum())
             }
         } else {
@@ -278,20 +343,48 @@ impl<'input> Decoder<'input> {
         let extensible = self.parse_extensible_bit(&constraints)?;
         let value_constraint = constraints.value();
 
-        let Some(value_constraint) = value_constraint else {
+        let Some(value_constraint) = value_constraint.filter(|_| !extensible) else {
             let bytes = to_vec(&self.decode_octets()?);
             return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
         };
 
-        let number = if let Some(range) = value_constraint
-            .constraint
-            .range()
-            .filter(|range| !extensible && *range < SIXTY_FOUR_K.into())
-        {
-            if range == 0 {
-                return Ok(value_constraint.constraint.minimum().into());
-            } else {
-                self.parse_non_negative_binary_integer(range)?
+        const K64: i128 = SIXTY_FOUR_K as i128;
+        const OVER_K64: i128 = K64 + 1;
+
+        let number = if let Some(range) = value_constraint.constraint.range() {
+            match (self.options.aligned, range) {
+                (_, 0) => return Ok(value_constraint.constraint.minimum().into()),
+                (true, 256) => {
+                    self.input = self.parse_padding(self.input)?;
+                    self.parse_non_negative_binary_integer(range)?
+                }
+                (true, 257..=K64) => {
+                    self.input = self.parse_padding(self.input)?;
+                    self.parse_non_negative_binary_integer(K64)?
+                }
+                (true, OVER_K64..) => {
+                    let range_len_in_bytes = num_integer::div_ceil(
+                        super::log2(i128::try_from(range).map_err(Error::custom)?),
+                        8,
+                    ) as i128;
+                    let length: u32 = self
+                        .parse_non_negative_binary_integer(range_len_in_bytes)?
+                        .try_into()
+                        .map_err(Error::custom)?;
+                    self.input = self.parse_padding(self.input)?;
+                    self.parse_non_negative_binary_integer(super::range_from_bits(
+                        (length + 1) * 8,
+                    ))?
+                }
+                (false, OVER_K64..) => {
+                    let bytes = to_vec(&self.decode_octets()?);
+                    value_constraint
+                        .constraint
+                        .as_start()
+                        .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
+                        .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
+                }
+                (_, _) => self.parse_non_negative_binary_integer(range)?,
             }
         } else {
             let bytes = to_vec(&self.decode_octets()?);
@@ -342,31 +435,106 @@ impl<'input> Decoder<'input> {
         &mut self,
         constraints: Constraints,
     ) -> Result<ALPHABET> {
+        use crate::types::constraints::Bounded;
+
         let mut bit_string = types::BitString::default();
         let char_width = constraints
             .permitted_alphabet()
             .map(|alphabet| crate::per::log2(alphabet.constraint.len() as i128) as usize)
             .unwrap_or(ALPHABET::character_width() as usize);
 
-        self.decode_extensible_container(constraints.clone(), |input, length| {
+        let char_width = (self.options.aligned && !char_width.is_power_of_two())
+            .then(|| char_width.next_power_of_two())
+            .unwrap_or(char_width);
+
+        let is_large_string = if let Some(size) = constraints.size() {
+            match *size.constraint {
+                Bounded::Range {
+                    start: Some(_),
+                    end: Some(_),
+                } if size.constraint.range().unwrap() * char_width as usize > 16 as usize => true,
+                Bounded::Single(max) if max * char_width as usize > 16 as usize => {
+                    self.input = self.parse_padding(self.input)?;
+                    true
+                }
+                Bounded::Range {
+                    start: None,
+                    end: Some(max),
+                } if max * char_width as usize > 16 as usize => {
+                    self.input = self.parse_padding(self.input)?;
+                    true
+                }
+                _ => false,
+            }
+        } else {
+            false
+        };
+
+        let mut total_length = 0;
+        self.decode_extensible_string(constraints.clone(), is_large_string, |input, length| {
+            total_length += length;
+            if constraints
+                .permitted_alphabet()
+                .map_or(false, |alphabet| alphabet.constraint.len() == 1)
+            {
+                return Ok(input);
+            }
+
             let (input, part) = nom::bytes::streaming::take(length * char_width)(input)?;
             bit_string.extend(&*part);
             Ok(input)
         })?;
 
         match constraints.permitted_alphabet() {
-            Some(alphabet) => {
-                let map = alphabet
-                    .constraint
-                    .iter()
-                    .copied()
-                    .enumerate()
-                    .map(|(i, e)| (i as u32, e))
-                    .collect();
-                ALPHABET::try_from_permitted_alphabet(&bit_string, Some(&map))
-                    .map_err(Error::custom)
+            Some(alphabet)
+                if ALPHABET::CHARACTER_WIDTH
+                    > self
+                        .options
+                        .aligned
+                        .then(|| {
+                            let alphabet_width =
+                                crate::per::log2(alphabet.constraint.len() as i128);
+                            alphabet_width
+                                .is_power_of_two()
+                                .then_some(alphabet_width)
+                                .unwrap_or_else(|| alphabet_width.next_power_of_two())
+                        })
+                        .unwrap_or(crate::per::log2(alphabet.constraint.len() as i128)) =>
+            {
+                if alphabet.constraint.len() == 1 {
+                    let mut string = ALPHABET::default();
+                    for _ in 0..total_length {
+                        string.push_char(alphabet.constraint[0]);
+                    }
+                    Ok(string)
+                } else {
+                    let map = alphabet
+                        .constraint
+                        .iter()
+                        .copied()
+                        .enumerate()
+                        .map(|(i, e)| (i as u32, e))
+                        .collect();
+                    ALPHABET::try_from_permitted_alphabet(&bit_string, Some(&map))
+                        .map_err(Error::custom)
+                }
             }
-            None => ALPHABET::try_from_permitted_alphabet(&bit_string, None).map_err(Error::custom),
+            None if !self.options.aligned => {
+                ALPHABET::try_from_permitted_alphabet(&bit_string, None).map_err(Error::custom)
+            }
+            _ => ALPHABET::try_from_bits(
+                bit_string,
+                self.options
+                    .aligned
+                    .then(|| {
+                        ALPHABET::CHARACTER_WIDTH
+                            .is_power_of_two()
+                            .then_some(ALPHABET::CHARACTER_WIDTH)
+                            .unwrap_or_else(|| ALPHABET::CHARACTER_WIDTH.next_power_of_two())
+                    })
+                    .unwrap_or(ALPHABET::CHARACTER_WIDTH) as usize,
+            )
+            .map_err(Error::custom),
         }
     }
 }

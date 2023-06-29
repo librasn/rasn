@@ -321,6 +321,15 @@ impl<T> Bounded<T> {
     pub const fn as_start(&self) -> Option<&T> {
         match &self {
             Self::Range { start, .. } => start.as_ref(),
+            Self::Single(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub const fn as_end(&self) -> Option<&T> {
+        match &self {
+            Self::Range { end, .. } => end.as_ref(),
+            Self::Single(value) => Some(value),
             _ => None,
         }
     }

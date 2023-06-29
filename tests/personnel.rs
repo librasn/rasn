@@ -1,7 +1,7 @@
 use pretty_assertions::assert_eq;
 use rasn::prelude::*;
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Debug, PartialEq)]
 #[rasn(set, tag(application, 0))]
 pub struct PersonnelRecord {
     pub name: Name,
@@ -14,6 +14,52 @@ pub struct PersonnelRecord {
     pub name_of_spouse: Name,
     #[rasn(tag(3), default)]
     pub children: Vec<ChildInformation>,
+}
+
+impl rasn::Encode for PersonnelRecord {
+    fn encode_with_tag_and_constraints<'constraints, EN: rasn::Encoder>(
+        &self,
+        encoder: &mut EN,
+        tag: rasn::Tag,
+        constraints: rasn::types::Constraints<'constraints>,
+    ) -> core::result::Result<(), EN::Error> {
+        #[allow(unused)]
+        let name = &self.name;
+        #[allow(unused)]
+        let title = &self.title;
+        #[allow(unused)]
+        let number = &self.number;
+        #[allow(unused)]
+        let date_of_hire = &self.date_of_hire;
+        #[allow(unused)]
+        let name_of_spouse = &self.name_of_spouse;
+        #[allow(unused)]
+        let children = &self.children;
+        encoder
+            .encode_set::<Self, _>(tag, |encoder| {
+                dbg!(self.name.encode(encoder)?);
+                encoder.encode_explicit_prefix(
+                    rasn::Tag::new(rasn::types::Class::Context, 0),
+                    &self.title,
+                )?;
+                self.number.encode(encoder)?;
+                encoder.encode_explicit_prefix(
+                    rasn::Tag::new(rasn::types::Class::Context, 1),
+                    &self.date_of_hire,
+                )?;
+                encoder.encode_explicit_prefix(
+                    rasn::Tag::new(rasn::types::Class::Context, 2),
+                    &self.name_of_spouse,
+                )?;
+                encoder.encode_default_with_tag(
+                    rasn::Tag::new(rasn::types::Class::Context, 3),
+                    &self.children,
+                    <Vec<ChildInformation>>::default,
+                )?;
+                Ok(())
+            })
+            .map(drop)
+    }
 }
 
 impl Default for PersonnelRecord {
@@ -441,7 +487,7 @@ test! {
                         0x43, 0x8, 0x31, 0x39, 0x35, 0x39, 0x30, 0x37, 0x31, 0x37,
     ];
 
-    #[ignore] unconstrained_aper(aper): PersonnelRecord = <_>::default() => &[
+    unconstrained_aper(aper): PersonnelRecord = <_>::default() => &[
         0x80, 0x04, 0x4A, 0x6F, 0x68, 0x6E, 0x01, 0x50, 0x05, 0x53, 0x6D, 0x69,
         0x74, 0x68, 0x01, 0x33, 0x08, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6F,
         0x72, 0x08, 0x31, 0x39, 0x37, 0x31, 0x30, 0x39, 0x31, 0x37, 0x04, 0x4D,
@@ -452,7 +498,7 @@ test! {
         0x73, 0x08, 0x31, 0x39, 0x35, 0x39, 0x30, 0x37, 0x31, 0x37,
     ];
 
-    #[ignore] unconstrained_uper(uper): PersonnelRecord = <_>::default() => &[
+    unconstrained_uper(uper): PersonnelRecord = <_>::default() => &[
         0x82, 0x4A, 0xDF, 0xA3, 0x70, 0x0D, 0x00, 0x5A, 0x7B, 0x74, 0xF4, 0xD0,
         0x02, 0x66, 0x11, 0x13, 0x4F, 0x2C, 0xB8, 0xFA, 0x6F, 0xE4, 0x10, 0xC5,
         0xCB, 0x76, 0x2C, 0x1C, 0xB1, 0x6E, 0x09, 0x37, 0x0F, 0x2F, 0x20, 0x35,
@@ -463,7 +509,6 @@ test! {
     ];
 
     constrained_uper_name_string(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0xC, 0xBA, 0xA3, 0xA4];
-    #[ignore] constrained_aper_name_string(uper): NameString = VisibleString::try_from("John").unwrap().into() => &[0xC, 0x4A, 0x6F, 0x68, 0x6E];
     constrained_uper_date(uper): DateWithConstraints = DateWithConstraints(VisibleString::try_from("19710917").unwrap()) => &[0b00011001, 0b01110001, 0b00001001, 0b00010111];
     constrained_uper_name(uper): NameWithConstraints = Name {
         given_name: String::from("John").try_into().unwrap(),
@@ -473,9 +518,6 @@ test! {
     constrained_uper_initial(uper): InitialString = InitialString {
         initial: VisibleString::try_from("P").unwrap().into(),
     }.into() => &[0x44];
-    #[ignore] constrained_aper_initial(uper): InitialString = InitialString {
-        initial: VisibleString::try_from("P").unwrap().into(),
-    }.into() => &[0x50];
 
     constrained_uper(uper): PersonnelRecordWithConstraints = <_>::default() => &[
         0x86, 0x5D, 0x51, 0xD2, 0x88, 0x8A, 0x51, 0x25, 0xF1, 0x80, 0x99, 0x84,
@@ -497,7 +539,7 @@ test! {
 
     #[ignore] ax_uper(uper): Ax = <_>::default() => &[0x9e, 0x00, 0x06, 0x00, 0x04, 0x0a, 0x46, 0x90];
 
-    #[ignore] constrained_aper(aper): PersonnelRecordWithConstraints = <_>::default() => &[
+    constrained_aper(aper): PersonnelRecordWithConstraints = <_>::default() => &[
         0x86, 0x4a, 0x6f, 0x68, 0x6e, 0x50, 0x10, 0x53, 0x6d, 0x69, 0x74, 0x68,
         0x01, 0x33, 0x08, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6f, 0x72, 0x19,
         0x71, 0x09, 0x17, 0x0c, 0x4d, 0x61, 0x72, 0x79, 0x54, 0x10, 0x53, 0x6d,

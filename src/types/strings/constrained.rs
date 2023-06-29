@@ -23,7 +23,6 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
 
     fn push_char(&mut self, ch: u32);
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_>;
-
     fn char_range_to_bit_range(mut range: core::ops::Range<usize>) -> core::ops::Range<usize> {
         let width = Self::CHARACTER_WIDTH as usize;
         range.start *= width;
@@ -69,15 +68,24 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
             .unwrap_or_else(|| Self::CHARACTER_WIDTH.next_power_of_two())
     }
 
-    fn to_octet_aligned_string(&self) -> Vec<u8> {
+    fn to_bit_string(&self) -> types::BitString {
         let mut octet_string = types::BitString::new();
-        let width = Self::CHARACTER_WIDTH as usize;
-        let new_width = self.octet_aligned_char_width() as usize;
+        let width = Self::CHARACTER_WIDTH;
 
         for ch in self.chars() {
-            let mut padding = types::BitString::repeat(false, new_width - width);
-            padding.extend_from_bitslice(&ch.view_bits::<Msb0>()[width..]);
-            octet_string.extend(padding);
+            octet_string
+                .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS - width) as usize..]);
+        }
+        octet_string
+    }
+
+    fn to_octet_aligned_string(&self) -> Vec<u8> {
+        let mut octet_string = types::BitString::new();
+        let width = self.octet_aligned_char_width();
+
+        for ch in self.chars() {
+            octet_string
+                .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS - width) as usize..]);
         }
         crate::per::to_vec(&octet_string)
     }
@@ -126,6 +134,26 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
     ) -> Result<Self, FromPermittedAlphabetError> {
         let alphabet = alphabet.unwrap_or_else(|| Self::character_map());
         try_from_permitted_alphabet(input, alphabet)
+    }
+
+    #[track_caller]
+    fn try_from_bits(
+        bits: crate::types::BitString,
+        character_width: usize,
+    ) -> Result<Self, FromPermittedAlphabetError> {
+        let mut string = Self::default();
+        if bits.len() % character_width as usize != 0 {
+            return Err(FromPermittedAlphabetError::InvalidData {
+                length: bits.len(),
+                width: character_width,
+            });
+        }
+
+        for ch in bits.chunks_exact(character_width) {
+            string.push_char(ch.load_be());
+        }
+
+        Ok(string)
     }
 }
 

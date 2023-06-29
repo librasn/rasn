@@ -57,6 +57,7 @@ pub struct Encoder {
     field_bitfield: alloc::collections::BTreeMap<Tag, (FieldPresence, bool)>,
     extension_fields: Vec<Vec<u8>>,
     is_extension_sequence: bool,
+    parent_output_length: Option<usize>,
 }
 
 impl Encoder {
@@ -68,6 +69,7 @@ impl Encoder {
             field_bitfield: <_>::default(),
             is_extension_sequence: <_>::default(),
             extension_fields: <_>::default(),
+            parent_output_length: <_>::default(),
         }
     }
 
@@ -75,11 +77,12 @@ impl Encoder {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
-        encoder.field_bitfield = C::FIELDS
+        encoder.field_bitfield = dbg!(C::FIELDS
             .canonised()
             .iter()
             .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
-            .collect();
+            .collect());
+        encoder.parent_output_length = Some(self.output_length());
         encoder
     }
 
@@ -89,13 +92,14 @@ impl Encoder {
             .iter()
             .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
             .collect();
+        encoder.parent_output_length = Some(self.output_length());
         encoder
     }
 
     pub fn output(self) -> Vec<u8> {
         let mut output = self.bitstring_output();
         Self::force_pad_to_alignment(&mut output);
-        output.into_vec()
+        super::to_vec(&output)
     }
 
     pub fn bitstring_output(self) -> BitString {
@@ -110,9 +114,36 @@ impl Encoder {
         Ok(())
     }
 
+    fn output_length(&self) -> usize {
+        let mut output_length = self.output.len();
+        output_length += self.is_extension_sequence as usize;
+        output_length += self
+            .field_bitfield
+            .values()
+            .filter(|(presence, _)| presence.is_optional_or_default())
+            .count();
+        output_length += self.parent_output_length.unwrap_or_default();
+
+        if self.options.set_encoding {
+            output_length += self
+                .set_output
+                .values()
+                .map(|output| output.len())
+                .sum::<usize>();
+        }
+
+        output_length
+    }
+
     fn pad_to_alignment(&self, buffer: &mut BitString) {
         if self.options.aligned {
-            Self::force_pad_to_alignment(buffer);
+            let mut output_length = self.output_length();
+            output_length += buffer.len();
+            if output_length % 8 != 0 {
+                for _ in 0..(8 - output_length % 8) {
+                    buffer.push(false);
+                }
+            }
         }
     }
 
@@ -150,52 +181,92 @@ impl Encoder {
         constraints: &Constraints,
         value: &S,
     ) -> Result<()> {
+        use crate::types::constraints::Bounded;
         let mut buffer = BitString::default();
-        match constraints.permitted_alphabet() {
-            Some(alphabet) => {
-                if S::CHARACTER_WIDTH
-                    > self
-                        .options
-                        .aligned
-                        .then(|| {
-                            let alphabet_width =
-                                crate::per::log2(alphabet.constraint.len() as i128);
-                            alphabet_width
-                                .is_power_of_two()
-                                .then_some(alphabet_width)
-                                .unwrap_or_else(|| alphabet_width.next_power_of_two())
-                        })
-                        .unwrap_or(crate::per::log2(alphabet.constraint.len() as i128))
-                {
-                    let alphabet = &alphabet.constraint;
-                    let characters =
-                        &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
-                            .map_err(Error::custom)?;
 
-                    self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
-                        Ok(characters[range].to_bitvec())
-                    })?;
+        let is_large_string = if let Some(size) = constraints.size() {
+            let width = match constraints.permitted_alphabet() {
+                Some(alphabet) => {
+                    self.character_width(super::log2(alphabet.constraint.len() as i128))
                 }
+                None => self.character_width(S::CHARACTER_WIDTH),
+            };
+
+            match *size.constraint {
+                Bounded::Range {
+                    start: Some(_),
+                    end: Some(_),
+                } if size.constraint.range().unwrap() * width as usize > 16 as usize => true,
+                Bounded::Single(max) if max * width as usize > 16 as usize => {
+                    self.pad_to_alignment(&mut buffer);
+                    true
+                }
+                Bounded::Range {
+                    start: None,
+                    end: Some(max),
+                } if max * width as usize > 16 as usize => {
+                    self.pad_to_alignment(&mut buffer);
+                    true
+                }
+                _ => false,
             }
-            None => {
+        } else {
+            false
+        };
+
+        match constraints.permitted_alphabet() {
+            Some(alphabet)
+                if S::CHARACTER_WIDTH
+                    > self.character_width(super::log2(alphabet.constraint.len() as i128)) =>
+            {
+                let alphabet = &alphabet.constraint;
+                let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
+                    .map_err(Error::custom)?;
+
+                self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
+                    Ok(characters[range].to_bitvec())
+                })?;
+            }
+            _ => {
                 let char_length = value.len();
-                let octet_aligned_value = self
-                    .options
-                    .aligned
-                    .then(|| value.to_octet_aligned_index_string());
+                let octet_aligned_value = self.options.aligned.then(|| {
+                    if S::CHARACTER_WIDTH <= self.character_width(S::CHARACTER_WIDTH) {
+                        value.to_octet_aligned_string()
+                    } else {
+                        value.to_octet_aligned_index_string()
+                    }
+                });
                 let value = value.to_index_string();
                 let octet_aligned_value = &octet_aligned_value;
-                self.encode_length(&mut buffer, char_length, constraints.size(), |range| {
-                    Ok(match octet_aligned_value {
-                        Some(value) => types::BitString::from_slice(&value[range]),
-                        None => value[S::char_range_to_bit_range(range)].to_bitvec(),
-                    })
-                })?;
+                self.encode_string_length(
+                    &mut buffer,
+                    is_large_string,
+                    char_length,
+                    constraints.size(),
+                    |range| {
+                        Ok(match octet_aligned_value {
+                            Some(value) => types::BitString::from_slice(&value[range]),
+                            None => value[S::char_range_to_bit_range(range)].to_bitvec(),
+                        })
+                    },
+                )?;
             }
         };
 
         self.extend(tag, &buffer);
         Ok(())
+    }
+
+    fn character_width(&self, width: u32) -> u32 {
+        self.options
+            .aligned
+            .then(|| {
+                width
+                    .is_power_of_two()
+                    .then_some(width)
+                    .unwrap_or_else(|| width.next_power_of_two())
+            })
+            .unwrap_or(width)
     }
 
     fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
@@ -292,15 +363,16 @@ impl Encoder {
         )
     }
 
-    fn encode_length(
+    fn encode_string_length(
         &self,
         buffer: &mut BitString,
+        is_large_string: bool,
         length: usize,
         constraints: Option<&Extensible<constraints::Size>>,
         encode_fn: impl Fn(core::ops::Range<usize>) -> Result<BitString>,
     ) -> Result<()> {
         let Some(constraints) = constraints else {
-            return Self::encode_unconstrained_length(buffer, length, None, encode_fn);
+            return self.encode_unconstrained_length(buffer, length, None, encode_fn);
         };
 
         if matches!(constraints.extensible, None) {
@@ -324,24 +396,102 @@ impl Encoder {
                 } else if range == 1 {
                     buffer.extend((encode_fn)(0..length)?);
                     Ok(())
-                } else if range < SIXTY_FOUR_K as usize && !self.options.aligned {
+                } else if range < SIXTY_FOUR_K as usize {
                     let effective_length = constraints.effective_value(length).into_inner();
+                    let range = (self.options.aligned && range > 256)
+                        .then(|| {
+                            let range = super::log2(range as i128);
+                            super::range_from_bits(
+                                range
+                                    .is_power_of_two()
+                                    .then_some(range)
+                                    .unwrap_or_else(|| range.next_power_of_two()),
+                            )
+                        })
+                        .unwrap_or(range as i128);
                     self.encode_non_negative_binary_integer(
                         buffer,
-                        range as i128,
+                        range,
                         &(effective_length as u32).to_be_bytes(),
                     );
+
+                    if is_large_string {
+                        self.pad_to_alignment(buffer);
+                    }
+
                     buffer.extend((encode_fn)(0..length)?);
                     Ok(())
                 } else {
-                    Self::encode_unconstrained_length(buffer, length, None, encode_fn)
+                    self.encode_unconstrained_length(buffer, length, None, encode_fn)
                 }
             }
-            _ => Self::encode_unconstrained_length(buffer, length, None, encode_fn),
+            _ => self.encode_unconstrained_length(buffer, length, None, encode_fn),
+        }
+    }
+
+    fn encode_length(
+        &self,
+        buffer: &mut BitString,
+        length: usize,
+        constraints: Option<&Extensible<constraints::Size>>,
+        encode_fn: impl Fn(core::ops::Range<usize>) -> Result<BitString>,
+    ) -> Result<()> {
+        let Some(constraints) = constraints else {
+            return self.encode_unconstrained_length(buffer, length, None, encode_fn);
+        };
+
+        if matches!(constraints.extensible, None) {
+            Error::check_length(length, &constraints.constraint)?;
+        } else {
+            if constraints.constraint.contains(&length) {
+                buffer.push(false);
+            } else {
+                buffer.push(true);
+            }
+        }
+
+        let constraints = constraints.constraint;
+
+        match constraints.start_and_end() {
+            (Some(_), Some(_)) => {
+                let range = constraints.range().unwrap();
+
+                if range == 0 {
+                    Ok(())
+                } else if range == 1 {
+                    buffer.extend((encode_fn)(0..length)?);
+                    Ok(())
+                } else if range < SIXTY_FOUR_K as usize {
+                    let effective_length = constraints.effective_value(length).into_inner();
+                    let range = (self.options.aligned && range > 256)
+                        .then(|| {
+                            let range = super::log2(range as i128);
+                            super::range_from_bits(
+                                range
+                                    .is_power_of_two()
+                                    .then_some(range)
+                                    .unwrap_or_else(|| range.next_power_of_two()),
+                            )
+                        })
+                        .unwrap_or(range as i128);
+                    self.encode_non_negative_binary_integer(
+                        buffer,
+                        range,
+                        &(effective_length as u32).to_be_bytes(),
+                    );
+                    // self.pad_to_alignment(buffer);
+                    buffer.extend((encode_fn)(0..length)?);
+                    Ok(())
+                } else {
+                    self.encode_unconstrained_length(buffer, length, None, encode_fn)
+                }
+            }
+            _ => self.encode_unconstrained_length(buffer, length, None, encode_fn),
         }
     }
 
     fn encode_unconstrained_length(
+        &self,
         buffer: &mut BitString,
         mut length: usize,
         min: Option<usize>,
@@ -349,6 +499,7 @@ impl Encoder {
     ) -> Result<()> {
         let mut min = min.unwrap_or_default();
 
+        self.pad_to_alignment(&mut *buffer);
         if length <= 127 {
             buffer.extend((length as u8).to_be_bytes());
             buffer.extend((encode_fn)(0..length)?);
@@ -372,7 +523,7 @@ impl Encoder {
                     K32..=K48_MAX => (2, K32),
                     K16..=K32_MAX => (1, K16),
                     _ => {
-                        break Self::encode_unconstrained_length(
+                        break self.encode_unconstrained_length(
                             buffer,
                             length,
                             Some(min),
@@ -486,12 +637,61 @@ impl Encoder {
             either::Right(value) => value.to_signed_bytes_be(),
         };
 
-        if let Some(range) = value_range
+        let effective_value: i128 = value_range
             .constraint
-            .range()
-            .filter(|range| *range < SIXTY_FOUR_K.into())
-        {
-            self.encode_non_negative_binary_integer(buffer, range, &bytes);
+            .effective_value(value.try_into().map_err(Error::custom)?)
+            .either_into();
+
+        const K64: i128 = SIXTY_FOUR_K as i128;
+        const OVER_K64: i128 = K64 + 1;
+
+        if let Some(range) = value_range.constraint.range() {
+            match (self.options.aligned, range) {
+                (true, 256) => {
+                    self.pad_to_alignment(buffer);
+                    self.encode_non_negative_binary_integer(buffer, range, &bytes)
+                }
+                (true, 257..=K64) => {
+                    self.pad_to_alignment(buffer);
+                    self.encode_non_negative_binary_integer(buffer, K64, &bytes);
+                }
+                (true, OVER_K64..) => {
+                    let range_len_in_bytes = num_integer::div_ceil(
+                        super::log2(i128::try_from(range).map_err(Error::custom)?),
+                        8,
+                    ) as i128;
+
+                    if effective_value == 0 {
+                        self.encode_non_negative_binary_integer(
+                            &mut *buffer,
+                            range_len_in_bytes,
+                            &[0],
+                        );
+                        self.pad_to_alignment(&mut *buffer);
+                        self.encode_non_negative_binary_integer(&mut *buffer, 255, &bytes);
+                    } else {
+                        let range_value_in_bytes =
+                            num_integer::div_ceil(super::log2(effective_value + 1), 8) as i128;
+                        self.encode_non_negative_binary_integer(
+                            buffer,
+                            range_len_in_bytes,
+                            &(range_value_in_bytes - 1).to_be_bytes(),
+                        );
+                        self.pad_to_alignment(&mut *buffer);
+                        self.encode_non_negative_binary_integer(
+                            &mut *buffer,
+                            super::range_from_bits(range_value_in_bytes as u32 * 8),
+                            &bytes,
+                        );
+                    }
+                }
+                (false, OVER_K64..) => {
+                    self.encode_length(buffer, bytes.len(), <_>::default(), |range| {
+                        Ok(BitString::from_slice(&bytes[range]))
+                    })?;
+                }
+                (_, _) => self.encode_non_negative_binary_integer(buffer, range, &bytes),
+            }
         } else {
             self.encode_length(buffer, bytes.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
@@ -520,9 +720,10 @@ impl Encoder {
             Ordering::Equal => bits,
         };
 
-        if range >= super::TWO_FIFTY_SIX.into() {
-            self.pad_to_alignment(buffer);
-        }
+        // if !self.options.aligned && range >= super::TWO_FIFTY_SIX.into() {
+        //     self.pad_to_alignment(buffer);
+        // }
+
         buffer.extend(bits);
     }
 }

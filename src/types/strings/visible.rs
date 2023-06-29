@@ -34,6 +34,7 @@ impl StaticPermittedAlphabet for VisibleString {
         Box::from(self.0.iter().map(|byte| *byte as u32))
     }
 
+    #[track_caller]
     fn push_char(&mut self, ch: u32) {
         debug_assert!(
             Self::CHARACTER_SET.contains(&ch),
