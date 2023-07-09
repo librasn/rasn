@@ -23,8 +23,16 @@ Rasn currently has support for nearly all of ASN.1's data types. `rasn` uses pop
 
 [mod:types]: http://docs.rs/rasn/0.4.1/rasn/types/index.html
 
-### Safe BER, CER, and DER Codecs
-Included with the framework is a implementation of the X.690 standard also known as the Basic Encoding Rules, Canonical Encoding Rules, and Distinguished Encoding Rules codecs. The encoder and decoder have been written in 100% safe Rust and fuzzed with [American Fuzzy Lop Plus Plus][bun] to ensure that the decoder correctly handles random input, and if valid that the encoder can correctly re-encode that value.
+### Safe  Codecs
+The encoder and decoder have been written in 100% safe Rust and fuzzed with [American Fuzzy Lop Plus Plus][bun] to ensure that the decoder correctly handles random input, and if valid that the encoder can correctly re-encode that value.
+
+#### Supported Codecs
+
+- Basic Encoding Rules (BER)
+- Canonical Encoding Rules (CER)
+- Distinguished Encoding Rules (DER)
+- Aligned Packed Encoding Rules (APER)
+- Unaligned Packed Encoding Rules (UPER)
 
 [bun]: https://aflplus.plus
 
