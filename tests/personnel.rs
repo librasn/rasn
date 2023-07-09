@@ -17,11 +17,11 @@ pub struct PersonnelRecord {
 }
 
 impl rasn::Encode for PersonnelRecord {
-    fn encode_with_tag_and_constraints<'constraints, EN: rasn::Encoder>(
+    fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
         &self,
         encoder: &mut EN,
         tag: rasn::Tag,
-        constraints: rasn::types::Constraints<'constraints>,
+        _: rasn::types::Constraints,
     ) -> core::result::Result<(), EN::Error> {
         #[allow(unused)]
         let name = &self.name;
@@ -517,7 +517,7 @@ test! {
     }.into() => &[0xC, 0xBA, 0xA3, 0xA5, 0x11, 0x14, 0xA2, 0x4B, 0xE3];
     constrained_uper_initial(uper): InitialString = InitialString {
         initial: VisibleString::try_from("P").unwrap().into(),
-    }.into() => &[0x44];
+    } => &[0x44];
 
     constrained_uper(uper): PersonnelRecordWithConstraints = <_>::default() => &[
         0x86, 0x5D, 0x51, 0xD2, 0x88, 0x8A, 0x51, 0x25, 0xF1, 0x80, 0x99, 0x84,

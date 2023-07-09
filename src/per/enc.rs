@@ -196,15 +196,15 @@ impl Encoder {
                 Bounded::Range {
                     start: Some(_),
                     end: Some(_),
-                } if size.constraint.range().unwrap() * width as usize > 16 as usize => true,
-                Bounded::Single(max) if max * width as usize > 16 as usize => {
+                } if size.constraint.range().unwrap() * width as usize > 16 => true,
+                Bounded::Single(max) if max * width as usize > 16 => {
                     self.pad_to_alignment(&mut buffer);
                     true
                 }
                 Bounded::Range {
                     start: None,
                     end: Some(max),
-                } if max * width as usize > 16 as usize => {
+                } if max * width as usize > 16 => {
                     self.pad_to_alignment(&mut buffer);
                     true
                 }
@@ -377,12 +377,10 @@ impl Encoder {
 
         if matches!(constraints.extensible, None) {
             Error::check_length(length, &constraints.constraint)?;
+        } else if constraints.constraint.contains(&length) {
+            buffer.push(false);
         } else {
-            if constraints.constraint.contains(&length) {
-                buffer.push(false);
-            } else {
-                buffer.push(true);
-            }
+            buffer.push(true);
         }
 
         let constraints = constraints.constraint;
@@ -442,12 +440,10 @@ impl Encoder {
 
         if matches!(constraints.extensible, None) {
             Error::check_length(length, &constraints.constraint)?;
+        } else if constraints.constraint.contains(&length) {
+            buffer.push(false);
         } else {
-            if constraints.constraint.contains(&length) {
-                buffer.push(false);
-            } else {
-                buffer.push(true);
-            }
+            buffer.push(true);
         }
 
         let constraints = constraints.constraint;
@@ -656,10 +652,7 @@ impl Encoder {
                     self.encode_non_negative_binary_integer(buffer, K64, &bytes);
                 }
                 (true, OVER_K64..) => {
-                    let range_len_in_bytes = num_integer::div_ceil(
-                        super::log2(i128::try_from(range).map_err(Error::custom)?),
-                        8,
-                    ) as i128;
+                    let range_len_in_bytes = num_integer::div_ceil(super::log2(range), 8) as i128;
 
                     if effective_value == 0 {
                         self.encode_non_negative_binary_integer(

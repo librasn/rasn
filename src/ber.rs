@@ -44,9 +44,9 @@ mod tests {
         let small = BitString::from_vec(DATA.to_owned());
         let bits = BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
         let padding_test = BitString::from_element(0x42);
-        let padding_expected: &[u8] = &[0x03, 02, 0x00, 0x42];
+        let padding_expected: &[u8] = &[0x03, 0x02, 0x00, 0x42];
         let trailing_test = bitvec::bitvec![u8, bitvec::prelude::Msb0; 1, 0, 0, 0, 0, 1, 1, 0];
-        let trailing_expected: &[u8] = &[0x03, 02, 0x00, 0x86];
+        let trailing_expected: &[u8] = &[0x03, 0x02, 0x00, 0x86];
 
         assert_eq!(
             small,

@@ -93,7 +93,7 @@ pub fn derive_struct_impl(
         let (field_const_defs, field_match_arms, field_set_arms): (Vec<_>, Vec<_>, Vec<_>) = itertools::multiunzip(container.fields
             .iter()
             .enumerate()
-            .zip(field_type_names.clone())
+            .zip(field_type_names)
             .map(|((context, field), field_name)| {
                 let config = FieldConfig::new(field, config);
                 let tag = config.tag(context);

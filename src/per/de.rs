@@ -252,8 +252,7 @@ impl<'input> Decoder<'input> {
                     range as i128
                 };
 
-                let (mut input, length) =
-                    nom::bytes::streaming::take(super::log2(range as i128))(input)?;
+                let (mut input, length) = nom::bytes::streaming::take(super::log2(range))(input)?;
                 if is_large_string {
                     input = self.parse_padding(input)?;
                 }
@@ -297,8 +296,7 @@ impl<'input> Decoder<'input> {
                     range as i128
                 };
 
-                let (mut input, length) =
-                    nom::bytes::streaming::take(super::log2(range as i128))(input)?;
+                let (mut input, length) = nom::bytes::streaming::take(super::log2(range))(input)?;
                 input = self.parse_padding(input)?;
                 (decode_fn)(input, length.load_be::<usize>() + size_constraint.minimum())
             }
@@ -363,10 +361,7 @@ impl<'input> Decoder<'input> {
                     self.parse_non_negative_binary_integer(K64)?
                 }
                 (true, OVER_K64..) => {
-                    let range_len_in_bytes = num_integer::div_ceil(
-                        super::log2(i128::try_from(range).map_err(Error::custom)?),
-                        8,
-                    ) as i128;
+                    let range_len_in_bytes = num_integer::div_ceil(super::log2(range), 8) as i128;
                     let length: u32 = self
                         .parse_non_negative_binary_integer(range_len_in_bytes)?
                         .try_into()
@@ -452,15 +447,15 @@ impl<'input> Decoder<'input> {
                 Bounded::Range {
                     start: Some(_),
                     end: Some(_),
-                } if size.constraint.range().unwrap() * char_width as usize > 16 as usize => true,
-                Bounded::Single(max) if max * char_width as usize > 16 as usize => {
+                } if size.constraint.range().unwrap() * char_width > 16 => true,
+                Bounded::Single(max) if max * char_width > 16 => {
                     self.input = self.parse_padding(self.input)?;
                     true
                 }
                 Bounded::Range {
                     start: None,
                     end: Some(max),
-                } if max * char_width as usize > 16 as usize => {
+                } if max * char_width > 16 => {
                     self.input = self.parse_padding(self.input)?;
                     true
                 }
@@ -969,7 +964,7 @@ mod tests {
     fn bitvec() {
         use bitvec::prelude::*;
         assert_eq!(
-            to_vec(&bitvec::bits![u8, Msb0;       0, 0, 0, 1, 1, 1, 0, 1]),
+            to_vec(bitvec::bits![u8, Msb0;       0, 0, 0, 1, 1, 1, 0, 1]),
             vec![29]
         );
         assert_eq!(

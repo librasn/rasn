@@ -9,7 +9,6 @@ const SIXTEEN_K: u16 = 16384;
 const THIRTY_TWO_K: u16 = 32768;
 const FOURTY_EIGHT_K: u16 = 49152;
 const SIXTY_FOUR_K: u32 = 65536;
-const TWO_FIFTY_SIX: u32 = 256;
 
 /// Attempts to decode `T` from `input` using DER.
 pub(crate) fn decode<T: crate::Decode>(

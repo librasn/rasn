@@ -53,9 +53,10 @@ pub fn bench_default() -> Bench {
         l: SetOf::new(),
         m: BenchChoice::A,
         n: "a".repeat(40),
-        o: Utc.ymd(2018, 6, 13).and_hms(11, 1, 59),
-        p: FixedOffset::east(5 * 3600)
-            .ymd(2018, 6, 13)
-            .and_hms(11, 1, 58),
+        o: Utc.with_ymd_and_hms(2018, 6, 13, 11, 1, 59).unwrap(),
+        p: FixedOffset::east_opt(5 * 3600)
+            .unwrap()
+            .with_ymd_and_hms(2018, 6, 13, 11, 1, 58)
+            .unwrap(),
     }
 }

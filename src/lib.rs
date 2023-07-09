@@ -190,8 +190,8 @@ mod tests {
 
     #[test]
     fn bit_string() {
-        round_trip(&BitString::from_slice(&vec![1u8, 2, 3, 4, 5]));
-        round_trip(&BitString::from_slice(&vec![5u8, 4, 3, 2, 1]));
+        round_trip(&BitString::from_slice(&[1u8, 2, 3, 4, 5]));
+        round_trip(&BitString::from_slice(&[5u8, 4, 3, 2, 1]));
     }
 
     #[test]

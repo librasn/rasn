@@ -395,15 +395,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
                     _ => "%Y%m%d%H%M%S%z",
                 }
             }
+        } else if string.contains('.') {
+            "%Y%m%d%H%M%S%.3f"
         } else {
-            if string.contains('.') {
-                "%Y%m%d%H%M%S%.3f"
-            } else {
-                match string.len() {
-                    10 => "%Y%m%d%H",
-                    12 => "%Y%m%d%H%M",
-                    _ => "%Y%m%d%H%M%S",
-                }
+            match string.len() {
+                10 => "%Y%m%d%H",
+                12 => "%Y%m%d%H%M",
+                _ => "%Y%m%d%H%M%S",
             }
         };
 
@@ -425,12 +423,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
             } else {
                 "%y%m%d%H%M%SZ"
             }
+        } else if string.len() == 15 {
+            "%y%m%d%H%M%z"
         } else {
-            if string.len() == 15 {
-                "%y%m%d%H%M%z"
-            } else {
-                "%y%m%d%H%M%S%z"
-            }
+            "%y%m%d%H%M%S%z"
         };
 
         chrono::NaiveDateTime::parse_from_str(&string, format)
@@ -593,8 +589,8 @@ mod tests {
 
     #[test]
     fn boolean() {
-        assert_eq!(true, decode::<bool>(&[0x01, 0x01, 0xff]).unwrap());
-        assert_eq!(false, decode::<bool>(&[0x01, 0x01, 0x00]).unwrap());
+        assert!(decode::<bool>(&[0x01, 0x01, 0xff]).unwrap());
+        assert!(!decode::<bool>(&[0x01, 0x01, 0x00]).unwrap());
     }
 
     #[test]

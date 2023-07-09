@@ -260,8 +260,7 @@ mod tests {
         let mut value = alloc::vec![0x1, 0x82, 0x1, 0x0];
         value.extend_from_slice(&full_buffer);
 
-        let (_, (_, contents)) =
-            parse_value(&BER_OPTIONS, (&*value).into(), Tag::BOOL.into()).unwrap();
+        let (_, (_, contents)) = parse_value(&BER_OPTIONS, &value, Tag::BOOL.into()).unwrap();
 
         assert_eq!(contents.unwrap(), &full_buffer[..]);
     }

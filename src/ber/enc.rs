@@ -383,7 +383,7 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &types::PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string_(tag, &value.as_bytes())
+        self.encode_octet_string_(tag, value.as_bytes())
     }
 
     fn encode_numeric_string(
@@ -392,7 +392,7 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &types::NumericString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string_(tag, &value.as_bytes())
+        self.encode_octet_string_(tag, value.as_bytes())
     }
 
     fn encode_teletex_string(

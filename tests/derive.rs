@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_names)]
+
 use rasn::{types::*, *};
 
 #[test]
@@ -80,7 +82,7 @@ fn sequence() {
 
     let default = Bools { a: true, b: false };
 
-    assert_eq!(default, ber::decode(&raw).unwrap());
+    assert_eq!(default, ber::decode(raw).unwrap());
     assert_eq!(raw, &*ber::encode(&default).unwrap());
 }
 
@@ -116,7 +118,7 @@ fn automatic_tags() {
     ][..];
 
     let default = Bools { a: true, b: false };
-    assert_eq!(default, ber::decode(&raw).unwrap());
+    assert_eq!(default, ber::decode(raw).unwrap());
 }
 
 #[test]

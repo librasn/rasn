@@ -6,12 +6,12 @@ use rasn::Encode;
 #[rasn(automatic_tags)]
 struct Message {
     id: i32,
-    body: BODY,
+    body: Body,
 }
 
 #[derive(Debug, AsnType, Decode, Encode)]
 #[rasn(choice)]
-enum BODY {
+enum Body {
     #[rasn(tag(context, 3000))]
     Request(Request),
 
@@ -37,7 +37,7 @@ fn it_works() {
         vec![0x30, 0x0C, 0x80, 0x01, 0x01, 0xA1, 0x07, 0xBF, 0x97, 0x38, 0x03, 0x80, 0x01, 0x01],
         rasn::der::encode(&Message {
             id: 1,
-            body: BODY::Request(Request { num: 1 }),
+            body: Body::Request(Request { num: 1 }),
         })
         .unwrap()
     );

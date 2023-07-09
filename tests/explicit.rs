@@ -92,12 +92,12 @@ fn works() {
     assert_eq!(delegate_choice_enc, EXPECTED);
     assert_eq!(inline_choice_enc, EXPECTED);
     assert_eq!(wrapped_choice_enc, EXPECTED);
-    assert_eq!(delegate_seq, rasn::der::decode(&EXPECTED).unwrap());
-    assert_eq!(inline_seq, rasn::der::decode(&EXPECTED).unwrap());
-    assert_eq!(field_seq, rasn::der::decode(&EXPECTED).unwrap());
-    assert_eq!(field_set, rasn::der::decode(&EXPECTED).unwrap());
-    assert_eq!(inline_set, rasn::der::decode(&EXPECTED).unwrap());
-    assert_eq!(delegate_choice, rasn::der::decode(&EXPECTED).unwrap());
-    assert_eq!(inline_choice, rasn::der::decode(&EXPECTED).unwrap());
-    assert_eq!(wrapped_choice, rasn::der::decode(&EXPECTED).unwrap());
+    assert_eq!(delegate_seq, rasn::der::decode(EXPECTED).unwrap());
+    assert_eq!(inline_seq, rasn::der::decode(EXPECTED).unwrap());
+    assert_eq!(field_seq, rasn::der::decode(EXPECTED).unwrap());
+    assert_eq!(field_set, rasn::der::decode(EXPECTED).unwrap());
+    assert_eq!(inline_set, rasn::der::decode(EXPECTED).unwrap());
+    assert_eq!(delegate_choice, rasn::der::decode(EXPECTED).unwrap());
+    assert_eq!(inline_choice, rasn::der::decode(EXPECTED).unwrap());
+    assert_eq!(wrapped_choice, rasn::der::decode(EXPECTED).unwrap());
 }

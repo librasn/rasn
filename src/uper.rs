@@ -160,7 +160,7 @@ mod tests {
             &[0x91, 0x97, 0x56, 0x1c, 0x20]
         );
 
-        const ALPHABET: &'static [u32] = &{
+        const ALPHABET: &[u32] = &{
             let mut array = [0; 26];
             let mut i = 0;
             let mut start = 'a' as u32;

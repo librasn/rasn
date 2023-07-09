@@ -922,6 +922,8 @@ impl<'a> FieldConfig<'a> {
                     } else if self.is_default_type() {
                         quote!(.ok().unwrap_or_else(#default_fn))
                     } else {
+                        // False positive
+                        #[allow(clippy::redundant_clone)]
                         or_else.clone()
                     };
 
