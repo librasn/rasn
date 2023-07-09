@@ -212,5 +212,8 @@ struct Person2 {
 }
 ```
 
+## Sponsorship
+This project was funded through the [NGI Assure Fund](https://nlnet.nl/project/RASN), a fund established by NLnet with financial support from the European Commission's Next Generation Internet programme, under the aegis of DG Communications Networks, Content and Technology under grant agreement No 957073.
+
 ## Disclaimer
 The software is provided "as is" and the authors disclaim all warranties with regard to this software including all implied warranties of merchant-ability and fitness. In no event shall the authors be liable for any special, direct, indirect, or consequential damages or any damages whatsoever resulting from loss of use, data or profits, whether in an action of contract, negligence or other tortuous action, arising out of or in connection with the use or performance of this software.
