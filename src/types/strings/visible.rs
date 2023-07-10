@@ -1,5 +1,7 @@
 use super::*;
 
+/// An string which contains the characters defined in the ISO 646
+/// character set.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct VisibleString(Vec<u8>);
 

@@ -190,8 +190,6 @@ impl Enum {
                 variants,
                 config,
             };
-            let asntype = inner_type.impl_asntype();
-            let decode_impl = inner_type.impl_decode();
 
             let variant_mapping = inner_type.variants.iter().map(|variant| {
                 let ident = &variant.ident;
@@ -215,9 +213,10 @@ impl Enum {
 
             quote! {
                 fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
+
+                    #[derive(#crate_root::AsnType, #crate_root::Decode)]
+                    #[rasn(choice)]
                     #inner_type
-                    #asntype
-                    #decode_impl
 
                     let value = decoder.decode_explicit_prefix::<#inner_name>(<Self as #crate_root::AsnType>::TAG)?;
                     Ok(match value {
@@ -330,13 +329,24 @@ impl Enum {
                     if v.fields.iter().count() != 1 {
                         panic!("Tuple variants must contain only a single element.");
                     }
+                    let constraints = variant_config
+                        .constraints
+                        .const_expr(&self.config.crate_root);
                     let variant_tag = variant_tag.to_tokens(crate_root);
                     let encode_operation = if variant_config.has_explicit_tag() {
                         quote!(encoder.encode_explicit_prefix(#variant_tag, value))
                     } else if variant_config.tag.is_some() || self.config.automatic_tags {
-                        quote!(#crate_root::Encode::encode_with_tag(value, encoder, #variant_tag))
+                        if let Some(constraints) = constraints {
+                            quote!(#crate_root::Encode::encode_with_tag_and_constraints(value, encoder, #variant_tag, #constraints))
+                        } else {
+                            quote!(#crate_root::Encode::encode_with_tag(value, encoder, #variant_tag))
+                        }
                     } else {
-                        quote!(#crate_root::Encode::encode(value, encoder))
+                        if let Some(constraints) = constraints {
+                            quote!(#crate_root::Encode::encode_with_constraints(value, encoder, #constraints))
+                        } else {
+                            quote!(#crate_root::Encode::encode(value, encoder))
+                        }
                     };
 
                     quote! {
@@ -399,8 +409,6 @@ impl Enum {
                 variants,
                 config: inner_config,
             };
-            let impl_asntype = inner_enum.impl_asntype();
-            let impl_encode = inner_enum.impl_encode();
             let inner_name = &inner_enum.name;
             let init_variants = self.variants.iter().map(|variant| {
                 let ident = &variant.ident;
@@ -419,9 +427,9 @@ impl Enum {
 
             let name = &self.name;
             quote! {
+                #[derive(#crate_root::AsnType, #crate_root::Encode)]
+                #[rasn(choice)]
                 #inner_enum
-                #impl_asntype
-                #impl_encode
 
                 let value = match &self {
                     #(#init_variants),*

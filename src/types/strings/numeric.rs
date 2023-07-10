@@ -1,5 +1,6 @@
 use super::*;
 
+/// A string which can only contain numbers or `SPACE` characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NumericString(Vec<u8>);
 

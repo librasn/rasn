@@ -18,8 +18,8 @@ fn extensions() {
         use rasn::Encoder;
         #[derive(AsnType)]
         pub struct Sequence {
-            b: bool,
-            i: Integer,
+            _b: bool,
+            _i: Integer,
         }
 
         encoder.encode_sequence::<Sequence, _>(Tag::SEQUENCE, |encoder| {
@@ -38,7 +38,7 @@ fn extensions() {
         extn_value: basic_usage.into(),
     };
 
-    let extensions: Extensions = vec![extension.clone()];
+    let extensions: Extensions = vec![extension.clone()].into();
 
     let expected = &[
         0xA3, 0x16, 0x30, 0x14, 0x30, 0x12, 0x06, 0x03, 0x55, 0x1D, 0x13, 0x01, 0x01, 0xFF, 0x04,
@@ -93,7 +93,7 @@ fn lets_encrypt_x3() {
                         ),
                     });
 
-                    set
+                    set.into()
                 },
                 {
                     let mut set = rasn::types::SetOf::new();
@@ -106,12 +106,20 @@ fn lets_encrypt_x3() {
                             .unwrap(),
                         ),
                     });
-                    set
+                    set.into()
                 },
             ]),
             validity: Validity {
-                not_before: Time::Utc(chrono::Utc.ymd(2016, 03, 17).and_hms(16, 40, 46)),
-                not_after: Time::Utc(chrono::Utc.ymd(2021, 03, 17).and_hms(16, 40, 46)),
+                not_before: Time::Utc(
+                    chrono::Utc
+                        .with_ymd_and_hms(2016, 03, 17, 16, 40, 46)
+                        .unwrap(),
+                ),
+                not_after: Time::Utc(
+                    chrono::Utc
+                        .with_ymd_and_hms(2021, 03, 17, 16, 40, 46)
+                        .unwrap(),
+                ),
             },
             subject: Name::RdnSequence(vec![
                 {
@@ -125,7 +133,7 @@ fn lets_encrypt_x3() {
                             .unwrap(),
                         ),
                     });
-                    set
+                    set.into()
                 },
                 {
                     let mut set = rasn::types::SetOf::new();
@@ -138,7 +146,7 @@ fn lets_encrypt_x3() {
                             .unwrap(),
                         ),
                     });
-                    set
+                    set.into()
                 },
                 {
                     let mut set = rasn::types::SetOf::new();
@@ -154,7 +162,7 @@ fn lets_encrypt_x3() {
                             .unwrap(),
                         ),
                     });
-                    set
+                    set.into()
                 },
             ]),
             subject_public_key_info: SubjectPublicKeyInfo {
@@ -190,133 +198,136 @@ fn lets_encrypt_x3() {
             },
             issuer_unique_id: None,
             subject_unique_id: None,
-            extensions: Some(vec![
-                Extension {
-                    extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 19][..]).into()),
-                    critical: true,
-                    extn_value: rasn::der::encode(&BasicConstraints {
-                        ca: true,
-                        path_len_constraint: Some(0u8.into()),
-                    })
-                    .unwrap()
-                    .into(),
-                },
-                Extension {
-                    extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 15][..]).into()),
-                    critical: true,
-                    extn_value: rasn::der::encode(
-                        &bitvec::bitvec![u8, bitvec::prelude::Msb0; 1, 0, 0, 0, 0, 1, 1],
-                    )
-                    .unwrap()
-                    .into(),
-                },
-                Extension {
-                    extn_id: ObjectIdentifier::new_unchecked(
-                        (&[1, 3, 6, 1, 5, 5, 7, 1, 1][..]).into(),
-                    ),
-                    critical: false,
-                    extn_value: rasn::der::encode(&vec![
-                        AccessDescription {
-                            access_method: ObjectIdentifier::new_unchecked(
-                                (&[1, 3, 6, 1, 5, 5, 7, 48, 1][..]).into(),
-                            ),
-                            access_location: GeneralName::Uri(
-                                String::from("http://isrg.trustid.ocsp.identrust.com")
-                                    .try_into()
-                                    .unwrap(),
-                            ),
-                        },
-                        AccessDescription {
-                            access_method: ObjectIdentifier::new_unchecked(
-                                (&[1, 3, 6, 1, 5, 5, 7, 48, 2][..]).into(),
-                            ),
-                            access_location: GeneralName::Uri(
-                                String::from("http://apps.identrust.com/roots/dstrootcax3.p7c")
-                                    .try_into()
-                                    .unwrap(),
-                            ),
-                        },
-                    ])
-                    .unwrap()
-                    .into(),
-                },
-                Extension {
-                    extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 35][..]).into()),
-                    critical: false,
-                    extn_value: rasn::der::encode(&AuthorityKeyIdentifier {
-                        key_identifier: Some(OctetString::from(
-                            &[
-                                0xC4, 0xA7, 0xB1, 0xA4, 0x7B, 0x2C, 0x71, 0xFA, 0xDB, 0xE1, 0x4B,
-                                0x90, 0x75, 0xFF, 0xC4, 0x15, 0x60, 0x85, 0x89, 0x10,
-                            ][..],
-                        )),
-                        ..<_>::default()
-                    })
-                    .unwrap()
-                    .into(),
-                },
-                Extension {
-                    extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 32][..]).into()),
-                    critical: false,
-                    extn_value: rasn::der::encode(&vec![
-                        PolicyInformation {
-                            policy_identifier: ObjectIdentifier::new_unchecked(
-                                (&[2, 23, 140, 1, 2, 1][..]).into(),
-                            ),
-                            policy_qualifiers: None,
-                        },
-                        PolicyInformation {
-                            policy_identifier: ObjectIdentifier::new_unchecked(
-                                (&[1, 3, 6, 1, 4, 1, 44947, 1, 1, 1][..]).into(),
-                            ),
-                            policy_qualifiers: Some(vec![PolicyQualifierInfo {
-                                id: ObjectIdentifier::new_unchecked(
-                                    (&[1, 3, 6, 1, 5, 5, 7, 2, 1][..]).into(),
+            extensions: Some(
+                vec![
+                    Extension {
+                        extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 19][..]).into()),
+                        critical: true,
+                        extn_value: rasn::der::encode(&BasicConstraints {
+                            ca: true,
+                            path_len_constraint: Some(0u8.into()),
+                        })
+                        .unwrap()
+                        .into(),
+                    },
+                    Extension {
+                        extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 15][..]).into()),
+                        critical: true,
+                        extn_value: rasn::der::encode(
+                            &bitvec::bitvec![u8, bitvec::prelude::Msb0; 1, 0, 0, 0, 0, 1, 1],
+                        )
+                        .unwrap()
+                        .into(),
+                    },
+                    Extension {
+                        extn_id: ObjectIdentifier::new_unchecked(
+                            (&[1, 3, 6, 1, 5, 5, 7, 1, 1][..]).into(),
+                        ),
+                        critical: false,
+                        extn_value: rasn::der::encode(&vec![
+                            AccessDescription {
+                                access_method: ObjectIdentifier::new_unchecked(
+                                    (&[1, 3, 6, 1, 5, 5, 7, 48, 1][..]).into(),
                                 ),
-                                qualifier: Any::new(
-                                    rasn::der::encode(
-                                        &Ia5String::try_from(String::from(
-                                            "http://cps.root-x1.letsencrypt.org",
-                                        ))
+                                access_location: GeneralName::Uri(
+                                    String::from("http://isrg.trustid.ocsp.identrust.com")
+                                        .try_into()
                                         .unwrap(),
-                                    )
-                                    .unwrap(),
                                 ),
-                            }]),
-                        },
-                    ])
-                    .unwrap()
-                    .into(),
-                },
-                Extension {
-                    extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 31][..]).into()),
-                    critical: false,
-                    extn_value: rasn::der::encode(&vec![DistributionPoint {
-                        distribution_point: Some(DistributionPointName::FullName(vec![
-                            GeneralName::Uri(
-                                String::from("http://crl.identrust.com/DSTROOTCAX3CRL.crl")
-                                    .try_into()
-                                    .unwrap(),
-                            ),
-                        ])),
-                        ..<_>::default()
-                    }])
-                    .unwrap()
-                    .into(),
-                },
-                Extension {
-                    extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 14][..]).into()),
-                    critical: false,
-                    extn_value: rasn::der::encode(&SubjectKeyIdentifier::from(
-                        &[
-                            0xA8, 0x4A, 0x6A, 0x63, 0x04, 0x7D, 0xDD, 0xBA, 0xE6, 0xD1, 0x39, 0xB7,
-                            0xA6, 0x45, 0x65, 0xEF, 0xF3, 0xA8, 0xEC, 0xA1,
-                        ][..],
-                    ))
-                    .unwrap()
-                    .into(),
-                },
-            ]),
+                            },
+                            AccessDescription {
+                                access_method: ObjectIdentifier::new_unchecked(
+                                    (&[1, 3, 6, 1, 5, 5, 7, 48, 2][..]).into(),
+                                ),
+                                access_location: GeneralName::Uri(
+                                    String::from("http://apps.identrust.com/roots/dstrootcax3.p7c")
+                                        .try_into()
+                                        .unwrap(),
+                                ),
+                            },
+                        ])
+                        .unwrap()
+                        .into(),
+                    },
+                    Extension {
+                        extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 35][..]).into()),
+                        critical: false,
+                        extn_value: rasn::der::encode(&AuthorityKeyIdentifier {
+                            key_identifier: Some(OctetString::from(
+                                &[
+                                    0xC4, 0xA7, 0xB1, 0xA4, 0x7B, 0x2C, 0x71, 0xFA, 0xDB, 0xE1,
+                                    0x4B, 0x90, 0x75, 0xFF, 0xC4, 0x15, 0x60, 0x85, 0x89, 0x10,
+                                ][..],
+                            )),
+                            ..<_>::default()
+                        })
+                        .unwrap()
+                        .into(),
+                    },
+                    Extension {
+                        extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 32][..]).into()),
+                        critical: false,
+                        extn_value: rasn::der::encode(&vec![
+                            PolicyInformation {
+                                policy_identifier: ObjectIdentifier::new_unchecked(
+                                    (&[2, 23, 140, 1, 2, 1][..]).into(),
+                                ),
+                                policy_qualifiers: None,
+                            },
+                            PolicyInformation {
+                                policy_identifier: ObjectIdentifier::new_unchecked(
+                                    (&[1, 3, 6, 1, 4, 1, 44947, 1, 1, 1][..]).into(),
+                                ),
+                                policy_qualifiers: Some(vec![PolicyQualifierInfo {
+                                    id: ObjectIdentifier::new_unchecked(
+                                        (&[1, 3, 6, 1, 5, 5, 7, 2, 1][..]).into(),
+                                    ),
+                                    qualifier: Any::new(
+                                        rasn::der::encode(
+                                            &Ia5String::try_from(String::from(
+                                                "http://cps.root-x1.letsencrypt.org",
+                                            ))
+                                            .unwrap(),
+                                        )
+                                        .unwrap(),
+                                    ),
+                                }]),
+                            },
+                        ])
+                        .unwrap()
+                        .into(),
+                    },
+                    Extension {
+                        extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 31][..]).into()),
+                        critical: false,
+                        extn_value: rasn::der::encode(&vec![DistributionPoint {
+                            distribution_point: Some(DistributionPointName::FullName(vec![
+                                GeneralName::Uri(
+                                    String::from("http://crl.identrust.com/DSTROOTCAX3CRL.crl")
+                                        .try_into()
+                                        .unwrap(),
+                                ),
+                            ])),
+                            ..<_>::default()
+                        }])
+                        .unwrap()
+                        .into(),
+                    },
+                    Extension {
+                        extn_id: ObjectIdentifier::new_unchecked((&[2, 5, 29, 14][..]).into()),
+                        critical: false,
+                        extn_value: rasn::der::encode(&SubjectKeyIdentifier::from(
+                            &[
+                                0xA8, 0x4A, 0x6A, 0x63, 0x04, 0x7D, 0xDD, 0xBA, 0xE6, 0xD1, 0x39,
+                                0xB7, 0xA6, 0x45, 0x65, 0xEF, 0xF3, 0xA8, 0xEC, 0xA1,
+                            ][..],
+                        ))
+                        .unwrap()
+                        .into(),
+                    },
+                ]
+                .into(),
+            ),
         },
         signature_algorithm: signature,
         signature_value: BitString::from_slice(
@@ -378,8 +389,8 @@ fn lets_encrypt_x3() {
     );
     macro_rules! assert_extensions {
         ($($extension:ty),+ $(,)?) => {
-            let mut original_iter = original.tbs_certificate.extensions.as_ref().unwrap().into_iter();
-            let mut cert_iter = cert.tbs_certificate.extensions.as_ref().unwrap().into_iter();
+            let mut original_iter = original.tbs_certificate.extensions.as_deref().unwrap().into_iter();
+            let mut cert_iter = cert.tbs_certificate.extensions.as_deref().unwrap().into_iter();
 
             $({
                 let print_error = |error| {

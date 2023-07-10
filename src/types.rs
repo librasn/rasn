@@ -39,7 +39,7 @@ pub use {
 
 ///  The `BIT STRING` type.
 pub type BitString = bitvec::vec::BitVec<u8, bitvec::order::Msb0>;
-///  The `BIT STRING` type.
+///  A reference to a `BIT STRING` type.
 pub type BitStr = bitvec::slice::BitSlice<u8, bitvec::order::Msb0>;
 ///  The `SET OF` type.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
@@ -69,41 +69,55 @@ pub trait AsnType {
 
 /// A `SET` or `SEQUENCE` value.
 pub trait Constructed {
+    /// Fields contained in the "root component list".
     const FIELDS: self::fields::Fields;
+    /// Fields contained in the list of extensions.
     const EXTENDED_FIELDS: Option<self::fields::Fields> = None;
 }
 
 /// A `CHOICE` value.
 pub trait Choice: Sized {
+    /// Variants contained in the "root component list".
     const VARIANTS: &'static [TagTree];
+    /// Variants contained in the list of extensions.
     const EXTENDED_VARIANTS: &'static [TagTree] = &[];
 }
 
 /// A `CHOICE` value.
 pub trait DecodeChoice: Choice + crate::Decode {
+    /// Decode the choice value based on the provided `tag`.
     fn from_tag<D: crate::Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error>;
 }
 
 /// A `ENUMERATED` value.
 pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
+    /// Variants contained in the "root component list".
     const VARIANTS: &'static [Self];
+    /// Variants contained in the list of extensions.
     const EXTENDED_VARIANTS: Option<&'static [Self]>;
 
+    /// Variants contained in the "root component list" mapped to their respective discriminant.
     const DISCRIMINANTS: &'static [(Self, isize)];
+    /// Variants contained in the list of extensions mapped to their respective discriminant, if
+    /// present.
     const EXTENDED_DISCRIMINANTS: Option<&'static [(Self, isize)]>;
 
+    /// Returns the number of "root" variants for a given type.
     fn variance() -> usize {
         Self::VARIANTS.len()
     }
 
+    /// Returns the number of "extended" variants for a given type.
     fn extended_variance() -> usize {
         Self::EXTENDED_VARIANTS.map_or(0, |array| array.len())
     }
 
+    /// Returns the number of "root" and "extended" variants for a given type.
     fn complete_variance() -> usize {
         Self::variance() + Self::extended_variance()
     }
 
+    /// Whether `self` is a variant contained in `Self::EXTENDED_VARIANTS`.
     fn is_extended_variant(&self) -> bool {
         Self::EXTENDED_VARIANTS.map_or(false, |array| array.iter().any(|variant| variant == self))
     }
@@ -125,6 +139,7 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
         }
     }
 
+    /// Returns the discriminant value of `self`.
     fn discriminant(&self) -> isize {
         Self::DISCRIMINANTS
             .iter()
@@ -137,6 +152,7 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
             .expect("variant not defined in `Enumerated`")
     }
 
+    /// Returns a variant, if the provided discriminant matches any variant.
     fn from_discriminant(value: isize) -> Option<Self> {
         Self::DISCRIMINANTS
             .iter()
@@ -148,10 +164,12 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
             .find_map(|(variant, discriminant)| (value == *discriminant).then_some(*variant))
     }
 
+    /// Returns a variant, if the index matches any "root" variant.
     fn from_enumeration_index(index: usize) -> Option<Self> {
         Self::VARIANTS.get(index).copied()
     }
 
+    /// Returns a variant, if the index matches any "extended" variant.
     fn from_extended_enumeration_index(index: usize) -> Option<Self> {
         Self::EXTENDED_VARIANTS.and_then(|array| array.get(index).copied())
     }

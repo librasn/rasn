@@ -1,5 +1,6 @@
 use super::*;
 
+/// A string, which contains the characters defined in T.61 standard.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TeletexString(Vec<u8>);
 

@@ -227,29 +227,15 @@ pub fn map_from_inner_type(
         quote!(#name : inner.#name)
     });
 
-    let decode_fields = fields.iter().enumerate().map(|(i, field)| {
-        let field_config = FieldConfig::new(field, config);
-        field_config.decode_field_def(name, i)
-    });
-
     let decode_op = if is_explicit {
         quote!(decoder.decode_explicit_prefix::<#inner_name>(#tag)?)
     } else {
         quote!(<#inner_name>::decode_with_tag(decoder, #tag)?)
     };
 
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     quote! {
-        #[derive(#crate_root::AsnType)]
+        #[derive(#crate_root::AsnType, #crate_root::Decode, #crate_root::Encode)]
         struct #inner_name #generics #fields #semi
-
-        impl #impl_generics #crate_root::Decode for #inner_name #ty_generics #where_clause {
-            fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, _: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
-                decoder.decode_sequence(tag, |decoder| {
-                    Ok::<_, D::Error>(#inner_name { #(#decode_fields),* })
-                })
-            }
-        }
 
         let inner = #decode_op;
 

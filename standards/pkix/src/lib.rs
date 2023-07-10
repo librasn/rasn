@@ -31,42 +31,20 @@ pub type CpsUri = Ia5String;
 pub type CertPolicyId = ObjectIdentifier;
 pub type CertificatePolicies = SequenceOf<PolicyInformation>;
 pub type KeyUsage = BitString;
-pub type TeletexDomainDefinedAttributes = SequenceOf<TeletexDomainDefinedAttribute>;
 pub type AttributeType = ObjectIdentifier;
 pub type AttributeValue = Any;
 pub type RdnSequence = SequenceOf<RelativeDistinguishedName>;
-pub type RelativeDistinguishedName = SetOf<AttributeTypeAndValue>;
-pub type X520Name = DirectoryString;
-pub type X520CommonName = DirectoryString;
-pub type X520LocalityName = DirectoryString;
-pub type X520StateOrProvinceName = DirectoryString;
-pub type X520OrganisationName = DirectoryString;
-pub type X520OrganisationalUnitName = DirectoryString;
-pub type X520Title = DirectoryString;
 pub type X520DnQualifier = PrintableString;
-pub type X520CountryName = PrintableString;
-pub type X520SerialNumber = PrintableString;
-pub type X520Pseudonym = DirectoryString;
 pub type DomainComponent = Ia5String;
 pub type EmailAddress = Ia5String;
 pub type CertificateSerialNumber = Integer;
 pub type UniqueIdentifier = BitString;
-pub type Extensions = SequenceOf<Extension>;
 pub type NetworkAddress = X121Address;
 pub type X121Address = NumericString;
 pub type TerminalIdentifier = PrintableString;
 pub type OrganisationName = PrintableString;
 pub type NumericUserIdentifier = NumericString;
-pub type OrganisationalUnitNames = SequenceOf<OrganisationalUnitName>;
-pub type OrganisationalUnitName = PrintableString;
-pub type ExtensionAttributes = SetOf<ExtensionAttribute>;
-pub type CommonName = PrintableString;
-pub type TeletexCommonName = TeletexString;
-pub type TeletexOrganisationalUnitNames = SequenceOf<TeletexOrganisationalUnitName>;
-pub type TeletexOrganisationalUnitName = TeletexString;
-pub type PdsName = PrintableString;
 pub type TerminalType = u8;
-pub type BuiltInDomainDefinedAttributes = SequenceOf<BuiltInDomainDefinedAttribute>;
 pub type KeyIdentifier = OctetString;
 pub type SubjectKeyIdentifier = KeyIdentifier;
 pub type PolicyQualifierId = ObjectIdentifier;
@@ -74,6 +52,30 @@ pub type TrustAnchorTitle = Utf8String;
 pub type TrustAnchorInfoVersion = Integer;
 pub type TrustAnchorList = SequenceOf<TrustAnchorChoice>;
 pub type CertPolicyFlags = BitString;
+
+macro_rules! derefable {
+    ($ty:ident, $inner:ty) => {
+        impl From<$inner> for $ty {
+            fn from(value: $inner) -> Self {
+                Self(value)
+            }
+        }
+
+        impl core::ops::Deref for $ty {
+            type Target = $inner;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl core::ops::DerefMut for $ty {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
+    };
+}
 
 /// An X.509 certificate
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -410,8 +412,18 @@ pub struct BuiltInStandardAttributes {
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=4"))]
+pub struct BuiltInDomainDefinedAttributes(SequenceOf<BuiltInDomainDefinedAttribute>);
+derefable!(
+    BuiltInDomainDefinedAttributes,
+    SequenceOf<BuiltInDomainDefinedAttribute>
+);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BuiltInDomainDefinedAttribute {
+    #[rasn(size("1..=8"))]
     pub r#type: PrintableString,
+    #[rasn(size("1..=128"))]
     pub value: PrintableString,
 }
 
@@ -419,15 +431,27 @@ pub struct BuiltInDomainDefinedAttribute {
 #[rasn(tag(explicit(application, 1)))]
 #[rasn(choice)]
 pub enum CountryName {
+    #[rasn(size(3))]
     X121DccCode(NumericString),
+    #[rasn(size(2))]
     Iso3166Alpha2Code(PrintableString),
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(tag(explicit(application, 2)))]
 #[rasn(choice)]
-pub enum AdministrationDomainName {
+pub enum PrivateDomainName {
+    #[rasn(size("1..=16"))]
     Numeric(NumericString),
+    #[rasn(size("1..=16"))]
+    Printable(PrintableString),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(tag(explicit(application, 2)), choice)]
+pub enum AdministrationDomainName {
+    #[rasn(size("0..=16"))]
+    Numeric(NumericString),
+    #[rasn(size("0..=16"))]
     Printable(PrintableString),
 }
 
@@ -445,16 +469,34 @@ pub struct PersonalName {
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(choice)]
-pub enum PrivateDomainName {
-    Numeric(NumericString),
-    Printable(PrintableString),
-}
+#[rasn(delegate, size("1..=4"))]
+pub struct OrganisationalUnitNames(SequenceOf<OrganisationalUnitName>);
+derefable!(OrganisationalUnitNames, SequenceOf<OrganisationalUnitName>);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=32"))]
+pub struct OrganisationalUnitName(PrintableString);
+derefable!(OrganisationalUnitName, PrintableString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1.."))]
+pub struct Extensions(SequenceOf<Extension>);
+derefable!(Extensions, SequenceOf<Extension>);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1.."))]
+pub struct RelativeDistinguishedName(SetOf<AttributeTypeAndValue>);
+derefable!(RelativeDistinguishedName, SetOf<AttributeTypeAndValue>);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=256"))]
+pub struct ExtensionAttributes(SetOf<ExtensionAttribute>);
+derefable!(ExtensionAttributes, SetOf<ExtensionAttribute>);
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ExtensionAttribute {
-    #[rasn(tag(0))]
-    pub extension_attribute_type: Integer,
+    #[rasn(tag(0), value("0..=256"))]
+    pub extension_attribute_type: u16,
     #[rasn(tag(1))]
     pub extension_attribute_value: Any,
 }
@@ -462,41 +504,91 @@ pub struct ExtensionAttribute {
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct TeletexPersonalName {
-    #[rasn(tag(0))]
+    #[rasn(tag(0), size("1..=40"))]
     pub surname: TeletexString,
-    #[rasn(tag(1))]
+    #[rasn(tag(1), size("1..=16"))]
     pub given_name: Option<TeletexString>,
-    #[rasn(tag(2))]
+    #[rasn(tag(2), size("1..=5"))]
     pub initials: Option<TeletexString>,
-    #[rasn(tag(3))]
+    #[rasn(tag(3), size("1..=3"))]
     pub generation_qualifier: Option<TeletexString>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum PhysicalDeliveryCountryName {
+    #[rasn(size(3))]
     X121DccCode(NumericString),
+    #[rasn(size(2))]
     Iso3166Alpha2Code(PrintableString),
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum PostalCode {
+    #[rasn(size("1..=16"))]
     Numeric(NumericString),
+    #[rasn(size("1..=16"))]
     Printable(PrintableString),
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=64"))]
+pub struct CommonName(PrintableString);
+derefable!(CommonName, PrintableString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=64"))]
+pub struct TeletexCommonName(TeletexString);
+derefable!(TeletexCommonName, TeletexString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=64"))]
+pub struct TeletexOrganizationName(TeletexString);
+derefable!(TeletexOrganizationName, TeletexString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=4"))]
+pub struct TeletexOrganisationalUnitNames(SequenceOf<TeletexOrganisationalUnitName>);
+derefable!(
+    TeletexOrganisationalUnitNames,
+    SequenceOf<TeletexOrganisationalUnitName>
+);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=32"))]
+pub struct TeletexOrganisationalUnitName(TeletexString);
+derefable!(TeletexOrganisationalUnitName, TeletexString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=16"))]
+pub struct PdsName(PrintableString);
+derefable!(PdsName, PrintableString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=30"))]
+pub struct PrintableAddress(PrintableString);
+derefable!(PrintableAddress, PrintableString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=180"))]
+pub struct TeletexAddress(TeletexString);
+derefable!(TeletexAddress, TeletexString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct UnformattedPostalAddress {
-    pub printable_address: Option<SequenceOf<PrintableString>>,
-    pub teletex_string: Option<TeletexString>,
+    #[rasn(size("1..=6"))]
+    pub printable_address: Option<SequenceOf<PrintableAddress>>,
+    pub teletex_string: Option<TeletexAddress>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct PdsParameter {
+    #[rasn(size("1..=30"))]
     pub printable_string: Option<PrintableString>,
+    #[rasn(size("1..=30"))]
     pub teletex_string: Option<TeletexString>,
 }
 
@@ -510,9 +602,9 @@ pub enum ExtendedNetworkAddress {
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct E1634Address {
-    #[rasn(tag(0))]
+    #[rasn(tag(0), size("1..=15"))]
     pub number: NumericString,
-    #[rasn(tag(1))]
+    #[rasn(tag(1), size("1..=40"))]
     pub sub_address: Option<NumericString>,
 }
 
@@ -524,13 +616,19 @@ pub struct PresentationAddress {
     pub s_selector: Option<OctetString>,
     #[rasn(tag(explicit(2)))]
     pub t_selector: Option<OctetString>,
-    #[rasn(tag(explicit(3)))]
+    #[rasn(tag(explicit(3)), size("1.."))]
     pub n_addresses: SetOf<OctetString>,
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=4"))]
+pub struct TeletexDomainDefinedAttributes(SequenceOf<TeletexDomainDefinedAttribute>);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct TeletexDomainDefinedAttribute {
+    #[rasn(size("1..=8"))]
     pub r#type: TeletexString,
+    #[rasn(size("1..=128"))]
     pub value: TeletexString,
 }
 
@@ -624,12 +722,189 @@ pub struct EdiPartyName {
 }
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size(2))]
+pub struct X520CountryName(PrintableString);
+derefable!(X520CountryName, PrintableString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate, size("1..=64"))]
+pub struct X520SerialNumber(PrintableString);
+derefable!(X520SerialNumber, PrintableString);
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum X520StateOrProvinceName {
+    #[rasn(size("1..=128"))]
+    Teletex(TeletexString),
+    #[rasn(size("1..=128"))]
+    Printable(PrintableString),
+    #[rasn(size("1..=128"))]
+    Universal(UniversalString),
+    #[rasn(size("1..=128"))]
+    Utf8(Utf8String),
+    #[rasn(size("1..=128"))]
+    Bmp(BmpString),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum X520OrganisationName {
+    #[rasn(size("1..=64"))]
+    Teletex(TeletexString),
+    #[rasn(size("1..=64"))]
+    Printable(PrintableString),
+    #[rasn(size("1..=64"))]
+    Universal(UniversalString),
+    #[rasn(size("1..=64"))]
+    Utf8(Utf8String),
+    #[rasn(size("1..=64"))]
+    Bmp(BmpString),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum X520OrganisationalUnitName {
+    #[rasn(size("1..=64"))]
+    Teletex(TeletexString),
+    #[rasn(size("1..=64"))]
+    Printable(PrintableString),
+    #[rasn(size("1..=64"))]
+    Universal(UniversalString),
+    #[rasn(size("1..=64"))]
+    Utf8(Utf8String),
+    #[rasn(size("1..=64"))]
+    Bmp(BmpString),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum X520Title {
+    #[rasn(size("1..=64"))]
+    Teletex(TeletexString),
+    #[rasn(size("1..=64"))]
+    Printable(PrintableString),
+    #[rasn(size("1..=64"))]
+    Universal(UniversalString),
+    #[rasn(size("1..=64"))]
+    Utf8(Utf8String),
+    #[rasn(size("1..=64"))]
+    Bmp(BmpString),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum X520Pseudonym {
+    #[rasn(size("1..=128"))]
+    Teletex(TeletexString),
+    #[rasn(size("1..=128"))]
+    Printable(PrintableString),
+    #[rasn(size("1..=128"))]
+    Universal(UniversalString),
+    #[rasn(size("1..=128"))]
+    Utf8(Utf8String),
+    #[rasn(size("1..=128"))]
+    Bmp(BmpString),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum X520LocalityName {
+    #[rasn(size("1..=128"))]
+    Teletex(TeletexString),
+    #[rasn(size("1..=128"))]
+    Printable(PrintableString),
+    #[rasn(size("1..=128"))]
+    Universal(UniversalString),
+    #[rasn(size("1..=128"))]
+    Utf8(Utf8String),
+    #[rasn(size("1..=128"))]
+    Bmp(BmpString),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum X520Name {
+    #[rasn(size("1..=32768"))]
+    Teletex(TeletexString),
+    #[rasn(size("1..=32768"))]
+    Printable(PrintableString),
+    #[rasn(size("1..=32768"))]
+    Universal(UniversalString),
+    #[rasn(size("1..=32768"))]
+    Utf8(Utf8String),
+    #[rasn(size("1..=32768"))]
+    Bmp(BmpString),
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(choice)]
+pub enum X520CommonName {
+    #[rasn(size("1..=64"))]
+    Teletex(TeletexString),
+    #[rasn(size("1..=64"))]
+    Printable(PrintableString),
+    #[rasn(size("1..=64"))]
+    Universal(UniversalString),
+    #[rasn(size("1..=64"))]
+    Utf8(Utf8String),
+    #[rasn(size("1..=64"))]
+    Bmp(BmpString),
+}
+
+macro_rules! directory_string_compat {
+    ($($from:ident),+ $(,)?) => {
+        $(
+            impl PartialEq<$from> for DirectoryString {
+                fn eq(&self, rhs: &$from) -> bool {
+                    match (rhs, self) {
+                        ($from::Teletex(lhs), Self::Teletex(rhs)) => lhs == rhs,
+                        ($from::Printable(lhs), Self::Printable(rhs)) => lhs == rhs,
+                        ($from::Universal(lhs), Self::Universal(rhs)) => lhs == rhs,
+                        ($from::Utf8(lhs), Self::Utf8(rhs)) => lhs == rhs,
+                        ($from::Bmp(lhs), Self::Bmp(rhs)) => lhs == rhs,
+                        _ => false,
+                    }
+                }
+            }
+
+            impl From<$from> for DirectoryString {
+                fn from(value: $from) -> Self {
+                    match value {
+                        $from::Teletex(value) => Self::Teletex(value),
+                        $from::Printable(value) => Self::Printable(value),
+                        $from::Universal(value) => Self::Universal(value),
+                        $from::Utf8(value) => Self::Utf8(value),
+                        $from::Bmp(value) => Self::Bmp(value),
+                    }
+                }
+            }
+        )+
+    }
+}
+
+directory_string_compat! {
+    X520Name,
+    X520CommonName,
+    X520LocalityName,
+    X520Pseudonym,
+    X520Title,
+    X520OrganisationalUnitName,
+    X520OrganisationName,
+    X520StateOrProvinceName,
+}
+
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(choice)]
 pub enum DirectoryString {
+    #[rasn(size("1.."))]
     Teletex(TeletexString),
+    #[rasn(size("1.."))]
     Printable(PrintableString),
+    #[rasn(size("1.."))]
     Universal(UniversalString),
+    #[rasn(size("1.."))]
     Utf8(Utf8String),
+    #[rasn(size("1.."))]
     Bmp(BmpString),
 }
 

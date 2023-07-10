@@ -1,9 +1,12 @@
 use super::*;
 
+/// A Basic Multilingual Plane (BMP) string, which is a subtype of [`UniversalString`]
+/// containing only the BMP set of characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BmpString(Vec<u16>);
 
 impl BmpString {
+    /// Converts the string into a set of big endian bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.iter().flat_map(|ch| ch.to_be_bytes()).collect()
     }

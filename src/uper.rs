@@ -1,4 +1,8 @@
 //! # Unaligned Packed Encoding Rules
+//!
+//! Codec functions for UPER, rasn provides a "basic" decoder, and canonical encoder.
+//! This means that users are able decode any valid UPER value, and that rasn's
+//! encoding will always produce the same output for the same value.
 
 use crate::types::Constraints;
 

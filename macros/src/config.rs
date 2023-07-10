@@ -90,16 +90,19 @@ impl Constraints {
             let extensible = value.extensible.is_some().then_some(quote!(extensible));
             let constraint = match value.constraint {
                 Value::Range(Some(min), Some(max)) => {
-                    quote!(#min..#max)
+                    let string = quote!(#min..=#max).to_string();
+                    quote!(#string)
                 }
                 Value::Range(Some(min), None) => {
-                    quote!(#min..)
+                    let string = quote!(#min..).to_string();
+                    quote!(#string)
                 }
                 Value::Range(None, Some(max)) => {
-                    quote!(..#max)
+                    let string = quote!(..=#max).to_string();
+                    quote!(#string)
                 }
                 Value::Range(None, None) => {
-                    quote!(..)
+                    quote!("..")
                 }
                 Value::Single(length) => {
                     quote!(#length)
@@ -451,6 +454,7 @@ pub struct VariantConfig<'config> {
     generics: &'config syn::Generics,
     pub tag: Option<Tag>,
     pub extension_addition: bool,
+    pub constraints: Constraints,
 }
 
 impl<'config> VariantConfig<'config> {
@@ -459,8 +463,13 @@ impl<'config> VariantConfig<'config> {
         generics: &'config syn::Generics,
         container_config: &'config Config,
     ) -> Self {
-        let mut tag = None;
+        let mut extensible = false;
         let mut extension_addition = false;
+        let mut from = None;
+        let mut size = None;
+        let mut tag = None;
+        let mut value = None;
+
         let mut iter = variant
             .attrs
             .iter()
@@ -475,6 +484,14 @@ impl<'config> VariantConfig<'config> {
                 let path = item.path();
                 if path.is_ident("tag") {
                     tag = Tag::from_meta(item);
+                } else if path.is_ident("size") {
+                    size = Some(Value::from_meta(item));
+                } else if path.is_ident("value") {
+                    value = Some(Value::from_meta(item));
+                } else if path.is_ident("from") {
+                    from = Some(StringValue::from_meta(item));
+                } else if path.is_ident("extensible") {
+                    extensible = true;
                 } else if path.is_ident("extension_addition") {
                     extension_addition = true;
                 }
@@ -487,6 +504,12 @@ impl<'config> VariantConfig<'config> {
             generics,
             tag,
             variant,
+            constraints: Constraints {
+                extensible,
+                from,
+                size,
+                value,
+            },
         }
     }
 
@@ -527,6 +550,9 @@ impl<'config> VariantConfig<'config> {
                 if self.variant.fields.len() != 1 {
                     panic!("Tuple struct variants should contain only a single element.");
                 }
+                let constraints = self
+                    .constraints
+                    .const_expr(&self.container_config.crate_root);
 
                 let field = FieldConfig::new(
                     self.variant.fields.iter().next().unwrap(),
@@ -539,9 +565,17 @@ impl<'config> VariantConfig<'config> {
                         let path = path
                             .map(|path| quote!(#path))
                             .unwrap_or_else(|| quote!(<_>::default));
-                        quote!(decoder.decode_default_with_tag(tag, #path))
+                        if let Some(constraints) = constraints {
+                            quote!(decoder.decode_default_with_tag_and_constraints(tag, #path, #constraints))
+                        } else {
+                            quote!(decoder.decode_default_with_tag(tag, #path))
+                        }
                     } else {
-                        quote!(<_>::decode_with_tag(decoder, tag))
+                        if let Some(constraints) = constraints {
+                            quote!(<_>::decode_with_tag_and_constraints(decoder, tag, #constraints))
+                        } else {
+                            quote!(<_>::decode_with_tag(decoder, tag))
+                        }
                     }
                 } else if let Some(path) = field.default {
                     let path = path

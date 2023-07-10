@@ -1,5 +1,6 @@
 use super::*;
 
+/// A string, which contains the characters defined in "X.680 Table 10".
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PrintableString(Vec<u8>);
 
