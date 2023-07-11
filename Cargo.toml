@@ -52,7 +52,7 @@ bitvec.workspace = true
 rasn-derive = { version = "0.6.1", path = "macros", optional = true }
 chrono.workspace = true
 konst = { version = "0.2.13", default-features = false }
-nom-bitvec = { package = "bitvec-nom", version = "0.2.0", git = "https://github.com/XAMPPRocky/nom-bitvec.git" }
+nom-bitvec = { package = "bitvec-nom2", version = "0.2.0" }
 arrayvec = { version = "0.7.2", default-features = false }
 either = { version = "1.8.0", default-features = false }
 once_cell = { version = "1.16.0", default-features = false, features = ["race", "alloc"] }
