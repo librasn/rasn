@@ -1,0 +1,268 @@
+# Changelog
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.8.0](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.7.0...rasn-v0.8.0) - 2023-07-11
+
+### Fixed
+- fix/AttributeCertificateValidityPeriod pub fields
+- fixing kdc/as rep application tag
+- fix explicit prefix decode & encode for macros
+- fix errors in Kerberos OTP
+- fix est
+- fix missing trait in test
+- fix snmp tests
+- fix path dep versions
+- fixed implicit tagging of sequences
+- fix kws
+- fix
+- fix missing pieces for derive
+
+### Other
+- Create release-plz.yaml
+- Add size comparison example
+- Add constraints to PKIX
+- Update README.md
+- Update README.md
+- Update README.md
+- clippy
+- Implement Aligned Encoding Rules (APER)
+- Fix tag on PKIX CRL extension ([#121](https://github.com/XAMPPRocky/rasn/pull/121))
+- Use workspace metadata
+- Implement Unpacked Encoding Rules (UPER)
+- Updates for SHA AlgorithmIdentifier Oids; use `==` for ConstOid and ObjectIdentifier ([#120](https://github.com/XAMPPRocky/rasn/pull/120))
+- Look at data string and pick best guess parse format. Does not yet ha… ([#118](https://github.com/XAMPPRocky/rasn/pull/118))
+- Disable *android
+- Disable mips*
+- Fix chrono deprecation warning
+- Release 0.7.0
+- Trust Anchors according to RFC 5914 added, including Oid for new content type. Passes cargo test, but no new specific tests added ([#116](https://github.com/XAMPPRocky/rasn/pull/116))
+- Allow buffer reuse in `Encoder` ([#106](https://github.com/XAMPPRocky/rasn/pull/106))
+- Fixes [#97](https://github.com/XAMPPRocky/rasn/pull/97) Update SNMP v2 module to better match RFC 3416 ([#104](https://github.com/XAMPPRocky/rasn/pull/104))
+- Added Microsoft Authenticode structures ([#102](https://github.com/XAMPPRocky/rasn/pull/102))
+- Release 0.6.1
+- Bugfix for indefinite Any parsing, fixes [#66](https://github.com/XAMPPRocky/rasn/pull/66) ([#95](https://github.com/XAMPPRocky/rasn/pull/95))
+- Release 0.6.0
+- very very basic compiler implementation ([#92](https://github.com/XAMPPRocky/rasn/pull/92))
+- Update rust.yml
+- add old compiler
+- Convert `Result` in macros to `core::result::Result`
+- Make AttributeCertificateClearAttributes fields public
+- Add:
+- Release 0.5.3
+- cleaning as_req test
+- adding as_rep test
+- making KrbCredInfo tags explicit
+- making EncryptedData tags explicit
+- Release 0.5.2
+- fmt
+- Account for every possible position of #[tag(explicit)]
+- Add repository field to rasn-pkix
+- Release 0.5.1
+- updating test to full as_req
+- fmt
+- Update dependnencies
+- More explicit prefix macro fixes
+- Update deps
+- Fix explicit tagging in kerberos
+- Fix explicit tag parsing
+- Fixes [#67](https://github.com/XAMPPRocky/rasn/pull/67). Fix SHA1_RSA OID typo and add RSAES_OAEP OID
+- Add pkcs7 compat module.
+- Update README.md
+- Update README.md
+- Update README.md
+- Release 0.5.0
+- Replace static_assertions with 1.57 const assert
+- Fix tests and docs
+- Move the top-level documentation into README.md
+- Rename IntoOpaque to ToOpaque
+- Formatting
+- Add initial implementation of S/MIME
+- Add documentation for OCSP
+- Add documentation to Kerberos
+- Remove OID suffix in CMS
+- Add Attribute Certificate in PKIX
+- Add docs and minor improvements to Kerberos
+- format macros
+- Add more derives for OCSP
+- Add more docs and format CMS
+- Implement IETF RFC 3370 and RFC 4108
+- impl Hash for all types in PKIX
+- impl Hash for Any, and add a bunch more OIDs
+- Fix default parsing and TAG_TREE for SEQUENCE variants
+- Fix long form tag decoding
+- Add support for Kerberos & OCSP, and fix explicit tag codegen
+- Add PersonnelRecord test
+- Add address family numbers
+- Formatting
+- Use ty directly instead of inference in macro default
+- Release 0.4.3
+- Added Decoder::decoded_len method to support stream-oriented protocols
+- Release 0.4.2
+- Added missing pub keyword to some fields
+- Added contstructors for non-exhaustive LDAP structs. Fixes [#48](https://github.com/XAMPPRocky/rasn/pull/48).
+- Update README.md
+- Update README.md
+- Update README.md
+- Release 0.4.1
+- Added CMS standard: https://datatracker.ietf.org/doc/html/rfc5652 ([#47](https://github.com/XAMPPRocky/rasn/pull/47))
+- Update README.md
+- Fix wording in README.md ([#46](https://github.com/XAMPPRocky/rasn/pull/46))
+- Update README.md
+- Release 0.4.0
+- fmt benches
+- Clippy fixes and formatting
+- Add rfc links
+- misc improvements
+- Add more documentation
+- Add DecryptKey OID and prelude module
+- Reformat, and Copy implementations, document, and add convienvience methods for version
+- Add x509 benchmark
+- update dependencies
+- Add new example for RFC 7030 standard ([#41](https://github.com/XAMPPRocky/rasn/pull/41))
+- Make is_unique an associated method
+- Add LDAP implementation
+- Update and full test for PKIX certificates
+- refactor field encoding and decoding to be more DRY and use default attribute
+- Fix remaining codec bugs found
+- Switch ObjectIdentifier to using Cow internally
+- Fix explicit prefix encoding
+- Add public methods for Any
+- Update docs and teletex string
+- Add CHOICE Tag alias.
+- More fuzzing fixes
+- Improve error message more
+- Validate constructed bit is present
+- Update fuzzing code
+- Add more derives to SNMP v3 types
+- Add rasn-pkix crate
+- Fix time decoding & encoding
+- Add better error messages for fields and choices
+- Add support for SET and explicit tags to macros
+- Add support for SET decoding
+- Add NumericString alias and add Ord to InstanceOf
+- cleanup tests
+- Add SET encoding
+- Add issue 34 test case, closes [#34](https://github.com/XAMPPRocky/rasn/pull/34)
+- Update issue 35 test
+- Update README.md
+- Update README.md
+- rm dbg
+- Ensure explict prefix encodes constructed values correctly. Closes [#35](https://github.com/XAMPPRocky/rasn/pull/35)
+- fmt
+- Add SEQUENCE OF alias
+- Remove unneeded newtype
+- Move OID structure and add more OIDs
+- Add support for ANY type
+- Add support for SET OF types
+- Add all OIDs related to RFC 5280
+- Hide warnings for now
+- Rename Ia5String
+- Add Any type
+- Use wildcard for standards directory
+- Fix option decoding
+- Add SNMPv3 to rasn-snmp. ([#33](https://github.com/XAMPPRocky/rasn/pull/33))
+- Add more trait impls
+- Fix derive codegen
+- Fix OID encoding and decoding for BER and DER ([#29](https://github.com/XAMPPRocky/rasn/pull/29))
+- Making Implicit and Explicit value's public ([#30](https://github.com/XAMPPRocky/rasn/pull/30))
+- Move tagging inside the trait implementations
+- Revert "Make field encoding generation more DRY"
+- Add all OIDs from UsefulDefinitions ASN.1 module
+- Make field encoding generation more DRY
+- Add SNMP fuzzing
+- Fix proc macro struct field codecs
+- Improved README, and automatic_tags
+- Fix tag detection in newtype wrappers
+- Changed `slice_range(foo, _, foo.len())` to `slice_from(foo, _)` ([#23](https://github.com/XAMPPRocky/rasn/pull/23))
+- Fix tagged choice variants
+- Small improvements to error messages, and clean up newly-dead tag constant defs ([#22](https://github.com/XAMPPRocky/rasn/pull/22))
+- Add proc macros and add trap message test
+- Add docs and tidy up
+- Create TagTree and refactor Tag validation and CHOICE decoding
+- Add iec61850 test
+- Update build.bash
+- Update test.bash
+- Update README.md
+- Release 0.3.1
+- Make SNMP fields public, fixes [#14](https://github.com/XAMPPRocky/rasn/pull/14)
+- fix some typos ([#15](https://github.com/XAMPPRocky/rasn/pull/15))
+- add decription and language
+- Update README.md
+- Remove bad files
+- Release 0.3.0
+- Add more documentation
+- Use IpAddress directly
+- Implement MIB-II, Add #[rasn(delegate)] and #[rasn(default)]
+- Add support for generics in proc macro
+- Move into v1 modules
+- Implement SMIv1 and MIB-1
+- Add initial benchmarks
+- Add more fuzzing input data
+- Add test case
+- Reverted back to stable compatiblity, fixed various issues.
+- Improved various aspects of rasn-macros
+- version bump
+- Add Oid and use const generics for tag
+- Fix docs.rs badge
+- bump version
+- Update rust.yml
+- Release 0.2.1
+- Add a new `#[rasn(choice)]` field attribute
+- Upgrade bitvec to 0.19.3
+- Upgrade nom to 0.6.0-beta1
+- Update README.md
+- add more docs and licence files
+- Update README.md
+- Update README.md
+- Update README.md
+- Update set_rust_version.bash
+- remove old dependency
+- Release 0.2.0
+- Update rust.yml
+- rm println
+- upgrade nom
+- Update README.md
+- add ci scripts
+- add docs
+- Add metadata to macros crate
+- Add more metadata
+- Create rust.yml
+- more docs
+- Add docs and fix constructed encoding for strings
+- correctly handle indefinite lengths
+- Added more fuzzing fixes
+- Implement DER & CER
+- Implement automatic tagging
+- Implement tagging attribute for all valid positions
+- Refactor tests, add option impl, add docs
+- split up proc macro exports
+- Add static asserts and time types
+- Create README.md
+- Fix more macro bugs and make open type complete
+- fuzzing fixes
+- fmt
+- Implemented initial support for choice enums
+- Add initial macro support for structs and enums
+- Removing .vscode from git history
+- Add encoder impl and tests
+- Add encoder stub
+- Refactor tag out of decode
+- TagValue -> AsnType
+- refactored parser into its own file
+- Fix dependency features
+- Refactor trait and error handling
+- Refactor Decoder trait
+- add string
+- Refactored constructed encoding parsing to be generic
+- Add bitstring
+- add types module
+- Added octet string, null, and object identifier
+- Refactor error handling
+- refactor tag from identifier
+- Add initial ber parser
+- new project
