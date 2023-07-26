@@ -7,42 +7,6 @@ const fn is_valid_oid(slice: &[u32]) -> bool {
     slice.len() >= 2 && slice[0] <= MAX_OID_FIRST_OCTET
 }
 
-/// A temporary workaround for [`Oid`] not currently being `const` compatible.
-#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, PartialOrd, Ord)]
-pub struct ConstOid(pub &'static [u32]);
-
-impl AsRef<[u32]> for ConstOid {
-    fn as_ref(&self) -> &[u32] {
-        self.0
-    }
-}
-
-impl ops::Deref for ConstOid {
-    type Target = [u32];
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl AsRef<Oid> for ConstOid {
-    fn as_ref(&self) -> &Oid {
-        Oid::new_unchecked(self.0)
-    }
-}
-
-impl PartialEq<[u32]> for ConstOid {
-    fn eq(&self, rhs: &[u32]) -> bool {
-        self.0 == rhs
-    }
-}
-
-impl PartialEq<Oid> for ConstOid {
-    fn eq(&self, rhs: &Oid) -> bool {
-        *self.0 == rhs.0
-    }
-}
-
 /// A reference to a global unique identifier that identifies an concept, such
 /// as a organisation, or encoding rules.
 #[derive(Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
@@ -59,11 +23,22 @@ impl Oid {
     ///
     /// let internet = Oid::new(&[1, 3, 6, 1]).unwrap();
     /// ```
-    pub fn new(slice: &[u32]) -> Option<&Oid> {
+    pub const fn new(slice: &[u32]) -> Option<&Self> {
         if is_valid_oid(slice) {
             Some(Self::new_unchecked(slice))
         } else {
             None
+        }
+    }
+
+    /// Creates a new reference to a object identifier from `slice`.
+    ///
+    /// Panics if `vec` contains less than two components or the first
+    /// component is greater than 1.
+    pub const fn const_new(oid: &'static [u32]) -> &'static Self {
+        match Self::new(oid) {
+            Some(oid) => oid,
+            None => panic!("not a valid OID"),
         }
     }
 
@@ -76,7 +51,7 @@ impl Oid {
     ///
     /// let internet = Oid::new(&[1, 3, 6, 1]).unwrap();
     /// ```
-    pub fn new_mut(slice: &mut [u32]) -> Option<&mut Oid> {
+    pub fn new_mut(slice: &mut [u32]) -> Option<&mut Self> {
         if is_valid_oid(slice) {
             Some(Self::new_unchecked_mut(slice))
         } else {
@@ -89,8 +64,8 @@ impl Oid {
     /// # Safety
     /// This allows you to create potentially invalid object identifiers which
     /// may affect encoding validity.
-    pub fn new_unchecked(slice: &[u32]) -> &Oid {
-        unsafe { &*(slice as *const [u32] as *const Oid) }
+    pub const fn new_unchecked(slice: &[u32]) -> &Self {
+        unsafe { &*(slice as *const [u32] as *const Self) }
     }
 
     /// Creates a new object identifier from `slice`.
@@ -98,8 +73,8 @@ impl Oid {
     /// # Safety
     /// This allows you to create potentially invalid object identifiers which
     /// may affect encoding validity.
-    pub fn new_unchecked_mut(slice: &mut [u32]) -> &mut Oid {
-        unsafe { &mut *(slice as *mut [u32] as *mut Oid) }
+    pub fn new_unchecked_mut(slice: &mut [u32]) -> &mut Self {
+        unsafe { &mut *(slice as *mut [u32] as *mut Self) }
     }
 }
 
@@ -132,6 +107,24 @@ impl<const N: usize> PartialEq<[u32; N]> for Oid {
 impl PartialEq<Oid> for [u32] {
     fn eq(&self, rhs: &Oid) -> bool {
         self == &rhs.0
+    }
+}
+
+impl PartialEq<Oid> for ObjectIdentifier {
+    fn eq(&self, rhs: &Oid) -> bool {
+        *self.0 == rhs.0
+    }
+}
+
+impl PartialEq<&Oid> for ObjectIdentifier {
+    fn eq(&self, rhs: &&Oid) -> bool {
+        *self.0 == rhs.0
+    }
+}
+
+impl PartialEq<Oid> for &ObjectIdentifier {
+    fn eq(&self, rhs: &Oid) -> bool {
+        *self.0 == rhs.0
     }
 }
 
@@ -192,12 +185,6 @@ impl alloc::borrow::Borrow<Oid> for ObjectIdentifier {
     }
 }
 
-impl From<ConstOid> for ObjectIdentifier {
-    fn from(oid: ConstOid) -> Self {
-        Self::new_unchecked(alloc::borrow::ToOwned::to_owned(&*oid).into())
-    }
-}
-
 impl<'a> From<&'a Oid> for ObjectIdentifier {
     fn from(oid: &'a Oid) -> Self {
         alloc::borrow::ToOwned::to_owned(oid)
@@ -226,19 +213,13 @@ impl<const N: usize> PartialEq<ObjectIdentifier> for [u32; N] {
 
 impl PartialEq<ObjectIdentifier> for Oid {
     fn eq(&self, rhs: &ObjectIdentifier) -> bool {
-        self == &**rhs
+        self.0 == *rhs.0
     }
 }
 
-impl PartialEq<ConstOid> for ObjectIdentifier {
-    fn eq(&self, rhs: &ConstOid) -> bool {
-        self == &**rhs
-    }
-}
-
-impl PartialEq<ObjectIdentifier> for ConstOid {
+impl PartialEq<ObjectIdentifier> for &Oid {
     fn eq(&self, rhs: &ObjectIdentifier) -> bool {
-        self == &**rhs
+        self.0 == *rhs.0
     }
 }
 
@@ -252,7 +233,7 @@ macro_rules! oids {
     ($($name:ident => $($num:literal),+ $(,)?);+ $(;)?) => {
         impl Oid {
             $(
-                pub const $name: ConstOid = ConstOid(&[$($num),+]);
+                pub const $name: &'static Oid = Oid::const_new(&[$($num),+]);
             )+
         }
     }
@@ -654,16 +635,18 @@ mod test {
     }
 
     #[test]
-    fn equals() {
+    fn partial_eq() {
         let oid =
             ObjectIdentifier::new_unchecked(alloc::vec![2, 16, 840, 1, 101, 3, 4, 2, 3].into());
         assert_eq!(
             Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512,
             oid
         );
-        assert!(
-            Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512
-                == oid
+        assert_eq!(
+            Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512,
+            oid
         );
+        assert_eq!(ObjectIdentifier::new(vec![1, 2]).unwrap(), Oid::ISO_MEMBER_BODY);
+        assert_eq!(Oid::ISO_MEMBER_BODY, ObjectIdentifier::new(vec![1, 2]).unwrap());
     }
 }
