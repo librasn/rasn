@@ -271,9 +271,6 @@ impl crate::Encoder for Encoder {
             let bit_length = value.len();
             let bytes = value.clone().into_vec();
             let mut deque = VecDeque::from(bytes);
-            while deque.back().map_or(false, |i| *i == 0) {
-                deque.pop_back();
-            }
 
             deque.push_front((deque.len() * 8).saturating_sub(bit_length) as u8);
             self.encode_string(tag, Tag::BIT_STRING, &Vec::from(deque))

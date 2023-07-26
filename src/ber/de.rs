@@ -266,9 +266,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
                         if let Some(last) = buffer.last_mut() {
                             *last &= !((1 << bits) - 1);
                         }
-                        if buffer.last().map_or(false, |i| *i == 0) {
-                            buffer.pop();
-                        }
 
                         let string = types::BitString::from_vec(buffer);
 
@@ -283,17 +280,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             })?;
 
         self.input = input;
-        if let Some((i, _)) = bs
-            .as_raw_slice()
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, v)| **v != 0)
-        {
-            Ok(types::BitString::from_vec(bs.as_raw_slice()[..=i].to_vec()))
-        } else {
-            Ok(bs)
-        }
+        Ok(bs)
     }
 
     fn decode_visible_string(
