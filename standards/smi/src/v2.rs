@@ -7,7 +7,7 @@ use chrono::TimeZone;
 
 use rasn::{
     prelude::*,
-    types::{ConstOid, Integer, ObjectIdentifier, OctetString, Oid, Utf8String},
+    types::{Integer, ObjectIdentifier, OctetString, Oid, Utf8String},
 };
 
 use crate::v1::InvalidVariant;
@@ -29,19 +29,19 @@ pub type Opaque = crate::v1::Opaque;
 #[rasn(delegate, tag(application, 6))]
 pub struct Counter64(pub u64);
 
-pub const ORG: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION;
-pub const DOD: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD;
-pub const INTERNET: ConstOid = crate::v1::INTERNET;
-pub const DIRECTORY: ConstOid = crate::v1::DIRECTORY;
-pub const MGMT: ConstOid = crate::v1::MGMT;
-pub const EXPERIMENTAL: ConstOid = crate::v1::EXPERIMENTAL;
-pub const PRIVATE: ConstOid = crate::v1::PRIVATE;
-pub const ENTERPRISES: ConstOid = crate::v1::ENTERPRISES;
-pub const SECURITY: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY;
-pub const SNMP_V2: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2;
-pub const SNMP_DOMAINS: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_DOMAINS;
-pub const SNMP_PROXIES: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_PROXIES;
-pub const SNMP_MODULES: ConstOid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_MODULES;
+pub const ORG: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION;
+pub const DOD: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD;
+pub const INTERNET: &'static Oid = crate::v1::INTERNET;
+pub const DIRECTORY: &'static Oid = crate::v1::DIRECTORY;
+pub const MGMT: &'static Oid = crate::v1::MGMT;
+pub const EXPERIMENTAL: &'static Oid = crate::v1::EXPERIMENTAL;
+pub const PRIVATE: &'static Oid = crate::v1::PRIVATE;
+pub const ENTERPRISES: &'static Oid = crate::v1::ENTERPRISES;
+pub const SECURITY: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY;
+pub const SNMP_V2: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2;
+pub const SNMP_DOMAINS: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_DOMAINS;
+pub const SNMP_PROXIES: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_PROXIES;
+pub const SNMP_MODULES: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_MODULES;
 
 const FULL_DATE_FORMAT: &str = "%Y%m%d%H%MZ";
 const SHORT_DATE_FORMAT: &str = "%y%m%d%H%MZ";

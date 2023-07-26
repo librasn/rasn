@@ -16,7 +16,7 @@ where
     /// The current status of the object.
     const STATUS: Status;
     /// The object identifier for the object.
-    const VALUE: rasn::types::ConstOid;
+    const VALUE: &'static rasn::types::Oid;
 
     /// Converts `self` into its SMI data type.
     fn into_object_syntax(self) -> Result<Self::SmiSyntax, <Self as TryInto<Self::Syntax>>::Error> {
