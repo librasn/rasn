@@ -23,7 +23,7 @@ pub use {
         any::Any,
         constraints::{Constraint, Constraints, Extensible},
         instance::InstanceOf,
-        oid::{ConstOid, ObjectIdentifier, Oid},
+        oid::{ObjectIdentifier, Oid},
         open::Open,
         prefix::{Explicit, Implicit},
         strings::{
@@ -219,7 +219,6 @@ asn_type! {
     OctetString: OCTET_STRING,
     ObjectIdentifier: OBJECT_IDENTIFIER,
     Oid: OBJECT_IDENTIFIER,
-    ConstOid: OBJECT_IDENTIFIER,
     BitString: BIT_STRING,
     Utf8String: UTF8_STRING,
     UtcTime: UTC_TIME,
