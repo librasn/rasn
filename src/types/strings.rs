@@ -3,6 +3,7 @@ mod constrained;
 mod general;
 mod ia5;
 mod numeric;
+mod octet;
 mod printable;
 mod teletex;
 mod visible;
@@ -12,7 +13,7 @@ use crate::prelude::*;
 pub use {
     alloc::string::String as Utf8String, bmp::BmpString, general::GeneralString, ia5::Ia5String,
     numeric::NumericString, printable::PrintableString, teletex::TeletexString,
-    visible::VisibleString,
+    visible::VisibleString, octet::{OctetString, FixedOctetString},
 };
 
 pub(crate) use constrained::{

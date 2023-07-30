@@ -28,11 +28,10 @@ pub use {
         prefix::{Explicit, Implicit},
         strings::{
             BmpString, GeneralString, Ia5String, NumericString, PrintableString, TeletexString,
-            Utf8String, VisibleString,
+            Utf8String, VisibleString, OctetString, FixedOctetString,
         },
         tag::{Class, Tag, TagTree},
     },
-    bytes::Bytes as OctetString,
     num_bigint::BigInt as Integer,
     rasn_derive::AsnType,
 };

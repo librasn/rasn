@@ -3,7 +3,7 @@
 use core::convert::TryInto;
 
 use rasn::{
-    types::{Constraints, Integer, ObjectIdentifier, OctetString, Oid},
+    types::{Constraints, Integer, ObjectIdentifier, OctetString, FixedOctetString, Oid},
     AsnType, Decode, Encode, Tag,
 };
 
@@ -50,7 +50,7 @@ pub enum NetworkAddress {
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(delegate, tag(application, 0))]
-pub struct IpAddress(pub OctetString);
+pub struct IpAddress(pub FixedOctetString<4>);
 
 #[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(delegate, tag(application, 1))]

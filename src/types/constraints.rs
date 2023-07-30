@@ -255,6 +255,10 @@ impl Size {
     pub const fn new(range: Bounded<usize>) -> Self {
         Self(range)
     }
+
+    pub const fn fixed(length: usize) -> Self {
+        Self(Bounded::Single(length))
+    }
 }
 
 impl core::ops::Deref for Size {
