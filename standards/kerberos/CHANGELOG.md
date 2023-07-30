@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0](https://github.com/XAMPPRocky/rasn/compare/rasn-kerberos-v0.8.2...rasn-kerberos-v0.9.0) - 2023-07-30
+
+### Other
+- Remove BIT STRING null byte truncation in BER
+- Replace ConstOid with Oid
+
 ## [0.8.0](https://github.com/XAMPPRocky/rasn/compare/rasn-kerberos-v0.7.0...rasn-kerberos-v0.8.0) - 2023-07-11
 
 ### Other
