@@ -78,9 +78,21 @@ impl From<NestedMessage> for Message {
 }
 
 /// A helper type to allow a BER-encoded message to be nested in an OCTET STRING field.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(universal, 4))]
 struct Nested<T>(T);
+
+impl<T: Decode> Decode for Nested<T> {
+    fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, _: Constraints) -> Result<Self, D::Error> {
+        decoder.decode_explicit_prefix(tag).map(Self)
+    }
+}
+
+impl<T: Encode> Encode for Nested<T> {
+    fn encode_with_tag_and_constraints<E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints) -> Result<(), E::Error> {
+        encoder.encode_explicit_prefix(tag, &self.0).map(drop)
+    }
+}
 
 /// The actual encoding for `Message`, with `security_parameters` nested in an OCTET STRING field.
 /// The `Encode` and `Decode` impls for `Message` are defined in terms of converting to and from

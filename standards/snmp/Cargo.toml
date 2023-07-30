@@ -12,4 +12,5 @@ smi = { path = "../smi", package = "rasn-smi", version = "0.8.1" }
 rasn = { path = "../..", version = "0.8.1" }
 
 [dev-dependencies]
+hex = "0.4.3"
 pretty_assertions.workspace = true
