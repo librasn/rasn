@@ -570,12 +570,10 @@ impl<'config> VariantConfig<'config> {
                         } else {
                             quote!(decoder.decode_default_with_tag(tag, #path))
                         }
+                    } else if let Some(constraints) = constraints {
+                        quote!(<_>::decode_with_tag_and_constraints(decoder, tag, #constraints))
                     } else {
-                        if let Some(constraints) = constraints {
-                            quote!(<_>::decode_with_tag_and_constraints(decoder, tag, #constraints))
-                        } else {
-                            quote!(<_>::decode_with_tag(decoder, tag))
-                        }
+                        quote!(<_>::decode_with_tag(decoder, tag))
                     }
                 } else if let Some(path) = field.default {
                     let path = path

@@ -341,12 +341,10 @@ impl Enum {
                         } else {
                             quote!(#crate_root::Encode::encode_with_tag(value, encoder, #variant_tag))
                         }
-                    } else {
-                        if let Some(constraints) = constraints {
+                    } else if let Some(constraints) = constraints {
                             quote!(#crate_root::Encode::encode_with_constraints(value, encoder, #constraints))
                         } else {
                             quote!(#crate_root::Encode::encode(value, encoder))
-                        }
                     };
 
                     quote! {
