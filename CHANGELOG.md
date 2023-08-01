@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.0...rasn-v0.9.1) - 2023-08-01
+
+### Fixed
+- remove duplicates in PrintableString char set ([#130](https://github.com/XAMPPRocky/rasn/pull/130))
+
+### Other
+- Update version in standards
+
 ## [0.9.0](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.8.2...rasn-v0.9.0) - 2023-07-30
 
 ### Fixed
