@@ -165,7 +165,7 @@ mod tests {
         );
         assert_eq!(
             decode_msg.data.agent_addr,
-            NetworkAddress::Internet(IpAddress([10, 11, 12, 13][..].into()))
+            NetworkAddress::Internet(IpAddress([10, 11, 12, 13].into()))
         );
         assert_eq!(decode_msg.data.generic_trap, 6.into());
         assert_eq!(decode_msg.data.specific_trap, 2.into());
@@ -179,7 +179,7 @@ mod tests {
                 enterprise: ObjectIdentifier::new_unchecked(
                     vec![1, 3, 6, 1, 4, 1, 11779, 1, 42, 3, 7, 8].into(),
                 ),
-                agent_addr: NetworkAddress::Internet(IpAddress([10, 11, 12, 13][..].into())),
+                agent_addr: NetworkAddress::Internet(IpAddress([10, 11, 12, 13].into())),
                 generic_trap: 6.into(),
                 specific_trap: 2.into(),
                 time_stamp: TimeTicks(11_932),
