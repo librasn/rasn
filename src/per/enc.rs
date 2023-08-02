@@ -375,7 +375,7 @@ impl Encoder {
             return self.encode_unconstrained_length(buffer, length, None, encode_fn);
         };
 
-        if matches!(constraints.extensible, None) {
+        if constraints.extensible.is_none() {
             Error::check_length(length, &constraints.constraint)?;
         } else if constraints.constraint.contains(&length) {
             buffer.push(false);
@@ -438,7 +438,7 @@ impl Encoder {
             return self.encode_unconstrained_length(buffer, length, None, encode_fn);
         };
 
-        if matches!(constraints.extensible, None) {
+        if constraints.extensible.is_none() {
             Error::check_length(length, &constraints.constraint)?;
         } else if constraints.constraint.contains(&length) {
             buffer.push(false);
@@ -625,7 +625,7 @@ impl Encoder {
             self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
             })?;
-            return Ok(())
+            return Ok(());
         };
 
         let bytes = match value_range.constraint.effective_bigint_value(value.clone()) {
