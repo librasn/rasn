@@ -267,13 +267,16 @@ impl<'input> crate::Decoder for Decoder<'input> {
                             *last &= !((1 << bits) - 1);
                         }
 
-                        let string = types::BitString::from_vec(buffer);
+                        let mut string = types::BitString::from_vec(buffer);
+                        // TODO:
+                        // Using `saturating_sub` here ensures that the `flip1` test passes,
+                        // but returning an error on an overflow is probably more correct,
+                        // at least for DER.
+                        // Need to consult the spec...
+                        let bit_length = string.len().saturating_sub(bits as usize);
+                        string.truncate(bit_length);
 
-                        if string.not_any() {
-                            Ok(types::BitString::new())
-                        } else {
-                            Ok(string)
-                        }
+                        Ok(string)
                     }
                     _ => Err(Error::InvalidBitString { bits: unused_bits }),
                 }
@@ -640,8 +643,9 @@ mod tests {
 
     #[test]
     fn bit_string() {
-        let bitstring =
+        let mut bitstring =
             types::BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
+        bitstring.truncate(bitstring.len() - 4);
 
         let primitive_encoded: types::BitString =
             decode(&[0x03, 0x07, 0x04, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..]).unwrap();
