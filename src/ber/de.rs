@@ -268,12 +268,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
                         }
 
                         let mut string = types::BitString::from_vec(buffer);
-                        // TODO:
-                        // Using `saturating_sub` here ensures that the `flip1` test passes,
-                        // but returning an error on an overflow is probably more correct,
-                        // at least for DER.
-                        // Need to consult the spec...
-                        let bit_length = string.len().saturating_sub(bits as usize);
+                        let bit_length = string
+                            .len()
+                            .checked_sub(bits as usize)
+                            .ok_or(Error::InvalidBitString { bits })?;
                         string.truncate(bit_length);
 
                         Ok(string)
