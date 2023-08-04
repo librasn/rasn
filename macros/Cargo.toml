@@ -1,14 +1,13 @@
 [package]
 name = "rasn-derive"
-version = "0.8.2"
+version.workspace = true
 categories = ["encoding", "no-std", "parser-implementations"]
-authors = ["Erin Power <xampprocky@gmail.com>"]
-edition = "2021"
+edition.workspace = true
 description = "Derive macros for rasn."
-license = "MIT/Apache-2.0"
+license.workspace = true
 exclude = ["fuzzing"]
 keywords = ["asn1", "der", "ber", "cer", "per"]
-repository = "https://github.com/XAMPPRocky/rasn.git"
+repository.workspace = true
 
 [lib]
 proc-macro = true
