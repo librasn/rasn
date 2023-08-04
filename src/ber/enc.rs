@@ -264,16 +264,22 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &types::BitString,
     ) -> Result<Self::Ok, Self::Error> {
-        if value.not_any() {
+        if value.is_empty() {
             self.encode_primitive(tag, &[]);
             Ok(())
         } else {
             let bit_length = value.len();
-            let bytes = value.clone().into_vec();
-            let mut deque = VecDeque::from(bytes);
+            let bytes = value.as_raw_slice();
+            let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
+                crate::enc::Error::custom(format!(
+                    "failed to convert BIT STRING unused bytes to u8: {err}"
+                ))
+            })?;
+            let mut encoded = Vec::with_capacity(bytes.len() + 1);
+            encoded.push(unused_bits);
+            encoded.extend(bytes);
 
-            deque.push_front((deque.len() * 8).saturating_sub(bit_length) as u8);
-            self.encode_string(tag, Tag::BIT_STRING, &Vec::from(deque))
+            self.encode_string(tag, Tag::BIT_STRING, &encoded)
         }
     }
 
