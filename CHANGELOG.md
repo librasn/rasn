@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.1...rasn-v0.9.2) - 2023-08-04
+
+### Other
+- Update Cargo.toml
+- Use workspace for macros
+- correctly handle non-byte-aligned BIT STRING length ([#135](https://github.com/XAMPPRocky/rasn/pull/135))
+- Fix Clippy warnings ([#132](https://github.com/XAMPPRocky/rasn/pull/132))
+- Fix SNMP test
+
 ## [0.9.1](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.0...rasn-v0.9.1) - 2023-08-01
 
 ### Fixed
