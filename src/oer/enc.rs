@@ -1,5 +1,11 @@
-use crate::oer::enc::error::Error;
+// use crate::oer::enc::error::Error;
+// use crate::oer::enc::Error;
+use crate::prelude::{
+    Any, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime, Ia5String,
+    NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
+};
 use crate::types::{constraints::*, BitString, Constraints, Integer};
+use crate::{Encode, Tag};
 use bitvec::prelude::*;
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
@@ -7,6 +13,9 @@ use bitvec::prelude::*;
 /// Basic-OER is not supported and it might be that never will.
 mod config;
 mod error;
+use error::Error;
+
+pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 pub const ITU_T_X696_OER_EDITION: f32 = 3.0;
 
@@ -51,7 +60,7 @@ impl Encoder {
     pub fn new(options: config::EncoderOptions) -> Self {
         Self {
             options,
-            output: <_>::default(),
+            output: <BitString>::default(),
         }
     }
 
@@ -236,6 +245,240 @@ impl Encoder {
         };
         self.output.extend(bits);
         Ok(())
+    }
+}
+
+impl crate::Encoder for Encoder {
+    type Ok = ();
+    type Error = error::Error;
+
+    fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_bit_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &BitString,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_enumerated<E: Enumerated>(
+        &mut self,
+        tag: Tag,
+        value: &E,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_object_identifier(
+        &mut self,
+        tag: Tag,
+        value: &[u32],
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_integer(
+        &mut self,
+        _tag: Tag,
+        constraints: Constraints,
+        value: &Integer,
+    ) -> Result<Self::Ok, Self::Error> {
+        return self.encode_integer_with_constraints(Some(&constraints), &value);
+    }
+
+    fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_octet_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &[u8],
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_general_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &GeneralString,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_utf8_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &str,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_visible_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &VisibleString,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_ia5_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &Ia5String,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_printable_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &PrintableString,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_numeric_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &NumericString,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_teletex_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &TeletexString,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_bmp_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &BmpString,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_generalized_time(
+        &mut self,
+        tag: Tag,
+        value: &GeneralizedTime,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_utc_time(&mut self, tag: Tag, value: &UtcTime) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_explicit_prefix<V: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &V,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_sequence<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    where
+        C: Constructed,
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+    {
+        todo!()
+    }
+
+    fn encode_sequence_of<E: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &[E],
+        constraints: Constraints,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_set<C, F>(&mut self, tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+    where
+        C: Constructed,
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+    {
+        todo!()
+    }
+
+    fn encode_set_of<E: Encode>(
+        &mut self,
+        tag: Tag,
+        value: &SetOf<E>,
+        constraints: Constraints,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_some_with_tag_and_constraints<E: Encode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &E,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_none<E: Encode>(&mut self) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_none_with_tag(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_choice<E: Encode + Choice>(
+        &mut self,
+        constraints: Constraints,
+        encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_extension_addition<E: Encode>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: E,
+    ) -> Result<Self::Ok, Self::Error> {
+        todo!()
+    }
+
+    fn encode_extension_addition_group<E>(
+        &mut self,
+        value: Option<&E>,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        E: Encode + Constructed,
+    {
+        todo!()
     }
 }
 

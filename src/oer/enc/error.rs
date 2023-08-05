@@ -18,6 +18,16 @@ pub enum Error {
     #[snafu(display("Propagated Error:\n{}", msg))]
     Propagated {
         /// The custom error's message.
-        msg: alloc::string::String,
+        msg: String,
     },
+    #[snafu(display("custom error:\n{}", msg))]
+    Custom { msg: String },
+}
+
+impl crate::enc::Error for Error {
+    fn custom<D: core::fmt::Display>(msg: D) -> Self {
+        Self::Custom {
+            msg: msg.to_string(),
+        }
+    }
 }
