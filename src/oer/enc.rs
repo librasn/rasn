@@ -70,6 +70,66 @@ impl Encoder {
     // );
     // }
 
+    /// Encode the length of the value to output.
+    /// Length of the data `length` should be provided in bytes (octets), not as bits.
+    /// In COER we try to use the shortest possible encoding, hence convert to the smallest integer type.
+    fn encode_length(&mut self, length: usize) -> Result<(), Error> {
+        let bytes: BitVec<u8, Msb0> = match length {
+            v if u8::try_from(v).is_ok() => {
+                BitVec::<u8, Msb0>::from_slice(&(length as u8).to_be_bytes())
+            }
+            v if u16::try_from(v).is_ok() => {
+                BitVec::<u8, Msb0>::from_slice(&(length as u16).to_be_bytes())
+            }
+            v if u32::try_from(v).is_ok() => {
+                BitVec::<u8, Msb0>::from_slice(&(length as u32).to_be_bytes())
+            }
+            v if u64::try_from(v).is_ok() => {
+                BitVec::<u8, Msb0>::from_slice(&(length as u64).to_be_bytes())
+            }
+            _ => BitVec::<u8, Msb0>::from_slice(&(length as u128).to_be_bytes()),
+        };
+        if length < 128 {
+            // First bit should be always zero when below 128: ITU-T X.696 8.6.4
+            self.output.extend(&bytes);
+            return Ok(());
+        }
+        let length_of_length = u8::try_from(bytes.len() / 8);
+        if length_of_length.is_ok() && length_of_length.unwrap() > 127 {
+            return Err(Error::TooLongValue {
+                length: length as u128,
+            });
+        } else if length_of_length.is_ok() {
+            self.output.extend(length_of_length.unwrap().to_be_bytes());
+            // We must swap the first bit with true to show long form
+            // It is always zero with u8 type and value being < 128
+            _ = self.output.remove(0);
+            self.output.insert(0, true);
+            self.output.extend(bytes);
+        } else {
+            return Err(Error::Propagated {
+                msg: length_of_length.err().unwrap().to_string(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Constraints define whether the integer is encoded as unsigned or signed
+    fn integer_bytes_when_range(
+        &self,
+        value: &Integer,
+        value_range: &Extensible<Value>,
+    ) -> Vec<u8> {
+        // match value.cmp(&BigInt::from(0)) {
+        //     Ordering::Greater | Ordering::Equal => value.to_biguint().unwrap().to_bytes_be(),
+        //     Ordering::Less => value.to_signed_bytes_be(),
+        // }
+        match value_range.constraint.effective_bigint_value(value.clone()) {
+            either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
+            either::Right(value) => value.to_signed_bytes_be(),
+        }
+    }
+
     /// Encode an integer value with constraints.
     ///
     /// Encoding depends on the range constraint, and has two scenarios.
@@ -82,55 +142,70 @@ impl Encoder {
     /// If the Integer is not bound or outside of range, we encode with the smallest number of octets possible.
     fn encode_integer_with_constraints(
         &mut self,
-        constraints: &Constraints,
+        constraints: Option<&Constraints>,
         value_to_enc: &Integer,
     ) -> Result<(), Error> {
-        if let Some(value) = constraints.value() {
-            // Check if Integer is in constraint range
-            // Constraint with extension leads ignoring the whole constraint in COER TODO decoding only?
-            if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
-                return Err(Error::IntegerOutOfRange {
-                    value: value_to_enc.clone(),
-                    expected: value.constraint.0,
-                });
-            }
-            if let Bounded::Range { start, end } = value.constraint.0 {
-                if let (Some(end), Some(start)) = (end, start) {
-                    // Case a)
-                    if start >= 0.into() {
-                        let ranges: [i128; 5] = [
-                            // encode as a fixed-size unsigned number in a one, two four or eight-octet word
-                            // depending on the value of the upper bound
-                            -1i128,
-                            u8::MAX.into(),  // should be 1 octets
-                            u16::MAX.into(), // should be 2 octets
-                            u32::MAX.into(), // should be 4 octets
-                            u64::MAX.into(), // should be 8 octets
-                        ];
-                        for (index, range) in ranges[0..(ranges.len() - 1)].iter().enumerate() {
-                            if range < &end && end <= ranges[index + 1] {
-                                let bytes = match value
-                                    .constraint
-                                    .0
-                                    .effective_bigint_value(value_to_enc.clone())
+        if let Some(constraints) = constraints {
+            if let Some(value) = constraints.value() {
+                // Check if Integer is in constraint range
+                // Constraint with extension leads ignoring the whole constraint in COER TODO decoding only?
+                if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
+                    return Err(Error::IntegerOutOfRange {
+                        value: value_to_enc.clone(),
+                        expected: value.constraint.0,
+                    });
+                }
+                if let Bounded::Range { start, end } = value.constraint.0 {
+                    match (start, end) {
+                        // if let (Some(end), Some(start)) ||  = (end, start) {
+                        (Some(start), Some(end)) => {
+                            // Case a)
+                            if start >= 0.into() {
+                                let ranges: [i128; 5] = [
+                                    // encode as a fixed-size unsigned number in a one, two four or eight-octet word
+                                    // depending on the value of the upper bound
+                                    -1i128,
+                                    u8::MAX.into(),  // should be 1 octets
+                                    u16::MAX.into(), // should be 2 octets
+                                    u32::MAX.into(), // should be 4 octets
+                                    u64::MAX.into(), // should be 8 octets
+                                ];
+                                for (index, range) in
+                                    ranges[0..(ranges.len() - 1)].iter().enumerate()
                                 {
-                                    either::Left(offset) => {
-                                        offset.to_biguint().unwrap().to_bytes_be()
+                                    if range < &end && end <= ranges[index + 1] {
+                                        let bytes =
+                                            self.integer_bytes_when_range(value_to_enc, &value);
+                                        self.encode_non_negative_binary_integer(
+                                            ranges[index + 1],
+                                            &bytes,
+                                        )?;
+                                        return Ok(());
                                     }
-                                    either::Right(value) => value.to_signed_bytes_be(),
-                                };
-                                self.encode_non_negative_binary_integer(ranges[index + 1], &bytes)?;
+                                }
+                                // Upper bound is greater than u64::MAX
+                                // let bytes = self.integer_bytes(value_to_enc, &value);
+                                // self.output.push(bytes.len() as u8);
+                            } else {
+                                // Negative lower bound
                             }
                         }
+                        (Some(start), None) => {
+                            // No upper bound
+                        }
+                        _ => {
+                            // Hmm
+                        }
                     }
-                    // Case b)
-                    else if start < 0.into() {
-                        ();
-                    }
-                }
 
-                // no lower bound
+                    // no lower bound
+                }
             }
+        } else {
+            // No constraints
+            let bytes = BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_signed_bytes_be());
+            _ = self.encode_length(bytes.len() / 8);
+            self.output.extend(bytes);
         }
         Ok(())
     }
@@ -201,31 +276,26 @@ mod tests {
                 end: 255.into(),
             },
         )))];
-        assert_eq!(
-            0,
-            *value_range[0]
-                .as_value()
-                .unwrap()
-                .constraint
-                .0
-                .as_start()
-                .unwrap()
-        );
-        assert_eq!(
-            255,
-            *value_range[0]
-                .as_value()
-                .unwrap()
-                .constraint
-                .0
-                .as_end()
-                .unwrap()
-        );
         let consts = Constraints::new(value_range);
         let mut encoder = Encoder::new(config::EncoderOptions::coer());
-        let result = encoder.encode_integer_with_constraints(&consts, &BigInt::from(244));
-        assert!(!result.is_err());
+        let result = encoder.encode_integer_with_constraints(Some(&consts), &BigInt::from(244));
+        assert!(result.is_ok());
         let v = vec![244u8];
+        let bv = BitVec::<_, Msb0>::from_vec(v);
+        assert_eq!(encoder.output, bv);
+    }
+    #[test]
+    fn test_integer_with_length() {
+        let mut encoder = Encoder::new(config::EncoderOptions::coer());
+        let result = encoder.encode_integer_with_constraints(None, &BigInt::from(244));
+        assert!(result.is_ok());
+        let v = vec![2u8, 0, 244];
+        let bv = BitVec::<_, Msb0>::from_vec(v);
+        assert_eq!(encoder.output, bv);
+        encoder.output.clear();
+        let result = encoder.encode_integer_with_constraints(None, &BigInt::from(-1_234_567));
+        assert!(result.is_ok());
+        let v = vec![0x03u8, 0xED, 0x29, 0x79];
         let bv = BitVec::<_, Msb0>::from_vec(v);
         assert_eq!(encoder.output, bv);
     }
