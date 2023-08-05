@@ -205,18 +205,40 @@ impl Encoder {
                             // Upper bound is greater than u64::MAX, encode with length determinant
                             encode_unconstrained(value_to_enc.clone(), false)?;
                         } else {
-                            // Negative lower bound
+                            // Negative lower bound with defined upper bound
+                            // Case b)
+                            let ranges: [(i128, i128); 4] = [
+                                // encode as a fixed-size signed number in a one, two four or eight-octet word
+                                // depending on the value of the upper and lower bound
+                                (i8::MIN.into(), i8::MAX.into()), // should be 1 octets
+                                (i16::MIN.into(), i16::MAX.into()), // should be 2 octets
+                                (i32::MIN.into(), i32::MAX.into()), // should be 4 octets
+                                (i64::MIN.into(), i64::MAX.into()), // should be 8 octets
+                            ];
+                            for (min, max) in &ranges {
+                                if min <= &start && &end <= max {
+                                    let bytes = self.integer_bytes_when_range(value_to_enc, &value);
+                                    self.encode_integer_with_padding(*max, &bytes)?;
+                                    return Ok(());
+                                }
+                            }
+                            // Out of bounds, use length determinant
+                            encode_unconstrained(value_to_enc.clone(), true)?;
                         }
                     }
                     (Some(start), None) => {
-                        // No upper bound
+                        // No upper bound, but lower bound is present, use length determinant
+                        if start >= 0 {
+                            encode_unconstrained(value_to_enc.clone(), false)?;
+                        } else {
+                            encode_unconstrained(value_to_enc.clone(), true)?;
+                        }
                     }
                     _ => {
-                        // Hmm
+                        // (None, None), (None, End)
+                        encode_unconstrained(value_to_enc.clone(), true)?;
                     }
                 }
-
-                // no lower bound
             }
         } else {
             // No constraints,
