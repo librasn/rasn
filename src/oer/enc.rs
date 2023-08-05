@@ -156,14 +156,29 @@ impl Encoder {
         constraints: &Constraints,
         value_to_enc: &Integer,
     ) -> Result<(), Error> {
+        // Using signed integers as default when no constraints
+        let mut encode_unconstrained = |value_to_enc: Integer, signed: bool| -> Result<(), Error> {
+            let bytes = if signed {
+                BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_signed_bytes_be())
+            } else {
+                BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_biguint().unwrap().to_bytes_be())
+            };
+            let result = self.encode_length(bytes.len());
+            result?;
+            self.output.extend(bytes);
+            Ok(())
+        };
+
         if let Some(value) = constraints.value() {
             // Check if Integer is in constraint range
-            // Constraint with extension leads ignoring the whole constraint in COER TODO decoding only?
+            // Integer type with extension leads ignoring the whole bound in COER
             if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
                 return Err(Error::IntegerOutOfRange {
                     value: value_to_enc.clone(),
                     expected: value.constraint.0,
                 });
+            } else if value.extensible.is_some() {
+                encode_unconstrained(value_to_enc.clone(), true)?;
             }
             if let Bounded::Range { start, end } = value.constraint.0 {
                 match (start, end) {
@@ -183,16 +198,12 @@ impl Encoder {
                             for (index, range) in ranges[0..(ranges.len() - 1)].iter().enumerate() {
                                 if range < &end && end <= ranges[index + 1] {
                                     let bytes = self.integer_bytes_when_range(value_to_enc, &value);
-                                    self.encode_non_negative_binary_integer(
-                                        ranges[index + 1],
-                                        &bytes,
-                                    )?;
+                                    self.encode_integer_with_padding(ranges[index + 1], &bytes)?;
                                     return Ok(());
                                 }
                             }
-                            // Upper bound is greater than u64::MAX
-                            // let bytes = self.integer_bytes(value_to_enc, &value);
-                            // self.output.push(bytes.len() as u8);
+                            // Upper bound is greater than u64::MAX, encode with length determinant
+                            encode_unconstrained(value_to_enc.clone(), false)?;
                         } else {
                             // Negative lower bound
                         }
@@ -208,21 +219,15 @@ impl Encoder {
                 // no lower bound
             }
         } else {
-            // No constraints
-            let bytes = BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_signed_bytes_be());
-            _ = self.encode_length(bytes.len());
-            self.output.extend(bytes);
+            // No constraints,
+            encode_unconstrained(value_to_enc.clone(), true)?;
         }
         Ok(())
     }
 
     /// When range constraints are present, the integer is encoded as a fixed-size unsigned number.
     /// This means that the zero padding is possible even with COER encoding.
-    fn encode_non_negative_binary_integer(
-        &mut self,
-        octets: i128,
-        bytes: &[u8],
-    ) -> Result<(), Error> {
+    fn encode_integer_with_padding(&mut self, octets: i128, bytes: &[u8]) -> Result<(), Error> {
         use core::cmp::Ordering;
         let total_bits = crate::per::log2(octets) as usize;
         let bits = BitVec::<u8, Msb0>::from_slice(bytes);
@@ -233,7 +238,7 @@ impl Encoder {
                 padding
             }
             Ordering::Less => {
-                return Err(Error::MoreOctetsThanExpected {
+                return Err(Error::MoreBytesThanExpected {
                     value: bits.len(),
                     expected: total_bits,
                 })
@@ -247,7 +252,7 @@ impl Encoder {
 
 impl crate::Encoder for Encoder {
     type Ok = ();
-    type Error = error::Error;
+    type Error = Error;
 
     fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
         todo!()
