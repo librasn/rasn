@@ -80,8 +80,9 @@ impl Encoder {
     // }
 
     /// Encode the length of the value to output.
-    /// Length of the data `length` should be provided in bytes (octets), not as bits.
-    /// In COER we try to use the shortest possible encoding, hence convert to the smallest integer type.
+    /// Length of the data `length` should be provided not as bits.
+    /// In COER we try to use the shortest possible encoding, hence convert to the smallest integer type
+    /// to avoid leading zeros.
     fn encode_length(&mut self, length: usize) -> Result<(), Error> {
         // Bits to byte length
         let length = length / 8;
@@ -140,6 +141,23 @@ impl Encoder {
             either::Right(value) => value.to_signed_bytes_be(),
         }
     }
+    /// Encode integer `value_to_enc` with length determinant
+    /// Either as signed or unsigned, set by `signed`
+    fn encode_unconstrained_integer(
+        &mut self,
+        value_to_enc: &Integer,
+        signed: bool,
+    ) -> Result<(), Error> {
+        let bytes = if signed {
+            BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_signed_bytes_be())
+        } else {
+            BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_biguint().unwrap().to_bytes_be())
+        };
+        let result = self.encode_length(bytes.len());
+        result?;
+        self.output.extend(bytes);
+        Ok(())
+    }
 
     /// Encode an integer value with constraints.
     ///
@@ -156,19 +174,6 @@ impl Encoder {
         constraints: &Constraints,
         value_to_enc: &Integer,
     ) -> Result<(), Error> {
-        // Using signed integers as default when no constraints
-        let mut encode_unconstrained = |value_to_enc: Integer, signed: bool| -> Result<(), Error> {
-            let bytes = if signed {
-                BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_signed_bytes_be())
-            } else {
-                BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_biguint().unwrap().to_bytes_be())
-            };
-            let result = self.encode_length(bytes.len());
-            result?;
-            self.output.extend(bytes);
-            Ok(())
-        };
-
         if let Some(value) = constraints.value() {
             // Check if Integer is in constraint range
             // Integer type with extension leads ignoring the whole bound in COER
@@ -178,7 +183,7 @@ impl Encoder {
                     expected: value.constraint.0,
                 });
             } else if value.extensible.is_some() {
-                encode_unconstrained(value_to_enc.clone(), true)?;
+                self.encode_unconstrained_integer(value_to_enc, true)?;
             }
             if let Bounded::Range { start, end } = value.constraint.0 {
                 match (start, end) {
@@ -203,7 +208,7 @@ impl Encoder {
                                 }
                             }
                             // Upper bound is greater than u64::MAX, encode with length determinant
-                            encode_unconstrained(value_to_enc.clone(), false)?;
+                            self.encode_unconstrained_integer(value_to_enc, false)?;
                         } else {
                             // Negative lower bound with defined upper bound
                             // Case b)
@@ -223,26 +228,26 @@ impl Encoder {
                                 }
                             }
                             // Out of bounds, use length determinant
-                            encode_unconstrained(value_to_enc.clone(), true)?;
+                            self.encode_unconstrained_integer(value_to_enc, true)?;
                         }
                     }
                     (Some(start), None) => {
                         // No upper bound, but lower bound is present, use length determinant
                         if start >= 0 {
-                            encode_unconstrained(value_to_enc.clone(), false)?;
+                            self.encode_unconstrained_integer(value_to_enc, false)?;
                         } else {
-                            encode_unconstrained(value_to_enc.clone(), true)?;
+                            self.encode_unconstrained_integer(value_to_enc, true)?;
                         }
                     }
                     _ => {
                         // (None, None), (None, End)
-                        encode_unconstrained(value_to_enc.clone(), true)?;
+                        self.encode_unconstrained_integer(value_to_enc, true)?;
                     }
                 }
             }
         } else {
             // No constraints,
-            encode_unconstrained(value_to_enc.clone(), true)?;
+            self.encode_unconstrained_integer(value_to_enc, true)?;
         }
         Ok(())
     }
