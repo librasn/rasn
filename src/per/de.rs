@@ -226,7 +226,7 @@ impl<'input> Decoder<'input> {
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
         let Some(constraints) = constraints else {
-            return self.decode_unknown_length(input, decode_fn)
+            return self.decode_unknown_length(input, decode_fn);
         };
 
         let size_constraint = constraints.constraint;
@@ -270,7 +270,7 @@ impl<'input> Decoder<'input> {
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
         let Some(constraints) = constraints else {
-            return self.decode_unknown_length(input, decode_fn)
+            return self.decode_unknown_length(input, decode_fn);
         };
 
         let size_constraint = constraints.constraint;
@@ -343,7 +343,7 @@ impl<'input> Decoder<'input> {
 
         let Some(value_constraint) = value_constraint.filter(|_| !extensible) else {
             let bytes = to_vec(&self.decode_octets()?);
-            return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes))
+            return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes));
         };
 
         const K64: i128 = SIXTY_FOUR_K as i128;
@@ -566,14 +566,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 .try_into()
                 .map_err(Error::custom)?;
             E::from_extended_enumeration_index(index)
-                .ok_or_else(|| Error::custom(format!("Extended index {} not found", index)))
+                .ok_or_else(|| Error::custom(alloc::format!("Extended index {} not found", index)))
         } else {
             let index = self
                 .parse_non_negative_binary_integer(E::variance() as i128)?
                 .try_into()
                 .map_err(Error::custom)?;
             E::from_enumeration_index(index)
-                .ok_or_else(|| Error::custom(format!("Index {} not found", index)))
+                .ok_or_else(|| Error::custom(alloc::format!("Index {} not found", index)))
         }
     }
 
@@ -663,7 +663,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         constraints: Constraints,
     ) -> Result<types::Utf8String> {
         self.decode_octet_string(tag, constraints)
-            .and_then(|bytes| String::from_utf8(bytes).map_err(Error::custom))
+            .and_then(|bytes| alloc::string::String::from_utf8(bytes).map_err(Error::custom))
     }
 
     fn decode_general_string(

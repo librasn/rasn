@@ -271,7 +271,7 @@ impl crate::Encoder for Encoder {
             let bit_length = value.len();
             let bytes = value.as_raw_slice();
             let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
-                crate::enc::Error::custom(format!(
+                crate::enc::Error::custom(alloc::format!(
                     "failed to convert BIT STRING unused bytes to u8: {err}"
                 ))
             })?;

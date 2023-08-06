@@ -1,5 +1,7 @@
 use super::*;
 
+use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+
 /// An string which contains the characters defined in the ISO 646
 /// character set.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]

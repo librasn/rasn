@@ -1,5 +1,7 @@
 use super::*;
 
+use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+
 /// An string which only contains ASCII characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ia5String(Vec<u8>);

@@ -1,5 +1,7 @@
 use super::*;
 
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
+
 /// A "general" string containing the `C0` Controls plane, `SPACE`,
 /// Basic Latin, `DELETE`, and Latin-1 Supplement characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]

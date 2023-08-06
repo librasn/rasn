@@ -1,5 +1,7 @@
 use snafu::*;
 
+use alloc::string::ToString;
+
 use crate::types::variants::Variants;
 
 #[derive(Snafu)]

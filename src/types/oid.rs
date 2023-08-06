@@ -646,7 +646,13 @@ mod test {
             Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512,
             oid
         );
-        assert_eq!(ObjectIdentifier::new(vec![1, 2]).unwrap(), Oid::ISO_MEMBER_BODY);
-        assert_eq!(Oid::ISO_MEMBER_BODY, ObjectIdentifier::new(vec![1, 2]).unwrap());
+        assert_eq!(
+            ObjectIdentifier::new(vec![1, 2]).unwrap(),
+            Oid::ISO_MEMBER_BODY
+        );
+        assert_eq!(
+            Oid::ISO_MEMBER_BODY,
+            ObjectIdentifier::new(vec![1, 2]).unwrap()
+        );
     }
 }

@@ -1,5 +1,7 @@
 use super::*;
 
+use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+
 /// A string which can only contain numbers or `SPACE` characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NumericString(Vec<u8>);

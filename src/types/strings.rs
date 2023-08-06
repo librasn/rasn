@@ -11,9 +11,15 @@ mod visible;
 use crate::prelude::*;
 
 pub use {
-    alloc::string::String as Utf8String, bmp::BmpString, general::GeneralString, ia5::Ia5String,
-    numeric::NumericString, printable::PrintableString, teletex::TeletexString,
-    visible::VisibleString, octet::{OctetString, FixedOctetString},
+    alloc::string::String as Utf8String,
+    bmp::BmpString,
+    general::GeneralString,
+    ia5::Ia5String,
+    numeric::NumericString,
+    octet::{FixedOctetString, OctetString},
+    printable::PrintableString,
+    teletex::TeletexString,
+    visible::VisibleString,
 };
 
 pub(crate) use constrained::{

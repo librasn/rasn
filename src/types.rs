@@ -27,8 +27,8 @@ pub use {
         open::Open,
         prefix::{Explicit, Implicit},
         strings::{
-            BmpString, GeneralString, Ia5String, NumericString, PrintableString, TeletexString,
-            Utf8String, VisibleString, OctetString, FixedOctetString,
+            BmpString, FixedOctetString, GeneralString, Ia5String, NumericString, OctetString,
+            PrintableString, TeletexString, Utf8String, VisibleString,
         },
         tag::{Class, Tag, TagTree},
     },

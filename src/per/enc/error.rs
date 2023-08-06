@@ -1,6 +1,8 @@
 use crate::types::constraints::{Bounded, Size};
 use snafu::*;
 
+use alloc::string::ToString;
+
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub(crate)))]
 pub enum Error {

@@ -1,4 +1,4 @@
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec, vec::Vec};
 
 use crate::types::{Tag, TagTree};
 

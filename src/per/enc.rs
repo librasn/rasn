@@ -1,6 +1,6 @@
 mod error;
 
-use alloc::vec::Vec;
+use alloc::{borrow::ToOwned, vec::Vec};
 
 use bitvec::prelude::*;
 use snafu::*;
@@ -77,11 +77,11 @@ impl Encoder {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
-        encoder.field_bitfield = dbg!(C::FIELDS
+        encoder.field_bitfield = C::FIELDS
             .canonised()
             .iter()
             .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
-            .collect());
+            .collect();
         encoder.parent_output_length = Some(self.output_length());
         encoder
     }
@@ -780,13 +780,13 @@ impl crate::Encoder for Encoder {
 
         if value.is_extended_variant() {
             self.encode_normally_small_integer(index, &mut buffer)?;
-        } else if std::mem::size_of::<usize>() == 4 {
+        } else if core::mem::size_of::<usize>() == 4 {
             self.encode_non_negative_binary_integer(
                 &mut buffer,
                 E::variance() as i128,
                 &u32::try_from(index).unwrap().to_be_bytes(),
             );
-        } else if std::mem::size_of::<usize>() == 2 {
+        } else if core::mem::size_of::<usize>() == 2 {
             self.encode_non_negative_binary_integer(
                 &mut buffer,
                 E::variance() as i128,

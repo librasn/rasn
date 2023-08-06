@@ -2,6 +2,7 @@ pub mod de;
 pub mod enc;
 
 use crate::types::Constraints;
+use alloc::vec::Vec;
 
 pub use self::{de::Decoder, enc::Encoder};
 

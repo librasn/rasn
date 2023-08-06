@@ -1,5 +1,6 @@
 use alloc::collections::BTreeMap;
 
+use alloc::{boxed::Box, string::String, vec::Vec};
 use bitvec::prelude::*;
 use once_cell::race::OnceBox;
 
@@ -204,7 +205,7 @@ impl DynConstrainedCharacterString {
 
         for ch in data {
             let Some(index) = alphabet.get(&ch).copied() else {
-                return Err(ConstrainedConversionError)
+                return Err(ConstrainedConversionError);
             };
             let range = ((u32::BITS - char_width) as usize)..(u32::BITS as usize);
             let bit_ch = &index.view_bits::<Msb0>()[range];

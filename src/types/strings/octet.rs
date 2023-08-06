@@ -1,5 +1,7 @@
 use crate::prelude::*;
 
+use alloc::vec::Vec;
+
 pub use bytes::Bytes as OctetString;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -41,7 +43,7 @@ impl<const N: usize> TryFrom<OctetString> for FixedOctetString<N> {
     }
 }
 
-impl<const N: usize> std::ops::Deref for FixedOctetString<N> {
+impl<const N: usize> core::ops::Deref for FixedOctetString<N> {
     type Target = [u8; N];
 
     fn deref(&self) -> &Self::Target {
@@ -49,7 +51,7 @@ impl<const N: usize> std::ops::Deref for FixedOctetString<N> {
     }
 }
 
-impl<const N: usize> std::ops::DerefMut for FixedOctetString<N> {
+impl<const N: usize> core::ops::DerefMut for FixedOctetString<N> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
@@ -57,9 +59,9 @@ impl<const N: usize> std::ops::DerefMut for FixedOctetString<N> {
 
 impl<const N: usize> AsnType for FixedOctetString<N> {
     const TAG: Tag = Tag::OCTET_STRING;
-    const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-        Constraint::Size(Extensible::new(constraints::Size::fixed(N))),
-    ]);
+    const CONSTRAINTS: Constraints<'static> = Constraints::new(&[Constraint::Size(
+        Extensible::new(constraints::Size::fixed(N)),
+    )]);
 }
 
 impl<const N: usize> Decode for FixedOctetString<N> {
@@ -68,7 +70,16 @@ impl<const N: usize> Decode for FixedOctetString<N> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder.decode_octet_string(tag, constraints)?.try_into().map(Self).map_err(|vec| crate::de::Error::custom(format!("length mismatch, expected `{N}`, actual `{}`", vec.len())))
+        decoder
+            .decode_octet_string(tag, constraints)?
+            .try_into()
+            .map(Self)
+            .map_err(|vec| {
+                crate::de::Error::custom(alloc::format!(
+                    "length mismatch, expected `{N}`, actual `{}`",
+                    vec.len()
+                ))
+            })
     }
 }
 
@@ -79,7 +90,8 @@ impl<const N: usize> Encode for FixedOctetString<N> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<(), E::Error> {
-        encoder.encode_octet_string(tag, constraints, &self.0).map(drop)
+        encoder
+            .encode_octet_string(tag, constraints, &self.0)
+            .map(drop)
     }
 }
-

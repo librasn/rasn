@@ -1,5 +1,7 @@
 use super::*;
 
+use alloc::{boxed::Box, string::String, vec::Vec};
+
 /// A Basic Multilingual Plane (BMP) string, which is a subtype of [`UniversalString`]
 /// containing only the BMP set of characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
