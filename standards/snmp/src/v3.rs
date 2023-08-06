@@ -83,13 +83,22 @@ impl From<NestedMessage> for Message {
 struct Nested<T>(T);
 
 impl<T: Decode> Decode for Nested<T> {
-    fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, _: Constraints) -> Result<Self, D::Error> {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<Self, D::Error> {
         decoder.decode_explicit_prefix(tag).map(Self)
     }
 }
 
 impl<T: Encode> Encode for Nested<T> {
-    fn encode_with_tag_and_constraints<E: Encoder>(&self, encoder: &mut E, tag: Tag, _: Constraints) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<E: Encoder>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<(), E::Error> {
         encoder.encode_explicit_prefix(tag, &self.0).map(drop)
     }
 }

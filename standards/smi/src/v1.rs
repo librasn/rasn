@@ -3,7 +3,7 @@
 use core::convert::TryInto;
 
 use rasn::{
-    types::{Constraints, Integer, ObjectIdentifier, OctetString, FixedOctetString, Oid},
+    types::{Constraints, FixedOctetString, Integer, ObjectIdentifier, OctetString, Oid},
     AsnType, Decode, Encode, Tag,
 };
 
@@ -12,7 +12,8 @@ pub const DIRECTORY: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNE
 pub const MGMT: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_MGMT;
 pub const EXPERIMENTAL: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_EXPERIMENTAL;
 pub const PRIVATE: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_PRIVATE;
-pub const ENTERPRISES: &'static Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_PRIVATE_ENTERPRISES;
+pub const ENTERPRISES: &'static Oid =
+    Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_PRIVATE_ENTERPRISES;
 
 pub type ObjectName = ObjectIdentifier;
 

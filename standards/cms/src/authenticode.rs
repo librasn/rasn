@@ -9,9 +9,7 @@
 //! **NOTE**: the document differs from the actual implementation. This crate contains the structures used in actual signing.
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Neg};
 
-use rasn::types::{
-    Any, BitString, BmpString, Ia5String, ObjectIdentifier, OctetString, Oid,
-};
+use rasn::types::{Any, BitString, BmpString, Ia5String, ObjectIdentifier, OctetString, Oid};
 use rasn::{AsnType, Decode, Encode};
 use rasn_pkix::AlgorithmIdentifier;
 

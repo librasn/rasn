@@ -39,13 +39,15 @@ pub const CONTENT_DATA: &'static Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_DATA
 pub const CONTENT_SIGNED_DATA: &'static Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_SIGNED_DATA;
 
 /// OID of EnvelopedData content type
-pub const CONTENT_ENVELOPED_DATA: &'static Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_ENVELOPED_DATA;
+pub const CONTENT_ENVELOPED_DATA: &'static Oid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_ENVELOPED_DATA;
 
 /// OID of DigestedData content type
 pub const CONTENT_DIGESTED_DATA: &'static Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_DIGESTED_DATA;
 
 /// OID of EncryptedData content type
-pub const CONTENT_ENCRYPTED_DATA: &'static Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_ENCRYPTED_DATA;
+pub const CONTENT_ENCRYPTED_DATA: &'static Oid =
+    Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS7_ENCRYPTED_DATA;
 
 /// OID of AuthenticatedData content type
 pub const CONTENT_AUTHENTICATED_DATA: &'static Oid =

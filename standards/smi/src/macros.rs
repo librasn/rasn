@@ -23,7 +23,8 @@ macro_rules! common_impls {
             type Syntax = $network_type;
             const ACCESS: $crate::Access = $crate::Access::$access_variant;
             const STATUS: $crate::Status = $crate::Status::$status_variant;
-            const VALUE: &'static $crate::rasn::types::Oid = $crate::rasn::types::Oid::const_new(&$const_oid);
+            const VALUE: &'static $crate::rasn::types::Oid =
+                $crate::rasn::types::Oid::const_new(&$const_oid);
         }
     };
 }

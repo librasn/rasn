@@ -1,4 +1,4 @@
-use rasn::{ber, Decoder, Tag, types::Class, Encoder};
+use rasn::{ber, types::Class, Decoder, Encoder, Tag};
 use rasn_kerberos::KerberosFlags;
 
 #[test]
@@ -19,6 +19,8 @@ fn kerberos_flags_enc() {
     encoder
         .encode_bit_string(Tag::new(Class::Universal, 3), <_>::default(), &bitstring)
         .unwrap();
-    assert_eq!(encoder.output(), vec![0x03, 0x05, 0x00, 0x40, 0x81, 0x00, 0x00])
+    assert_eq!(
+        encoder.output(),
+        vec![0x03, 0x05, 0x00, 0x40, 0x81, 0x00, 0x00]
+    )
 }
-
