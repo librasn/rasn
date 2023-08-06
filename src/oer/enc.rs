@@ -67,17 +67,14 @@ impl Encoder {
     /// ITU-T X.696 9.
     /// False is encoded as a single zero octet. In COER, true is always encoded as 0xFF.
     /// In Basic-OER, any non-zero octet value represents true, but we support only canonical encoding.
-    // fn encode_bool(&mut self, value: bool) {
-    // self.output.push(if value { 0xffu8 } else { 0x00u8 });
-    // append_byte_or_bytes(
-    //     &mut self.output,
-    //     if value {
-    //         ByteOrBytes::Single(0xff)
-    //     } else {
-    //         ByteOrBytes::Single(0x00)
-    //     },
-    // );
-    // }
+    fn encode_bool(&mut self, value: bool) {
+        self.output
+            .extend(BitVec::<u8, Msb0>::from_slice(&[if value {
+                0xffu8
+            } else {
+                0x00u8
+            }]));
+    }
 
     /// Encode the length of the value to output.
     /// Length of the data `length` should be provided not as bits.
@@ -281,17 +278,18 @@ impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = Error;
 
-    fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
+    fn encode_any(&mut self, _tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
-    fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
-        todo!()
+    fn encode_bool(&mut self, _tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
+        self.encode_bool(value);
+        Ok(())
     }
 
     fn encode_bit_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &BitString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -308,7 +306,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_object_identifier(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         value: &[u32],
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
@@ -323,13 +321,13 @@ impl crate::Encoder for Encoder {
         self.encode_integer_with_constraints(&constraints, value)
     }
 
-    fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
+    fn encode_null(&mut self, _tag: Tag) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
     fn encode_octet_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
@@ -338,7 +336,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_general_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -347,7 +345,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_utf8_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &str,
     ) -> Result<Self::Ok, Self::Error> {
@@ -356,7 +354,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_visible_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -365,7 +363,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_ia5_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
@@ -374,7 +372,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_printable_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -383,7 +381,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_numeric_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &NumericString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -392,7 +390,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_teletex_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &TeletexString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -401,7 +399,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_bmp_string(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         constraints: Constraints,
         value: &BmpString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -410,19 +408,19 @@ impl crate::Encoder for Encoder {
 
     fn encode_generalized_time(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         value: &GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
-    fn encode_utc_time(&mut self, tag: Tag, value: &UtcTime) -> Result<Self::Ok, Self::Error> {
+    fn encode_utc_time(&mut self, _tag: Tag, value: &UtcTime) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
     fn encode_explicit_prefix<V: Encode>(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
@@ -445,7 +443,7 @@ impl crate::Encoder for Encoder {
         todo!()
     }
 
-    fn encode_set<C, F>(&mut self, tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+    fn encode_set<C, F>(&mut self, _tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
     where
         C: Constructed,
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
@@ -515,6 +513,7 @@ impl crate::Encoder for Encoder {
 mod tests {
     use super::*;
     use num_bigint::BigInt;
+    use std::io::Read;
     // const ALPHABETS: &[u32] = &{
     //     let mut array = [0; 26];
     //     let mut i = 0;
@@ -534,11 +533,14 @@ mod tests {
     // };
     #[test]
     fn test_encode_bool() {
-        // let mut encoder = Encoder::new(super::config::EncoderOptions::coer());
-        // encoder.encode_bool(true);
-        // assert_eq!(encoder.output, vec![0xffu8]);
-        // encoder.encode_bool(false);
-        // assert_eq!(encoder.output, vec![0xffu8, 0x00u8]);
+        let mut encoder = Encoder::new(super::config::EncoderOptions::coer());
+        encoder.encode_bool(true);
+        let mut bv = BitVec::<u8, Msb0>::from_slice(&[0xffu8]);
+        assert_eq!(encoder.output, bv);
+        encoder.encode_bool(false);
+        bv.append(&mut BitVec::<u8, Msb0>::from_slice(&[0x00u8]));
+        assert_eq!(encoder.output, bv);
+        assert_eq!(encoder.output.as_raw_slice(), &[0xFFu8, 0]);
     }
     #[test]
     fn test_encode_integer_manual_setup() {
