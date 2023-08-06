@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.2...rasn-v0.9.3) - 2023-08-06
+
+### Other
+- fmt
+- Fix #[no_std] missing from lib
+
 ## [0.9.2](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.1...rasn-v0.9.2) - 2023-08-04
 
 ### Other
