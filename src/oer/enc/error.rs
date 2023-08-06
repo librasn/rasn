@@ -11,6 +11,10 @@ pub enum Error {
         value: Integer,
         expected: Bounded<i128>,
     },
+    #[snafu(display(
+        "Provided length in not correct format. Should be bits as multiple of 8. {remainder}; actual: {value}"
+    ))]
+    LengthNotAsBitLength { value: usize, remainder: usize },
     #[snafu(display("Provided data is too long to be encoded with COER."))]
     TooLongValue { length: u128 },
     #[snafu(display("Integer does not fit to the reserved octets {expected}; actual: {value}"))]
