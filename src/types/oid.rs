@@ -4,7 +4,7 @@ pub(crate) const MAX_OID_FIRST_OCTET: u32 = 2;
 pub(crate) const MAX_OID_SECOND_OCTET: u32 = 39;
 
 const fn is_valid_oid(slice: &[u32]) -> bool {
-    slice.len() >= 2 && slice[0] <= MAX_OID_FIRST_OCTET
+    !slice.is_empty() && slice[0] <= MAX_OID_FIRST_OCTET
 }
 
 /// A reference to a global unique identifier that identifies an concept, such
@@ -16,8 +16,8 @@ pub struct Oid([u32]);
 impl Oid {
     /// Creates a new reference to a object identifier from `slice`.
     ///
-    /// Returns `None` if `vec` contains less than two components or the first
-    /// component is greater than 1.
+    /// Returns `None` if `vec` is empty or the first
+    /// component is greater than 2.
     /// ```
     /// use rasn::types::Oid;
     ///
@@ -33,8 +33,8 @@ impl Oid {
 
     /// Creates a new reference to a object identifier from `slice`.
     ///
-    /// Panics if `vec` contains less than two components or the first
-    /// component is greater than 1.
+    /// Panics if `vec` is empty or the first
+    /// component is greater than 2.
     pub const fn const_new(oid: &'static [u32]) -> &'static Self {
         match Self::new(oid) {
             Some(oid) => oid,
@@ -44,8 +44,8 @@ impl Oid {
 
     /// Creates a new mutable reference to a object identifier from `slice`.
     ///
-    /// Returns `None` if `vec` contains less than two components or the first
-    /// component is greater than 1.
+    /// Returns `None` if `vec` is empty or the first
+    /// component is greater than 2.
     /// ```
     /// use rasn::types::Oid;
     ///
