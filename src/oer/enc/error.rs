@@ -1,5 +1,6 @@
 use crate::types::constraints::{Bounded, Size, Value};
 use crate::types::Integer;
+use alloc::string::{String, ToString};
 use snafu::*;
 // use x509_parser::der_parser::asn1_rs::Integer;
 

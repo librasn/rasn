@@ -1,11 +1,10 @@
-// use crate::oer::enc::error::Error;
-// use crate::oer::enc::Error;
 use crate::prelude::{
     Any, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime, Ia5String,
     NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
 };
 use crate::types::{constraints::*, BitString, Constraints, Integer};
 use crate::{Encode, Tag};
+use alloc::{string::ToString, vec::Vec};
 use bitvec::prelude::*;
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
@@ -20,25 +19,14 @@ pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 pub const ITU_T_X696_OER_EDITION: f32 = 3.0;
 
-// ## HELPER FUNCTIONS start which should be refactored elsewhere
-
-/// A convenience type around results needing to return one or many bytes.
-// enum ByteOrBytes {
-//     Single(u8),
-//     Many(Vec<u8>),
-// }
-//
-// fn append_byte_or_bytes(output_vec: &mut Vec<u8>, bytes: ByteOrBytes) {
-//     match bytes {
-//         ByteOrBytes::Single(b) => output_vec.push(b),
-//         ByteOrBytes::Many(mut bs) => output_vec.append(&mut bs),
-//     }
-// }
-// HELPER FUNCTIONS end
-
+impl Default for Encoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 /// COER encoder. A subset of OER to provide canonical and unique encoding.  
 pub struct Encoder {
-    options: config::EncoderOptions,
+    // options: EncoderOptions,
     output: BitString,
 }
 // ITU-T X.696 8.2.1 Only the following constraints are OER-visible:
@@ -58,12 +46,14 @@ pub struct Encoder {
 // Tags are encoded only as part of the encoding of a choice type, where the tag indicates
 // which alternative of the choice type is the chosen alternative (see 20.1).
 impl Encoder {
-    pub fn new(options: config::EncoderOptions) -> Self {
+    // pub fn new(options: EncoderOptions) -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
-            options,
             output: <BitString>::default(),
         }
     }
+
     pub fn output(self) -> Vec<u8> {
         todo!("Convert BitString to Vec<u8>");
     }
@@ -138,7 +128,7 @@ impl Encoder {
         &self,
         value: &Integer,
         value_range: &Extensible<Value>,
-    ) -> alloc::vec::Vec<u8> {
+    ) -> Vec<u8> {
         match value_range.constraint.effective_bigint_value(value.clone()) {
             either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
             either::Right(value) => value.to_signed_bytes_be(),
@@ -365,30 +355,26 @@ impl crate::Encoder for Encoder {
         todo!()
     }
 
-    fn encode_object_identifier(
-        &mut self,
-        _tag: Tag,
-        value: &[u32],
-    ) -> Result<Self::Ok, Self::Error> {
+    fn encode_object_identifier(&mut self, _: Tag, value: &[u32]) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
     fn encode_integer(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &Integer,
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_integer_with_constraints(&constraints, value)
     }
 
-    fn encode_null(&mut self, _tag: Tag) -> Result<Self::Ok, Self::Error> {
+    fn encode_null(&mut self, _: Tag) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
 
     fn encode_octet_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
@@ -397,7 +383,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_general_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -406,7 +392,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_utf8_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &str,
     ) -> Result<Self::Ok, Self::Error> {
@@ -415,7 +401,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_visible_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -424,7 +410,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_ia5_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
@@ -433,7 +419,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_printable_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -442,7 +428,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_numeric_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &NumericString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -451,7 +437,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_teletex_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &TeletexString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -460,7 +446,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_bmp_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &BmpString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -469,7 +455,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_generalized_time(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         value: &GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
@@ -481,7 +467,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_explicit_prefix<V: Encode>(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
@@ -594,7 +580,7 @@ mod tests {
     // };
     #[test]
     fn test_encode_bool() {
-        let mut encoder = Encoder::new(super::config::EncoderOptions::coer());
+        let mut encoder = Encoder::new();
         encoder.encode_bool(true);
         let mut bv = BitVec::<u8, Msb0>::from_slice(&[0xffu8]);
         assert_eq!(encoder.output, bv);
@@ -612,7 +598,7 @@ mod tests {
             },
         )))];
         let consts = Constraints::new(value_range);
-        let mut encoder = Encoder::new(config::EncoderOptions::coer());
+        let mut encoder = Encoder::default();
         let result = encoder.encode_integer_with_constraints(&consts, &BigInt::from(244));
         assert!(result.is_ok());
         let v = vec![244u8];
@@ -623,7 +609,7 @@ mod tests {
     fn test_integer_with_length() {
         // Using defaults, no limits
         let constraints = Constraints::default();
-        let mut encoder = Encoder::new(config::EncoderOptions::coer());
+        let mut encoder = Encoder::default();
         let result = encoder.encode_integer_with_constraints(&constraints, &BigInt::from(244));
         dbg!(&result.err());
         // assert!(result.is_ok());
