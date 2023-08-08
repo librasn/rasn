@@ -19,9 +19,9 @@ required_arg "$TARGET_TRIPLE" '<Target Triple>'
 if [ -z "$RELEASE_BUILD" ]; then
     "$CROSS" build --target "$TARGET_TRIPLE" --workspace
     "$CROSS" build --target "$TARGET_TRIPLE" --all-features --workspace
-    "$CROSS" doc --target "$TARGET_TRIPLE" --release --workspace
+    "$CROSS" doc --no-deps --target "$TARGET_TRIPLE" --release --workspace --target-dir /tmp/rasn-docs
 else
     "$CROSS" build --target "$TARGET_TRIPLE" --all-features --release --workspace
-    "$CROSS" doc --target "$TARGET_TRIPLE" --release --workspace
+    "$CROSS" doc --no-deps --target "$TARGET_TRIPLE" --release --workspace --target-dir /tmp/rasn-docs
 fi
 
