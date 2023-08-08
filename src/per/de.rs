@@ -256,7 +256,11 @@ impl<'input> Decoder<'input> {
                 if is_large_string {
                     input = self.parse_padding(input)?;
                 }
-                (decode_fn)(input, length.load_be::<usize>() + size_constraint.minimum())
+                length
+                    .load_be::<usize>()
+                    .checked_add(size_constraint.minimum())
+                    .ok_or(Error::exceeds_max_length(usize::MAX.into()))
+                    .and_then(|sum| (decode_fn)(input, sum))
             }
         } else {
             self.decode_unknown_length(input, decode_fn)
@@ -298,7 +302,11 @@ impl<'input> Decoder<'input> {
 
                 let (mut input, length) = nom::bytes::streaming::take(super::log2(range))(input)?;
                 input = self.parse_padding(input)?;
-                (decode_fn)(input, length.load_be::<usize>() + size_constraint.minimum())
+                length
+                    .load_be::<usize>()
+                    .checked_add(size_constraint.minimum())
+                    .ok_or(Error::exceeds_max_length(usize::MAX.into()))
+                    .and_then(|sum| (decode_fn)(input, sum))
             }
         } else {
             self.decode_unknown_length(input, decode_fn)
@@ -367,9 +375,12 @@ impl<'input> Decoder<'input> {
                         .try_into()
                         .map_err(Error::custom)?;
                     self.input = self.parse_padding(self.input)?;
-                    self.parse_non_negative_binary_integer(super::range_from_bits(
-                        (length + 1) * 8,
-                    ))?
+                    let range = length
+                        .checked_add(1)
+                        .ok_or(Error::exceeds_max_length(u32::MAX.into()))?
+                        .checked_mul(8)
+                        .ok_or(Error::exceeds_max_length(u32::MAX.into()))?;
+                    self.parse_non_negative_binary_integer(super::range_from_bits(range))?
                 }
                 (false, OVER_K64..) => {
                     let bytes = to_vec(&self.decode_octets()?);
@@ -447,15 +458,33 @@ impl<'input> Decoder<'input> {
                 Bounded::Range {
                     start: Some(_),
                     end: Some(_),
-                } if size.constraint.range().unwrap() * char_width > 16 => true,
-                Bounded::Single(max) if max * char_width > 16 => {
+                } if size
+                    .constraint
+                    .range()
+                    .unwrap()
+                    .checked_mul(char_width)
+                    .ok_or(Error::exceeds_max_length(usize::MAX.into()))?
+                    > 16 =>
+                {
+                    true
+                }
+                Bounded::Single(max)
+                    if max
+                        .checked_mul(char_width)
+                        .ok_or(Error::exceeds_max_length(usize::MAX.into()))?
+                        > 16 =>
+                {
                     self.input = self.parse_padding(self.input)?;
                     true
                 }
                 Bounded::Range {
                     start: None,
                     end: Some(max),
-                } if max * char_width > 16 => {
+                } if max
+                    .checked_mul(char_width)
+                    .ok_or(Error::exceeds_max_length(usize::MAX.into()))?
+                    > 16 =>
+                {
                     self.input = self.parse_padding(self.input)?;
                     true
                 }
