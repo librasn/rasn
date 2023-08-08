@@ -54,8 +54,10 @@ impl Encoder {
         }
     }
 
-    pub fn output(self) -> Vec<u8> {
-        todo!("Convert BitString to Vec<u8>");
+    #[must_use]
+    pub fn output(&self) -> Vec<u8> {
+        // TODO, move from per to utility module?
+        crate::per::to_vec(&self.output)
     }
     /// ITU-T X.696 9.
     /// False is encoded as a single zero octet. In COER, true is always encoded as 0xFF.
@@ -560,7 +562,7 @@ impl crate::Encoder for Encoder {
 mod tests {
     use super::*;
     use num_bigint::BigInt;
-    use std::io::Read;
+
     // const ALPHABETS: &[u32] = &{
     //     let mut array = [0; 26];
     //     let mut i = 0;
@@ -587,16 +589,20 @@ mod tests {
         encoder.encode_bool(false);
         bv.append(&mut BitVec::<u8, Msb0>::from_slice(&[0x00u8]));
         assert_eq!(encoder.output, bv);
-        assert_eq!(encoder.output.as_raw_slice(), &[0xFFu8, 0]);
+        assert_eq!(encoder.output.as_raw_slice(), &[0xffu8, 0]);
+        // Use higher abstraction
+        let decoded = crate::oer::encode(&true).unwrap();
+        assert_eq!(decoded, &[0xffu8]);
+        let decoded = crate::oer::encode(&false).unwrap();
+        assert_eq!(decoded, &[0x0]);
     }
     #[test]
     fn test_encode_integer_manual_setup() {
-        let value_range = &[Constraint::Value(Extensible::new(Value::new(
-            Bounded::Range {
-                start: 0.into(),
-                end: 255.into(),
-            },
-        )))];
+        let range_bound = Bounded::<i128>::Range {
+            start: 0.into(),
+            end: 255.into(),
+        };
+        let value_range = &[Constraint::Value(Extensible::new(Value::new(range_bound)))];
         let consts = Constraints::new(value_range);
         let mut encoder = Encoder::default();
         let result = encoder.encode_integer_with_constraints(&consts, &BigInt::from(244));
@@ -604,15 +610,26 @@ mod tests {
         let v = vec![244u8];
         let bv = BitVec::<_, Msb0>::from_vec(v);
         assert_eq!(encoder.output, bv);
+        encoder.output.clear();
+        let value = BigInt::from(256);
+        let result = encoder.encode_integer_with_constraints(&consts, &value);
+        // dbg!(result.as_ref().err());
+        assert!(matches!(
+            result,
+            Err(Error::IntegerOutOfRange {
+                value,
+                expected: bound
+            })
+        ));
     }
     #[test]
-    fn test_integer_with_length() {
+    fn test_integer_with_length_determinant() {
         // Using defaults, no limits
         let constraints = Constraints::default();
         let mut encoder = Encoder::default();
         let result = encoder.encode_integer_with_constraints(&constraints, &BigInt::from(244));
-        dbg!(&result.err());
-        // assert!(result.is_ok());
+        // dbg!(&result.err());
+        assert!(result.is_ok());
         let v = vec![2u8, 0, 244];
         let bv = BitVec::<_, Msb0>::from_vec(v);
         assert_eq!(encoder.output, bv);

@@ -9,6 +9,8 @@ use crate::prelude::{
 };
 use crate::{Decode, Tag};
 use alloc::{string::String, vec::Vec};
+use nom::AsBytes;
+
 mod error;
 pub use crate::per::de::Error;
 pub type Result<T, E = Error> = core::result::Result<T, E>;
@@ -39,6 +41,11 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(boolean[0])
     }
+    fn parse_one_byte(&mut self) -> Result<u8> {
+        let (input, byte) = nom::bytes::streaming::take(8u8)(self.input)?;
+        self.input = input;
+        Ok(byte.as_bytes()[0])
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -55,9 +62,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
     ) -> Result<BitString, Self::Error> {
         todo!()
     }
-
+    /// One octet is used to present bool, false is 0x0 and true is value up to 0xff
     fn decode_bool(&mut self, _: Tag) -> Result<bool, Self::Error> {
-        self.parse_one_bit()
+        Ok(self.parse_one_byte()? > 0)
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error> {
@@ -248,11 +255,13 @@ mod tests {
 
     #[test]
     fn test_decode_bool() {
-        let decoded: bool = crate::oer::decode(&[0xff]).unwrap();
+        let decoded: bool = crate::oer::decode(&[0xffu8]).unwrap();
         assert!(decoded);
-        let decoded: bool = crate::oer::decode(&[0]).unwrap();
+        let decoded: bool = crate::oer::decode(&[0u8]).unwrap();
         assert!(!decoded);
-        let decoded: bool = crate::oer::decode(&[0xff, 0xff]).unwrap();
+        let decoded: bool = crate::oer::decode(&[0xffu8, 0xff]).unwrap();
+        assert!(decoded);
+        let decoded: bool = crate::oer::decode(&[0x33u8, 0x0]).unwrap();
         assert!(decoded);
     }
 }

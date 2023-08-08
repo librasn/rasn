@@ -39,3 +39,13 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
     value.encode_with_constraints(&mut enc, constraints)?;
     Ok(enc.output())
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn bool() {
+        round_trip!(oer, bool, true, &[0xff]);
+        round_trip!(oer, bool, false, &[0]);
+    }
+}

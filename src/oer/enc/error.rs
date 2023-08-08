@@ -1,4 +1,4 @@
-use crate::types::constraints::{Bounded, Size, Value};
+use crate::types::constraints::Bounded;
 use crate::types::Integer;
 use alloc::string::{String, ToString};
 use snafu::*;
