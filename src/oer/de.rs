@@ -1,17 +1,18 @@
+// ITU-T X.696 (02/2021) version of OER decoding
+// In OER, without knowledge of the type of the value encoded, it is not possible to determine
+// the structure of the encoding. In particular, the end of the encoding cannot be determined from
+// the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
 use crate::prelude::{
     Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, GeneralString,
     GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier, PrintableString, SetOf,
     TeletexString, UtcTime, VisibleString,
 };
 use crate::{Decode, Tag};
-use num_bigint::BigInt;
-
-/// ITU-T X.696 (02/2021) version of OER decoding
-// In OER, without knowledge of the type of the value encoded, it is not possible to determine
-// the structure of the encoding. In particular, the end of the encoding cannot be determined from
-// the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
+use alloc::{string::String, vec::Vec};
 mod error;
-pub use error::Error;
+pub use crate::per::de::Error;
+pub type Result<T, E = Error> = core::result::Result<T, E>;
+
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
 #[derive(Clone, Copy, Debug)]
@@ -21,20 +22,27 @@ pub struct DecoderOptions {
 
 pub struct Decoder<'input> {
     input: InputSlice<'input>,
-    options: DecoderOptions,
+    // options: DecoderOptions,
 }
 
 impl<'input> Decoder<'input> {
-    pub fn new(input: &'input crate::types::BitStr, options: DecoderOptions) -> Self {
+    #[must_use]
+    // pub fn new(input: &'input crate::types::BitStr, options: DecoderOptions) -> Self {
+    pub fn new(input: &'input crate::types::BitStr) -> Self {
         Self {
             input: input.into(),
-            options,
+            // options,
         }
+    }
+    fn parse_one_bit(&mut self) -> Result<bool> {
+        let (input, boolean) = nom::bytes::streaming::take(1u8)(self.input)?;
+        self.input = input;
+        Ok(boolean[0])
     }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
-    type Error = error::Error;
+    type Error = Error;
 
     fn decode_any(&mut self) -> Result<Any, Self::Error> {
         todo!()
@@ -42,37 +50,33 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_bit_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<BitString, Self::Error> {
         todo!()
     }
 
-    fn decode_bool(&mut self, tag: Tag) -> Result<bool, Self::Error> {
-        todo!()
+    fn decode_bool(&mut self, _: Tag) -> Result<bool, Self::Error> {
+        self.parse_one_bit()
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error> {
         todo!()
     }
 
-    fn decode_integer(
-        &mut self,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<Integer, Self::Error> {
+    fn decode_integer(&mut self, _: Tag, constraints: Constraints) -> Result<Integer, Self::Error> {
         todo!()
     }
 
-    fn decode_null(&mut self, tag: Tag) -> Result<(), Self::Error> {
+    fn decode_null(&mut self, _: Tag) -> Result<(), Self::Error> {
         todo!()
     }
 
-    fn decode_object_identifier(&mut self, tag: Tag) -> Result<ObjectIdentifier, Self::Error> {
+    fn decode_object_identifier(&mut self, _: Tag) -> Result<ObjectIdentifier, Self::Error> {
         todo!()
     }
 
-    fn decode_sequence<D, F>(&mut self, tag: Tag, decode_fn: F) -> Result<D, Self::Error>
+    fn decode_sequence<D, F>(&mut self, _: Tag, decode_fn: F) -> Result<D, Self::Error>
     where
         D: Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
@@ -98,7 +102,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_octet_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<Vec<u8>, Self::Error> {
         todo!()
@@ -106,7 +110,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_utf8_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<String, Self::Error> {
         todo!()
@@ -114,7 +118,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_visible_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<VisibleString, Self::Error> {
         todo!()
@@ -122,7 +126,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_general_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<GeneralString, Self::Error> {
         todo!()
@@ -130,7 +134,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_ia5_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<Ia5String, Self::Error> {
         todo!()
@@ -138,7 +142,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_printable_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<PrintableString, Self::Error> {
         todo!()
@@ -146,7 +150,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_numeric_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<NumericString, Self::Error> {
         todo!()
@@ -154,7 +158,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_teletex_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<TeletexString, Self::Error> {
         todo!()
@@ -162,7 +166,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_bmp_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<BmpString, Self::Error> {
         todo!()
@@ -236,5 +240,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
         &mut self,
     ) -> Result<Option<D>, Self::Error> {
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_decode_bool() {
+        let decoded: bool = crate::oer::decode(&[0xff]).unwrap();
+        assert!(decoded);
+        let decoded: bool = crate::oer::decode(&[0]).unwrap();
+        assert!(!decoded);
+        let decoded: bool = crate::oer::decode(&[0xff, 0xff]).unwrap();
+        assert!(decoded);
     }
 }
