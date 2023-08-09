@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.4](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.3...rasn-v0.9.4) - 2023-08-08
+
+### Other
+- Fix OID validation, add docs build for CI, prevent spaces and globbin… ([#140](https://github.com/XAMPPRocky/rasn/pull/140))
+- Possibly some safer arithmetics ([#137](https://github.com/XAMPPRocky/rasn/pull/137))
+
 ## [0.9.3](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.2...rasn-v0.9.3) - 2023-08-06
 
 ### Other
