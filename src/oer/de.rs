@@ -10,11 +10,15 @@ use crate::prelude::{
 use crate::{de::Error as _, Decode, Tag};
 use alloc::{string::String, vec::Vec};
 use bitvec::macros::internal::funty::Fundamental;
-use nom::{AsBytes, Parser};
+use bitvec::order::Msb0;
+use bitvec::vec::BitVec;
+use nom::AsBytes;
 use num_bigint::BigUint;
+use num_traits::ToPrimitive;
 
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
 const MAX_LENGTH: [u8; 127] = [0xff; 127];
+const MAX_LENGTH_LENGTH: usize = MAX_LENGTH.len();
 pub use crate::per::de::Error;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
@@ -81,13 +85,34 @@ impl<'input> Decoder<'input> {
             }
         }
     }
-    fn extract_data_by_length(&mut self, length: BigUint) -> Result<InputSlice> {
-        if length > BigUint::from_bytes_be(&MAX_LENGTH) {
+    fn extract_data_by_length(&mut self, length: BigUint) -> Result<BitVec<u8, Msb0>> {
+        // Might be more efficient than full integer conversion
+        if length.to_bytes_be().len() > MAX_LENGTH_LENGTH {
             return Err(Error::exceeds_max_length(length));
         }
-        let length_in_bits: BigUint = length * 8u8;
-        let (input, data) = nom::bytes::streaming::take(100usize)(self.input)?;
-        self.input = input;
+        // Seems like we can take only usize::MAX bytes at once
+        let mut data: BitVec<u8, Msb0> = BitVec::new();
+        let mut remainder: BigUint = length.clone();
+        loop {
+            if &remainder * 8u8 > usize::MAX.into() {
+                let (input, partial_data) = nom::bytes::streaming::take(usize::MAX)(self.input)?;
+                self.input = input;
+                data.extend(partial_data.as_bytes());
+                remainder -= usize::MAX;
+            } else {
+                match remainder.to_usize() {
+                    Some(0) => break,
+                    None => return Err(Error::exceeds_max_length(remainder)),
+                    Some(to_usize) => {
+                        let (input, partial_data) =
+                            nom::bytes::streaming::take(to_usize)(self.input)?;
+                        self.input = input;
+                        data.extend(partial_data.as_bytes());
+                        break;
+                    }
+                }
+            }
+        }
         Ok(data)
     }
 }
@@ -328,6 +353,7 @@ mod tests {
         // Max length
         let max_length: BigUint = BigUint::from(2u8).pow(1016u32) - BigUint::from(1u8);
         assert_eq!(max_length.to_bytes_be(), MAX_LENGTH);
+        assert_eq!(max_length.to_bytes_be().len(), MAX_LENGTH_LENGTH);
         // # SHORT FORM
         let data: BitString = BitString::from_slice(&[0x01u8, 0xff]);
         let mut decoder = crate::oer::Decoder::new(&data);
