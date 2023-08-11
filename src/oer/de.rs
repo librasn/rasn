@@ -10,8 +10,6 @@ use crate::prelude::{
 use crate::{de::Error as _, Decode, Tag};
 use alloc::{string::String, vec::Vec};
 use bitvec::macros::internal::funty::Fundamental;
-use bitvec::order::Msb0;
-use bitvec::vec::BitVec;
 use nom::AsBytes;
 use num_bigint::BigUint;
 use num_traits::ToPrimitive;
@@ -306,6 +304,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::assertions_on_constants)]
+
     use super::*;
     use bitvec::prelude::BitSlice;
 
@@ -372,13 +371,5 @@ mod tests {
         let data: BitString = BitString::from_slice(&combined);
         let mut decoder = crate::oer::Decoder::new(&data);
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(258u16));
-    }
-    #[test]
-    fn test_large_value_extract() {
-        let data_vec: Vec<u8> = vec![0xffu8; usize::MAX];
-        dbg!(data_vec.len());
-        // let data: BitString = BitString::from_slice(&[0x82u8, 0x01, 0x02]);
-        // let mut decoder = crate::oer::Decoder::new(&data);
-        // assert_eq!(decoder.decode_length().unwrap(), BigUint::from(258u16));
     }
 }
