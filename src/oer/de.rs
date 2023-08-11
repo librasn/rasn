@@ -7,12 +7,14 @@ use crate::prelude::{
     GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier, PrintableString, SetOf,
     TeletexString, UtcTime, VisibleString,
 };
-use crate::{Decode, Tag};
+use crate::{de::Error as _, Decode, Tag};
 use alloc::{string::String, vec::Vec};
-use nom::AsBytes;
+use bitvec::macros::internal::funty::Fundamental;
+use nom::{AsBytes, Parser};
 use num_bigint::BigUint;
 
-mod error;
+// Max length for data type can be 2^1016, below presented as byte array of unsigned int
+const MAX_LENGTH: [u8; 127] = [0xff; 127];
 pub use crate::per::de::Error;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
@@ -66,11 +68,27 @@ impl<'input> Decoder<'input> {
             Ok(BigUint::from(possible_length))
         } else {
             // We have the length of the length, mask and extract only 7 bis
-            let length = possible_length & 0x7f;
-            let (input, data) = nom::bytes::streaming::take(length * 8)(self.input)?;
-            self.input = input;
-            Ok(BigUint::from_bytes_be(data.as_bytes()))
+            let length = possible_length & 0x7fu8;
+            // Should not overflow, max size 8 x 127 = 1016 < u16::MAX
+            let result: Result<(InputSlice, InputSlice), Error> =
+                nom::bytes::streaming::take(length.as_u16() * 8)(self.input).map_err(Error::from);
+            match result {
+                Ok((input, data)) => {
+                    self.input = input;
+                    Ok(BigUint::from_bytes_be(data.as_bytes()))
+                }
+                Err(e) => Err(e),
+            }
         }
+    }
+    fn extract_data_by_length(&mut self, length: BigUint) -> Result<InputSlice> {
+        if length > BigUint::from_bytes_be(&MAX_LENGTH) {
+            return Err(Error::exceeds_max_length(length));
+        }
+        let length_in_bits: BigUint = length * 8u8;
+        let (input, data) = nom::bytes::streaming::take(100usize)(self.input)?;
+        self.input = input;
+        Ok(data)
     }
 }
 
@@ -278,6 +296,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     #[test]
     fn test_decode_bool() {
@@ -289,5 +308,52 @@ mod tests {
         assert!(decoded);
         let decoded: bool = crate::oer::decode(&[0x33u8, 0x0]).unwrap();
         assert!(decoded);
+    }
+
+    #[test]
+    fn test_decode_length_invalid() {
+        let data: BitString = BitString::from_slice(&[0xffu8]);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        // Length determinant is > 127 without subsequent bytes
+        assert!(decoder.decode_length().is_err());
+        // Still missing some data
+        let data: BitString = BitString::from_slice(&[0xffu8, 0xff]);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        // Length determinant is > 127 without subsequent bytes
+        assert!(decoder.decode_length().is_err());
+    }
+
+    #[test]
+    fn test_decode_length_valid() {
+        // Max length
+        let max_length: BigUint = BigUint::from(2u8).pow(1016u32) - BigUint::from(1u8);
+        assert_eq!(max_length.to_bytes_be(), MAX_LENGTH);
+        // # SHORT FORM
+        let data: BitString = BitString::from_slice(&[0x01u8, 0xff]);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        assert_eq!(decoder.decode_length().unwrap(), BigUint::from(1u8));
+        let data: BitString = BitString::from_slice(&[0x03u8, 0xff, 0xff, 0xfe]);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        assert_eq!(decoder.decode_length().unwrap(), BigUint::from(3u8));
+        // Max for short form
+        let mut data: [u8; 0x80] = [0xffu8; 0x80];
+        data[0] = 0x7f; // length determinant
+        let data: BitString = BitString::from_slice(&data);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        assert_eq!(decoder.decode_length().unwrap(), BigUint::from(127u8));
+
+        // # LONG FORM
+        // Length of the length should be 2 octets, 0x7f - 0x82 = 2, length is 258 octets
+        let length: [u8; 1] = [0x82u8]; // first bit is 1, remaining tells length of length
+        let length_determinant: [u8; 0x02] = [0x01u8, 0x02];
+        let data: [u8; 258] = [0xffu8; 258];
+        let mut combined: [u8; 261] = [0x0; 261];
+        combined[..1].copy_from_slice(&length);
+        combined[1..=2].copy_from_slice(&length_determinant);
+        combined[3..].copy_from_slice(&data);
+
+        let data: BitString = BitString::from_slice(&combined);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        assert_eq!(decoder.decode_length().unwrap(), BigUint::from(258u16));
     }
 }
