@@ -10,9 +10,11 @@ use crate::prelude::{
 use crate::{Decode, Tag};
 use alloc::{string::String, vec::Vec};
 use nom::AsBytes;
+use num_bigint::BigUint;
 
 mod error;
 pub use crate::per::de::Error;
+
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
@@ -45,6 +47,30 @@ impl<'input> Decoder<'input> {
         let (input, byte) = nom::bytes::streaming::take(8u8)(self.input)?;
         self.input = input;
         Ok(byte.as_bytes()[0])
+    }
+    /// There is a short form and long form for length determinant in OER encoding.
+    /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
+    /// Max length for data type can be 2^1016 - 1 octets
+    fn decode_length(&mut self) -> Result<BigUint> {
+        // In OER decoding, there might be cases when there are multiple zero octets as padding
+        // or the length is encoded in more than one octet.
+        let mut possible_length: u8;
+        loop {
+            // Remove leading zero octets
+            possible_length = self.parse_one_byte()?;
+            if possible_length != 0 {
+                break;
+            }
+        }
+        if possible_length < 128 {
+            Ok(BigUint::from(possible_length))
+        } else {
+            // We have the length of the length, mask and extract only 7 bis
+            let length = possible_length & 0x7f;
+            let (input, data) = nom::bytes::streaming::take(length * 8)(self.input)?;
+            self.input = input;
+            Ok(BigUint::from_bytes_be(data.as_bytes()))
+        }
     }
 }
 
