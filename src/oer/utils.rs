@@ -63,6 +63,7 @@ pub fn determine_integer_size_and_sign<T, U, E>(
             end: Some(_) | None,
         }
         | Bounded::None => transform_fn(data, true, None),
+        // TODO - check if this is correct way instead of not encoding at all, or true/false
         Bounded::Single(value) => transform_fn(data, value < 0, None),
     }
 }
