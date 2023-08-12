@@ -172,6 +172,7 @@ impl Encoder {
                     } else {
                         value_to_enc.to_biguint().unwrap().to_bytes_be()
                     };
+                    // octets never > 8, safe unwrap
                     self.encode_integer_with_padding(octets.map(i128::from).unwrap(), &bytes)
                 },
             );
