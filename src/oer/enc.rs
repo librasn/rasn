@@ -136,8 +136,7 @@ impl Encoder {
         } else {
             BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_biguint().unwrap().to_bytes_be())
         };
-        let result = self.encode_length(bytes.len());
-        result?;
+        self.encode_length(bytes.len())?;
         self.output.extend(bytes);
         Ok(())
     }

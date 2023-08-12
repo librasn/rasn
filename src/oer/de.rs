@@ -126,6 +126,7 @@ impl<'input> Decoder<'input> {
                 self.decode_integer_from_bytes(sign, octets.map(BigUint::from))
             })
         } else {
+            // No constraints
             self.decode_integer_from_bytes(true, None)
         }
     }
