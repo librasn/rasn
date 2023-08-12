@@ -1,7 +1,4 @@
-pub use crate::per::de::Error;
-use crate::prelude::Integer;
-use crate::types::constraints::Bounded;
-use alloc::vec::Vec;
+use crate::types::constraints::{Bounded, Extensible, Value};
 
 /// ITU-T X.696 (02/2021) 10.0
 ///
@@ -21,19 +18,21 @@ const SIGNED_RANGES: [(i128, i128, u8); 4] = [
     (i32::MIN as i128, i32::MAX as i128, 4),
     (i64::MIN as i128, i64::MAX as i128, 8),
 ];
-pub enum IntegerValue {
-    Number(Integer),
-    Bytes(Vec<u8>),
-}
-// Constraints limits Bound to i128 in Value type (see Value struct)
+// Constraints limit Bound to i128 in Value type (see Value struct)
+// Only Value constraint is OER visible (range, single value)
 // TODO - maybe use BigInt instead of i128 some day?
-pub fn determine_integer_size_and_sign<U>(
-    bound: Bounded<i128>,
+pub fn determine_integer_size_and_sign<T, U, E>(
+    value_constraint: &Extensible<Value>,
     data: U,
-    // transform_fn takes data, integer signed status and octet number required to contain integer
-    mut transform_fn: impl FnMut(U, bool, Option<u8>) -> Result<IntegerValue, Error>,
-) -> Result<IntegerValue, Error> {
-    match bound {
+    // transform_fn takes data, integers' signed status, and octet number required to contain integer
+    // based on the constraints
+    mut transform_fn: impl FnMut(U, bool, Option<u8>) -> Result<T, E>,
+) -> Result<T, E> {
+    // Ignore constraints if extension marker is present
+    if value_constraint.extensible.is_some() {
+        return transform_fn(data, true, None);
+    }
+    match value_constraint.constraint.0 {
         Bounded::Range {
             start: Some(start),
             end: Some(end),

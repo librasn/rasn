@@ -1,12 +1,12 @@
+use crate::oer::utils;
 use crate::prelude::{
     Any, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime, Ia5String,
     NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
 };
-use crate::types::{constraints::*, BitString, Constraints, Integer};
+use crate::types::{BitString, Constraints, Integer};
 use crate::{Encode, Tag};
 use alloc::{string::ToString, vec::Vec};
 use bitvec::prelude::*;
-
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
 /// On this crate, only canonical version will be used to provide unique and reproducible encodings.
 /// Basic-OER is not supported and it might be that never will.
@@ -124,18 +124,6 @@ impl Encoder {
         }
         Ok(())
     }
-
-    /// Constraints define whether the integer is encoded as unsigned or signed
-    fn integer_bytes_when_range(
-        &self,
-        value: &Integer,
-        value_range: &Extensible<Value>,
-    ) -> Vec<u8> {
-        match value_range.constraint.effective_bigint_value(value.clone()) {
-            either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
-            either::Right(value) => value.to_signed_bytes_be(),
-        }
-    }
     /// Encode integer `value_to_enc` with length determinant
     /// Either as signed or unsigned, set by `signed`
     fn encode_unconstrained_integer(
@@ -164,84 +152,6 @@ impl Encoder {
     /// type with an extensible OER-visible constraint. Such a type is encoded as an integer type with no bounds.
     ///
     /// If the Integer is not bound or outside of range, we encode with the smallest number of octets possible.
-    // fn encode_integer_with_constraints(
-    //     &mut self,
-    //     constraints: &Constraints,
-    //     value_to_enc: &Integer,
-    // ) -> Result<(), Error> {
-    //     if let Some(value) = constraints.value() {
-    //         // Check if Integer is in constraint range
-    //         // Integer type with extension leads ignoring the whole bound in COER
-    //         if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
-    //             return Err(Error::IntegerOutOfRange {
-    //                 value: value_to_enc.clone(),
-    //                 expected: value.constraint.0,
-    //             });
-    //         } else if value.extensible.is_some() {
-    //             self.encode_unconstrained_integer(value_to_enc, true)?;
-    //         }
-    //         if let Bounded::Range { start, end } = value.constraint.0 {
-    //             match (start, end) {
-    //                 // if let (Some(end), Some(start)) ||  = (end, start) {
-    //                 (Some(start), Some(end)) => {
-    //                     // Case a)
-    //                     if start >= 0.into() {
-    //                         let ranges: [i128; 5] = [
-    //                             // encode as a fixed-size unsigned number in a one, two four or eight-octet word
-    //                             // depending on the value of the upper bound
-    //                             -1i128,
-    //                             u8::MAX.into(),  // should be 1 octets
-    //                             u16::MAX.into(), // should be 2 octets
-    //                             u32::MAX.into(), // should be 4 octets
-    //                             u64::MAX.into(), // should be 8 octets
-    //                         ];
-    //                         for (index, range) in ranges[0..(ranges.len() - 1)].iter().enumerate() {
-    //                             if range < &end && end <= ranges[index + 1] {
-    //                                 let bytes = self.integer_bytes_when_range(value_to_enc, &value);
-    //                                 self.encode_integer_with_padding(ranges[index + 1], &bytes)?;
-    //                                 return Ok(());
-    //                             }
-    //                         }
-    //                         // Upper bound is greater than u64::MAX, encode with length determinant
-    //                         self.encode_unconstrained_integer(value_to_enc, false)?;
-    //                     } else {
-    //                         // Negative lower bound with defined upper bound
-    //                         // Case b)
-    //                         let ranges: [(i128, i128); 4] = [
-    //                             // encode as a fixed-size signed number in a one, two four or eight-octet word
-    //                             // depending on the value of the upper and lower bound
-    //                             (i8::MIN.into(), i8::MAX.into()), // should be 1 octets
-    //                             (i16::MIN.into(), i16::MAX.into()), // should be 2 octets
-    //                             (i32::MIN.into(), i32::MAX.into()), // should be 4 octets
-    //                             (i64::MIN.into(), i64::MAX.into()), // should be 8 octets
-    //                         ];
-    //                         for (min, max) in &ranges {
-    //                             if min <= &start && &end <= max {
-    //                                 let bytes = self.integer_bytes_when_range(value_to_enc, &value);
-    //                                 self.encode_integer_with_padding(*max, &bytes)?;
-    //                                 return Ok(());
-    //                             }
-    //                         }
-    //                         // Out of bounds, use length determinant
-    //                         self.encode_unconstrained_integer(value_to_enc, true)?;
-    //                     }
-    //                 }
-    //                 (Some(start), None) => {
-    //                     // No upper bound, but lower bound is present, use length determinant
-    //                         self.encode_unconstrained_integer(value_to_enc, start < 0)?;
-    //                 }
-    //                 _ => {
-    //                     // (None, None), (None, End)
-    //                     self.encode_unconstrained_integer(value_to_enc, true)?;
-    //                 }
-    //             }
-    //         }
-    //     } else {
-    //         // No constraints,
-    //         self.encode_unconstrained_integer(value_to_enc, true)?;
-    //     }
-    //     Ok(())
-    // }
     fn encode_integer_with_constraints(
         &mut self,
         constraints: &Constraints,
@@ -254,52 +164,18 @@ impl Encoder {
                     expected: value.constraint.0,
                 });
             }
-            if value.extensible.is_some()
-                || matches!(
-                    value.constraint.0,
-                    Bounded::Range {
-                        start: None,
-                        end: _
-                    }
-                )
-            {
-                return self.encode_unconstrained_integer(value_to_enc, true);
-            }
-            if let Bounded::Range { start, end } = value.constraint.0 {
-                let mut encode_range = |ranges: &[(i128, i128)]| -> Result<(), Error> {
-                    for (min, max) in ranges {
-                        if (min <= &start.unwrap_or(*min)) && (end.unwrap_or(*max) <= *max) {
-                            let bytes = self.integer_bytes_when_range(value_to_enc, &value);
-                            self.encode_integer_with_padding(*max, &bytes)?;
-                            return Ok(());
-                        }
-                    }
-                    // Out of bounds, use length determinant
-                    self.encode_unconstrained_integer(value_to_enc, true)
-                };
-                return if start.unwrap_or(-1) >= 0 {
-                    // From 1 to 8 octets
-                    let ranges = [
-                        (-1i128, u8::MAX.into()),
-                        (u8::MAX.into(), u16::MAX.into()),
-                        (u16::MAX.into(), u32::MAX.into()),
-                        (u32::MAX.into(), u64::MAX.into()),
-                    ];
-                    encode_range(&ranges)
-                } else {
-                    // From 1 to 8 octets
-                    let ranges = [
-                        (i8::MIN.into(), i8::MAX.into()),
-                        (i16::MIN.into(), i16::MAX.into()),
-                        (i32::MIN.into(), i32::MAX.into()),
-                        (i64::MIN.into(), i64::MAX.into()),
-                    ];
-                    encode_range(&ranges)
-                };
-            }
-            if let Some(start) = value.constraint.0.as_start() {
-                return self.encode_unconstrained_integer(value_to_enc, *start < 0);
-            }
+            return utils::determine_integer_size_and_sign(
+                &value,
+                value_to_enc,
+                |value_to_enc, sign, octets| {
+                    let bytes = if sign {
+                        value_to_enc.to_signed_bytes_be()
+                    } else {
+                        value_to_enc.to_biguint().unwrap().to_bytes_be()
+                    };
+                    self.encode_integer_with_padding(octets.map(i128::from).unwrap(), &bytes)
+                },
+            );
         }
         self.encode_unconstrained_integer(value_to_enc, true)
     }
@@ -308,18 +184,22 @@ impl Encoder {
     /// This means that the zero padding is possible even with COER encoding.
     fn encode_integer_with_padding(&mut self, octets: i128, bytes: &[u8]) -> Result<(), Error> {
         use core::cmp::Ordering;
-        let total_bits = crate::per::log2(octets) as usize;
+        if octets > 8 {
+            return Err(Error::Custom {
+                msg: alloc::format!("Unexpected constrained integer byte size: {octets}"),
+            });
+        }
         let bits = BitVec::<u8, Msb0>::from_slice(bytes);
-        let bits = match total_bits.cmp(&bits.len()) {
+        let bits = match (octets as usize * 8).cmp(&bits.len()) {
             Ordering::Greater => {
-                let mut padding = BitString::repeat(false, total_bits - bits.len());
+                let mut padding = BitString::repeat(false, octets as usize - bits.len());
                 padding.extend(bits);
                 padding
             }
             Ordering::Less => {
                 return Err(Error::MoreBytesThanExpected {
                     value: bits.len(),
-                    expected: total_bits,
+                    expected: octets as usize,
                 })
             }
             Ordering::Equal => bits,
@@ -373,7 +253,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_null(&mut self, _: Tag) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn encode_octet_string(
@@ -563,6 +443,7 @@ impl crate::Encoder for Encoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Value};
     use num_bigint::BigInt;
 
     // const ALPHABETS: &[u32] = &{
