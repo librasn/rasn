@@ -86,13 +86,19 @@ impl Encoder {
             })?
         };
         let bytes: BitVec<u8, Msb0> = match length {
-            v if u8::try_from(v).is_ok() => {
+            v if u8::try_from(v).is_ok() =>
+            {
+                #[allow(clippy::cast_possible_truncation)]
                 BitVec::<u8, Msb0>::from_slice(&(length as u8).to_be_bytes())
             }
-            v if u16::try_from(v).is_ok() => {
+            v if u16::try_from(v).is_ok() =>
+            {
+                #[allow(clippy::cast_possible_truncation)]
                 BitVec::<u8, Msb0>::from_slice(&(length as u16).to_be_bytes())
             }
-            v if u32::try_from(v).is_ok() => {
+            v if u32::try_from(v).is_ok() =>
+            {
+                #[allow(clippy::cast_possible_truncation)]
                 BitVec::<u8, Msb0>::from_slice(&(length as u32).to_be_bytes())
             }
             v if u64::try_from(v).is_ok() => {
@@ -180,7 +186,7 @@ impl Encoder {
         self.encode_unconstrained_integer(value_to_enc, true)
     }
 
-    /// When range constraints are present, the integer is encoded as a fixed-size unsigned number.
+    /// When range constraints are present, the integer is encoded as a fixed-size number.
     /// This means that the zero padding is possible even with COER encoding.
     fn encode_integer_with_padding(&mut self, octets: i128, bytes: &[u8]) -> Result<(), Error> {
         use core::cmp::Ordering;
@@ -190,8 +196,12 @@ impl Encoder {
             });
         }
         let bits = BitVec::<u8, Msb0>::from_slice(bytes);
+        // octets * 8 never > 64, safe conversion and multiplication
+        #[allow(clippy::cast_sign_loss)]
         let bits = match (octets as usize * 8).cmp(&bits.len()) {
             Ordering::Greater => {
+                // octets never > 8, safe conversion
+                #[allow(clippy::cast_sign_loss)]
                 let mut padding = BitString::repeat(false, octets as usize - bits.len());
                 padding.extend(bits);
                 padding
@@ -199,6 +209,7 @@ impl Encoder {
             Ordering::Less => {
                 return Err(Error::MoreBytesThanExpected {
                     value: bits.len(),
+                    #[allow(clippy::cast_sign_loss)]
                     expected: octets as usize,
                 })
             }
