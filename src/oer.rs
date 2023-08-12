@@ -1,7 +1,9 @@
 pub mod de;
 pub mod enc;
+mod utils;
+
 pub use self::{de::Decoder, enc::Encoder};
-use crate::types::Constraints;
+use crate::types::{Constraints, Integer};
 /// Attempts to decode `T` from `input` using OER.
 pub(crate) fn decode<T: crate::Decode>(
     // options: de::DecoderOptions,
@@ -42,10 +44,15 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 
 #[cfg(test)]
 mod tests {
-
+    use super::*;
     #[test]
     fn bool() {
         round_trip!(oer, bool, true, &[0xff]);
         round_trip!(oer, bool, false, &[0]);
+    }
+    #[test]
+    fn integer() {
+        round_trip!(oer, Integer, 255.into(), &[0x02u8, 0x00, 0xff]);
+        round_trip!(oer, Integer, (-255).into(), &[0x02u8, 0xff, 0x01]);
     }
 }

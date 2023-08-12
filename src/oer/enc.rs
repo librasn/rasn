@@ -278,6 +278,7 @@ impl Encoder {
                     self.encode_unconstrained_integer(value_to_enc, true)
                 };
                 return if start.unwrap_or(-1) >= 0 {
+                    // From 1 to 8 octets
                     let ranges = [
                         (-1i128, u8::MAX.into()),
                         (u8::MAX.into(), u16::MAX.into()),
@@ -286,6 +287,7 @@ impl Encoder {
                     ];
                     encode_range(&ranges)
                 } else {
+                    // From 1 to 8 octets
                     let ranges = [
                         (i8::MIN.into(), i8::MAX.into()),
                         (i16::MIN.into(), i16::MAX.into()),
