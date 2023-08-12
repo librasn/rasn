@@ -2,16 +2,18 @@
 // In OER, without knowledge of the type of the value encoded, it is not possible to determine
 // the structure of the encoding. In particular, the end of the encoding cannot be determined from
 // the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
+use crate::oer::utils;
+use crate::oer::utils::IntegerValue;
 use crate::prelude::{
-    Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, GeneralString,
-    GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier, PrintableString, SetOf,
-    TeletexString, UtcTime, VisibleString,
+    Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, Extensible,
+    GeneralString, GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier,
+    PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
 };
 use crate::{de::Error as _, Decode, Tag};
 use alloc::{string::String, vec::Vec};
 use bitvec::macros::internal::funty::Fundamental;
 use nom::AsBytes;
-use num_bigint::BigUint;
+use num_bigint::{BigUint, Sign};
 use num_traits::ToPrimitive;
 
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
@@ -55,7 +57,7 @@ impl<'input> Decoder<'input> {
     /// There is a short form and long form for length determinant in OER encoding.
     /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
     /// Max length for data type can be 2^1016 - 1 octets
-    fn decode_length(&mut self) -> Result<BigUint> {
+    fn decode_length(&mut self) -> Result<BigUint, Error> {
         // In OER decoding, there might be cases when there are multiple zero octets as padding
         // or the length is encoded in more than one octet.
         let mut possible_length: u8;
@@ -96,6 +98,58 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(data)
     }
+    fn decode_integer_from_bytes(
+        &mut self,
+        signed: bool,
+        length: Option<BigUint>,
+    ) -> Result<Integer> {
+        if let Some(length) = length {
+            let data = self.extract_data_by_length(length)?;
+            if signed {
+                Ok(Integer::from_signed_bytes_be(data.as_bytes()))
+            } else {
+                Ok(Integer::from_bytes_be(Sign::Plus, data.as_bytes()))
+            }
+        } else {
+            let length = self.decode_length()?;
+            let data = self.extract_data_by_length(length)?;
+            if signed {
+                Ok(Integer::from_signed_bytes_be(data.as_bytes()))
+            } else {
+                Ok(Integer::from_bytes_be(Sign::Plus, data.as_bytes()))
+            }
+        }
+    }
+    fn decode_integer_with_constraints(&mut self, constraints: &Constraints) -> Result<Integer> {
+        // Only 'value' constraint is OER visible
+        if let Some(value) = constraints.value() {
+            // Extensible constraint leads ignoring the constraint
+            if value.extensible.is_some() {
+                return self.decode_integer_from_bytes(true, None);
+            }
+            // Use same utility function on both encoding and decoding to determine size and integer type
+            let result = utils::determine_integer_size_and_sign(
+                value.constraint.0,
+                self.input,
+                |_, sign, octets| {
+                    // let sign_enum = if sign { Sign::Minus } else { Sign::Plus };
+                    match self.decode_integer_from_bytes(sign, octets.map(BigUint::from)) {
+                        Ok(value) => Ok(IntegerValue::Number(value)),
+                        Err(err) => Err(err),
+                    }
+                },
+            );
+            match result {
+                Ok(IntegerValue::Number(value)) => Ok(value),
+                Err(err) => Err(err),
+                _ => Err(Error::custom(
+                    "Should not happen, got bytes instead Integer number",
+                )),
+            }
+        } else {
+            self.decode_integer_from_bytes(true, None)
+        }
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -122,7 +176,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_integer(&mut self, _: Tag, constraints: Constraints) -> Result<Integer, Self::Error> {
-        todo!()
+        self.decode_integer_with_constraints(&constraints)
     }
 
     /// Null contains no data, so we just skip
@@ -306,7 +360,9 @@ mod tests {
     #![allow(clippy::assertions_on_constants)]
 
     use super::*;
+    use crate::types::constraints::{Bounded, Constraint, Constraints, Size, Value};
     use bitvec::prelude::BitSlice;
+    use num_bigint::BigInt;
 
     #[test]
     fn test_decode_bool() {
@@ -371,5 +427,38 @@ mod tests {
         let data: BitString = BitString::from_slice(&combined);
         let mut decoder = crate::oer::Decoder::new(&data);
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(258u16));
+    }
+    #[test]
+    fn test_integer_decode_with_constraints() {
+        let range_bound = Bounded::<i128>::Range {
+            start: 0.into(),
+            end: 255.into(),
+        };
+        let value_range = &[Constraint::Value(Extensible::new(Value::new(range_bound)))];
+        let consts = Constraints::new(value_range);
+        let data = BitString::from_slice(&[0x01u8]);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
+        assert_eq!(decoded_int, 1.into());
+
+        let data = BitString::from_slice(&[0xffu8]);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
+        assert_eq!(decoded_int, 255.into());
+
+        let data = BitString::from_slice(&[0xffu8, 0xff]);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
+        assert_eq!(decoded_int, 255.into());
+
+        let data = BitString::from_slice(&[0x02u8, 0xff, 0x01]);
+        let mut decoder = crate::oer::Decoder::new(&data);
+        let decoded_int = decoder
+            .decode_integer_with_constraints(&Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::None).into(),
+            )]))
+            .unwrap();
+        dbg!(&decoded_int);
+        assert_eq!(decoded_int, BigInt::from(-255));
     }
 }
