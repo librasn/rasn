@@ -3,11 +3,10 @@
 // the structure of the encoding. In particular, the end of the encoding cannot be determined from
 // the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
 use crate::oer::utils;
-use crate::oer::utils::IntegerValue;
 use crate::prelude::{
-    Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, Extensible,
-    GeneralString, GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier,
-    PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
+    Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, GeneralString,
+    GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier, PrintableString, SetOf,
+    TeletexString, UtcTime, VisibleString,
 };
 use crate::{de::Error as _, Decode, Tag};
 use alloc::{string::String, vec::Vec};
@@ -121,31 +120,11 @@ impl<'input> Decoder<'input> {
         }
     }
     fn decode_integer_with_constraints(&mut self, constraints: &Constraints) -> Result<Integer> {
-        // Only 'value' constraint is OER visible
+        // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
-            // Extensible constraint leads ignoring the constraint
-            if value.extensible.is_some() {
-                return self.decode_integer_from_bytes(true, None);
-            }
-            // Use same utility function on both encoding and decoding to determine size and integer type
-            let result = utils::determine_integer_size_and_sign(
-                value.constraint.0,
-                self.input,
-                |_, sign, octets| {
-                    // let sign_enum = if sign { Sign::Minus } else { Sign::Plus };
-                    match self.decode_integer_from_bytes(sign, octets.map(BigUint::from)) {
-                        Ok(value) => Ok(IntegerValue::Number(value)),
-                        Err(err) => Err(err),
-                    }
-                },
-            );
-            match result {
-                Ok(IntegerValue::Number(value)) => Ok(value),
-                Err(err) => Err(err),
-                _ => Err(Error::custom(
-                    "Should not happen, got bytes instead Integer number",
-                )),
-            }
+            utils::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
+                self.decode_integer_from_bytes(sign, octets.map(BigUint::from))
+            })
         } else {
             self.decode_integer_from_bytes(true, None)
         }
@@ -360,7 +339,7 @@ mod tests {
     #![allow(clippy::assertions_on_constants)]
 
     use super::*;
-    use crate::types::constraints::{Bounded, Constraint, Constraints, Size, Value};
+    use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Size, Value};
     use bitvec::prelude::BitSlice;
     use num_bigint::BigInt;
 
