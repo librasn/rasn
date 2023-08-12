@@ -52,6 +52,7 @@ mod tests {
         round_trip!(oer, bool, false, &[0]);
     }
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn integer_no_constraints() {
         // Without constraints, all integers should be encoded as signed, with length determinant,
         // and without padding.
@@ -73,6 +74,90 @@ mod tests {
             Integer,
             (i32::from(i16::MIN) - 1).into(),
             &[0x03u8, 0xff, 0x7f, 0xff]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            i32::MAX.into(),
+            &[0x04u8, 0x7f, 0xff, 0xff, 0xff]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            i32::MIN.into(),
+            &[0x04u8, 0x80, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            (i64::from(i32::MAX) + 1).into(),
+            &[0x05u8, 0x00, 0x80, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            (i64::from(i32::MIN) - 1).into(),
+            &[0x05u8, 0xff, 0x7f, 0xff, 0xff, 0xff]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            i64::MAX.into(),
+            &[0x08u8, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            i64::MIN.into(),
+            &[0x08u8, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            (i128::from(i64::MAX) + 1).into(),
+            &[0x09u8, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            (i128::from(i64::MIN) - 1).into(),
+            &[0x09u8, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            i128::MAX.into(),
+            &[
+                0x10u8, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                0xff, 0xff, 0xff, 0xff
+            ]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            i128::MIN.into(),
+            &[
+                0x10u8, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00
+            ]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            Integer::from(i128::MAX) + 1,
+            &[
+                0x11u8, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00, 0x00, 0x00, 0x00
+            ]
+        );
+        round_trip!(
+            oer,
+            Integer,
+            Integer::from(i128::MIN) - 1,
+            &[
+                0x11u8, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                0xff, 0xff, 0xff, 0xff, 0xff
+            ]
         );
     }
 }
