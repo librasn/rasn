@@ -1,4 +1,11 @@
-use crate::types::constraints::{Bounded, Extensible, Value};
+use crate::oer::enc::Error;
+use crate::types::{
+    constraints::{Bounded, Extensible, Value},
+    Integer,
+};
+use alloc::string::ToString;
+use bitvec::prelude::{BitVec, Msb0};
+use num_traits::Signed;
 
 /// ITU-T X.696 (02/2021) 10.0
 ///
@@ -77,5 +84,20 @@ pub fn determine_integer_size_and_sign<T, U, E>(
         | Bounded::None => transform_fn(data, true, None),
         // TODO - check if this is correct way instead of not encoding at all, or true/false
         Bounded::Single(value) => transform_fn(data, value < 0, octet_size_by_range(value)),
+    }
+}
+pub fn integer_to_bitvec_bytes(value: &Integer, signed: bool) -> Result<BitVec<u8, Msb0>, Error> {
+    if signed {
+        Ok(BitVec::<u8, Msb0>::from_slice(
+            &(value.to_signed_bytes_be()),
+        ))
+    } else if !signed && value.is_positive() {
+        Ok(BitVec::<u8, Msb0>::from_slice(
+            &(value.to_biguint().unwrap().to_bytes_be()),
+        ))
+    } else {
+        Err(Error::Custom {
+            msg: "Negative value has been provided to be converted into unsigned bytes".to_string(),
+        })
     }
 }
