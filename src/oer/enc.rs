@@ -89,7 +89,7 @@ impl Encoder {
         };
         // On some cases we want to present length also as signed integer
         // E.g. length of a enumerated value
-        //  ITU-T X.696 (02/2021) 11.4
+        //  ITU-T X.696 (02/2021) 11.4 ???? Seems like it is not needed
         let bytes = helpers::integer_to_bitvec_bytes(&Integer::from(length), signed)?;
         if length < 128 {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
@@ -124,7 +124,6 @@ impl Encoder {
         signed: bool,
     ) -> Result<(), Error> {
         let bytes = helpers::integer_to_bitvec_bytes(value_to_enc, signed)?;
-        // Encoded length determinant is unsigned here
         self.encode_length(bytes.len(), false)?;
         self.output.extend(bytes);
         Ok(())
@@ -173,7 +172,7 @@ impl Encoder {
         &mut self,
         octets: i128,
         value: &Integer,
-        sign: bool,
+        signed: bool,
     ) -> Result<(), Error> {
         use core::cmp::Ordering;
         if octets > 8 {
@@ -181,7 +180,7 @@ impl Encoder {
                 msg: alloc::format!("Unexpected constrained integer byte size: {octets}"),
             });
         }
-        let bytes = if sign {
+        let bytes = if signed {
             value.to_signed_bytes_be()
         } else {
             value.to_biguint().unwrap().to_bytes_be()
@@ -193,7 +192,7 @@ impl Encoder {
         let bits = match octets_as_bits.cmp(&bits.len()) {
             Ordering::Greater => {
                 let mut padding: BitVec<u8, Msb0>;
-                if sign && value.is_negative() {
+                if signed && value.is_negative() {
                     // 2's complement
                     padding = BitString::repeat(true, octets_as_bits - bits.len());
                 } else {
@@ -242,7 +241,18 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        // 11.5 The presence of an extension marker in the definition of an enumerated type does not affect the encoding of
+        // the values of the enumerated type.
+        // TODO max size for enumerated value is currently only isize MIN/MAX
+        // Spec allows between –2^1015 and 2^1015 – 1
+        let number = value.discriminant();
+        if 0isize <= number && number <= i8::MAX.into() {
+            self.encode_integer_with_padding(1, &number.into(), false)?;
+        } else {
+            //Value is signed here as defined in section 11.4
+            self.encode_unconstrained_integer(&number.into(), true)?;
+        }
+        Ok(())
     }
 
     fn encode_object_identifier(&mut self, _: Tag, value: &[u32]) -> Result<Self::Ok, Self::Error> {

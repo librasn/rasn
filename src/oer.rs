@@ -13,7 +13,7 @@ pub(crate) fn decode<T: crate::Decode>(
 }
 /// Attempts to encode `value` of type `T` to COER.
 pub(crate) fn encode<T: crate::Encode>(
-    // options: enc::EncoderOptions,
+    // _: enc::EncoderOptions,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, enc::Error> {
     let mut enc = Encoder::new();
@@ -297,5 +297,34 @@ mod tests {
             5.into(),
             &[0x05]
         );
+    }
+    #[test]
+    fn test_enumerated() {
+        #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
+        #[rasn(enumerated, crate_root = "crate")]
+        enum Enum1 {
+            Green,
+            Red,
+            Blue,
+        }
+        // round_trip!(oer, Enum1, Enum1::Green, &[0x00]);
+        // round_trip!(oer, Enum1, Enum1::Red, &[0x01]);
+        // round_trip!(oer, Enum1, Enum1::Blue, &[0x02]);
+        #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
+        #[rasn(enumerated, crate_root = "crate")]
+        #[non_exhaustive]
+        #[allow(clippy::items_after_statements)]
+        enum Enum2 {
+            Red,
+            Blue,
+            Green,
+            #[rasn(extension_addition)]
+            Yellow,
+            Purple,
+        }
+
+        round_trip!(oer, Enum2, Enum2::Red, &[0x00]);
+        // round_trip!(oer, Enum2, Enum2::Yellow, &[0x03]);
+        // round_trip!(oer, Enum2, Enum2::Purple, &[0x04]);
     }
 }
