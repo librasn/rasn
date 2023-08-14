@@ -77,7 +77,7 @@ impl Encoder {
     /// Length of the data `length` should not be provided as full bytes.
     /// In COER we try to use the shortest possible encoding, hence convert to the smallest integer type
     /// to avoid leading zeros.
-    fn encode_length(&mut self, length: usize) -> Result<(), Error> {
+    fn encode_length(&mut self, length: usize, signed: bool) -> Result<(), Error> {
         // Bits to byte length
         let length = if length % 8 == 0 {
             length / 8
@@ -87,27 +87,10 @@ impl Encoder {
                 remainder: length % 8,
             })?
         };
-        let bytes: BitVec<u8, Msb0> = match length {
-            v if u8::try_from(v).is_ok() =>
-            {
-                #[allow(clippy::cast_possible_truncation)]
-                BitVec::<u8, Msb0>::from_slice(&(length as u8).to_be_bytes())
-            }
-            v if u16::try_from(v).is_ok() =>
-            {
-                #[allow(clippy::cast_possible_truncation)]
-                BitVec::<u8, Msb0>::from_slice(&(length as u16).to_be_bytes())
-            }
-            v if u32::try_from(v).is_ok() =>
-            {
-                #[allow(clippy::cast_possible_truncation)]
-                BitVec::<u8, Msb0>::from_slice(&(length as u32).to_be_bytes())
-            }
-            v if u64::try_from(v).is_ok() => {
-                BitVec::<u8, Msb0>::from_slice(&(length as u64).to_be_bytes())
-            }
-            _ => BitVec::<u8, Msb0>::from_slice(&(length as u128).to_be_bytes()),
-        };
+        // On some cases we want to present length also as signed integer
+        // E.g. length of a enumerated value
+        //  ITU-T X.696 (02/2021) 11.4
+        let bytes = helpers::integer_to_bitvec_bytes(&Integer::from(length), signed)?;
         if length < 128 {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
             self.output.extend(&bytes);
@@ -124,6 +107,7 @@ impl Encoder {
             // It is always zero by default with u8 type when value being < 128
             _ = self.output.remove(0);
             self.output.insert(0, true);
+            dbg!(&bytes);
             self.output.extend(bytes);
         } else {
             return Err(Error::Propagated {
@@ -139,12 +123,9 @@ impl Encoder {
         value_to_enc: &Integer,
         signed: bool,
     ) -> Result<(), Error> {
-        let bytes = if signed {
-            BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_signed_bytes_be())
-        } else {
-            BitVec::<u8, Msb0>::from_slice(&value_to_enc.to_biguint().unwrap().to_bytes_be())
-        };
-        self.encode_length(bytes.len())?;
+        let bytes = helpers::integer_to_bitvec_bytes(value_to_enc, signed)?;
+        // Encoded length determinant is unsigned here
+        self.encode_length(bytes.len(), false)?;
         self.output.extend(bytes);
         Ok(())
     }
@@ -548,5 +529,29 @@ mod tests {
         let v = vec![0x03u8, 0xED, 0x29, 0x79];
         let bv = BitVec::<_, Msb0>::from_vec(v);
         assert_eq!(encoder.output, bv);
+    }
+    #[test]
+    fn test_large_lengths() {
+        let constraints = Constraints::default();
+        let mut encoder = Encoder::default();
+
+        // Signed integer with byte length of 128
+        // Needs long form to represent
+        let number = BigInt::from(256).pow(127) - 1;
+        let result = encoder.encode_integer_with_constraints(&constraints, &number);
+        assert!(result.is_ok());
+        let vc = [
+            0x81, 0x80, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff,
+        ];
+        assert_eq!(encoder.output(), vc);
     }
 }
