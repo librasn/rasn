@@ -307,24 +307,45 @@ mod tests {
             Red,
             Blue,
         }
-        // round_trip!(oer, Enum1, Enum1::Green, &[0x00]);
-        // round_trip!(oer, Enum1, Enum1::Red, &[0x01]);
-        // round_trip!(oer, Enum1, Enum1::Blue, &[0x02]);
+        round_trip!(oer, Enum1, Enum1::Green, &[0x00]);
+        round_trip!(oer, Enum1, Enum1::Red, &[0x01]);
+        round_trip!(oer, Enum1, Enum1::Blue, &[0x02]);
+        // TODO, check correctness https://github.com/XAMPPRocky/rasn/discussions/124#discussioncomment-6724973
         #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
         #[rasn(enumerated, crate_root = "crate")]
-        #[non_exhaustive]
         #[allow(clippy::items_after_statements)]
         enum Enum2 {
             Red,
             Blue,
             Green,
-            #[rasn(extension_addition)]
+            #[rasn(extension_addition_group)]
             Yellow,
             Purple,
         }
-
         round_trip!(oer, Enum2, Enum2::Red, &[0x00]);
-        // round_trip!(oer, Enum2, Enum2::Yellow, &[0x03]);
-        // round_trip!(oer, Enum2, Enum2::Purple, &[0x04]);
+        round_trip!(oer, Enum2, Enum2::Yellow, &[0x03]);
+        round_trip!(oer, Enum2, Enum2::Purple, &[0x04]);
+        #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
+        #[rasn(enumerated, crate_root = "crate")]
+        #[allow(clippy::items_after_statements)]
+        enum Enum3 {
+            Red = 5,
+            Blue = 6,
+            Green = 7,
+        }
+        round_trip!(oer, Enum3, Enum3::Red, &[0x05]);
+        round_trip!(oer, Enum3, Enum3::Blue, &[0x06]);
+        round_trip!(oer, Enum3, Enum3::Green, &[0x07]);
+
+        // TODO negative values are not supported at the moment...
+        #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
+        #[rasn(enumerated, crate_root = "crate")]
+        #[allow(clippy::items_after_statements)]
+        enum Enum4 {
+            Yes = 1000,
+            No = (-1000),
+        }
+        round_trip!(oer, Enum4, Enum4::Yes, &[0x82, 0x03, 0xe8]);
+        // round_trip!(oer, Enum4, Enum4::No, &[0x82, 0xfc, 0x18]);
     }
 }

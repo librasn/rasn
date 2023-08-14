@@ -77,7 +77,13 @@ impl Encoder {
     /// Length of the data `length` should not be provided as full bytes.
     /// In COER we try to use the shortest possible encoding, hence convert to the smallest integer type
     /// to avoid leading zeros.
-    fn encode_length(&mut self, length: usize, signed: bool) -> Result<(), Error> {
+    /// `forced_long_form` used for cases when length < 128 but we want to force long form. E.g. when encoding a enumerated.
+    fn encode_length(
+        &mut self,
+        length: usize,
+        signed: bool,
+        forced_long_form: bool,
+    ) -> Result<(), Error> {
         // Bits to byte length
         let length = if length % 8 == 0 {
             length / 8
@@ -91,8 +97,16 @@ impl Encoder {
         // E.g. length of a enumerated value
         //  ITU-T X.696 (02/2021) 11.4 ???? Seems like it is not needed
         let bytes = helpers::integer_to_bitvec_bytes(&Integer::from(length), signed)?;
-        if length < 128 {
+        if length < 128 && !forced_long_form {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
+            self.output.extend(&bytes);
+            return Ok(());
+        }
+        if length < 128 && forced_long_form {
+            // We must swap the first bit to show long form
+            let mut bytes = bytes;
+            _ = bytes.remove(0);
+            bytes.insert(0, true);
             self.output.extend(&bytes);
             return Ok(());
         }
@@ -122,9 +136,10 @@ impl Encoder {
         &mut self,
         value_to_enc: &Integer,
         signed: bool,
+        long_form_short_length: bool,
     ) -> Result<(), Error> {
         let bytes = helpers::integer_to_bitvec_bytes(value_to_enc, signed)?;
-        self.encode_length(bytes.len(), false)?;
+        self.encode_length(bytes.len(), false, long_form_short_length)?;
         self.output.extend(bytes);
         Ok(())
     }
@@ -158,12 +173,12 @@ impl Encoder {
                     if let Some(octets) = octets {
                         self.encode_integer_with_padding(i128::from(octets), value_to_enc, sign)
                     } else {
-                        self.encode_unconstrained_integer(value_to_enc, sign)
+                        self.encode_unconstrained_integer(value_to_enc, sign, false)
                     }
                 },
             );
         }
-        self.encode_unconstrained_integer(value_to_enc, true)
+        self.encode_unconstrained_integer(value_to_enc, true, false)
     }
 
     /// When range constraints are present, the integer is encoded as a fixed-size number.
@@ -250,7 +265,8 @@ impl crate::Encoder for Encoder {
             self.encode_integer_with_padding(1, &number.into(), false)?;
         } else {
             //Value is signed here as defined in section 11.4
-            self.encode_unconstrained_integer(&number.into(), true)?;
+            // Long form
+            self.encode_unconstrained_integer(&number.into(), true, true)?;
         }
         Ok(())
     }
