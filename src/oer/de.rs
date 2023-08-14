@@ -155,7 +155,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let byte = self.parse_one_byte()?;
         if byte < 128 {
             // Short form
-            E::from_discriminant(byte as isize)
+            E::from_discriminant(isize::from(byte))
                 .ok_or_else(|| Error::enum_variant_not_found(byte.into()))
         } else {
             // Long form, value as signed integer
