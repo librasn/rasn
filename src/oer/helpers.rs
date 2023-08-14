@@ -6,9 +6,9 @@ use crate::types::constraints::{Bounded, Extensible, Value};
 /// 1, 2, 4 or 8 octets
 const UNSIGNED_RANGES: [(i128, i128, u8); 4] = [
     (0i128, u8::MAX as i128, 1),
-    (u8::MAX as i128, u16::MAX as i128, 2),
-    (u16::MAX as i128, u32::MAX as i128, 4),
-    (u32::MAX as i128, u64::MAX as i128, 8),
+    (0i128, u16::MAX as i128, 2),
+    (0i128, u32::MAX as i128, 4),
+    (0i128, u64::MAX as i128, 8),
 ];
 /// Number of octets by value ranges for signed integers
 /// 1, 2, 4 or 8 octets
@@ -18,6 +18,18 @@ const SIGNED_RANGES: [(i128, i128, u8); 4] = [
     (i32::MIN as i128, i32::MAX as i128, 4),
     (i64::MIN as i128, i64::MAX as i128, 8),
 ];
+pub fn octet_size_by_range(value: i128) -> Option<u8> {
+    for i in [UNSIGNED_RANGES, SIGNED_RANGES] {
+        if let Some(octets) = i
+            .iter()
+            .find(|&&(min, max, _)| value >= min && value <= max)
+            .map(|&(_, _, octets)| octets)
+        {
+            return Some(octets);
+        }
+    }
+    None
+}
 // Constraints limit Bound to i128 in Value type (see Value struct)
 // Only Value constraint is OER visible (range, single value)
 // TODO - maybe use BigInt instead of i128 some day?
@@ -64,6 +76,6 @@ pub fn determine_integer_size_and_sign<T, U, E>(
         }
         | Bounded::None => transform_fn(data, true, None),
         // TODO - check if this is correct way instead of not encoding at all, or true/false
-        Bounded::Single(value) => transform_fn(data, value < 0, None),
+        Bounded::Single(value) => transform_fn(data, value < 0, octet_size_by_range(value)),
     }
 }

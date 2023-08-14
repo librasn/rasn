@@ -12,13 +12,36 @@ macro_rules! round_trip {
     ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
         let value: $typ = $value;
         let expected: &[u8] = $expected;
-        let actual_encoding = crate::$codec::encode(&value).unwrap();
-
-        pretty_assertions::assert_eq!(expected, &*actual_encoding);
-
+        let result = crate::$codec::encode(&value);
+        let actual_encoding = match result {
+            Ok(actual_encoding) => {
+                pretty_assertions::assert_eq!(expected, &*actual_encoding);
+                actual_encoding
+            }
+            Err(error) => {
+                panic!("Unexpected encoding error: {}", error);
+            }
+        };
         let decoded_value: $typ = crate::$codec::decode(&actual_encoding).unwrap();
-
         pretty_assertions::assert_eq!(value, decoded_value);
+    }};
+}
+#[cfg(test)]
+macro_rules! encode_error {
+    ($codec:ident, $typ:ty, $value:expr) => {{
+        let value: $typ = $value;
+        let result = crate::$codec::encode(&value);
+        match result {
+            Ok(actual_encoding) => {
+                panic!(
+                    "Expected an encoding error but got a valid encoding: {:?}",
+                    &*actual_encoding
+                );
+            }
+            Err(_) => {
+                // Expected an encoding error, so we're good!
+            }
+        }
     }};
 }
 

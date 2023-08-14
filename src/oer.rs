@@ -1,6 +1,6 @@
 pub mod de;
 pub mod enc;
-mod utils;
+mod helpers;
 
 pub use self::{de::Decoder, enc::Encoder};
 use crate::types::Constraints;
@@ -45,6 +45,8 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 #[cfg(test)]
 mod tests {
     // use super::*;
+    use crate::prelude::*;
+    use crate::types::constraints::{Bounded, Constraint, Value};
     use crate::types::Integer;
     #[test]
     fn bool() {
@@ -158,6 +160,142 @@ mod tests {
                 0x11u8, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
                 0xff, 0xff, 0xff, 0xff, 0xff
             ]
+        );
+    }
+    #[test]
+    fn test_integer_with_unsigned_constraints() {
+        type A = ConstrainedInteger<0, { u8::MAX as i128 }>;
+        type B = ConstrainedInteger<0, { u16::MAX as i128 }>;
+        type C = ConstrainedInteger<0, { u32::MAX as i128 }>;
+        type D = ConstrainedInteger<0, { u64::MAX as i128 }>;
+        type E = ConstrainedInteger<0, { i128::MAX }>;
+        type F = ConstrainedInteger<2, { u16::MAX as i128 }>;
+
+        round_trip!(oer, A, 0.into(), &[0x00]);
+        round_trip!(oer, A, 5.into(), &[0x05]);
+        round_trip!(oer, A, 255.into(), &[0xff]);
+        // Paddings are expected
+        round_trip!(oer, B, 0.into(), &[0x00, 0x00]);
+        round_trip!(oer, B, 255.into(), &[0x00, 0xff]);
+        round_trip!(oer, C, 0.into(), &[0x00, 0x00, 0x00, 0x00]);
+        round_trip!(oer, C, u16::MAX.into(), &[0x00, 0x00, 0xff, 0xff]);
+        round_trip!(
+            oer,
+            D,
+            0.into(),
+            &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            D,
+            u32::MAX.into(),
+            &[0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff]
+        );
+        // Use length determinant when upper range above u64 max
+        round_trip!(
+            oer,
+            E,
+            (i128::from(u64::MAX) + 1).into(),
+            &[0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        round_trip!(oer, F, 2.into(), &[0x00, 0x02]);
+        // Error expected, outside of range constraints
+        encode_error!(oer, A, (-1).into());
+        encode_error!(oer, B, (-1).into());
+        encode_error!(oer, C, (-1).into());
+        encode_error!(oer, D, (-1).into());
+        encode_error!(oer, E, (-1).into());
+        encode_error!(oer, F, (1).into());
+        encode_error!(oer, A, (u16::from(u8::MAX) + 1).into());
+        encode_error!(oer, B, (u32::from(u16::MAX) + 1).into());
+        encode_error!(oer, C, (u64::from(u32::MAX) + 1).into());
+        encode_error!(oer, D, (u128::from(u64::MAX) + 1).into());
+    }
+    #[test]
+    fn test_integer_with_signed_constraints() {
+        type A = ConstrainedInteger<{ i8::MIN as i128 }, { i8::MAX as i128 }>;
+        type B = ConstrainedInteger<{ i16::MIN as i128 }, { i16::MAX as i128 }>;
+        type C = ConstrainedInteger<{ i32::MIN as i128 }, { i32::MAX as i128 }>;
+        type D = ConstrainedInteger<{ i64::MIN as i128 }, { i64::MAX as i128 }>;
+        type E = ConstrainedInteger<-5, 5>;
+
+        round_trip!(oer, A, 0.into(), &[0x00]);
+        round_trip!(oer, A, (-1).into(), &[0xff]);
+        round_trip!(oer, A, i8::MIN.into(), &[0x80]);
+        round_trip!(oer, A, i8::MAX.into(), &[0x7f]);
+        // Paddings (0xff as 2's complement) are sometimes expected
+        round_trip!(oer, B, 0.into(), &[0x00, 0x00]);
+        round_trip!(oer, B, (-1).into(), &[0xff, 0xff]);
+        round_trip!(oer, B, i8::MIN.into(), &[0xff, 0x80]);
+        round_trip!(oer, B, i8::MAX.into(), &[0x00, 0x7f]);
+        round_trip!(oer, B, i16::MIN.into(), &[0x80, 0x00]);
+        round_trip!(oer, B, i16::MAX.into(), &[0x7f, 0xff]);
+
+        round_trip!(oer, C, 0.into(), &[0x00, 0x00, 0x00, 0x00]);
+        round_trip!(oer, C, (-1).into(), &[0xff, 0xff, 0xff, 0xff]);
+        round_trip!(oer, C, i16::MIN.into(), &[0xff, 0xff, 0x80, 0x00]);
+        round_trip!(oer, C, i16::MAX.into(), &[0x00, 0x00, 0x7f, 0xff]);
+        round_trip!(oer, C, i32::MIN.into(), &[0x80, 0x00, 0x00, 0x00]);
+        round_trip!(oer, C, i32::MAX.into(), &[0x7f, 0xff, 0xff, 0xff]);
+
+        round_trip!(
+            oer,
+            D,
+            0.into(),
+            &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            D,
+            (-1).into(),
+            &[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        );
+        round_trip!(
+            oer,
+            D,
+            i32::MIN.into(),
+            &[0xff, 0xff, 0xff, 0xff, 0x80, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            D,
+            i32::MAX.into(),
+            &[0x00, 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0xff]
+        );
+        round_trip!(
+            oer,
+            D,
+            i64::MIN.into(),
+            &[0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            D,
+            i64::MAX.into(),
+            &[0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
+        );
+        round_trip!(oer, E, 4.into(), &[0x04]);
+        round_trip!(oer, E, (-4).into(), &[0xfc]);
+
+        // Error expected, outside of range constraints
+        encode_error!(oer, A, (i16::from(i8::MIN) - 1).into());
+        encode_error!(oer, B, (i32::from(i16::MIN) - 1).into());
+        encode_error!(oer, C, (i64::from(i32::MIN) - 1).into());
+        encode_error!(oer, D, (i128::from(i64::MIN) - 1).into());
+
+        encode_error!(oer, A, (i16::from(i8::MAX) + 1).into());
+        encode_error!(oer, B, (i32::from(i16::MAX) + 1).into());
+        encode_error!(oer, C, (i64::from(i32::MAX) + 1).into());
+        encode_error!(oer, D, (i128::from(i64::MAX) + 1).into());
+    }
+    #[test]
+    fn test_integer_single_constraint() {
+        round_trip_with_constraints!(
+            oer,
+            Integer,
+            Constraints::new(&[Constraint::Value(Value::new(Bounded::Single(5)).into())]),
+            5.into(),
+            &[0x05]
         );
     }
 }

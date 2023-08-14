@@ -2,7 +2,7 @@
 // In OER, without knowledge of the type of the value encoded, it is not possible to determine
 // the structure of the encoding. In particular, the end of the encoding cannot be determined from
 // the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
-use crate::oer::utils;
+use crate::oer::helpers;
 use crate::prelude::{
     Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, GeneralString,
     GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier, PrintableString, SetOf,
@@ -122,7 +122,7 @@ impl<'input> Decoder<'input> {
     fn decode_integer_with_constraints(&mut self, constraints: &Constraints) -> Result<Integer> {
         // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
-            utils::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
+            helpers::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
                 self.decode_integer_from_bytes(sign, octets.map(BigUint::from))
             })
         } else {

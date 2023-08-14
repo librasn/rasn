@@ -1,4 +1,4 @@
-use crate::oer::utils;
+use crate::oer::helpers;
 use crate::prelude::{
     Any, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime, Ia5String,
     NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
@@ -7,6 +7,8 @@ use crate::types::{BitString, Constraints, Integer};
 use crate::{Encode, Tag};
 use alloc::{string::ToString, vec::Vec};
 use bitvec::prelude::*;
+use num_traits::Signed;
+
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
 /// On this crate, only canonical version will be used to provide unique and reproducible encodings.
 /// Basic-OER is not supported and it might be that never will.
@@ -169,17 +171,15 @@ impl Encoder {
                     expected: value.constraint.0,
                 });
             }
-            return utils::determine_integer_size_and_sign(
+            return helpers::determine_integer_size_and_sign(
                 &value,
                 value_to_enc,
                 |value_to_enc, sign, octets| {
-                    let bytes = if sign {
-                        value_to_enc.to_signed_bytes_be()
+                    if let Some(octets) = octets {
+                        self.encode_integer_with_padding(i128::from(octets), value_to_enc, sign)
                     } else {
-                        value_to_enc.to_biguint().unwrap().to_bytes_be()
-                    };
-                    // octets never > 8, safe unwrap
-                    self.encode_integer_with_padding(octets.map(i128::from).unwrap(), &bytes)
+                        self.encode_unconstrained_integer(value_to_enc, sign)
+                    }
                 },
             );
         }
@@ -188,29 +188,43 @@ impl Encoder {
 
     /// When range constraints are present, the integer is encoded as a fixed-size number.
     /// This means that the zero padding is possible even with COER encoding.
-    fn encode_integer_with_padding(&mut self, octets: i128, bytes: &[u8]) -> Result<(), Error> {
+    fn encode_integer_with_padding(
+        &mut self,
+        octets: i128,
+        value: &Integer,
+        sign: bool,
+    ) -> Result<(), Error> {
         use core::cmp::Ordering;
         if octets > 8 {
             return Err(Error::Custom {
                 msg: alloc::format!("Unexpected constrained integer byte size: {octets}"),
             });
         }
-        let bits = BitVec::<u8, Msb0>::from_slice(bytes);
+        let bytes = if sign {
+            value.to_signed_bytes_be()
+        } else {
+            value.to_biguint().unwrap().to_bytes_be()
+        };
+        let bits = BitVec::<u8, Msb0>::from_slice(&bytes);
         // octets * 8 never > 64, safe conversion and multiplication
         #[allow(clippy::cast_sign_loss)]
-        let bits = match (octets as usize * 8).cmp(&bits.len()) {
+        let octets_as_bits: usize = octets as usize * 8;
+        let bits = match octets_as_bits.cmp(&bits.len()) {
             Ordering::Greater => {
-                // octets never > 8, safe conversion
-                #[allow(clippy::cast_sign_loss)]
-                let mut padding = BitString::repeat(false, octets as usize - bits.len());
+                let mut padding: BitVec<u8, Msb0>;
+                if sign && value.is_negative() {
+                    // 2's complement
+                    padding = BitString::repeat(true, octets_as_bits - bits.len());
+                } else {
+                    padding = BitString::repeat(false, octets_as_bits - bits.len());
+                }
                 padding.extend(bits);
                 padding
             }
             Ordering::Less => {
                 return Err(Error::MoreBytesThanExpected {
                     value: bits.len(),
-                    #[allow(clippy::cast_sign_loss)]
-                    expected: octets as usize,
+                    expected: octets_as_bits,
                 })
             }
             Ordering::Equal => bits,
