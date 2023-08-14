@@ -152,7 +152,21 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error> {
-        todo!()
+        let byte = self.parse_one_byte()?;
+        if byte < 128 {
+            // Short form
+            E::from_discriminant(byte as isize)
+                .ok_or_else(|| Error::enum_variant_not_found(byte.into()))
+        } else {
+            // Long form, value as signed integer
+            let length = byte & 0x7fu8;
+            let data = self.decode_integer_from_bytes(true, Some(length.into()))?;
+            E::from_discriminant(
+                data.to_isize()
+                    .ok_or_else(Error::enum_variant_exceeds_platform_width)?,
+            )
+            .ok_or_else(|| Error::enum_variant_not_found(data.to_isize().unwrap()))
+        }
     }
 
     fn decode_integer(&mut self, _: Tag, constraints: Constraints) -> Result<Integer, Self::Error> {
