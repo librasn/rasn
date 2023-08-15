@@ -249,15 +249,30 @@ impl TryFrom<Bounded<usize>> for Value {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Size(Bounded<usize>);
+pub struct Size(pub(crate) Bounded<usize>);
 
 impl Size {
+    #[must_use]
+    /// Creates a varying range constraint.
     pub const fn new(range: Bounded<usize>) -> Self {
         Self(range)
     }
 
+    #[must_use]
+    /// Creates a fixed size constraint.
     pub const fn fixed(length: usize) -> Self {
         Self(Bounded::Single(length))
+    }
+
+    #[must_use]
+    /// Returns whether the size is fixed.
+    pub fn is_fixed(&self) -> bool {
+        matches!(self.0, Bounded::Single(_))
+    }
+    /// Returns whether the size has a varying range.
+    #[must_use]
+    pub fn is_range(&self) -> bool {
+        matches!(self.0, Bounded::Range { .. })
     }
 }
 
