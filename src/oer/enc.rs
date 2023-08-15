@@ -1,13 +1,14 @@
 use crate::oer::helpers;
 use crate::prelude::{
-    Any, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime, Ia5String,
-    NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
+    Any, BmpString, Choice, Constraint, Constructed, Enumerated, GeneralString, GeneralizedTime,
+    Ia5String, NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
 };
+use crate::types::constraints::Bounded;
 use crate::types::{BitString, Constraints, Integer};
 use crate::{Encode, Tag};
 use alloc::{string::ToString, vec::Vec};
 use bitvec::prelude::*;
-use num_traits::Signed;
+use num_traits::{Signed, ToPrimitive};
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
 /// On this crate, only canonical version will be used to provide unique and reproducible encodings.
@@ -244,11 +245,43 @@ impl crate::Encoder for Encoder {
 
     fn encode_bit_string(
         &mut self,
-        _tag: Tag,
+        _: Tag,
         constraints: Constraints,
         value: &BitString,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        // TODO When Rec. ITU-T X.680 | ISO/IEC 8824-1, 22.7 applies (i.e., the bitstring type is defined with a
+        // "NamedBitList"), the bitstring value shall be encoded with trailing 0 bits added or removed as necessary to satisfy the
+        // effective size constraint.
+        if let Some(size) = constraints.size() {
+            if !size.constraint.contains(&value.len()) && size.extensible.is_none() {
+                return Err(Error::NotInSizeConstraintRange {
+                    length: value.len(),
+                });
+            }
+            // Encode without length determinant
+            if size.constraint.is_fixed() {
+                let missing_bits: usize = value.len() % 8;
+                let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
+                if missing_bits > 0 {
+                    self.output.extend(value);
+                    self.output.extend(trailing);
+                } else {
+                    self.output.extend(value);
+                }
+                return Ok(());
+            }
+        }
+        // With length determinant
+        let missing_bits: usize = value.len() % 8;
+        let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
+        let mut bit_string = BitVec::<u8, Msb0>::new();
+        // missing bits never > 8
+        bit_string.extend(missing_bits.to_u8().unwrap().to_be_bytes());
+        bit_string.extend(value);
+        bit_string.extend(trailing);
+        self.encode_length(bit_string.len() / 8, false, false)?;
+        self.output.extend(bit_string);
+        Ok(())
     }
 
     fn encode_enumerated<E: Enumerated>(
@@ -580,4 +613,12 @@ mod tests {
         ];
         assert_eq!(encoder.output(), vc);
     }
+    // #[test]
+    // fn test_bit_string() {
+    //     let constraints = Constraints::default();
+    //     let mut encoder = crate::oer::Encoder::default();
+    //     let test = BitVec::<u8, Msb0>::from_slice(&[0b1010_1010_u8]);
+    //     let test2 = BitString::from(test);
+    //     let result = encoder.encode_bit_string(Tag::BIT_STRING, constraints, &test);
+    // }
 }
