@@ -18,6 +18,8 @@ pub enum Error {
     LengthNotAsBitLength { value: usize, remainder: usize },
     #[snafu(display("Provided data is too long to be encoded with COER."))]
     TooLongValue { length: u128 },
+    #[snafu(display("Provided data size is not in the constraint range."))]
+    NotInSizeConstraintRange { length: usize },
     #[snafu(display("Integer does not fit to the reserved octets {expected}; actual: {value}"))]
     MoreBytesThanExpected { value: usize, expected: usize },
     #[snafu(display("Propagated Error:\n{}", msg))]
