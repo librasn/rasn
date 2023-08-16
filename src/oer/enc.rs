@@ -1,22 +1,25 @@
-use crate::oer::helpers;
-use crate::prelude::{
-    Any, BmpString, Choice, Constraint, Constructed, Enumerated, GeneralString, GeneralizedTime,
-    Ia5String, NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
-};
-use crate::types::constraints::Bounded;
-use crate::types::{BitString, Constraints, Integer};
-use crate::{Encode, Tag};
 use alloc::{string::ToString, vec::Vec};
+
 use bitvec::prelude::*;
 use num_traits::{Signed, ToPrimitive};
+
+pub use config::EncoderOptions;
+pub use error::Error;
+
+use crate::oer::helpers;
+use crate::prelude::{
+    Any, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime, Ia5String,
+    NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
+};
+
+use crate::types::{BitString, Constraints, Integer};
+use crate::{Encode, Tag};
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
 /// On this crate, only canonical version will be used to provide unique and reproducible encodings.
 /// Basic-OER is not supported and it might be that never will.
 mod config;
-pub use config::EncoderOptions;
 mod error;
-pub use error::Error;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
@@ -76,8 +79,7 @@ impl Encoder {
 
     /// Encode the length of the value to output.
     /// Length of the data `length` should not be provided as full bytes.
-    /// In COER we try to use the shortest possible encoding, hence convert to the smallest integer type
-    /// to avoid leading zeros.
+    /// COER tries to use the shortest possible encoding and avoids leading zeros.
     /// `forced_long_form` used for cases when length < 128 but we want to force long form. E.g. when encoding a enumerated.
     fn encode_length(
         &mut self,
@@ -122,7 +124,6 @@ impl Encoder {
             // It is always zero by default with u8 type when value being < 128
             _ = self.output.remove(0);
             self.output.insert(0, true);
-            dbg!(&bytes);
             self.output.extend(bytes);
         } else {
             return Err(Error::Propagated {
@@ -260,7 +261,7 @@ impl crate::Encoder for Encoder {
             }
             // Encode without length determinant
             if size.constraint.is_fixed() {
-                let missing_bits: usize = value.len() % 8;
+                let missing_bits: usize = 8 - value.len() % 8;
                 let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
                 if missing_bits > 0 {
                     self.output.extend(value);
@@ -272,14 +273,15 @@ impl crate::Encoder for Encoder {
             }
         }
         // With length determinant
-        let missing_bits: usize = value.len() % 8;
+        let missing_bits: usize = (8 - value.len() % 8) % 8;
+        if missing_bits < 8 {}
         let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
         let mut bit_string = BitVec::<u8, Msb0>::new();
         // missing bits never > 8
         bit_string.extend(missing_bits.to_u8().unwrap().to_be_bytes());
         bit_string.extend(value);
         bit_string.extend(trailing);
-        self.encode_length(bit_string.len() / 8, false, false)?;
+        self.encode_length(bit_string.len(), false, false)?;
         self.output.extend(bit_string);
         Ok(())
     }
@@ -507,9 +509,11 @@ impl crate::Encoder for Encoder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Value};
     use num_bigint::BigInt;
+
+    use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Value};
+
+    use super::*;
 
     // const ALPHABETS: &[u32] = &{
     //     let mut array = [0; 26];
@@ -561,7 +565,6 @@ mod tests {
         encoder.output.clear();
         let value = BigInt::from(256);
         let result = encoder.encode_integer_with_constraints(&consts, &value);
-        // dbg!(result.as_ref().err());
         assert!(matches!(
             result,
             Err(Error::IntegerOutOfRange {
@@ -576,7 +579,6 @@ mod tests {
         let constraints = Constraints::default();
         let mut encoder = Encoder::default();
         let result = encoder.encode_integer_with_constraints(&constraints, &BigInt::from(244));
-        // dbg!(&result.err());
         assert!(result.is_ok());
         let v = vec![2u8, 0, 244];
         let bv = BitVec::<_, Msb0>::from_vec(v);
@@ -613,12 +615,4 @@ mod tests {
         ];
         assert_eq!(encoder.output(), vc);
     }
-    // #[test]
-    // fn test_bit_string() {
-    //     let constraints = Constraints::default();
-    //     let mut encoder = crate::oer::Encoder::default();
-    //     let test = BitVec::<u8, Msb0>::from_slice(&[0b1010_1010_u8]);
-    //     let test2 = BitString::from(test);
-    //     let result = encoder.encode_bit_string(Tag::BIT_STRING, constraints, &test);
-    // }
 }

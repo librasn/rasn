@@ -11,8 +11,9 @@ use crate::prelude::{
 use crate::{de::Error as _, Decode, Tag};
 use alloc::{string::String, vec::Vec};
 use bitvec::macros::internal::funty::Fundamental;
-use nom::AsBytes;
+use nom::{AsBytes, Slice};
 use num_bigint::{BigUint, Sign};
+use num_integer::div_ceil;
 use num_traits::ToPrimitive;
 
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
@@ -78,7 +79,12 @@ impl<'input> Decoder<'input> {
             match result {
                 Ok((input, data)) => {
                     self.input = input;
-                    Ok(BigUint::from_bytes_be(data.as_bytes()))
+                    let length = BigUint::from_bytes_be(data.as_bytes());
+                    if length > usize::MAX.into() {
+                        Err(Error::custom(alloc::format!("Length of the incoming data is either incorrect or your device is up by miracle: {length}")))
+                    } else {
+                        Ok(length)
+                    }
                 }
                 Err(e) => Err(e),
             }
@@ -130,6 +136,42 @@ impl<'input> Decoder<'input> {
             self.decode_integer_from_bytes(true, None)
         }
     }
+    fn decode_known_multiplier_string(&mut self, constraints: &Constraints) -> Result<BitString> {
+        if let Some(size) = constraints.size() {
+            // Fixed size, only data is included
+            if size.constraint.is_fixed() && size.extensible.is_none() {
+                let length = size
+                    .constraint
+                    .as_start()
+                    .ok_or_else(|| Err(Error::custom("Fixed size constraint should have value")));
+                return match length {
+                    Ok(length) => {
+                        let bytes_required = div_ceil(*length, 8);
+                        let data = self
+                            .extract_data_by_length(BigUint::from(bytes_required))?
+                            .slice(..*length);
+                        Ok(BitString::from_bitslice(&data))
+                    }
+                    Err(e) => e,
+                };
+            }
+        }
+        let length = self.decode_length()?;
+        let num_unused_bits = self.parse_one_byte()?;
+        if num_unused_bits > 7 {
+            return Err(Error::custom(
+                "Marked number of unused bits should be less than 8 when decoding BitString",
+            ));
+        }
+        // Remove one from length as one describes trailing zeros...
+        let data_bit_length: usize = ((&length - 1u8) * 8u8).try_into().map_err(|_| {
+            Error::custom("Total length exceeds BitSlice max usize when decoding BitString")
+        })?;
+        let data = self
+            .extract_data_by_length(length.clone() - BigUint::from(1u8))?
+            .slice(..(data_bit_length - num_unused_bits as usize));
+        Ok(BitString::from_bitslice(data.into()))
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -144,7 +186,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         constraints: Constraints,
     ) -> Result<BitString, Self::Error> {
-        todo!()
+        self.decode_known_multiplier_string(&constraints)
     }
     /// One octet is used to present bool, false is 0x0 and true is value up to 0xff
     fn decode_bool(&mut self, _: Tag) -> Result<bool, Self::Error> {
@@ -474,7 +516,6 @@ mod tests {
                 Size::new(Bounded::None).into(),
             )]))
             .unwrap();
-        dbg!(&decoded_int);
         assert_eq!(decoded_int, BigInt::from(-255));
     }
 }
