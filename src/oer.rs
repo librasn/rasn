@@ -46,8 +46,9 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 mod tests {
     // use super::*;
     use crate::prelude::*;
-    use crate::types::constraints::{Bounded, Constraint, Value};
+    use crate::types::constraints::{Bounded, Constraint, Size, Value};
     use crate::types::Integer;
+    use bitvec::prelude::*;
     #[test]
     fn bool() {
         round_trip!(oer, bool, true, &[0xff]);
@@ -347,5 +348,39 @@ mod tests {
         }
         round_trip!(oer, Enum4, Enum4::Yes, &[0x82, 0x03, 0xe8]);
         // round_trip!(oer, Enum4, Enum4::No, &[0x82, 0xfc, 0x18]);
+    }
+    #[test]
+    fn test_bit_string() {
+        round_trip!(
+            oer,
+            BitString,
+            BitString::from_slice(&[0x01]),
+            &[0x02, 0x00, 0x01]
+        );
+        let mut bv = bitvec![u8, Msb0;];
+        bv.extend_from_raw_slice(&[0xff]);
+        bv.push(false);
+        bv.push(true);
+        bv.extend([false; 4].iter());
+        // bv should be 14 bits now
+        round_trip_with_constraints!(
+            oer,
+            BitString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(14)).into())]),
+            BitString::from_bitslice(&bv),
+            &[0b1111_1111, 0b0100_0000]
+        );
+        round_trip!(
+            oer,
+            BitString,
+            BitString::from_bitslice(&bv),
+            &[0x03u8, 0x02, 0b1111_1111, 0b0100_0000]
+        );
+        encode_error_with_constraints!(
+            oer,
+            BitString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(15)).into())]),
+            BitString::from_bitslice(&bv)
+        );
     }
 }
