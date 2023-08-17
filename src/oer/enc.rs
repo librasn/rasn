@@ -403,11 +403,13 @@ impl crate::Encoder for Encoder {
 
     fn encode_general_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        // TODO check additional conditions from X.690 8.23.5.3
+        // Seems like it can be encoded as it is...
+        self.encode_octet_string(tag, constraints, value)
     }
 
     fn encode_utf8_string(
@@ -528,7 +530,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        value.encode(self)
     }
 
     fn encode_some_with_tag_and_constraints<E: Encode>(
@@ -537,15 +539,15 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        value.encode_with_tag_and_constraints(self, tag, constraints)
     }
 
     fn encode_none<E: Encode>(&mut self) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn encode_none_with_tag(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        Ok(())
     }
 
     fn encode_choice<E: Encode + Choice>(
@@ -553,7 +555,30 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        let mut choice_encoder = Self::new();
+        let tag = (encode_fn)(&mut choice_encoder)?;
+        let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
+        let variants = crate::types::variants::Variants::from_static(if is_root_extension {
+            E::VARIANTS
+        } else {
+            E::EXTENDED_VARIANTS
+        });
+        let index = variants
+            .iter()
+            .enumerate()
+            .find_map(|(i, &variant_tag)| (tag == variant_tag).then_some(i))
+            .ok_or_else(|| crate::enc::Error::custom("variant not found in choice"))?;
+        if is_root_extension {
+            let integer_bytes = helpers::integer_to_bitvec_bytes(&index.into(), false)?;
+            self.output.extend(integer_bytes);
+            self.output.extend(choice_encoder.output);
+            Ok(())
+        } else {
+            // Encode a selection from extension list as open type without a tag
+            self.encode_length(choice_encoder.output.len(), false, false)?;
+            self.encode_octet_string(tag, constraints, choice_encoder.output.as_raw_slice())?;
+            Ok(())
+        }
     }
 
     fn encode_extension_addition<E: Encode>(
