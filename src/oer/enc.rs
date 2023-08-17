@@ -230,14 +230,41 @@ impl Encoder {
         self.output.extend(bits);
         Ok(())
     }
+    fn check_fixed_size_constraint<T>(
+        value: T,
+        length: usize,
+        constraints: &Constraints,
+        mut is_fixed_fn: impl FnMut(T) -> Result<(), Error>,
+    ) -> Result<bool, Error> {
+        if let Some(size) = constraints.size() {
+            if !size.constraint.contains(&length) && size.extensible.is_none() {
+                return Err(Error::NotInSizeConstraintRange { length });
+            }
+            // Encode without length determinant
+            if size.constraint.is_fixed() && size.extensible.is_none() {
+                return match is_fixed_fn(value) {
+                    Ok(()) => Ok(true),
+                    Err(err) => Err(err),
+                };
+            }
+        }
+        // Prior checks before encoding with length determinant
+        let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
+        if length > max_permitted_length {
+            return Err(Error::TooLongValue {
+                length: length as u128,
+            });
+        }
+        Ok(false)
+    }
 }
 
 impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = Error;
 
-    fn encode_any(&mut self, _tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
-        todo!()
+    fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, <Constraints>::default(), &value.contents)
     }
 
     fn encode_bool(&mut self, _tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
@@ -255,24 +282,25 @@ impl crate::Encoder for Encoder {
         // "NamedBitList"), the bitstring value shall be encoded with trailing 0 bits added or removed as necessary to satisfy the
         // effective size constraint.
         // Rasn does not currently support NamedBitList
-        if let Some(size) = constraints.size() {
-            if !size.constraint.contains(&value.len()) && size.extensible.is_none() {
-                return Err(Error::NotInSizeConstraintRange {
-                    length: value.len(),
-                });
+
+        let fixed_size_encode = |value: &BitString| {
+            let missing_bits: usize = 8 - value.len() % 8;
+            let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
+            if missing_bits > 0 {
+                self.output.extend(value);
+                self.output.extend(trailing);
+            } else {
+                self.output.extend(value);
             }
-            // Encode without length determinant
-            if size.constraint.is_fixed() {
-                let missing_bits: usize = 8 - value.len() % 8;
-                let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
-                if missing_bits > 0 {
-                    self.output.extend(value);
-                    self.output.extend(trailing);
-                } else {
-                    self.output.extend(value);
-                }
-                return Ok(());
-            }
+            Ok(())
+        };
+        if Encoder::check_fixed_size_constraint(
+            value,
+            value.len(),
+            &constraints,
+            fixed_size_encode,
+        )? {
+            return Ok(());
         }
         // With length determinant
         let missing_bits: usize = (8 - value.len() % 8) % 8;
@@ -355,24 +383,19 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
-        if let Some(size) = constraints.size() {
-            if !size.constraint.contains(&value.len()) && size.extensible.is_none() {
-                return Err(Error::NotInSizeConstraintRange {
-                    length: value.len(),
-                });
-            }
-            // Encode without length determinant
-            if size.constraint.is_fixed() && size.extensible.is_none() {
-                self.output.extend(value);
-                return Ok(());
-            }
+        let fixed_size_encode = |value: &[u8]| {
+            self.output.extend(value);
+            Ok(())
+        };
+        if Encoder::check_fixed_size_constraint(
+            value,
+            value.len(),
+            &constraints,
+            fixed_size_encode,
+        )? {
+            return Ok(());
         }
-        let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
-        if value.len() > max_permitted_length {
-            return Err(Error::TooLongValue {
-                length: value.len() as u128,
-            });
-        }
+        // Use length determinant on other cases
         self.encode_length(value.len() * 8, false, false)?;
         self.output.extend(value);
         Ok(())
