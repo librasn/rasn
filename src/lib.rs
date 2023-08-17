@@ -60,6 +60,24 @@ macro_rules! round_trip_with_constraints {
         pretty_assertions::assert_eq!(value, decoded_value);
     }};
 }
+#[cfg(test)]
+macro_rules! encode_error_with_constraints {
+    ($codec:ident, $typ:ty, $constraints:expr, $value:expr) => {{
+        let value: $typ = $value;
+        let result = crate::$codec::encode_with_constraints($constraints, &value);
+        match result {
+            Ok(actual_encoding) => {
+                panic!(
+                    "Expected an encoding error but got a valid encoding: {:?}",
+                    &*actual_encoding
+                );
+            }
+            Err(_) => {
+                // Expected an encoding error, so we're good!
+            }
+        }
+    }};
+}
 
 pub mod codec;
 pub mod de;
