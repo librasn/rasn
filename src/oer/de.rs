@@ -221,7 +221,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_object_identifier(&mut self, _: Tag) -> Result<ObjectIdentifier, Self::Error> {
-        todo!()
+        let length = self.decode_length()?;
+        match crate::ber::de::Decoder::decode_object_identifier_from_bytes(
+            self.extract_data_by_length(length)?.as_bytes(),
+        ) {
+            Ok(value) => Ok(value),
+            Err(err) => return Err(Error::ber_decoding_error(err)),
+        }
     }
 
     fn decode_sequence<D, F>(&mut self, _: Tag, decode_fn: F) -> Result<D, Self::Error>
@@ -253,7 +259,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         constraints: Constraints,
     ) -> Result<Vec<u8>, Self::Error> {
-        todo!()
+        if let Some(size) = constraints.size() {
+            // Fixed size, only data is included
+            if size.constraint.is_fixed() && size.extensible.is_none() {
+                let data = self
+                    .extract_data_by_length(BigUint::from(*size.constraint.as_start().unwrap()))
+                    .map(|data| data.as_bytes().to_vec());
+                return data;
+            }
+        }
+        let length = self.decode_length()?;
+        self.extract_data_by_length(length)
+            .map(|data| data.as_bytes().to_vec())
     }
 
     fn decode_utf8_string(
