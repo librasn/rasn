@@ -136,7 +136,7 @@ impl<'input> Decoder<'input> {
             self.decode_integer_from_bytes(true, None)
         }
     }
-    fn decode_known_multiplier_string(&mut self, constraints: &Constraints) -> Result<BitString> {
+    fn parse_bit_string(&mut self, constraints: &Constraints) -> Result<BitString> {
         if let Some(size) = constraints.size() {
             // Fixed size, only data is included
             if size.constraint.is_fixed() && size.extensible.is_none() {
@@ -186,7 +186,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         constraints: Constraints,
     ) -> Result<BitString, Self::Error> {
-        self.decode_known_multiplier_string(&constraints)
+        self.parse_bit_string(&constraints)
     }
     /// One octet is used to present bool, false is 0x0 and true is value up to 0xff
     fn decode_bool(&mut self, _: Tag) -> Result<bool, Self::Error> {
