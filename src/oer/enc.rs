@@ -314,10 +314,10 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &[u32],
     ) -> Result<Self::Ok, Self::Error> {
-        let octets = match (|| {
+        let octets = match {
             let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
             enc.object_identifier_as_bytes(value)
-        })() {
+        } {
             Ok(oid) => oid,
             Err(err) => {
                 return Err(Error::Propagated {
