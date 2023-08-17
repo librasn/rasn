@@ -226,7 +226,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             self.extract_data_by_length(length)?.as_bytes(),
         ) {
             Ok(value) => Ok(value),
-            Err(err) => return Err(Error::ber_decoding_error(err)),
+            Err(err) => Err(Error::ber_decoding_error(err)),
         }
     }
 
