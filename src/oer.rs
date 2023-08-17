@@ -383,4 +383,80 @@ mod tests {
             BitString::from_bitslice(&bv)
         );
     }
+    #[test]
+    fn test_octet_string() {
+        round_trip!(
+            oer,
+            OctetString,
+            OctetString::from_static(&[0x01]),
+            &[0x01, 0x01]
+        );
+        round_trip_with_constraints!(
+            oer,
+            OctetString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(5)).into())]),
+            OctetString::from_static(&[0x01u8, 0x02, 0x03, 0x04, 0x05]),
+            &[0x01u8, 0x02, 0x03, 0x04, 0x05]
+        );
+        round_trip_with_constraints!(
+            oer,
+            OctetString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: Some(3),
+                    end: Some(6)
+                })
+                .into()
+            )]),
+            OctetString::from_static(&[0x01u8, 0x02, 0x03, 0x04, 0x05]),
+            &[0x05u8, 0x01, 0x02, 0x03, 0x04, 0x05]
+        );
+        encode_error_with_constraints!(
+            oer,
+            OctetString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(5)).into())]),
+            OctetString::from_static(&[0x01u8, 0x02, 0x03, 0x04])
+        );
+        encode_error_with_constraints!(
+            oer,
+            OctetString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: Some(3),
+                    end: Some(6)
+                })
+                .into()
+            )]),
+            OctetString::from_static(&[0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07])
+        );
+        encode_error_with_constraints!(
+            oer,
+            OctetString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: Some(3),
+                    end: Some(6)
+                })
+                .into()
+            )]),
+            OctetString::from_static(&[0x01u8, 0x02])
+        );
+    }
+    #[test]
+    fn test_object_identifier() {
+        // ('A',                   '1.2', b'\x01\x2a'),
+        // ('A',              '1.2.3321', b'\x03\x2a\x99\x79')
+        round_trip!(
+            oer,
+            ObjectIdentifier,
+            ObjectIdentifier::new(vec![1u32, 2]).unwrap(),
+            &[0x01u8, 0x2a]
+        );
+        round_trip!(
+            oer,
+            ObjectIdentifier,
+            ObjectIdentifier::new(vec![1, 2, 3321]).unwrap(),
+            &[0x03u8, 0x2a, 0x99, 0x79]
+        );
+    }
 }

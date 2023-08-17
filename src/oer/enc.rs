@@ -78,9 +78,10 @@ impl Encoder {
     }
 
     /// Encode the length of the value to output.
-    /// Length of the data `length` should not be provided as full bytes.
+    /// `Length` of the data should be provided as bits.
+    ///
     /// COER tries to use the shortest possible encoding and avoids leading zeros.
-    /// `forced_long_form` used for cases when length < 128 but we want to force long form. E.g. when encoding a enumerated.
+    /// `forced_long_form` is used for cases when length < 128 but we want to force long form. E.g. when encoding a enumerated.
     fn encode_length(
         &mut self,
         length: usize,
@@ -253,6 +254,7 @@ impl crate::Encoder for Encoder {
         // TODO When Rec. ITU-T X.680 | ISO/IEC 8824-1, 22.7 applies (i.e., the bitstring type is defined with a
         // "NamedBitList"), the bitstring value shall be encoded with trailing 0 bits added or removed as necessary to satisfy the
         // effective size constraint.
+        // Rasn does not currently support NamedBitList
         if let Some(size) = constraints.size() {
             if !size.constraint.contains(&value.len()) && size.extensible.is_none() {
                 return Err(Error::NotInSizeConstraintRange {
@@ -295,6 +297,7 @@ impl crate::Encoder for Encoder {
         // the values of the enumerated type.
         // TODO max size for enumerated value is currently only isize MIN/MAX
         // Spec allows between –2^1015 and 2^1015 – 1
+        // TODO negative discriminant values are not currently possibly
         let number = value.discriminant();
         if 0isize <= number && number <= i8::MAX.into() {
             self.encode_integer_with_padding(1, &number.into(), false)?;
@@ -306,8 +309,31 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_object_identifier(&mut self, _: Tag, value: &[u32]) -> Result<Self::Ok, Self::Error> {
-        todo!()
+    fn encode_object_identifier(
+        &mut self,
+        tag: Tag,
+        value: &[u32],
+    ) -> Result<Self::Ok, Self::Error> {
+        let octets = match (|| {
+            let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
+            enc.object_identifier_as_bytes(value)
+        })() {
+            Ok(oid) => oid,
+            Err(err) => {
+                return Err(Error::Propagated {
+                    msg: err.to_string(),
+                })
+            }
+        };
+        let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
+        if value.len() > max_permitted_length {
+            return Err(Error::TooLongValue {
+                length: value.len() as u128,
+            });
+        }
+        self.encode_length(octets.len() * 8, false, false)?;
+        self.output.extend(BitVec::<u8, Msb0>::from_slice(&octets));
+        Ok(())
     }
 
     fn encode_integer(
@@ -329,7 +355,27 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        if let Some(size) = constraints.size() {
+            if !size.constraint.contains(&value.len()) && size.extensible.is_none() {
+                return Err(Error::NotInSizeConstraintRange {
+                    length: value.len(),
+                });
+            }
+            // Encode without length determinant
+            if size.constraint.is_fixed() && size.extensible.is_none() {
+                self.output.extend(value);
+                return Ok(());
+            }
+        }
+        let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
+        if value.len() > max_permitted_length {
+            return Err(Error::TooLongValue {
+                length: value.len() as u128,
+            });
+        }
+        self.encode_length(value.len() * 8, false, false)?;
+        self.output.extend(value);
+        Ok(())
     }
 
     fn encode_general_string(
