@@ -27,12 +27,12 @@ pub const ITU_T_X696_OER_EDITION: f32 = 3.0;
 
 impl Default for Encoder {
     fn default() -> Self {
-        Self::new()
+        Self::new(EncoderOptions::coer())
     }
 }
 /// COER encoder. A subset of OER to provide canonical and unique encoding.  
 pub struct Encoder {
-    // options: EncoderOptions,
+    options: EncoderOptions,
     output: BitString,
 }
 // ITU-T X.696 8.2.1 Only the following constraints are OER-visible:
@@ -54,8 +54,9 @@ pub struct Encoder {
 impl Encoder {
     // pub fn new(options: EncoderOptions) -> Self {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(options: EncoderOptions) -> Self {
         Self {
+            options,
             output: <BitString>::default(),
         }
     }
@@ -555,7 +556,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut choice_encoder = Self::new();
+        let mut choice_encoder = Self::new(self.options);
         let tag = (encode_fn)(&mut choice_encoder)?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
         let variants = crate::types::variants::Variants::from_static(if is_root_extension {
@@ -628,7 +629,7 @@ mod tests {
     // };
     #[test]
     fn test_encode_bool() {
-        let mut encoder = Encoder::new();
+        let mut encoder = Encoder::new(EncoderOptions::coer());
         encoder.encode_bool(true);
         let mut bv = BitVec::<u8, Msb0>::from_slice(&[0xffu8]);
         assert_eq!(encoder.output, bv);
@@ -637,9 +638,9 @@ mod tests {
         assert_eq!(encoder.output, bv);
         assert_eq!(encoder.output.as_raw_slice(), &[0xffu8, 0]);
         // Use higher abstraction
-        let decoded = crate::oer::encode(&true).unwrap();
+        let decoded = crate::coer::encode(&true).unwrap();
         assert_eq!(decoded, &[0xffu8]);
-        let decoded = crate::oer::encode(&false).unwrap();
+        let decoded = crate::coer::encode(&false).unwrap();
         assert_eq!(decoded, &[0x0]);
     }
     #[test]

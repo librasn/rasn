@@ -92,6 +92,7 @@ pub mod aper;
 pub mod ber;
 mod bits;
 pub mod cer;
+pub mod coer;
 pub mod der;
 pub mod error;
 pub mod jer;
