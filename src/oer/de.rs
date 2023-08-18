@@ -25,7 +25,7 @@ pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct DecoderOptions {
     // pub(crate) encoding_rules: EncodingRules,
 }
@@ -419,13 +419,13 @@ mod tests {
 
     #[test]
     fn test_decode_bool() {
-        let decoded: bool = crate::oer::decode(&[0xffu8]).unwrap();
+        let decoded: bool = crate::oer::decode(DecoderOptions::default(), &[0xffu8]).unwrap();
         assert!(decoded);
-        let decoded: bool = crate::oer::decode(&[0u8]).unwrap();
+        let decoded: bool = crate::oer::decode(DecoderOptions::default(), &[0u8]).unwrap();
         assert!(!decoded);
-        let decoded: bool = crate::oer::decode(&[0xffu8, 0xff]).unwrap();
+        let decoded: bool = crate::oer::decode(DecoderOptions::default(), &[0xffu8, 0xff]).unwrap();
         assert!(decoded);
-        let decoded: bool = crate::oer::decode(&[0x33u8, 0x0]).unwrap();
+        let decoded: bool = crate::oer::decode(DecoderOptions::default(), &[0x33u8, 0x0]).unwrap();
         assert!(decoded);
     }
 
