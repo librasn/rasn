@@ -368,6 +368,30 @@ impl<'input> crate::Decoder for Decoder<'input> {
     where
         D: DecodeChoice,
     {
+        // let is_extensible = constraints.extensible();
+        // let variants = crate::types::variants::Variants::from_static(if is_extensible {
+        //     D::EXTENDED_VARIANTS
+        // } else {
+        //     D::VARIANTS
+        // });
+        // let index = if variants.len() != 1 || is_extensible {
+        //     usize::try_from(if is_extensible {
+        //         self.parse_normally_small_integer()?
+        //     } else {
+        //         let variance = variants.len();
+        //         let constraints =
+        //             constraints::Value::new(constraints::Bounded::new(0, variance as i128)).into();
+        //         self.parse_integer(Constraints::new(&[constraints]))?
+        //     })
+        //     .map_err(|error| {
+        //         Error::choice_index_exceeds_platform_width(
+        //             usize::BITS,
+        //             error.into_original().bits(),
+        //         )
+        //     })?
+        // } else {
+        //     0
+        // };
         todo!()
     }
 

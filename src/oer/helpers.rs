@@ -5,7 +5,7 @@ use crate::types::{
 };
 use alloc::string::ToString;
 use bitvec::prelude::{BitVec, Msb0};
-use num_traits::Signed;
+use num_traits::{Signed, Zero};
 
 /// ITU-T X.696 (02/2021) 10.0
 ///
@@ -91,7 +91,7 @@ pub fn integer_to_bitvec_bytes(value: &Integer, signed: bool) -> Result<BitVec<u
         Ok(BitVec::<u8, Msb0>::from_slice(
             &(value.to_signed_bytes_be()),
         ))
-    } else if !signed && value.is_positive() {
+    } else if !signed && (value.is_positive() || value.is_zero()) {
         Ok(BitVec::<u8, Msb0>::from_slice(
             &(value.to_biguint().unwrap().to_bytes_be()),
         ))
