@@ -66,6 +66,51 @@ impl Encoder {
         // TODO, move from per to utility module?
         crate::per::to_vec(&self.output)
     }
+    /// Encode a tag as specified in ITU-T X.696 8.7
+    ///
+    /// Encoding of the tag is only required when encoding a choice type.
+    fn encode_tag(tag: Tag) -> BitVec {
+        use crate::types::Class;
+        let mut bv = BitVec::new();
+        // Encode the tag class
+        match tag.class {
+            Class::Universal => bv.extend(&[false, false]),
+            Class::Application => bv.extend(&[false, true]),
+            Class::Context => bv.extend(&[true, false]),
+            Class::Private => bv.extend(&[true, true]),
+        }
+        let mut tag_number = tag.value;
+        // Encode the tag number
+        if tag_number < 63 {
+            for i in (0..6).rev() {
+                bv.push(tag_number & (1 << i) != 0);
+            }
+        } else {
+            bv.extend([true; 6].iter());
+            // Generate the bits for the tag number
+            let mut tag_bits = BitVec::<u8, Msb0>::new();
+            while tag_number > 0 {
+                tag_bits.push(tag_number & 1 != 0);
+                tag_number >>= 1;
+            }
+            // Add leading zeros if needed to make length a multiple of 7
+            while tag_bits.len() % 7 != 0 {
+                tag_bits.push(false);
+            }
+            // Encode the bits in the "big-endian" format, with continuation bits
+            for chunk in tag_bits.chunks(7).rev() {
+                // 8th bit is continuation marker; true for all but the last octet
+                bv.push(true);
+                bv.extend(chunk);
+            }
+            // Correct the 8th bit of the last octet to be false
+            let bv_last_8bit = bv.len() - 8;
+            bv.replace(bv_last_8bit, false);
+            debug_assert!(&bv[2..8].all());
+            debug_assert!(&bv[9..16].any());
+        }
+        bv
+    }
     /// ITU-T X.696 9.
     /// False is encoded as a single zero octet. In COER, true is always encoded as 0xFF.
     /// In Basic-OER, any non-zero octet value represents true, but we support only canonical encoding.
@@ -564,14 +609,9 @@ impl crate::Encoder for Encoder {
         } else {
             E::EXTENDED_VARIANTS
         });
-        let index = variants
-            .iter()
-            .enumerate()
-            .find_map(|(i, &variant_tag)| (tag == variant_tag).then_some(i))
-            .ok_or_else(|| crate::enc::Error::custom("variant not found in choice"))?;
         if is_root_extension {
-            let integer_bytes = helpers::integer_to_bitvec_bytes(&index.into(), false)?;
-            self.output.extend(integer_bytes);
+            let tag_bytes = Self::encode_tag(tag);
+            self.output.extend(tag_bytes);
             self.output.extend(choice_encoder.output);
             Ok(())
         } else {
@@ -606,9 +646,9 @@ impl crate::Encoder for Encoder {
 mod tests {
     use num_bigint::BigInt;
 
-    use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Value};
-
     use super::*;
+    use crate::prelude::{AsnType, Decode, Encode};
+    use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Value};
 
     // const ALPHABETS: &[u32] = &{
     //     let mut array = [0; 26];
@@ -709,5 +749,26 @@ mod tests {
             0xff, 0xff, 0xff, 0xff,
         ];
         assert_eq!(encoder.output(), vc);
+    }
+    #[test]
+    fn test_choice() {
+        use crate as rasn;
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum Choice {
+            Normal(Integer),
+            High(Integer),
+            #[rasn(extension_addition)]
+            Medium(Integer),
+        }
+        let constraints = Constraints::default();
+        let mut encoder = Encoder::default();
+
+        let choice = Choice::Normal(333.into());
+        choice.encode(&mut encoder).unwrap();
+
+        assert_eq!(encoder.output(), &[128, 2, 1, 77]);
+        // let result = encoder.encode_choice(constraints, |encoder| encoder.encode_bool(true));
     }
 }
