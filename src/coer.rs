@@ -31,6 +31,7 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 #[cfg(test)]
 mod tests {
     // use super::*;
+    #![allow(clippy::items_after_statements)]
     use crate::prelude::*;
     use crate::types::constraints::{Bounded, Constraint, Size, Value};
     use crate::types::Integer;
@@ -457,15 +458,55 @@ mod tests {
             #[rasn(extension_addition)]
             Medium(Integer),
         }
-        round_trip!(coer, Choice, Choice::Normal(333.into()), &[128, 2, 1, 77]);
-        round_trip!(coer, Choice, Choice::High(333.into()), &[129, 2, 1, 77]);
+        round_trip!(
+            coer,
+            Choice,
+            Choice::Normal(333.into()),
+            &[0x80, 0x02, 0x01, 0x4d]
+        );
+        round_trip!(
+            coer,
+            Choice,
+            Choice::High(333.into()),
+            &[0x81, 0x02, 0x01, 0x4d]
+        );
         round_trip!(
             coer,
             Choice,
             Choice::Medium(333.into()),
-            &[130, 3, 2, 1, 77]
+            &[0x82, 0x03, 0x02, 0x01, 0x4d]
         );
 
-        // assert_eq!(encoder.output(), &[128, 2, 1, 77]);
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum BoolChoice {
+            A(bool),
+            #[rasn(extension_addition)]
+            B(bool),
+            C(Choice),
+        }
+        round_trip!(coer, BoolChoice, BoolChoice::A(true), &[0x80, 0xff]);
+        round_trip!(coer, BoolChoice, BoolChoice::B(true), &[0x81, 0x01, 0xff]);
+        round_trip!(
+            coer,
+            BoolChoice,
+            BoolChoice::C(Choice::Normal(333.into())),
+            &[0x82, 0x80, 0x02, 0x01, 0x4d]
+        );
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum TripleChoice {
+            A(bool),
+            B(BoolChoice),
+        }
+        round_trip!(coer, TripleChoice, TripleChoice::A(true), &[0x80, 0xff]);
+        round_trip!(
+            coer,
+            TripleChoice,
+            TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
+            &[0x81, 0x82, 0x80, 0x02, 0x01, 0x4d]
+        );
     }
 }

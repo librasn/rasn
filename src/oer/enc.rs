@@ -535,10 +535,10 @@ impl crate::Encoder for Encoder {
 
     fn encode_explicit_prefix<V: Encode>(
         &mut self,
-        _: Tag,
+        tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        value.encode(self)
     }
 
     fn encode_sequence<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
