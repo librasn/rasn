@@ -54,6 +54,41 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(byte.as_bytes()[0])
     }
+    fn parse_tag(&mut self) -> Result<Tag, Error> {
+        // Seems like tag number
+        use crate::types::Class;
+        let first_byte = self.parse_one_byte()?;
+        let class = match first_byte >> 6 {
+            0b00 => Class::Universal,
+            0b01 => Class::Application,
+            0b10 => Class::Context,
+            0b11 => Class::Private,
+            _ => return Err(Error::custom("Invalid tag class")),
+        };
+        let tag_number = first_byte & 0b0011_1111;
+        if tag_number == 0b11_1111 {
+            // Long form
+            let mut tag_number = 0u32;
+            let mut next_byte = self.parse_one_byte()?;
+            if next_byte & 0b1000_0000 > 0 {
+                return Err(Error::custom("Invalid tag number, first subsequent byte should not be full zeros after leading bit"));
+            }
+            loop {
+                // Constructs tag number from multiple 7-bit sized chunks
+                tag_number = tag_number
+                    .checked_shl(7)
+                    .ok_or(Error::custom("Tag size exceeds platform width"))?
+                    | u32::from(next_byte & 0b0111_1111);
+                if next_byte & 0b1000_0000 == 0 {
+                    break;
+                }
+                next_byte = self.parse_one_byte()?;
+            }
+            Ok(Tag::new(class, tag_number))
+        } else {
+            Ok(Tag::new(class, u32::from(tag_number)))
+        }
+    }
     /// There is a short form and long form for length determinant in OER encoding.
     /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
     /// Max length for data type can be 2^1016 - 1 octets
@@ -368,31 +403,22 @@ impl<'input> crate::Decoder for Decoder<'input> {
     where
         D: DecodeChoice,
     {
-        // let is_extensible = constraints.extensible();
-        // let variants = crate::types::variants::Variants::from_static(if is_extensible {
-        //     D::EXTENDED_VARIANTS
-        // } else {
-        //     D::VARIANTS
-        // });
-        // let index = if variants.len() != 1 || is_extensible {
-        //     usize::try_from(if is_extensible {
-        //         self.parse_normally_small_integer()?
-        //     } else {
-        //         let variance = variants.len();
-        //         let constraints =
-        //             constraints::Value::new(constraints::Bounded::new(0, variance as i128)).into();
-        //         self.parse_integer(Constraints::new(&[constraints]))?
-        //     })
-        //     .map_err(|error| {
-        //         Error::choice_index_exceeds_platform_width(
-        //             usize::BITS,
-        //             error.into_original().bits(),
-        //         )
-        //     })?
-        // } else {
-        //     0
-        // };
-        todo!()
+        let is_extensible = constraints.extensible();
+        let tag: Tag = self.parse_tag()?;
+        let is_root_extension = crate::TagTree::tag_contains(&tag, D::VARIANTS);
+        let is_extended_extension = crate::TagTree::tag_contains(&tag, D::EXTENDED_VARIANTS);
+        if is_root_extension {
+            D::from_tag(self, tag)
+        } else if is_extensible && is_extended_extension {
+            let length = self.decode_length()?;
+            let bytes = self.extract_data_by_length(length)?;
+            let mut decoder = Decoder::new(&bytes);
+            D::from_tag(&mut decoder, tag)
+        } else {
+            return Err(Error::custom(
+                alloc::format!("Tag not found from the variants of the platform. Extensible status: {is_extensible}"),
+            ));
+        }
     }
 
     fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {
