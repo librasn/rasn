@@ -609,14 +609,12 @@ impl crate::Encoder for Encoder {
         } else {
             E::EXTENDED_VARIANTS
         });
+        let tag_bytes = Self::encode_tag(tag);
+        self.output.extend(tag_bytes);
         if is_root_extension {
-            let tag_bytes = Self::encode_tag(tag);
-            self.output.extend(tag_bytes);
             self.output.extend(choice_encoder.output);
             Ok(())
         } else {
-            // Encode a selection from extension list as open type without a tag
-            self.encode_length(choice_encoder.output.len(), false, false)?;
             self.encode_octet_string(tag, constraints, choice_encoder.output.as_raw_slice())?;
             Ok(())
         }

@@ -445,4 +445,27 @@ mod tests {
             &[0x03u8, 0x2a, 0x99, 0x79]
         );
     }
+    #[test]
+    fn test_choice() {
+        use crate as rasn;
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum Choice {
+            Normal(Integer),
+            High(Integer),
+            #[rasn(extension_addition)]
+            Medium(Integer),
+        }
+        round_trip!(coer, Choice, Choice::Normal(333.into()), &[128, 2, 1, 77]);
+        round_trip!(coer, Choice, Choice::High(333.into()), &[129, 2, 1, 77]);
+        round_trip!(
+            coer,
+            Choice,
+            Choice::Medium(333.into()),
+            &[130, 3, 2, 1, 77]
+        );
+
+        // assert_eq!(encoder.output(), &[128, 2, 1, 77]);
+    }
 }
