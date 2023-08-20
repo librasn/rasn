@@ -372,8 +372,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         todo!()
     }
 
-    fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D, Self::Error> {
-        todo!()
+    fn decode_explicit_prefix<D: Decode>(&mut self, _tag: Tag) -> Result<D, Self::Error> {
+        D::decode(self)
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<UtcTime, Self::Error> {
