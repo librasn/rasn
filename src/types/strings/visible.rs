@@ -25,7 +25,6 @@ impl VisibleString {
             .iter()
             .all(|byte| Self::CHARACTER_SET.contains(&u32::from(*byte)))
         {
-            dbg!(&bytes);
             Ok(Self(bytes.to_owned()))
         } else {
             Err(InvalidIso646Bytes)
