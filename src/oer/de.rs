@@ -27,7 +27,8 @@ type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DecoderOptions {
-    // pub(crate) encoding_rules: EncodingRules,
+    // Strict mode raises error when there are bytes left in buffer after parsing
+    strict_mode: bool, // default true
 }
 
 pub struct Decoder<'input> {
