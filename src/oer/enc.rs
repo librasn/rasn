@@ -303,6 +303,37 @@ impl Encoder {
         }
         Ok(false)
     }
+    /// Encode a string with a known multiplier.
+    ///
+    /// We rely on rasn to provide the correct allowed characters for each type.
+    ///
+    /// Note: following common constraints are not OER-visible:
+    /// * Permitted alphabet constraints;
+    /// * Pattern constraints;
+    fn encode_known_multiplier_string<T: crate::types::strings::StaticPermittedAlphabet>(
+        &mut self,
+        tag: Tag,
+        constraints: &Constraints,
+        value: &T,
+    ) -> Result<(), Error> {
+        let fixed_size_encode = |value: &&T| {
+            self.output.extend(value.to_octet_aligned_string());
+            Ok(())
+        };
+        if Encoder::check_fixed_size_constraint(
+            &value,
+            value.len(),
+            constraints,
+            fixed_size_encode,
+        )? {
+            return Ok(());
+        }
+        // Use length determinant on other cases
+        // Save multiplication, overflow checked earlier
+        self.encode_length(value.len() * 8, false, false)?;
+        self.output.extend(value.to_octet_aligned_string());
+        Ok(())
+    }
 }
 
 impl crate::Encoder for Encoder {
@@ -469,11 +500,11 @@ impl crate::Encoder for Encoder {
 
     fn encode_visible_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_ia5_string(
@@ -604,11 +635,6 @@ impl crate::Encoder for Encoder {
         let mut choice_encoder = Self::new(self.options);
         let tag = (encode_fn)(&mut choice_encoder)?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
-        let variants = crate::types::variants::Variants::from_static(if is_root_extension {
-            E::VARIANTS
-        } else {
-            E::EXTENDED_VARIANTS
-        });
         let tag_bytes = Self::encode_tag(tag);
         self.output.extend(tag_bytes);
         if is_root_extension {
