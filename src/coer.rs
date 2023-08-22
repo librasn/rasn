@@ -509,4 +509,135 @@ mod tests {
             &[0x81, 0x82, 0x80, 0x02, 0x01, 0x4d]
         );
     }
+    #[test]
+    fn test_numeric_string() {
+        round_trip!(
+            coer,
+            NumericString,
+            "123".try_into().unwrap(),
+            &[0x03, 0x31, 0x32, 0x33]
+        );
+        round_trip_with_constraints!(
+            coer,
+            NumericString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            "123".try_into().unwrap(),
+            &[0x31, 0x32, 0x33]
+        );
+        round_trip_with_constraints!(
+            coer,
+            NumericString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: Some(3),
+                    end: Some(7)
+                })
+                .into()
+            )]),
+            "123".try_into().unwrap(),
+            &[0x03, 0x31, 0x32, 0x33]
+        );
+    }
+    #[test]
+    fn test_printable_string() {
+        round_trip!(
+            coer,
+            PrintableString,
+            PrintableString::from_bytes("foo".as_bytes()).unwrap(),
+            &[0x03, 0x66, 0x6f, 0x6f]
+        );
+        round_trip_with_constraints!(
+            coer,
+            PrintableString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            PrintableString::from_bytes("foo".as_bytes()).unwrap(),
+            &[0x66, 0x6f, 0x6f]
+        );
+        round_trip_with_constraints!(
+            coer,
+            PrintableString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: Some(3),
+                    end: Some(7)
+                })
+                .into()
+            )]),
+            PrintableString::from_bytes("foo".as_bytes()).unwrap(),
+            &[0x03, 0x66, 0x6f, 0x6f]
+        );
+    }
+    #[test]
+    fn test_visible_string() {
+        round_trip!(
+            coer,
+            VisibleString,
+            "foo".try_into().unwrap(),
+            &[0x03, 0x66, 0x6f, 0x6f]
+        );
+        round_trip_with_constraints!(
+            coer,
+            VisibleString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            "foo".try_into().unwrap(),
+            &[0x66, 0x6f, 0x6f]
+        );
+        round_trip_with_constraints!(
+            coer,
+            VisibleString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: Some(3),
+                    end: Some(7)
+                })
+                .into()
+            )]),
+            "foo".try_into().unwrap(),
+            &[0x03, 0x66, 0x6f, 0x6f]
+        );
+    }
+    #[test]
+    fn test_ia5_string() {
+        round_trip!(
+            coer,
+            Ia5String,
+            "foo".try_into().unwrap(),
+            &[0x03, 0x66, 0x6f, 0x6f]
+        );
+        round_trip_with_constraints!(
+            coer,
+            Ia5String,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            "foo".try_into().unwrap(),
+            &[0x66, 0x6f, 0x6f]
+        );
+        round_trip_with_constraints!(
+            coer,
+            Ia5String,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: Some(3),
+                    end: Some(7)
+                })
+                .into()
+            )]),
+            "foo".try_into().unwrap(),
+            &[0x03, 0x66, 0x6f, 0x6f]
+        );
+    }
+    #[test]
+    fn test_general_string() {
+        round_trip!(
+            coer,
+            GeneralString,
+            GeneralString::from_bytes("".as_bytes()).unwrap(),
+            &[0x00]
+        );
+        round_trip!(
+            coer,
+            GeneralString,
+            GeneralString::from_bytes("2".as_bytes()).unwrap(),
+            &[0x01, 0x32]
+        );
+    }
 }
