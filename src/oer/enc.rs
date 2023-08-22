@@ -331,7 +331,7 @@ impl Encoder {
         // Use length determinant on other cases
         // Save multiplication, overflow checked earlier
         self.encode_length(value.len() * 8, false, false)?;
-        self.output.extend(value.to_octet_aligned_string());
+        self.output.extend(value.to_bit_string());
         Ok(())
     }
 }
@@ -504,34 +504,34 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_known_multiplier_string(tag, &constraints, value)
+        self.encode_octet_string(tag, constraints, value.as_iso646_bytes())
     }
 
     fn encode_ia5_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_octet_string(tag, constraints, value.as_iso646_bytes())
     }
 
     fn encode_printable_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
     fn encode_numeric_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &NumericString,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
     fn encode_teletex_string(
@@ -545,11 +545,11 @@ impl crate::Encoder for Encoder {
 
     fn encode_bmp_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &BmpString,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_generalized_time(

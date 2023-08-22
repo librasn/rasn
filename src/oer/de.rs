@@ -96,13 +96,20 @@ impl<'input> Decoder<'input> {
     fn decode_length(&mut self) -> Result<BigUint, Error> {
         // In OER decoding, there might be cases when there are multiple zero octets as padding
         // or the length is encoded in more than one octet.
-        let mut possible_length: u8;
-        loop {
-            // Remove leading zero octets
-            possible_length = self.parse_one_byte()?;
-            if possible_length != 0 {
+        let mut only_zeros: bool = false;
+        let mut possible_length: u8 = 0;
+        // Parse leading zeros but also note if there are only zeros
+        while let Ok(data) = self.parse_one_byte() {
+            if data != 0 {
+                possible_length = data;
+                only_zeros = false;
                 break;
             }
+            only_zeros = true;
+        }
+        if only_zeros {
+            // Only zeros, length is zero
+            return Ok(BigUint::from(0u8));
         }
         if possible_length < 128 {
             Ok(BigUint::from(possible_length))
@@ -131,6 +138,9 @@ impl<'input> Decoder<'input> {
     /// 'length' is the length of the data in bytes (octets)
     /// Returns the data
     fn extract_data_by_length(&mut self, length: BigUint) -> Result<InputSlice> {
+        if length == BigUint::from(0u8) {
+            return Ok(InputSlice::from(bitvec::slice::BitSlice::from_slice(&[])));
+        }
         if &length * 8u8 > BigUint::from(bitvec::slice::BitSlice::<usize>::MAX_BITS) {
             return Err(Error::exceeds_max_length(length));
         }
@@ -207,6 +217,30 @@ impl<'input> Decoder<'input> {
             .extract_data_by_length(length.clone() - BigUint::from(1u8))?
             .slice(..(data_bit_length - num_unused_bits as usize));
         Ok(BitString::from_bitslice(data.into()))
+    }
+    fn parse_known_multiplier_string<T: crate::types::strings::StaticPermittedAlphabet>(
+        &mut self,
+        constraints: &Constraints,
+    ) -> Result<T, Error> {
+        if let Some(size) = constraints.size() {
+            // Fixed size, only data is included
+            if size.constraint.is_fixed() && size.extensible.is_none() {
+                let data = self
+                    .extract_data_by_length(BigUint::from(*size.constraint.as_start().unwrap()))
+                    .map(|data| data.to_bitvec())?;
+                return T::try_from_bits(data, 8).map_err(|_| {
+                    Error::custom(
+                        "Invalid data when decoding known multiplier string and constructing the type",
+                    )
+                });
+            }
+        }
+        let length = self.decode_length()?;
+        T::try_from_bits(self.extract_data_by_length(length)?.to_bitvec(), 8).map_err(|_| {
+            Error::custom(
+                "Invalid data when decoding known multiplier string and constructing the type",
+            )
+        })
     }
 }
 
@@ -311,10 +345,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_utf8_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
     ) -> Result<String, Self::Error> {
-        todo!()
+        self.decode_octet_string(tag, constraints)
+            .and_then(|bytes| {
+                String::from_utf8(bytes).map_err(|_| Error::custom("Invalid UTF-8 string"))
+            })
     }
 
     fn decode_visible_string(
@@ -322,23 +359,25 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         constraints: Constraints,
     ) -> Result<VisibleString, Self::Error> {
-        todo!()
+        self.parse_known_multiplier_string(&constraints)
     }
 
     fn decode_general_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
     ) -> Result<GeneralString, Self::Error> {
-        todo!()
+        GeneralString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|_| {
+            Error::custom("Invalid data when decoding general string and constructing the type")
+        })
     }
 
     fn decode_ia5_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
     ) -> Result<Ia5String, Self::Error> {
-        todo!()
+        self.parse_known_multiplier_string(&constraints)
     }
 
     fn decode_printable_string(
@@ -346,7 +385,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         constraints: Constraints,
     ) -> Result<PrintableString, Self::Error> {
-        todo!()
+        self.parse_known_multiplier_string(&constraints)
     }
 
     fn decode_numeric_string(
@@ -354,7 +393,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         constraints: Constraints,
     ) -> Result<NumericString, Self::Error> {
-        todo!()
+        self.parse_known_multiplier_string(&constraints)
     }
 
     fn decode_teletex_string(
@@ -370,7 +409,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         constraints: Constraints,
     ) -> Result<BmpString, Self::Error> {
-        todo!()
+        self.parse_known_multiplier_string(&constraints)
     }
 
     fn decode_explicit_prefix<D: Decode>(&mut self, _tag: Tag) -> Result<D, Self::Error> {
