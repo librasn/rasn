@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.4...rasn-v0.9.5) - 2023-08-24
+
+### Other
+- Add TryFrom for str type for PrintableString, docs, minor fixes ([#149](https://github.com/XAMPPRocky/rasn/pull/149))
+- Improved size constraint ([#142](https://github.com/XAMPPRocky/rasn/pull/142))
+
 ## [0.9.4](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.3...rasn-v0.9.4) - 2023-08-08
 
 ### Other
