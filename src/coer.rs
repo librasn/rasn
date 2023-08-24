@@ -543,14 +543,20 @@ mod tests {
         round_trip!(
             coer,
             PrintableString,
-            PrintableString::from_bytes("foo".as_bytes()).unwrap(),
+            "foo".try_into().unwrap(),
             &[0x03, 0x66, 0x6f, 0x6f]
+        );
+        round_trip!(
+            coer,
+            PrintableString,
+            " '()+,-./:=?".try_into().unwrap(),
+            &[0x0c, 0x20, 0x27, 0x28, 0x29, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x3a, 0x3d, 0x3f]
         );
         round_trip_with_constraints!(
             coer,
             PrintableString,
             Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
-            PrintableString::from_bytes("foo".as_bytes()).unwrap(),
+            "foo".try_into().unwrap(),
             &[0x66, 0x6f, 0x6f]
         );
         round_trip_with_constraints!(
@@ -563,7 +569,7 @@ mod tests {
                 })
                 .into()
             )]),
-            PrintableString::from_bytes("foo".as_bytes()).unwrap(),
+            "foo".try_into().unwrap(),
             &[0x03, 0x66, 0x6f, 0x6f]
         );
     }
