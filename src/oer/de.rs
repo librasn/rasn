@@ -9,7 +9,10 @@ use crate::prelude::{
     TeletexString, UtcTime, VisibleString,
 };
 use crate::{de::Error as _, Decode, Tag};
-use alloc::{string::String, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use bitvec::macros::internal::funty::Fundamental;
 use nom::{AsBytes, Slice};
 use num_bigint::{BigUint, Sign};
@@ -423,7 +426,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<GeneralizedTime, Self::Error> {
-        todo!()
+        let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
+            .map_err(|_| Error::custom("Invalid UTF-8 string"))?;
+        crate::der::de::Decoder::parse_canonical_generalized_time_string(string)
+            .map_err(|err| Error::custom(err.to_string()))
     }
 
     fn decode_set<FIELDS, SET, D, F>(

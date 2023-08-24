@@ -655,4 +655,30 @@ mod tests {
             &[0x03, 0x31, 0x32, 0x33]
         );
     }
+    #[test]
+    fn test_generalized_time() {
+        use chrono::NaiveDate;
+        let offset = chrono::FixedOffset::east_opt(0).unwrap();
+        let dt = NaiveDate::from_ymd_opt(2080, 10, 9)
+            .unwrap()
+            .and_hms_micro_opt(13, 0, 5, 342_000)
+            .unwrap()
+            .and_local_timezone(offset);
+        round_trip!(
+            coer,
+            GeneralizedTime,
+            GeneralizedTime::from(dt.unwrap(),),
+            &[
+                0x13, 0x32, 0x30, 0x38, 0x30, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30, 0x30,
+                0x35, 0x2e, 0x33, 0x34, 0x32, 0x5a
+            ]
+        );
+
+        let data = [
+            24, 19, 43, 53, 49, 54, 49, 53, 32, 32, 48, 53, 50, 52, 48, 57, 52, 48, 50, 48, 90,
+        ];
+
+        assert!(crate::der::decode::<crate::types::Open>(&data).is_err());
+        // decode_error!(coer, GeneralizedTime, GeneralizedTime::from(value), &data);
+    }
 }
