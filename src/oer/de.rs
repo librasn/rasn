@@ -398,10 +398,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_teletex_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
     ) -> Result<TeletexString, Self::Error> {
-        todo!()
+        TeletexString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|_| {
+            Error::custom("Invalid data when decoding teletext string and constructing the type")
+        })
     }
 
     fn decode_bmp_string(

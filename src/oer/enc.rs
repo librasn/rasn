@@ -484,7 +484,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
-        // TODO check additional conditions from X.690 8.23.5.3
+        // TODO check additional conditions from teletex fn
         // Seems like it can be encoded as it is...
         self.encode_octet_string(tag, constraints, value)
     }
@@ -536,11 +536,15 @@ impl crate::Encoder for Encoder {
 
     fn encode_teletex_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &TeletexString,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        // X.690 8.23.5
+        // TODO the octets specified in ISO/IEC 2022 for encodings in an 8-bit environment, using
+        // the escape sequence and character codings registered in accordance with ISO/IEC 2375.
+        // Are there some escape sequences that we should add?
+        self.encode_octet_string(tag, constraints, value)
     }
 
     fn encode_bmp_string(
