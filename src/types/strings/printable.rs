@@ -2,11 +2,16 @@ use super::*;
 
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 
-/// A string, which contains the characters defined in "X.680 Table 10".
+/// A string, which contains the characters defined in X.680 41.4 Section, Table 10.
+///
+/// You must use `try_from` or `from_*` to construct a `PrintableString`.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[allow(clippy::module_name_repetitions)]
 pub struct PrintableString(Vec<u8>);
 
 impl StaticPermittedAlphabet for PrintableString {
+    /// `PrintableString` contains only "printable" characters.
+    /// Latin letters, digits, (space) '()+,-./:=?
     const CHARACTER_SET: &'static [u32] = &bytes_to_chars([
         b'A', b'B', b'C', b'D', b'E', b'F', b'G', b'H', b'I', b'J', b'K', b'L', b'M', b'N', b'O',
         b'P', b'Q', b'R', b'S', b'T', b'U', b'V', b'W', b'X', b'Y', b'Z', b'a', b'b', b'c', b'd',
@@ -15,21 +20,25 @@ impl StaticPermittedAlphabet for PrintableString {
         b'8', b'9', b' ', b'\'', b'(', b')', b'+', b',', b'-', b'.', b'/', b':', b'=', b'?',
     ]);
 
-    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
-        Box::from(self.0.iter().map(|byte| *byte as u32))
-    }
-
     fn push_char(&mut self, ch: u32) {
         debug_assert!(
             Self::CHARACTER_SET.contains(&ch),
-            "{} not in character set",
-            ch
+            "{ch} not in character set"
         );
         self.0.push(ch as u8);
+    }
+
+    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
+        Box::from(self.0.iter().map(|byte| *byte as u32))
     }
 }
 
 impl PrintableString {
+    /// Construct a new `PrintableString` from a byte array.
+    ///
+    /// # Errors
+    /// Raises `InvalidPrintableString` if the byte array contains invalid characters,
+    /// other than in `CHARACTER_SET`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidPrintableString> {
         if bytes
             .iter()
@@ -43,6 +52,7 @@ impl PrintableString {
         }
     }
 
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
@@ -74,6 +84,12 @@ impl TryFrom<&'_ [u8]> for PrintableString {
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         Self::from_bytes(value)
+    }
+}
+impl TryFrom<&'_ str> for PrintableString {
+    type Error = InvalidPrintableString;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_bytes(value.as_bytes())
     }
 }
 
