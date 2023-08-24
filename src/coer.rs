@@ -640,4 +640,13 @@ mod tests {
             &[0x01, 0x32]
         );
     }
+    #[test]
+    fn test_teletext_string() {
+        round_trip!(
+            coer,
+            TeletexString,
+            TeletexString::from("123".as_bytes().to_vec()),
+            &[0x03, 0x31, 0x32, 0x33]
+        );
+    }
 }
