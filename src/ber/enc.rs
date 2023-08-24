@@ -4,6 +4,7 @@ mod config;
 mod error;
 
 use alloc::{collections::VecDeque, string::ToString, vec::Vec};
+use chrono::{Offset, Timelike};
 
 use super::Identifier;
 use crate::{
@@ -240,6 +241,45 @@ impl Encoder {
                 .insert(tag, core::mem::take(&mut self.output));
         }
     }
+    /// Converts an object identifier into a byte vector in BER format.
+    /// Reusable function by other codecs.
+    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, error::Error> {
+        if oid.len() < 2 {
+            return Err(error::Error::InvalidObjectIdentifier);
+        }
+        let mut bytes = Vec::new();
+
+        let first = oid[0];
+        let second = oid[1];
+
+        if first > MAX_OID_FIRST_OCTET {
+            return Err(error::Error::InvalidObjectIdentifier);
+        }
+        self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
+        for component in oid.iter().skip(2) {
+            self.encode_as_base128(*component, &mut bytes);
+        }
+        Ok(bytes)
+    }
+    #[must_use]
+    pub fn datetime_to_generalized_time_bytes(
+        value: &chrono::DateTime<chrono::FixedOffset>,
+    ) -> Vec<u8> {
+        let mut string;
+        // Convert to UTC so we can always append Z.
+        let value = value.naive_utc();
+        if value.nanosecond() > 0 {
+            string = value.format("%Y%m%d%H%M%S.%f").to_string();
+            // No trailing zeros with fractions
+            while string.ends_with('0') {
+                string.pop();
+            }
+        } else {
+            string = value.format("%Y%m%d%H%M%S").to_string();
+        }
+        string.push('Z');
+        string.into_bytes()
+    }
 }
 
 impl crate::Encoder for Encoder {
@@ -449,11 +489,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(
             tag,
-            value
-                .naive_utc()
-                .format("%Y%m%d%H%M%SZ")
-                .to_string()
-                .as_bytes(),
+            Self::datetime_to_generalized_time_bytes(value).as_slice(),
         );
 
         Ok(())
