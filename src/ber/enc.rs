@@ -4,6 +4,7 @@ mod config;
 mod error;
 
 use alloc::{collections::VecDeque, string::ToString, vec::Vec};
+use chrono::Timelike;
 
 use super::Identifier;
 use crate::{
@@ -240,6 +241,27 @@ impl Encoder {
                 .insert(tag, core::mem::take(&mut self.output));
         }
     }
+    #[must_use]
+    /// Canonical byte presentation for CER/DER as defined in X.690 section 11.7.
+    /// Also used for BER on this crate.
+    pub fn datetime_to_canonical_generalized_time_bytes(
+        value: &chrono::DateTime<chrono::FixedOffset>,
+    ) -> Vec<u8> {
+        let mut string;
+        // Convert to UTC so we can always append Z.
+        let value = value.naive_utc();
+        if value.nanosecond() > 0 {
+            string = value.format("%Y%m%d%H%M%S.%f").to_string();
+            // No trailing zeros with fractions
+            while string.ends_with('0') {
+                string.pop();
+            }
+        } else {
+            string = value.format("%Y%m%d%H%M%S").to_string();
+        }
+        string.push('Z');
+        string.into_bytes()
+    }
 }
 
 impl crate::Encoder for Encoder {
@@ -449,11 +471,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(
             tag,
-            value
-                .naive_utc()
-                .format("%Y%m%d%H%M%SZ")
-                .to_string()
-                .as_bytes(),
+            Self::datetime_to_canonical_generalized_time_bytes(value).as_slice(),
         );
 
         Ok(())

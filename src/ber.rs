@@ -196,4 +196,91 @@ mod tests {
             }
         }
     }
+    #[test]
+    fn test_generalized_time() {
+        use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
+        // "20801009130005.342Z"
+        let offset = chrono::FixedOffset::east_opt(0).unwrap();
+        let dt = NaiveDate::from_ymd_opt(2080, 10, 9)
+            .unwrap()
+            .and_hms_micro_opt(13, 0, 5, 342_000)
+            .unwrap()
+            .and_local_timezone(offset);
+        round_trip!(
+            ber,
+            GeneralizedTime,
+            GeneralizedTime::from(dt.unwrap(),),
+            &[
+                0x18, 0x13, 0x32, 0x30, 0x38, 0x30, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30,
+                0x30, 0x35, 0x2e, 0x33, 0x34, 0x32, 0x5a
+            ]
+        );
+
+        // https://github.com/XAMPPRocky/rasn/issues/57
+        let data = [
+            24, 19, 43, 53, 49, 54, 49, 53, 32, 32, 48, 53, 50, 52, 48, 57, 52, 48, 50, 48, 90,
+        ];
+        assert!(crate::der::decode::<crate::types::Open>(&data).is_err());
+        assert!(crate::ber::decode::<crate::types::Open>(&data).is_err());
+
+        // "20180122132900Z"
+        round_trip!(
+            ber,
+            GeneralizedTime,
+            GeneralizedTime::from(
+                NaiveDate::from_ymd_opt(2018, 1, 22)
+                    .unwrap()
+                    .and_hms_opt(13, 29, 0)
+                    .unwrap()
+                    .and_utc()
+            ),
+            &[
+                0x18, 0x0f, 0x32, 0x30, 0x31, 0x38, 0x30, 0x31, 0x32, 0x32, 0x31, 0x33, 0x32, 0x39,
+                0x30, 0x30, 0x5a
+            ]
+        );
+        // "20180122130000Z"
+        round_trip!(
+            ber,
+            GeneralizedTime,
+            GeneralizedTime::from(
+                NaiveDate::from_ymd_opt(2018, 1, 22)
+                    .unwrap()
+                    .and_hms_opt(13, 0, 0)
+                    .unwrap()
+                    .and_utc()
+            ),
+            &[
+                0x18, 0x0f, 0x32, 0x30, 0x31, 0x38, 0x30, 0x31, 0x32, 0x32, 0x31, 0x33, 0x30, 0x30,
+                0x30, 0x30, 0x5a
+            ]
+        );
+
+        // "20230122130000-0500" - converts to canonical form "20230122180000Z"
+        let offset = FixedOffset::east_opt(-3600 * 5).unwrap();
+        let dt1: DateTime<FixedOffset> = GeneralizedTime::from(DateTime::<Utc>::from(
+            NaiveDate::from_ymd_opt(2023, 1, 22)
+                .unwrap()
+                .and_hms_opt(13, 0, 0)
+                .unwrap()
+                .and_local_timezone(offset)
+                .unwrap(),
+        ));
+        round_trip!(
+            ber,
+            GeneralizedTime,
+            dt1,
+            &[
+                0x18, 0x0f, 0x32, 0x30, 0x32, 0x33, 0x30, 0x31, 0x32, 0x32, 0x31, 0x38, 0x30, 0x30,
+                0x30, 0x30, 0x5a
+            ]
+        );
+        // "20230122130000-0500" as bytes
+        let data = [
+            24, 19, 50, 48, 50, 51, 48, 49, 50, 50, 49, 51, 48, 48, 48, 48, 45, 48, 53, 48, 48,
+        ];
+        let result = crate::ber::decode::<crate::types::GeneralizedTime>(&data);
+        assert!(result.is_ok());
+        assert_eq!(dt1, result.unwrap());
+    }
 }
