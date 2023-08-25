@@ -27,6 +27,7 @@ mod tests {
     use alloc::borrow::ToOwned;
     use alloc::vec;
     use alloc::vec::Vec;
+    use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
 
     use crate::types::*;
 
@@ -198,7 +199,6 @@ mod tests {
     }
     #[test]
     fn test_generalized_time() {
-        use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
         // "20801009130005.342Z"
         let offset = chrono::FixedOffset::east_opt(0).unwrap();
         let dt = NaiveDate::from_ymd_opt(2080, 10, 9)
@@ -280,6 +280,50 @@ mod tests {
             24, 19, 50, 48, 50, 51, 48, 49, 50, 50, 49, 51, 48, 48, 48, 48, 45, 48, 53, 48, 48,
         ];
         let result = crate::ber::decode::<crate::types::GeneralizedTime>(&data);
+        assert!(result.is_ok());
+        assert_eq!(dt1, result.unwrap());
+    }
+    #[test]
+    fn test_utc_time() {
+        // "180122132900Z"
+        round_trip!(
+            ber,
+            UtcTime,
+            UtcTime::from(
+                NaiveDate::from_ymd_opt(2018, 1, 22)
+                    .unwrap()
+                    .and_hms_opt(13, 29, 0)
+                    .unwrap()
+                    .and_utc()
+            ),
+            &[
+                0x17, 0x0d, 0x31, 0x38, 0x30, 0x31, 0x32, 0x32, 0x31, 0x33, 0x32, 0x39, 0x30, 0x30,
+                0x5a
+            ]
+        );
+        // "230122130000-0500" - converts to canonical form "230122180000Z"
+        let offset = FixedOffset::east_opt(-3600 * 5).unwrap();
+        let dt1 = UtcTime::from(DateTime::<FixedOffset>::from_local(
+            NaiveDate::from_ymd_opt(2023, 1, 22)
+                .unwrap()
+                .and_hms_opt(13, 0, 0)
+                .unwrap(),
+            offset,
+        ));
+        round_trip!(
+            ber,
+            UtcTime,
+            dt1,
+            &[
+                0x17, 0x0d, 0x32, 0x33, 0x30, 0x31, 0x32, 0x32, 0x31, 0x38, 0x30, 0x30, 0x30, 0x30,
+                0x5a
+            ]
+        );
+        // "230122130000-0500" as bytes
+        let data = [
+            23, 17, 50, 51, 48, 49, 50, 50, 49, 51, 48, 48, 48, 48, 45, 48, 53, 48, 48,
+        ];
+        let result = crate::ber::decode::<crate::types::UtcTime>(&data);
         assert!(result.is_ok());
         assert_eq!(dt1, result.unwrap());
     }
