@@ -242,7 +242,9 @@ impl Encoder {
         }
     }
     #[must_use]
-    pub fn datetime_to_generalized_time_bytes(
+    /// Canonical byte presentation for CER/DER as defined in X.690 section 11.7.
+    /// Also used for BER on this crate.
+    pub fn datetime_to_canonical_generalized_time_bytes(
         value: &chrono::DateTime<chrono::FixedOffset>,
     ) -> Vec<u8> {
         let mut string;
@@ -469,7 +471,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(
             tag,
-            Self::datetime_to_generalized_time_bytes(value).as_slice(),
+            Self::datetime_to_canonical_generalized_time_bytes(value).as_slice(),
         );
 
         Ok(())
