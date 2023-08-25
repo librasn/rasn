@@ -18,6 +18,7 @@ use crate::{
     },
     Decode,
 };
+use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
 
 pub use self::{config::DecoderOptions, error::Error};
 
@@ -110,7 +111,9 @@ impl<'input> Decoder<'input> {
 
         Ok(result)
     }
-    pub fn parse_generalized_time_string(
+    /// Parse any GeneralizedTime string, allowing for any from ASN.1 definition
+    /// TODO, move to type itself?
+    pub fn parse_any_generalized_time_string(
         string: alloc::string::String,
     ) -> Result<types::GeneralizedTime, Error> {
         // Reference https://obj-sys.com/asn1tutorial/node14.html
@@ -118,14 +121,85 @@ impl<'input> Decoder<'input> {
         // If data contains explict Z, result is UTC
         // If data contains + or -, explicit timezone is given
         // If neither Z nor + nor -, purely local time is implied
-        // Enforce BER restrictions defined in Section 11.7, strictly ignore non-compliant
-        use chrono::{DateTime, NaiveDateTime, Utc};
+        let len = string.len();
+        // Helper function to deal with fractions and without timezone
+        let parse_without_timezone = |string: &str| -> Result<NaiveDateTime, Error> {
+            // Handle both decimal cases (dot . and comma , )
+            let string: &str = &string.replace(",", ".");
+            if string.contains('.') {
+                // Use chrono to parse the string every time, since we don't the know the number of decimals places
+                NaiveDateTime::parse_from_str(string, "%Y%m%d%H%.f")
+                    .or_else(|_| NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%.f"))
+                    .or_else(|_| NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S%.f"))
+                    .map_err(|_| Error::InvalidDate)
+            } else {
+                let fmt_string = match string.len() {
+                    8 => "%Y%m%d",
+                    10 => "%Y%m%d%H",
+                    12 => "%Y%m%d%H%M",
+                    14 => "%Y%m%d%H%M%S",
+                    _ => "",
+                };
+                match fmt_string.len() {
+                    l if l > 0 => NaiveDateTime::parse_from_str(string, fmt_string)
+                        .map_err(|_| Error::InvalidDate),
+                    _ => Err(Error::InvalidDate),
+                }
+            }
+        };
+        if string.ends_with('Z') {
+            let naive = parse_without_timezone(&string[..len - 1])?;
+            return Ok(DateTime::<Utc>::from_utc(naive, Utc).into());
+        }
+        // Check for timezone offset
+        if len > 5
+            && string
+                .chars()
+                .nth(len - 5)
+                .map_or(false, |c| c == '+' || c == '-')
+        {
+            let naive = parse_without_timezone(&string[..len - 5])?;
+            let sign = match string.chars().nth(len - 5) {
+                Some('+') => 1,
+                Some('-') => -1,
+                _ => {
+                    return Err(Error::InvalidDate);
+                }
+            };
+            let offset_hours = string
+                .chars()
+                .skip(len - 4)
+                .take(2)
+                .collect::<alloc::string::String>()
+                .parse::<i32>()
+                .map_err(|_| Error::InvalidDate)?;
+            let offset_minutes = string
+                .chars()
+                .skip(len - 2)
+                .take(2)
+                .collect::<alloc::string::String>()
+                .parse::<i32>()
+                .map_err(|_| Error::InvalidDate)?;
+            if offset_hours > 23 || offset_minutes > 59 {
+                return Err(Error::InvalidDate);
+            }
+            let offset = FixedOffset::east_opt(sign * (offset_hours * 3600 + offset_minutes * 60))
+                .ok_or(Error::InvalidDate)?;
+            return Ok(DateTime::<FixedOffset>::from_local(naive, offset).into());
+        }
+
+        // Parse without timezone details
+        let naive = parse_without_timezone(&string)?;
+        Ok(DateTime::<Utc>::from_local(naive, Utc).into())
+    }
+    /// Enforce CER/DER restrictions defined in Section 11.7, strictly raise error on non-compliant
+    pub fn parse_canonical_generalized_time_string(
+        string: alloc::string::String,
+    ) -> Result<types::GeneralizedTime, Error> {
         let len = string.len();
         // Helper function to deal with fractions of seconds and without timezone
         let parse_without_timezone = |string: &str| -> core::result::Result<NaiveDateTime, Error> {
             let len = string.len();
-            // Handle both decimal cases (dot . and comma , ), while we don't need to
-            // let string: &str = &string.replace(",", ".");
             if string.contains('.') {
                 // https://github.com/chronotope/chrono/issues/238#issuecomment-378737786
                 NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S%.f")
@@ -134,19 +208,19 @@ impl<'input> Decoder<'input> {
                 NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S")
                     .map_err(|_| Error::InvalidDate)
             } else {
-                // Ber encoding rules don't allow for timezone offset +/
+                // CER/DER encoding rules don't allow for timezone offset +/
                 // Or missing seconds/minutes/hours
                 // Or comma , instead of dot .
+                // Or local time without timezone
                 Err(Error::InvalidDate)
             }
         };
-        if string.ends_with('Z') {
+        return if string.ends_with('Z') {
             let naive = parse_without_timezone(&string[..len - 1])?;
-            return Ok(DateTime::<Utc>::from_utc(naive, Utc).into());
-        }
-        // Parse without timezone details
-        let naive = parse_without_timezone(&string)?;
-        Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+            Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+        } else {
+            Err(Error::InvalidDate)
+        };
     }
 }
 
@@ -392,7 +466,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
         let string = self.decode_utf8_string(tag, <_>::default())?;
-        Self::parse_generalized_time_string(string)
+        if self.config.encoding_rules.is_ber() {
+            Self::parse_any_generalized_time_string(string)
+        } else {
+            Self::parse_canonical_generalized_time_string(string)
+        }
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
