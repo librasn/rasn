@@ -729,4 +729,24 @@ mod tests {
             &[0x0d, 0x31, 0x39, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30, 0x30, 0x35, 0x5a]
         );
     }
+    #[test]
+    /// No extension addition presence bitmap in any test case
+    fn test_sequence_no_extensions() {
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Sequence {
+            a: Integer,
+            b: Integer,
+        }
+        // Preamble should be empty
+        round_trip!(
+            coer,
+            Sequence,
+            Sequence {
+                a: 1.into(),
+                b: 2.into()
+            },
+            &[0x01, 0x01, 0x01, 0x02]
+        );
+    }
 }
