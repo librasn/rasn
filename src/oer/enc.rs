@@ -568,7 +568,7 @@ impl crate::Encoder for Encoder {
         )
     }
 
-    fn encode_utc_time(&mut self, _tag: Tag, value: &UtcTime) -> Result<Self::Ok, Self::Error> {
+    fn encode_utc_time(&mut self, tag: Tag, value: &UtcTime) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(
             tag,
             Constraints::default(),
