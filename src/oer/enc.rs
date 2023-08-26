@@ -564,12 +564,16 @@ impl crate::Encoder for Encoder {
         self.encode_octet_string(
             tag,
             Constraints::default(),
-            &crate::ber::enc::Encoder::datetime_to_canonical_generalized_time_bytes(value),
+            &crate::der::enc::Encoder::datetime_to_canonical_generalized_time_bytes(value),
         )
     }
 
     fn encode_utc_time(&mut self, _tag: Tag, value: &UtcTime) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_octet_string(
+            tag,
+            Constraints::default(),
+            &crate::der::enc::Encoder::datetime_to_canonical_utc_time_bytes(value),
+        )
     }
 
     fn encode_explicit_prefix<V: Encode>(

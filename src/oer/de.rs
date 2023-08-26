@@ -422,7 +422,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<UtcTime, Self::Error> {
-        todo!()
+        let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
+            .map_err(|_| Error::custom("Invalid UTF-8 string"))?;
+        crate::der::de::Decoder::parse_canonical_utc_time_string(string)
+            .map_err(|err| Error::custom(err.to_string()))
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<GeneralizedTime, Self::Error> {
