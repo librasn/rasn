@@ -10,6 +10,8 @@
 //! - [RFC 3416](https://datatracker.ietf.org/doc/html/rfc3416): Version 2 of the Protocol
 //!   Operations for the Simple Network Management Protocol (SNMP)
 
+use alloc::boxed::Box;
+
 use rasn::{
     prelude::*,
     types::{Integer, OctetString},
@@ -23,7 +25,7 @@ pub use crate::v2::{
 /// The SNMPv3 message format, corresponding to the SNMP version 3 Message Processing Model.
 ///
 /// [RFC 3412 § 6](https://datatracker.ietf.org/doc/html/rfc3412#section-6)
-#[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Message {
     /// Identifies the layout of the SNMPv3 Message.
     ///
@@ -36,93 +38,48 @@ pub struct Message {
     pub global_data: HeaderData,
     /// Security model specific parameters.
     ///
-    /// The contents of this field is defined by the Security Model, however only the User-based
-    /// Security Model ([RFC 3414](https://datatracker.ietf.org/doc/html/rfc3414)) is defined here.
+    /// The contents of this field is defined by the Security Model.
     ///
     /// [RFC 3412 § 6.6](https://datatracker.ietf.org/doc/html/rfc3412#section-6.6)
-    pub security_parameters: USMSecurityParameters,
+    pub security_parameters: OctetString,
     /// Message data.
     pub scoped_data: ScopedPduData,
 }
 
-impl Decode for Message {
-    fn decode_with_tag_and_constraints<D: rasn::Decoder>(
-        decoder: &mut D,
-        tag: rasn::Tag,
-        constraints: Constraints,
-    ) -> Result<Self, D::Error> {
-        NestedMessage::decode_with_tag_and_constraints(decoder, tag, constraints).map(Self::from)
-    }
-}
-
-impl Encode for Message {
-    fn encode_with_tag_and_constraints<E: rasn::Encoder>(
+impl Message {
+    pub fn decode_security_parameters<T: SecurityParameters>(
         &self,
-        encoder: &mut E,
-        tag: rasn::Tag,
-        constraints: Constraints,
-    ) -> Result<(), E::Error> {
-        NestedMessage::from(self.clone()).encode_with_tag_and_constraints(encoder, tag, constraints)
-    }
-}
-
-impl From<NestedMessage> for Message {
-    fn from(m: NestedMessage) -> Self {
-        Self {
-            version: m.version,
-            global_data: m.global_data,
-            security_parameters: m.security_parameters.0,
-            scoped_data: m.scoped_data,
+        codec: rasn::Codec,
+    ) -> Result<T, alloc::boxed::Box<dyn core::fmt::Display>> {
+        if self.global_data.security_model != T::ID.into() {
+            return Err(Box::new(alloc::format!(
+                "`{}` doesn't match security model `{}`",
+                self.global_data.security_model,
+                T::ID
+            )) as Box<_>);
         }
+
+        codec.decode::<T>(&self.security_parameters)
+    }
+
+    pub fn encode_security_parameters<T: SecurityParameters>(
+        &mut self,
+        codec: rasn::Codec,
+        value: T,
+    ) -> Result<(), alloc::boxed::Box<dyn core::fmt::Display>> {
+        self.global_data.security_model = T::ID.into();
+
+        self.security_parameters = codec.encode::<T>(&value)?.into();
+        Ok(())
     }
 }
 
-/// A helper type to allow a BER-encoded message to be nested in an OCTET STRING field.
-#[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-#[rasn(tag(universal, 4))]
-struct Nested<T>(T);
-
-impl<T: Decode> Decode for Nested<T> {
-    fn decode_with_tag_and_constraints<D: Decoder>(
-        decoder: &mut D,
-        tag: Tag,
-        _: Constraints,
-    ) -> Result<Self, D::Error> {
-        decoder.decode_explicit_prefix(tag).map(Self)
-    }
+pub trait SecurityParameters: Decode + Encode {
+    const ID: u32;
 }
 
-impl<T: Encode> Encode for Nested<T> {
-    fn encode_with_tag_and_constraints<E: Encoder>(
-        &self,
-        encoder: &mut E,
-        tag: Tag,
-        _: Constraints,
-    ) -> Result<(), E::Error> {
-        encoder.encode_explicit_prefix(tag, &self.0).map(drop)
-    }
-}
-
-/// The actual encoding for `Message`, with `security_parameters` nested in an OCTET STRING field.
-/// The `Encode` and `Decode` impls for `Message` are defined in terms of converting to and from
-/// `NestedMessage` prior to encode/decode.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
-struct NestedMessage {
-    version: Integer,
-    global_data: HeaderData,
-    security_parameters: Nested<USMSecurityParameters>,
-    scoped_data: ScopedPduData,
-}
-
-impl From<Message> for NestedMessage {
-    fn from(m: Message) -> Self {
-        Self {
-            version: m.version,
-            global_data: m.global_data,
-            security_parameters: Nested(m.security_parameters),
-            scoped_data: m.scoped_data,
-        }
-    }
+impl SecurityParameters for USMSecurityParameters {
+    const ID: u32 = 3;
 }
 
 /// Administrative data about a `Message`.

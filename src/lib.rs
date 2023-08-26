@@ -8,6 +8,42 @@ pub mod de;
 pub mod enc;
 pub mod types;
 
+use alloc::boxed::Box;
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub enum Codec {
+    Ber,
+    Cer,
+    Der,
+    Uper,
+    Aper,
+}
+
+impl Codec {
+    pub fn encode<E: Encode>(
+        &self,
+        value: &E,
+    ) -> Result<alloc::vec::Vec<u8>, Box<dyn core::fmt::Display>> {
+        match self {
+            Self::Ber => ber::encode(value).map_err(|error| Box::new(error) as Box<_>),
+            Self::Cer => cer::encode(value).map_err(|error| Box::new(error) as Box<_>),
+            Self::Der => der::encode(value).map_err(|error| Box::new(error) as Box<_>),
+            Self::Uper => uper::encode(value).map_err(|error| Box::new(error) as Box<_>),
+            Self::Aper => aper::encode(value).map_err(|error| Box::new(error) as Box<_>),
+        }
+    }
+
+    pub fn decode<D: Decode>(&self, input: &[u8]) -> Result<D, Box<dyn core::fmt::Display>> {
+        match self {
+            Self::Ber => ber::decode(input).map_err(|error| Box::new(error) as Box<_>),
+            Self::Cer => cer::decode(input).map_err(|error| Box::new(error) as Box<_>),
+            Self::Der => der::decode(input).map_err(|error| Box::new(error) as Box<_>),
+            Self::Uper => uper::decode(input).map_err(|error| Box::new(error) as Box<_>),
+            Self::Aper => aper::decode(input).map_err(|error| Box::new(error) as Box<_>),
+        }
+    }
+}
+
 #[cfg(test)]
 macro_rules! round_trip {
     ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
