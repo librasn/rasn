@@ -334,7 +334,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         // ### PREAMBLE ###
         // dbg!(D::EXTENDED_FIELDS);
         let is_extensible = D::EXTENDED_FIELDS.is_some();
-        let extensible_bit = if is_extensible {
+        let extensible_present = if is_extensible {
             self.parse_one_bit()?
         } else {
             false
