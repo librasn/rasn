@@ -647,6 +647,37 @@ mod tests {
         );
     }
     #[test]
+    fn test_utf8_string() {
+        round_trip!(coer, Utf8String, "".try_into().unwrap(), &[0x00]);
+        round_trip!(coer, Utf8String, "2".try_into().unwrap(), &[0x01, 0x32]);
+        round_trip!(
+            coer,
+            Utf8String,
+            "2".repeat(128).try_into().unwrap(),
+            &[0x81, 0x80]
+                .iter()
+                .chain("2".repeat(128).as_bytes().iter())
+                .copied()
+                .collect::<Vec<_>>()
+        );
+        round_trip!(
+            coer,
+            Utf8String,
+            "ÄÖÄÖÄÖÄÖ12e4Ä".try_into().unwrap(),
+            &[
+                0x16, 0xc3, 0x84, 0xc3, 0x96, 0xc3, 0x84, 0xc3, 0x96, 0xc3, 0x84, 0xc3, 0x96, 0xc3,
+                0x84, 0xc3, 0x96, 0x31, 0x32, 0x65, 0x34, 0xc3, 0x84
+            ]
+        );
+        round_trip_with_constraints!(
+            coer,
+            Utf8String,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            "foo".try_into().unwrap(),
+            &[0x66, 0x6f, 0x6f]
+        );
+    }
+    #[test]
     fn test_teletext_string() {
         round_trip!(
             coer,

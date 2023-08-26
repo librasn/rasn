@@ -491,11 +491,11 @@ impl crate::Encoder for Encoder {
 
     fn encode_utf8_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &str,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
     fn encode_visible_string(
