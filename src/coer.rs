@@ -32,6 +32,7 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 mod tests {
     // use super::*;
     #![allow(clippy::items_after_statements)]
+    use crate as rasn;
     use crate::prelude::*;
     use crate::types::constraints::{Bounded, Constraint, Size, Value};
     use crate::types::Integer;
@@ -730,23 +731,80 @@ mod tests {
         );
     }
     #[test]
-    /// No extension addition presence bitmap in any test case
+    /// No extension addition presence bitmap in any test case or preamble
     fn test_sequence_no_extensions() {
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        #[rasn(crate_root = "crate")]
-        struct Sequence {
+        struct Sequence1 {
             a: Integer,
             b: Integer,
         }
-        // Preamble should be empty
         round_trip!(
             coer,
-            Sequence,
-            Sequence {
+            Sequence1,
+            Sequence1 {
                 a: 1.into(),
                 b: 2.into()
             },
             &[0x01, 0x01, 0x01, 0x02]
+        );
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence2 {
+            a: bool,
+        }
+        round_trip!(coer, Sequence2, Sequence2 { a: true }, &[0xff]);
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence3 {
+            a: bool,
+            b: Sequence1,
+        }
+        round_trip!(
+            coer,
+            Sequence3,
+            Sequence3 {
+                a: true,
+                b: Sequence1 {
+                    a: 1.into(),
+                    b: 2.into()
+                }
+            },
+            &[0xff, 0x01, 0x01, 0x01, 0x02]
+        );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", choice, automatic_tags)]
+        enum Choice1 {
+            A(bool),
+            B(Sequence1),
+        }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Sequence4 {
+            a: Integer,
+            b: Choice1,
+        }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Sequence5 {
+            a: bool,
+            b: Sequence4,
+        }
+        round_trip!(
+            coer,
+            Sequence5,
+            Sequence5 {
+                a: true,
+                b: Sequence4 {
+                    a: 1.into(),
+                    b: Choice1::B(Sequence1 {
+                        a: 1.into(),
+                        b: 2.into()
+                    })
+                }
+            },
+            &[0xff, 0x01, 0x01, 0x81, 0x01, 0x01, 0x01, 0x02]
         );
     }
 }
