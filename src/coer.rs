@@ -681,4 +681,21 @@ mod tests {
         assert!(crate::der::decode::<crate::types::Open>(&data).is_err());
         // decode_error!(coer, GeneralizedTime, GeneralizedTime::from(value), &data);
     }
+    #[test]
+    fn test_utc_time() {
+        // 2019-10-09 13:00:05 UTC
+        // 191009130005Z
+        round_trip!(
+            coer,
+            UtcTime,
+            UtcTime::from(
+                chrono::NaiveDate::from_ymd_opt(2019, 10, 9)
+                    .unwrap()
+                    .and_hms_opt(13, 0, 5)
+                    .unwrap()
+                    .and_utc()
+            ),
+            &[0x0d, 0x31, 0x39, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30, 0x30, 0x35, 0x5a]
+        );
+    }
 }
