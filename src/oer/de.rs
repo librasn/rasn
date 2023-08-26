@@ -8,8 +8,10 @@ use crate::prelude::{
     GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier, PrintableString, SetOf,
     TeletexString, UtcTime, VisibleString,
 };
+use crate::types::fields::{Field, Fields};
 use crate::{de::Error as _, Decode, Tag};
 use alloc::{
+    collections::VecDeque,
     string::{String, ToString},
     vec::Vec,
 };
@@ -37,6 +39,9 @@ pub struct DecoderOptions {
 pub struct Decoder<'input> {
     input: InputSlice<'input>,
     // options: DecoderOptions,
+    fields: VecDeque<(Field, bool)>,
+    extension_fields: Option<Fields>,
+    extensions_present: Option<Option<VecDeque<(Field, bool)>>>,
 }
 
 impl<'input> Decoder<'input> {
@@ -46,6 +51,9 @@ impl<'input> Decoder<'input> {
         Self {
             input: input.into(),
             // options,
+            fields: <_>::default(),
+            extension_fields: <_>::default(),
+            extensions_present: <_>::default(),
         }
     }
     fn parse_one_bit(&mut self) -> Result<bool> {
@@ -57,6 +65,11 @@ impl<'input> Decoder<'input> {
         let (input, byte) = nom::bytes::streaming::take(8u8)(self.input)?;
         self.input = input;
         Ok(byte.as_bytes()[0])
+    }
+    fn drop_bits(&mut self, num: usize) -> Result<()> {
+        let (input, _) = nom::bytes::streaming::take(num)(self.input)?;
+        self.input = input;
+        Ok(())
     }
     fn parse_tag(&mut self) -> Result<Tag, Error> {
         // Seems like tag number
@@ -245,6 +258,16 @@ impl<'input> Decoder<'input> {
             )
         })
     }
+    fn parse_optional_and_default_field_bitmap(
+        &mut self,
+        fields: &Fields,
+    ) -> Result<InputSlice<'input>> {
+        let (input, bitset) = nom::bytes::streaming::take(
+            fields.number_of_optional_and_default_fields(),
+        )(self.input)?;
+        self.input = input;
+        Ok(bitset)
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -308,7 +331,47 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
-        todo!()
+        // ### PREAMBLE ###
+        // dbg!(D::EXTENDED_FIELDS);
+        let is_extensible = D::EXTENDED_FIELDS.is_some();
+        let extensible_bit = if is_extensible {
+            self.parse_one_bit()?
+        } else {
+            false
+        };
+
+        let num_opt_default_fields = D::FIELDS.number_of_optional_and_default_fields();
+        let mut bitmap: InputSlice = InputSlice::from(bitvec::slice::BitSlice::from_slice(&[]));
+        if num_opt_default_fields > 0 {
+            bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
+            let preamble_length = if is_extensible {
+                1usize + bitmap.len()
+            } else {
+                bitmap.len()
+            };
+            self.drop_bits(8 - preamble_length % 8)?;
+        } else if is_extensible {
+            // Rest of the preamble are unused bits
+            self.drop_bits(7usize)?;
+        }
+        dbg!(self.input);
+        debug_assert_eq!(self.input.len() % 8, 0);
+
+        let value = {
+            let mut sequence_decoder = Self::new(self.input.0);
+            sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
+            sequence_decoder.extensions_present = is_extensible.then_some(None);
+            sequence_decoder.fields = D::FIELDS
+                .optional_and_default_fields()
+                .zip(bitmap.into_iter().map(|b| *b))
+                .collect();
+            let value = (decode_fn)(&mut sequence_decoder)?;
+
+            self.input = sequence_decoder.input;
+            value
+        };
+
+        Ok(value)
     }
 
     fn decode_sequence_of<D: Decode>(
