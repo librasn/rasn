@@ -268,6 +268,23 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(bitset)
     }
+    #[track_caller]
+    fn require_field(&mut self, tag: Tag) -> Result<bool> {
+        if self
+            .fields
+            .front()
+            .map(|field| field.0.tag_tree.smallest_tag() == tag)
+            .unwrap_or_default()
+        {
+            Ok(self.fields.pop_front().unwrap().1)
+        } else {
+            Err(Error::custom(alloc::format!(
+                "expected class: {}, value: {} in sequence or set",
+                tag.class,
+                tag.value
+            )))
+        }
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -332,7 +349,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
         // ### PREAMBLE ###
-        // dbg!(D::EXTENDED_FIELDS);
         let is_extensible = D::EXTENDED_FIELDS.is_some();
         let extensible_present = if is_extensible {
             self.parse_one_bit()?
@@ -354,7 +370,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
             // Rest of the preamble are unused bits
             self.drop_bits(7usize)?;
         }
-        dbg!(self.input);
         debug_assert_eq!(self.input.len() % 8, 0);
 
         let value = {
@@ -536,11 +551,16 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {
-        todo!()
+        self.decode_optional_with_tag(D::TAG)
     }
 
     fn decode_optional_with_tag<D: Decode>(&mut self, tag: Tag) -> Result<Option<D>, Self::Error> {
-        todo!()
+        let is_present = self.require_field(tag)?;
+        if is_present {
+            D::decode_with_tag(self, tag).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     fn decode_optional_with_constraints<D: Decode>(

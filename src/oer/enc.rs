@@ -112,6 +112,10 @@ impl Encoder {
         // TODO, move from per to utility module?
         crate::per::to_vec(&self.output)
     }
+    pub fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
+        self.field_bitfield.entry(tag).and_modify(|(_, b)| *b = bit);
+        Ok(())
+    }
     /// Encode a tag as specified in ITU-T X.696 8.7
     ///
     /// Encoding of the tag is only required when encoding a choice type.
@@ -403,7 +407,6 @@ impl Encoder {
                 .map(|output| output.len())
                 .sum::<usize>();
         }
-
         output_length
     }
     fn new_set_encoder<C: crate::types::Constructed>(&self) -> Self {
@@ -421,13 +424,11 @@ impl Encoder {
 
     fn new_sequence_encoder<C: crate::types::Constructed>(&self) -> Self {
         let mut encoder = Self::new(self.options.without_set_encoding());
-        // dbg!(&C::FIELDS);
         encoder.field_bitfield = C::FIELDS
             .iter()
             .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
             .collect();
-        // encoder.parent_output_length = Some(self.output_length());
-        dbg!(encoder.field_bitfield.clone());
+        encoder.parent_output_length = Some(self.output_length());
         encoder
     }
     fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
@@ -445,7 +446,6 @@ impl Encoder {
         if extensions_present {
             buffer.push(Self::encoded_extension_addition(&encoder.extension_fields))
         }
-        dbg!(C::FIELDS.number_of_optional_and_default_fields());
         // Section 16.2.3
         if C::FIELDS.number_of_optional_and_default_fields() > 0 {
             for bit in encoder
@@ -459,11 +459,11 @@ impl Encoder {
                 buffer.push(bit);
             }
         }
-        debug_assert!(
-            !extensions_present
-                && C::FIELDS.number_of_optional_and_default_fields() == 0
-                && buffer.is_empty()
-        );
+        // debug_assert!(
+        //     !extensions_present
+        //         && C::FIELDS.number_of_optional_and_default_fields() == 0
+        //         && buffer.is_empty()
+        // );
 
         // 16.2.4 - fill missing bits from full octet with zeros
         if buffer.len() % 8 != 0 {
@@ -474,7 +474,7 @@ impl Encoder {
         //
         // let extension_fields = core::mem::take(&mut encoder.extension_fields);
         //
-        if encoder.field_bitfield.values().any(|(a, b)| !*b) {
+        if encoder.field_bitfield.values().any(|(a, b)| *b) {
             buffer.extend(encoder.bitstring_output());
         }
         //
@@ -519,17 +519,19 @@ impl crate::Encoder for Encoder {
     type Error = Error;
 
     fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_octet_string(tag, <Constraints>::default(), &value.contents)
     }
 
-    fn encode_bool(&mut self, _tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
+    fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_bool(value);
         Ok(())
     }
 
     fn encode_bit_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &BitString,
     ) -> Result<Self::Ok, Self::Error> {
@@ -537,6 +539,7 @@ impl crate::Encoder for Encoder {
         // "NamedBitList"), the bitstring value shall be encoded with trailing 0 bits added or removed as necessary to satisfy the
         // effective size constraint.
         // Rasn does not currently support NamedBitList
+        self.set_bit(tag, true)?;
 
         let fixed_size_encode = |value: &BitString| {
             let missing_bits: usize = 8 - value.len() % 8;
@@ -581,6 +584,7 @@ impl crate::Encoder for Encoder {
         // TODO max size for enumerated value is currently only isize MIN/MAX
         // Spec allows between –2^1015 and 2^1015 – 1
         // TODO negative discriminant values are not currently possibly
+        self.set_bit(tag, true)?;
         let number = value.discriminant();
         if 0isize <= number && number <= i8::MAX.into() {
             self.encode_integer_with_padding(1, &number.into(), false)?;
@@ -597,6 +601,7 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &[u32],
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         let octets = match {
             let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
             enc.object_identifier_as_bytes(value)
@@ -621,23 +626,26 @@ impl crate::Encoder for Encoder {
 
     fn encode_integer(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &Integer,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_integer_with_constraints(&constraints, value)
     }
 
-    fn encode_null(&mut self, _: Tag) -> Result<Self::Ok, Self::Error> {
+    fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         Ok(())
     }
 
     fn encode_octet_string(
         &mut self,
-        _: Tag,
+        tag: Tag,
         constraints: Constraints,
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         let fixed_size_encode = |value: &[u8]| {
             self.output.extend(value);
             Ok(())
@@ -664,6 +672,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         // TODO check additional conditions from teletex fn
         // Seems like it can be encoded as it is...
+        self.set_bit(tag, true)?;
         self.encode_octet_string(tag, constraints, value)
     }
 
@@ -673,6 +682,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &str,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
@@ -682,6 +692,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_octet_string(tag, constraints, value.as_iso646_bytes())
     }
 
@@ -691,6 +702,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_octet_string(tag, constraints, value.as_iso646_bytes())
     }
 
@@ -700,6 +712,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
@@ -709,6 +722,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &NumericString,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
@@ -722,6 +736,7 @@ impl crate::Encoder for Encoder {
         // TODO the octets specified in ISO/IEC 2022 for encodings in an 8-bit environment, using
         // the escape sequence and character codings registered in accordance with ISO/IEC 2375.
         // Are there some escape sequences that we should add?
+        self.set_bit(tag, true)?;
         self.encode_octet_string(tag, constraints, value)
     }
 
@@ -731,6 +746,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &BmpString,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
@@ -739,6 +755,7 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_octet_string(
             tag,
             Constraints::default(),
@@ -747,6 +764,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_utc_time(&mut self, tag: Tag, value: &UtcTime) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         self.encode_octet_string(
             tag,
             Constraints::default(),
@@ -778,6 +796,7 @@ impl crate::Encoder for Encoder {
         value: &[E],
         constraints: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         todo!()
     }
 
@@ -799,6 +818,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(E::TAG, true)?;
         value.encode(self)
     }
 
@@ -808,14 +828,17 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
         value.encode_with_tag_and_constraints(self, tag, constraints)
     }
 
     fn encode_none<E: Encode>(&mut self) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(E::TAG, false)?;
         Ok(())
     }
 
     fn encode_none_with_tag(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, false)?;
         Ok(())
     }
 

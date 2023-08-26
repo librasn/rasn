@@ -711,7 +711,6 @@ mod tests {
         ];
 
         assert!(crate::der::decode::<crate::types::Open>(&data).is_err());
-        // decode_error!(coer, GeneralizedTime, GeneralizedTime::from(value), &data);
     }
     #[test]
     fn test_utc_time() {
@@ -732,8 +731,11 @@ mod tests {
     }
     #[test]
     /// No extension addition presence bitmap in any test case or preamble
+    /// Or option or defaults
     fn test_sequence_no_extensions() {
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        // #[rasn(automatic_tags)]
+        #[rasn(crate_root = "crate")]
         struct Sequence1 {
             a: Integer,
             b: Integer,
@@ -805,6 +807,74 @@ mod tests {
                 }
             },
             &[0xff, 0x01, 0x01, 0x81, 0x01, 0x01, 0x01, 0x02]
+        );
+    }
+    #[test]
+    fn test_sequence_default_option() {
+        fn default_a() -> Integer {
+            0.into()
+        }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence1 {
+            #[rasn(default = "default_a")]
+            a: Integer,
+        }
+        round_trip!(coer, Sequence1, Sequence1 { a: 0.into() }, &[0x00]);
+        round_trip!(
+            coer,
+            Sequence1,
+            Sequence1 { a: 1.into() },
+            &[0b1000_0000, 0x01, 0x01]
+        );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence2 {
+            a: Integer,
+            b: Option<Integer>,
+        }
+        round_trip!(
+            coer,
+            Sequence2,
+            Sequence2 {
+                a: 1.into(),
+                b: Some(2.into())
+            },
+            &[0b1000_0000, 0x01, 0x01, 0x01, 0x02]
+        );
+        round_trip!(
+            coer,
+            Sequence2,
+            Sequence2 {
+                a: 1.into(),
+                b: None
+            },
+            &[0x00, 0x01, 0x01]
+        );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence4 {
+            #[rasn(default = "default_a")]
+            a: Integer, // default is 0
+            b: Option<Integer>,
+        }
+        round_trip!(
+            coer,
+            Sequence4,
+            Sequence4 {
+                a: 0.into(),
+                b: None
+            },
+            &[0x00]
+        );
+        round_trip!(
+            coer,
+            Sequence4,
+            Sequence4 {
+                a: 1.into(),
+                b: Some(3.into())
+            },
+            &[0b1100_0000, 0x01, 0x01, 0x01, 0x03]
         );
     }
 }
