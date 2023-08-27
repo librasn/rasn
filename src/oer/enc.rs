@@ -116,6 +116,14 @@ impl Encoder {
         self.field_bitfield.entry(tag).and_modify(|(_, b)| *b = bit);
         Ok(())
     }
+    fn extend(&mut self, tag: Tag, bytes: BitString) -> Result<()> {
+        if self.options.set_encoding {
+            self.set_output.insert(tag, bytes);
+        } else {
+            self.output.extend(bytes)
+        }
+        Ok(())
+    }
     /// Encode a tag as specified in ITU-T X.696 8.7
     ///
     /// Encoding of the tag is only required when encoding a choice type.
@@ -160,17 +168,6 @@ impl Encoder {
             debug_assert!(&bv[9..16].any());
         }
         bv
-    }
-    /// ITU-T X.696 9.
-    /// False is encoded as a single zero octet. In COER, true is always encoded as 0xFF.
-    /// In Basic-OER, any non-zero octet value represents true, but we support only canonical encoding.
-    fn encode_bool(&mut self, value: bool) {
-        self.output
-            .extend(BitVec::<u8, Msb0>::from_slice(&[if value {
-                0xffu8
-            } else {
-                0x00u8
-            }]));
     }
 
     /// Encode the length of the value to output.
@@ -468,12 +465,16 @@ impl Encoder {
         // Section 16.3 ### Encodings of the components in the extension root ###
         // Must copy before move...
         let extension_fields = core::mem::take(&mut encoder.extension_fields);
+        dbg!(encoder.field_bitfield.clone());
         if encoder.field_bitfield.values().any(|(a, b)| *b) {
-            buffer.extend(&encoder.bitstring_output());
+            dbg!(&encoder.output.as_raw_slice().clone());
+            buffer.extend(&encoder.output);
         }
+        dbg!(&buffer.as_raw_slice().clone());
         self.output.extend(buffer);
         if !extensions_defined || !extensions_present {
             debug_assert!(self.output.len() % 8 == 0);
+            dbg!(&self.output.as_raw_slice().clone());
             return Ok(());
         }
         // Section 16.4 ### Extension addition presence bitmap ###
@@ -518,9 +519,15 @@ impl crate::Encoder for Encoder {
         self.encode_octet_string(tag, <Constraints>::default(), &value.contents)
     }
 
+    /// ITU-T X.696 9.
+    /// False is encoded as a single zero octet. In COER, true is always encoded as 0xFF.
+    /// In Basic-OER, any non-zero octet value represents true, but we support only canonical encoding.
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_bool(value);
+        self.extend(
+            tag,
+            BitVec::<u8, Msb0>::from_slice(&[if value { 0xffu8 } else { 0x00u8 }]),
+        )?;
         Ok(())
     }
 
@@ -809,12 +816,14 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_set<C, F>(&mut self, _tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+    fn encode_set<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
     where
         C: Constructed,
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
     {
-        todo!()
+        let mut set = self.new_set_encoder::<C>();
+        (encoder_scope)(&mut set)?;
+        self.encode_constructed::<C>(tag, set)
     }
 
     fn encode_set_of<E: Encode>(
@@ -823,7 +832,7 @@ impl crate::Encoder for Encoder {
         value: &SetOf<E>,
         constraints: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
+        self.encode_sequence_of(tag, &value.iter().collect::<Vec<_>>(), constraints)
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
@@ -922,15 +931,12 @@ mod tests {
 
     #[test]
     fn test_encode_bool() {
-        let mut encoder = Encoder::new(EncoderOptions::coer());
-        encoder.encode_bool(true);
-        let mut bv = BitVec::<u8, Msb0>::from_slice(&[0xffu8]);
-        assert_eq!(encoder.output, bv);
-        encoder.encode_bool(false);
-        bv.append(&mut BitVec::<u8, Msb0>::from_slice(&[0x00u8]));
-        assert_eq!(encoder.output, bv);
-        assert_eq!(encoder.output.as_raw_slice(), &[0xffu8, 0]);
-        // Use higher abstraction
+        let output = crate::coer::encode(&true).unwrap();
+        let bv = BitVec::<u8, Msb0>::from_slice(&[0xffu8]);
+        assert_eq!(output, bv.as_raw_slice());
+        let output = crate::coer::encode(&false).unwrap();
+        let bv = BitVec::<u8, Msb0>::from_slice(&[0x00u8]);
+        assert_eq!(output, bv.as_raw_slice());
         let decoded = crate::coer::encode(&true).unwrap();
         assert_eq!(decoded, &[0xffu8]);
         let decoded = crate::coer::encode(&false).unwrap();
