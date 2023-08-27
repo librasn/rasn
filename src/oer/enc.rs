@@ -465,16 +465,16 @@ impl Encoder {
         // Section 16.3 ### Encodings of the components in the extension root ###
         // Must copy before move...
         let extension_fields = core::mem::take(&mut encoder.extension_fields);
-        dbg!(encoder.field_bitfield.clone());
+        // dbg!(encoder.field_bitfield.clone());
         if encoder.field_bitfield.values().any(|(a, b)| *b) {
-            dbg!(&encoder.output.as_raw_slice().clone());
+            // dbg!(&encoder.output.as_raw_slice().clone());
             buffer.extend(&encoder.output);
         }
-        dbg!(&buffer.as_raw_slice().clone());
+        // dbg!(&buffer.as_raw_slice().clone());
         self.output.extend(buffer);
         if !extensions_defined || !extensions_present {
             debug_assert!(self.output.len() % 8 == 0);
-            dbg!(&self.output.as_raw_slice().clone());
+            // dbg!(&self.output.as_raw_slice().clone());
             return Ok(());
         }
         // Section 16.4 ### Extension addition presence bitmap ###
