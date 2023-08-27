@@ -973,4 +973,30 @@ mod tests {
             &[0x02, 0x01, 0x01, 0x01, 0x02]
         );
     }
+    #[test]
+    fn test_set() {
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(set, tag(application, 0))]
+        struct Foo {
+            #[rasn(tag(explicit(444)))]
+            a: Integer,
+            #[rasn(tag(explicit(5)))]
+            b: Integer,
+            #[rasn(tag(application, 5))]
+            c: Integer,
+            #[rasn(tag(application, 4))]
+            d: Integer,
+        }
+        // round_trip!(
+        //     coer,
+        //     Foo,
+        //     Foo {
+        //         a: 5.into(),
+        //         b: 6.into(),
+        //         c: 7.into(),
+        //         d: 8.into()
+        //     },
+        //     &[0x01, 0x08, 0x01, 0x07, 0x01, 0x06, 0x01, 0x05]
+        // );
+    }
 }
