@@ -958,4 +958,19 @@ mod tests {
             &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
         );
     }
+    #[test]
+    fn test_sequence_of() {
+        round_trip!(
+            coer,
+            SequenceOf::<Integer>,
+            SequenceOf::<Integer>::from(vec![]),
+            &[0x00]
+        );
+        round_trip!(
+            coer,
+            SequenceOf::<Integer>,
+            SequenceOf::<Integer>::from(vec![1.into(), 2.into()]),
+            &[0x02, 0x01, 0x01, 0x01, 0x02]
+        );
+    }
 }

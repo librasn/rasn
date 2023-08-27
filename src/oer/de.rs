@@ -20,7 +20,7 @@ use bitvec::macros::internal::funty::Fundamental;
 use nom::{AsBytes, Slice};
 use num_bigint::{BigUint, Sign};
 use num_integer::div_ceil;
-use num_traits::ToPrimitive;
+use num_traits::{One, ToPrimitive};
 
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
 const MAX_LENGTH: [u8; 127] = [0xff; 127];
@@ -443,7 +443,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Vec<D>, Self::Error> {
-        todo!()
+        let mut sequence_of = Vec::new();
+        let length = self.decode_length()?;
+        let mut start = BigUint::one();
+        while start <= length {
+            let mut decoder = Self::new(self.input.0);
+            let value = D::decode(&mut decoder)?;
+            self.input = decoder.input;
+            sequence_of.push(value);
+            start += BigUint::one();
+        }
+        Ok(sequence_of)
     }
 
     fn decode_set_of<D: Decode + Ord>(
