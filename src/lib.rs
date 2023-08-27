@@ -10,16 +10,27 @@ pub mod types;
 
 use alloc::boxed::Box;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+/// An enum representing a supported ASN.1 codec. This type can be used for
+/// dynamically encoding and decoding objects at runtime.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub enum Codec {
-    Ber,
-    Cer,
-    Der,
-    Uper,
+    /// Aligned Packed Encoding Rules
     Aper,
+    /// Basic Encoding Rules
+    Ber,
+    /// Canonical Encoding Rules
+    Cer,
+    /// Distinguished Encoding Rules
+    Der,
+    /// Unaligned Packed Encoding Rules
+    Uper,
 }
 
 impl Codec {
+    /// Encodes a given value based on the value of `Codec`.
+    ///
+    /// # Errors
+    /// - If the value fails to be encoded.
     pub fn encode<E: Encode>(
         &self,
         value: &E,
@@ -33,6 +44,10 @@ impl Codec {
         }
     }
 
+    /// Decodes `input` to `D` based on the value of `Codec`.
+    ///
+    /// # Errors
+    /// - If `D` cannot be decoded from `input`.
     pub fn decode<D: Decode>(&self, input: &[u8]) -> Result<D, Box<dyn core::fmt::Display>> {
         match self {
             Self::Ber => ber::decode(input).map_err(|error| Box::new(error) as Box<_>),

@@ -47,6 +47,11 @@ pub struct Message {
 }
 
 impl Message {
+    /// Decodes the `security_parameters` field from a `Codec` into `T`.
+    ///
+    /// # Errors
+    /// - If `T::ID` does not match `global_data.security_model`.
+    /// - If the value fails to be encoded as the `codec`.
     pub fn decode_security_parameters<T: SecurityParameters>(
         &self,
         codec: rasn::Codec,
@@ -62,18 +67,28 @@ impl Message {
         codec.decode::<T>(&self.security_parameters)
     }
 
+    /// Encodes the given security parameters into the `security_parameters`
+    /// field given a certain `Codec`.
+    ///
+    /// # Errors
+    /// - If the value fails to be encoded as the `codec`.
     pub fn encode_security_parameters<T: SecurityParameters>(
         &mut self,
         codec: rasn::Codec,
-        value: T,
+        value: &T,
     ) -> Result<(), alloc::boxed::Box<dyn core::fmt::Display>> {
         self.global_data.security_model = T::ID.into();
 
-        self.security_parameters = codec.encode::<T>(&value)?.into();
+        self.security_parameters = codec.encode::<T>(value)?.into();
         Ok(())
     }
 }
 
+/// A trait representing a type that is a valid "security parameter" used for
+/// an SNMP v3 `Message`. You can use this in combination with the
+/// [`Message::decode_security_parameters`] and
+/// [`Message::encode_security_parameters`] to safely retrieve the encoded
+/// parameters from a given message.
 pub trait SecurityParameters: Decode + Encode {
     const ID: u32;
 }
