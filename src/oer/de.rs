@@ -15,6 +15,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use bitvec::field::BitField;
 use bitvec::macros::internal::funty::Fundamental;
 use nom::{AsBytes, Slice};
 use num_bigint::{BigUint, Sign};
@@ -285,6 +286,55 @@ impl<'input> Decoder<'input> {
             )))
         }
     }
+    fn extension_is_present(&mut self) -> Result<Option<(Field, bool)>> {
+        Ok(self
+            .extensions_present
+            .as_mut()
+            .ok_or_else(Error::type_not_extensible)?
+            .as_mut()
+            .ok_or_else(Error::type_not_extensible)?
+            .pop_front())
+    }
+    fn parse_extension_header(&mut self) -> Result<bool> {
+        match self.extensions_present {
+            Some(Some(_)) => return Ok(true),
+            Some(None) => (),
+            None => return Ok(false),
+        }
+        let extensions_length = self.decode_length()?;
+        // If length is 0, then there is only initial octet
+        if extensions_length < 1u8.into() {
+            return Err(Error::custom("Extension length should be at least 1 byte"));
+        }
+        // Must be at least 8 bits at this point or error is already raised
+        let bitfield = self.extract_data_by_length(extensions_length)?.to_bitvec();
+        // let mut missing_bits: bitvec::vec::BitVec<u8, bitvec::order::Msb0>;
+        // Initial octet
+        let (unused_bits, bitfield) = bitfield.split_at(8);
+        let unused_bits: usize = unused_bits.load();
+
+        if unused_bits > bitfield.len() || unused_bits > 7 {
+            return Err(Error::custom("Invalid extension bitfield initial octet"));
+        }
+        let (bitfield, _) = bitfield.split_at(bitfield.len() - unused_bits);
+
+        let extensions_present: VecDeque<_> = self
+            .extension_fields
+            .as_ref()
+            .unwrap()
+            .iter()
+            .zip(bitfield.iter().map(|b| *b))
+            .collect();
+
+        for (field, is_present) in &extensions_present {
+            if field.is_not_optional_or_default() && !is_present {
+                return Err(Error::required_extension_not_present(field.tag));
+            }
+        }
+        self.extensions_present = Some(Some(extensions_present));
+
+        Ok(true)
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -355,7 +405,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
         } else {
             false
         };
-
         let num_opt_default_fields = D::FIELDS.number_of_optional_and_default_fields();
         let mut bitmap: InputSlice = InputSlice::from(bitvec::slice::BitSlice::from_slice(&[]));
         if num_opt_default_fields > 0 {
@@ -375,7 +424,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let value = {
             let mut sequence_decoder = Self::new(self.input.0);
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
-            sequence_decoder.extensions_present = is_extensible.then_some(None);
+            sequence_decoder.extensions_present = extensible_present.then_some(None);
             sequence_decoder.fields = D::FIELDS
                 .optional_and_default_fields()
                 .zip(bitmap.into_iter().map(|b| *b))
@@ -582,7 +631,24 @@ impl<'input> crate::Decoder for Decoder<'input> {
     where
         D: Decode,
     {
-        todo!()
+        if !self.parse_extension_header()? {
+            return Ok(None);
+        }
+
+        let extension_is_present = self
+            .extension_is_present()?
+            .map(|(_, b)| b)
+            .unwrap_or_default();
+
+        if !extension_is_present {
+            return Ok(None);
+        }
+
+        //
+        let bytes = self.input;
+        let mut decoder = Decoder::new(&bytes);
+
+        D::decode(&mut decoder).map(Some)
     }
 
     fn decode_extension_addition_group<D: Decode + Constructed>(

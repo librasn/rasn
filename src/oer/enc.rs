@@ -442,9 +442,11 @@ impl Encoder {
         let mut buffer = BitString::default();
         // ### PREAMBLE ###
         // Section 16.2.2
-        let extensions_present = C::EXTENDED_FIELDS.is_some();
-        if extensions_present {
-            buffer.push(Self::encoded_extension_addition(&encoder.extension_fields))
+        let extensions_defined = C::EXTENDED_FIELDS.is_some();
+        let mut extensions_present = false;
+        if extensions_defined {
+            extensions_present = Self::encoded_extension_addition(&encoder.extension_fields);
+            buffer.push(extensions_present);
         }
         // Section 16.2.3
         if C::FIELDS.number_of_optional_and_default_fields() > 0 {
@@ -459,57 +461,50 @@ impl Encoder {
                 buffer.push(bit);
             }
         }
-        // debug_assert!(
-        //     !extensions_present
-        //         && C::FIELDS.number_of_optional_and_default_fields() == 0
-        //         && buffer.is_empty()
-        // );
-
         // 16.2.4 - fill missing bits from full octet with zeros
         if buffer.len() % 8 != 0 {
             buffer.extend(BitString::repeat(false, 8 - buffer.len() % 8));
         }
         // Section 16.3 ### Encodings of the components in the extension root ###
-
-        //
-        // let extension_fields = core::mem::take(&mut encoder.extension_fields);
-        //
+        // Must copy before move...
+        let extension_fields = core::mem::take(&mut encoder.extension_fields);
         if encoder.field_bitfield.values().any(|(a, b)| *b) {
-            buffer.extend(encoder.bitstring_output());
+            buffer.extend(&encoder.bitstring_output());
         }
-        //
-        if !extensions_present {
-            self.output.extend(buffer);
+        self.output.extend(buffer);
+        if !extensions_defined || !extensions_present {
             debug_assert!(self.output.len() % 8 == 0);
             return Ok(());
         }
-        //
-        // let bitfield_length = extension_fields.len();
-        // let mut extension_buffer = {
-        //     let mut buffer = BitString::new();
-        //     self.encode_normally_small_length(bitfield_length, &mut buffer)?;
-        //     buffer
-        // };
-        //
-        // for field in &extension_fields {
-        //     extension_buffer.push(!field.is_empty());
-        // }
-        //
-        // for field in extension_fields
-        //     .into_iter()
-        //     .filter(|field| !field.is_empty())
-        // {
-        //     // self.encode_length(
-        //     //     &mut extension_buffer,
-        //     //     field.len(),
-        //     //     <_>::default(),
-        //     //     |range| Ok(BitString::from_slice(&field[range])),
-        //     // )?;
-        // }
-        //
-        // buffer.extend_from_bitslice(&extension_buffer);
-        // self.extend(tag, &buffer);
-
+        // Section 16.4 ### Extension addition presence bitmap ###
+        let bitfield_length = extension_fields.len();
+        // let mut extension_buffer = BitString::new();
+        // TODO overflow check
+        let missing_bits: u8 = if bitfield_length > 0 {
+            8u8 - (bitfield_length % 8usize) as u8
+        } else {
+            0
+        };
+        debug_assert!((bitfield_length + 8 + missing_bits as usize) % 8 == 0);
+        self.encode_length(
+            (8 + bitfield_length + missing_bits as usize) as usize,
+            false,
+            false,
+        )?;
+        self.output.extend(missing_bits.to_be_bytes());
+        for field in &extension_fields {
+            self.output.push(!field.is_empty());
+        }
+        self.output
+            .extend(BitString::repeat(false, missing_bits as usize));
+        // Section 16.5 # Encodings of the components in the extension addition group, as open type
+        for field in extension_fields
+            .into_iter()
+            .filter(|field| !field.is_empty())
+        {
+            self.encode_length(8 * field.len(), false, false)?;
+            self.output.extend(field);
+        }
         Ok(())
     }
 }
@@ -860,24 +855,46 @@ impl crate::Encoder for Encoder {
             Ok(())
         }
     }
-
     fn encode_extension_addition<E: Encode>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
         value: E,
     ) -> Result<Self::Ok, Self::Error> {
-        todo!()
-    }
+        let mut encoder = Self::new(self.options.without_set_encoding());
+        encoder.field_bitfield = <_>::from([(tag, (FieldPresence::Optional, false))]);
+        E::encode_with_tag_and_constraints(&value, &mut encoder, tag, constraints)?;
 
+        if encoder.field_bitfield.get(&tag).map_or(false, |(_, b)| *b) {
+            self.set_bit(tag, true)?;
+            self.extension_fields.push(encoder.output());
+        } else {
+            self.set_bit(tag, false)?;
+            self.extension_fields.push(Vec::new());
+        }
+
+        Ok(())
+    }
     fn encode_extension_addition_group<E>(
         &mut self,
         value: Option<&E>,
     ) -> Result<Self::Ok, Self::Error>
     where
-        E: Encode + Constructed,
+        E: Encode + crate::types::Constructed,
     {
-        todo!()
+        let Some(value) = value else {
+            self.set_bit(E::TAG, false)?;
+            self.extension_fields.push(Vec::new());
+            return Ok(());
+        };
+        self.set_bit(E::TAG, true)?;
+        let mut encoder = self.new_sequence_encoder::<E>();
+        encoder.is_extension_sequence = true;
+        value.encode(&mut encoder)?;
+
+        let output = encoder.output();
+        self.extension_fields.push(output);
+        Ok(())
     }
 }
 
@@ -889,23 +906,6 @@ mod tests {
     use crate::prelude::{AsnType, Decode, Encode};
     use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Value};
 
-    // const ALPHABETS: &[u32] = &{
-    //     let mut array = [0; 26];
-    //     let mut i = 0;
-    //     let mut start = 'a' as u32;
-    //     let end = 'z' as u32;
-    //     loop {
-    //         array[i] = start;
-    //         start += 1;
-    //         i += 1;
-    //
-    //         if start > end {
-    //             break;
-    //         }
-    //     }
-    //
-    //     array
-    // };
     #[test]
     fn test_encode_bool() {
         let mut encoder = Encoder::new(EncoderOptions::coer());
