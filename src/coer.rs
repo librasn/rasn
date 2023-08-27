@@ -934,5 +934,28 @@ mod tests {
             },
             &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
         );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence5 {
+            a: bool,
+            #[rasn(extension_addition)]
+            b: Option<bool>,
+        }
+        round_trip!(
+            coer,
+            Sequence5,
+            Sequence5 { a: true, b: None },
+            &[0x00, 0xff]
+        );
+        round_trip!(
+            coer,
+            Sequence5,
+            Sequence5 {
+                a: true,
+                b: Some(true)
+            },
+            &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
+        );
     }
 }
