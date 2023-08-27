@@ -644,7 +644,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             return Ok(None);
         }
 
-        //
+        // Values of the extensions are only left
         let bytes = self.input;
         let mut decoder = Decoder::new(&bytes);
 
@@ -654,7 +654,24 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_extension_addition_group<D: Decode + Constructed>(
         &mut self,
     ) -> Result<Option<D>, Self::Error> {
-        todo!()
+        if !self.parse_extension_header()? {
+            return Ok(None);
+        }
+
+        let extension_is_present = self
+            .extension_is_present()?
+            .map(|(_, b)| b)
+            .unwrap_or_default();
+
+        if !extension_is_present {
+            return Ok(None);
+        }
+
+        // Values of the extensions are only left
+        let bytes = self.input;
+        let mut decoder = Decoder::new(&bytes);
+
+        D::decode(&mut decoder).map(Some)
     }
 }
 
