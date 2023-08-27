@@ -791,8 +791,22 @@ impl crate::Encoder for Encoder {
         value: &[E],
         constraints: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
+        // TODO, it seems that constraints here are not C/OER visible? No mention in standard...
         self.set_bit(tag, true)?;
-        todo!()
+        let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
+        if value.len() > max_permitted_length {
+            return Err(Error::TooLongValue {
+                length: value.len() as u128,
+            });
+        }
+        // Self::check_fixed_size_constraint(value, value.len(), &constraints, |value: &[E]| Ok(()))?;
+        self.encode_length(8 * value.len(), false, false)?;
+        for one in value {
+            let mut encoder = Self::new(self.options);
+            E::encode(one, &mut encoder)?;
+            self.output.extend(encoder.bitstring_output());
+        }
+        Ok(())
     }
 
     fn encode_set<C, F>(&mut self, _tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
