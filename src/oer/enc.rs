@@ -23,6 +23,7 @@ mod error;
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 pub const ITU_T_X696_OER_EDITION: f32 = 3.0;
+const MAX_LENGTH_IN_BYTES: usize = usize::MAX / 8;
 
 /// Options for configuring the [`Encoder`][super::Encoder].
 #[derive(Clone, Copy, Debug)]
@@ -57,6 +58,7 @@ pub enum EncodingRules {
 }
 
 impl EncodingRules {
+    #[must_use]
     pub fn is_coer(self) -> bool {
         matches!(self, Self::Coer)
     }
@@ -117,10 +119,11 @@ impl Encoder {
         Ok(())
     }
     fn extend(&mut self, tag: Tag, bytes: BitString) -> Result<()> {
+        // TODO bound check
         if self.options.set_encoding {
             self.set_output.insert(tag, bytes);
         } else {
-            self.output.extend(bytes)
+            self.output.extend(bytes);
         }
         Ok(())
     }
@@ -177,6 +180,7 @@ impl Encoder {
     /// `forced_long_form` is used for cases when length < 128 but we want to force long form. E.g. when encoding a enumerated.
     fn encode_length(
         &mut self,
+        buffer: &mut BitString,
         length: usize,
         signed: bool,
         forced_long_form: bool,
@@ -196,7 +200,7 @@ impl Encoder {
         let bytes = helpers::integer_to_bitvec_bytes(&Integer::from(length), signed)?;
         if length < 128 && !forced_long_form {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
-            self.output.extend(&bytes);
+            buffer.extend(&bytes);
             return Ok(());
         }
         if length < 128 && forced_long_form {
@@ -204,7 +208,7 @@ impl Encoder {
             let mut bytes = bytes;
             _ = bytes.remove(0);
             bytes.insert(0, true);
-            self.output.extend(&bytes);
+            buffer.extend(&bytes);
             return Ok(());
         }
         let length_of_length = u8::try_from(bytes.len() / 8);
@@ -213,12 +217,12 @@ impl Encoder {
                 length: length as u128,
             });
         } else if length_of_length.is_ok() {
-            self.output.extend(length_of_length.unwrap().to_be_bytes());
+            buffer.extend(length_of_length.unwrap().to_be_bytes());
             // We must swap the first bit to show long form
             // It is always zero by default with u8 type when value being < 128
-            _ = self.output.remove(0);
-            self.output.insert(0, true);
-            self.output.extend(bytes);
+            _ = buffer.remove(0);
+            buffer.insert(0, true);
+            buffer.extend(bytes);
         } else {
             return Err(Error::Propagated {
                 msg: length_of_length.err().unwrap().to_string(),
@@ -233,11 +237,8 @@ impl Encoder {
         value_to_enc: &Integer,
         signed: bool,
         long_form_short_length: bool,
-    ) -> Result<(), Error> {
-        let bytes = helpers::integer_to_bitvec_bytes(value_to_enc, signed)?;
-        self.encode_length(bytes.len(), false, long_form_short_length)?;
-        self.output.extend(bytes);
-        Ok(())
+    ) -> Result<BitString, Error> {
+        helpers::integer_to_bitvec_bytes(value_to_enc, signed)
     }
 
     /// Encode an integer value with constraints.
@@ -252,9 +253,12 @@ impl Encoder {
     /// If the Integer is not bound or outside of range, we encode with the smallest number of octets possible.
     fn encode_integer_with_constraints(
         &mut self,
+        tag: Tag,
         constraints: &Constraints,
         value_to_enc: &Integer,
     ) -> Result<(), Error> {
+        let mut buffer = BitString::default();
+
         if let Some(value) = constraints.value() {
             if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
                 return Err(Error::IntegerOutOfRange {
@@ -262,19 +266,38 @@ impl Encoder {
                     expected: value.constraint.0,
                 });
             }
-            return helpers::determine_integer_size_and_sign(
+            helpers::determine_integer_size_and_sign(
                 &value,
                 value_to_enc,
                 |value_to_enc, sign, octets| {
+                    let bytes: BitString;
                     if let Some(octets) = octets {
-                        self.encode_integer_with_padding(i128::from(octets), value_to_enc, sign)
+                        bytes = self.encode_integer_with_padding(
+                            i128::from(octets),
+                            value_to_enc,
+                            sign,
+                        )?;
                     } else {
-                        self.encode_unconstrained_integer(value_to_enc, sign, false)
+                        bytes = self.encode_unconstrained_integer(value_to_enc, sign, false)?;
+                        self.encode_length(&mut buffer, bytes.len(), false, false)?;
                     }
+                    buffer.extend(bytes);
+                    // self.extend(tag, buffer)?;
+                    Ok(())
                 },
-            );
+            )?;
+        } else {
+            let bytes = self.encode_unconstrained_integer(value_to_enc, true, false)?;
+            if bytes.len() > MAX_LENGTH_IN_BYTES {
+                return Err(Error::TooLongValue {
+                    length: buffer.len() as u128,
+                });
+            }
+            self.encode_length(&mut buffer, bytes.len(), false, false)?;
+            buffer.extend(bytes);
         }
-        self.encode_unconstrained_integer(value_to_enc, true, false)
+        self.extend(tag, buffer)?;
+        Ok(())
     }
 
     /// When range constraints are present, the integer is encoded as a fixed-size number.
@@ -284,7 +307,7 @@ impl Encoder {
         octets: i128,
         value: &Integer,
         signed: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<BitString, Error> {
         use core::cmp::Ordering;
         if octets > 8 {
             return Err(Error::Custom {
@@ -320,8 +343,8 @@ impl Encoder {
             }
             Ordering::Equal => bits,
         };
-        self.output.extend(bits);
-        Ok(())
+        // self.output.extend(bits);
+        Ok(bits)
     }
     fn check_fixed_size_constraint<T>(
         value: T,
@@ -363,24 +386,26 @@ impl Encoder {
         constraints: &Constraints,
         value: &T,
     ) -> Result<(), Error> {
+        let mut buffer = BitString::default();
         let fixed_size_encode = |value: &&T| {
-            self.output.extend(value.to_octet_aligned_string());
+            buffer.extend(value.to_octet_aligned_string());
             Ok(())
         };
-        if Encoder::check_fixed_size_constraint(
+        if !Encoder::check_fixed_size_constraint(
             &value,
             value.len(),
             constraints,
             fixed_size_encode,
         )? {
-            return Ok(());
+            // Use length determinant on other cases
+            // Save multiplication, overflow checked earlier
+            self.encode_length(&mut buffer, value.len() * 8, false, false)?;
+            buffer.extend(value.to_bit_string());
         }
-        // Use length determinant on other cases
-        // Save multiplication, overflow checked earlier
-        self.encode_length(value.len() * 8, false, false)?;
-        self.output.extend(value.to_bit_string());
+        self.extend(tag, value.to_bit_string())?;
         Ok(())
     }
+    #[must_use]
     pub fn bitstring_output(self) -> BitString {
         self.options
             .set_encoding
@@ -429,7 +454,7 @@ impl Encoder {
         encoder
     }
     fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
-        !extension_fields.iter().all(|vec| vec.is_empty())
+        !extension_fields.iter().all(alloc::vec::Vec::is_empty)
     }
     fn encode_constructed<C: crate::types::Constructed>(
         &mut self,
@@ -471,10 +496,11 @@ impl Encoder {
             buffer.extend(&encoder.output);
         }
         // dbg!(&buffer.as_raw_slice().clone());
-        self.output.extend(buffer);
+        // self.output.extend(buffer);
         if !extensions_defined || !extensions_present {
             debug_assert!(self.output.len() % 8 == 0);
             // dbg!(&self.output.as_raw_slice().clone());
+            self.extend(tag, buffer)?;
             return Ok(());
         }
         // Section 16.4 ### Extension addition presence bitmap ###
@@ -488,24 +514,25 @@ impl Encoder {
         };
         debug_assert!((bitfield_length + 8 + missing_bits as usize) % 8 == 0);
         self.encode_length(
-            (8 + bitfield_length + missing_bits as usize) as usize,
+            &mut buffer,
+            (8 + bitfield_length + missing_bits as usize),
             false,
             false,
         )?;
-        self.output.extend(missing_bits.to_be_bytes());
+        buffer.extend(missing_bits.to_be_bytes());
         for field in &extension_fields {
-            self.output.push(!field.is_empty());
+            buffer.push(!field.is_empty());
         }
-        self.output
-            .extend(BitString::repeat(false, missing_bits as usize));
+        buffer.extend(BitString::repeat(false, missing_bits as usize));
         // Section 16.5 # Encodings of the components in the extension addition group, as open type
         for field in extension_fields
             .into_iter()
             .filter(|field| !field.is_empty())
         {
-            self.encode_length(8 * field.len(), false, false)?;
-            self.output.extend(field);
+            self.encode_length(&mut buffer, 8 * field.len(), false, false)?;
+            buffer.extend(field);
         }
+        self.extend(tag, buffer)?;
         Ok(())
     }
 }
@@ -542,37 +569,38 @@ impl crate::Encoder for Encoder {
         // effective size constraint.
         // Rasn does not currently support NamedBitList
         self.set_bit(tag, true)?;
+        let mut buffer = BitString::default();
 
         let fixed_size_encode = |value: &BitString| {
             let missing_bits: usize = 8 - value.len() % 8;
             let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
             if missing_bits > 0 {
-                self.output.extend(value);
-                self.output.extend(trailing);
+                buffer.extend(value);
+                buffer.extend(trailing);
             } else {
-                self.output.extend(value);
+                buffer.extend(value);
             }
             Ok(())
         };
-        if Encoder::check_fixed_size_constraint(
+        if !Encoder::check_fixed_size_constraint(
             value,
             value.len(),
             &constraints,
             fixed_size_encode,
         )? {
-            return Ok(());
+            // With length determinant
+            let missing_bits: usize = (8 - value.len() % 8) % 8;
+            if missing_bits < 8 {}
+            let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
+            let mut bit_string = BitVec::<u8, Msb0>::new();
+            // missing bits never > 8
+            bit_string.extend(missing_bits.to_u8().unwrap().to_be_bytes());
+            bit_string.extend(value);
+            bit_string.extend(trailing);
+            self.encode_length(&mut buffer, bit_string.len(), false, false)?;
+            buffer.extend(bit_string);
         }
-        // With length determinant
-        let missing_bits: usize = (8 - value.len() % 8) % 8;
-        if missing_bits < 8 {}
-        let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
-        let mut bit_string = BitVec::<u8, Msb0>::new();
-        // missing bits never > 8
-        bit_string.extend(missing_bits.to_u8().unwrap().to_be_bytes());
-        bit_string.extend(value);
-        bit_string.extend(trailing);
-        self.encode_length(bit_string.len(), false, false)?;
-        self.output.extend(bit_string);
+        self.extend(tag, buffer)?;
         Ok(())
     }
 
@@ -588,13 +616,18 @@ impl crate::Encoder for Encoder {
         // TODO negative discriminant values are not currently possibly
         self.set_bit(tag, true)?;
         let number = value.discriminant();
+        let mut buffer = BitString::default();
         if 0isize <= number && number <= i8::MAX.into() {
-            self.encode_integer_with_padding(1, &number.into(), false)?;
+            let bytes = self.encode_integer_with_padding(1, &number.into(), false)?;
+            buffer.extend(bytes);
         } else {
             //Value is signed here as defined in section 11.4
             // Long form
-            self.encode_unconstrained_integer(&number.into(), true, true)?;
+            let bytes = self.encode_unconstrained_integer(&number.into(), true, true)?;
+            self.encode_length(&mut buffer, bytes.len(), true, true)?;
+            buffer.extend(bytes);
         }
+        self.extend(tag, buffer)?;
         Ok(())
     }
 
@@ -615,14 +648,15 @@ impl crate::Encoder for Encoder {
                 })
             }
         };
-        let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
-        if value.len() > max_permitted_length {
+        if value.len() > MAX_LENGTH_IN_BYTES {
             return Err(Error::TooLongValue {
                 length: value.len() as u128,
             });
         }
-        self.encode_length(octets.len() * 8, false, false)?;
-        self.output.extend(BitVec::<u8, Msb0>::from_slice(&octets));
+        let mut buffer = BitString::default();
+        self.encode_length(&mut buffer, octets.len() * 8, false, false)?;
+        buffer.extend(BitVec::<u8, Msb0>::from_slice(&octets));
+        self.extend(tag, buffer)?;
         Ok(())
     }
 
@@ -633,7 +667,7 @@ impl crate::Encoder for Encoder {
         value: &Integer,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_integer_with_constraints(&constraints, value)
+        self.encode_integer_with_constraints(tag, &constraints, value)
     }
 
     fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
@@ -648,21 +682,22 @@ impl crate::Encoder for Encoder {
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
+        let mut buffer = BitString::default();
         let fixed_size_encode = |value: &[u8]| {
-            self.output.extend(value);
+            buffer.extend(value);
             Ok(())
         };
-        if Encoder::check_fixed_size_constraint(
+        if !Encoder::check_fixed_size_constraint(
             value,
             value.len(),
             &constraints,
             fixed_size_encode,
         )? {
-            return Ok(());
+            // Use length determinant on other cases
+            self.encode_length(&mut buffer, value.len() * 8, false, false)?;
+            buffer.extend(value);
         }
-        // Use length determinant on other cases
-        self.encode_length(value.len() * 8, false, false)?;
-        self.output.extend(value);
+        self.extend(tag, buffer)?;
         Ok(())
     }
 
@@ -800,19 +835,20 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         // TODO, it seems that constraints here are not C/OER visible? No mention in standard...
         self.set_bit(tag, true)?;
-        let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
-        if value.len() > max_permitted_length {
+        if value.len() > MAX_LENGTH_IN_BYTES {
             return Err(Error::TooLongValue {
                 length: value.len() as u128,
             });
         }
         // Self::check_fixed_size_constraint(value, value.len(), &constraints, |value: &[E]| Ok(()))?;
-        self.encode_length(8 * value.len(), false, false)?;
+        let mut buffer = BitString::default();
+        self.encode_length(&mut buffer, 8 * value.len(), false, false)?;
         for one in value {
             let mut encoder = Self::new(self.options);
             E::encode(one, &mut encoder)?;
-            self.output.extend(encoder.bitstring_output());
+            buffer.extend(encoder.bitstring_output());
         }
+        self.extend(tag, buffer)?;
         Ok(())
     }
 
@@ -869,14 +905,16 @@ impl crate::Encoder for Encoder {
         let tag = (encode_fn)(&mut choice_encoder)?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
         let tag_bytes = Self::encode_tag(tag);
-        self.output.extend(tag_bytes);
+        let mut buffer = BitString::default();
+        buffer.extend(tag_bytes);
         if is_root_extension {
-            self.output.extend(choice_encoder.output);
-            Ok(())
+            buffer.extend(choice_encoder.output);
         } else {
-            self.encode_octet_string(tag, constraints, choice_encoder.output.as_raw_slice())?;
-            Ok(())
+            self.encode_length(&mut buffer, choice_encoder.output.len(), false, false)?;
+            buffer.extend(choice_encoder.output);
         }
+        self.extend(tag, buffer)?;
+        Ok(())
     }
     fn encode_extension_addition<E: Encode>(
         &mut self,
@@ -951,14 +989,15 @@ mod tests {
         let value_range = &[Constraint::Value(Extensible::new(Value::new(range_bound)))];
         let consts = Constraints::new(value_range);
         let mut encoder = Encoder::default();
-        let result = encoder.encode_integer_with_constraints(&consts, &BigInt::from(244));
+        let result =
+            encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &BigInt::from(244));
         assert!(result.is_ok());
         let v = vec![244u8];
         let bv = BitVec::<_, Msb0>::from_vec(v);
         assert_eq!(encoder.output, bv);
         encoder.output.clear();
         let value = BigInt::from(256);
-        let result = encoder.encode_integer_with_constraints(&consts, &value);
+        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &value);
         assert!(matches!(
             result,
             Err(Error::IntegerOutOfRange {
@@ -972,14 +1011,18 @@ mod tests {
         // Using defaults, no limits
         let constraints = Constraints::default();
         let mut encoder = Encoder::default();
-        let result = encoder.encode_integer_with_constraints(&constraints, &BigInt::from(244));
+        let result =
+            encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &BigInt::from(244));
         assert!(result.is_ok());
         let v = vec![2u8, 0, 244];
         let bv = BitVec::<_, Msb0>::from_vec(v);
         assert_eq!(encoder.output, bv);
         encoder.output.clear();
-        let result =
-            encoder.encode_integer_with_constraints(&constraints, &BigInt::from(-1_234_567));
+        let result = encoder.encode_integer_with_constraints(
+            Tag::INTEGER,
+            &constraints,
+            &BigInt::from(-1_234_567),
+        );
         assert!(result.is_ok());
         let v = vec![0x03u8, 0xED, 0x29, 0x79];
         let bv = BitVec::<_, Msb0>::from_vec(v);
@@ -993,7 +1036,7 @@ mod tests {
         // Signed integer with byte length of 128
         // Needs long form to represent
         let number = BigInt::from(256).pow(127) - 1;
-        let result = encoder.encode_integer_with_constraints(&constraints, &number);
+        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &number);
         assert!(result.is_ok());
         let vc = [
             0x81, 0x80, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
