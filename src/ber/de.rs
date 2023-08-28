@@ -111,6 +111,40 @@ impl<'input> Decoder<'input> {
 
         Ok(result)
     }
+    /// Decode an object identifier from a byte slice in BER format.
+    /// Function is public to be used by other codecs.
+    pub fn decode_object_identifier_from_bytes(
+        data: &[u8],
+    ) -> Result<crate::types::ObjectIdentifier, Error> {
+        use num_traits::ToPrimitive;
+        let (mut contents, root_octets) =
+            parser::parse_base128_number(data).map_err(error::map_nom_err)?;
+        let the_number = root_octets
+            .to_u32()
+            .context(error::IntegerOverflowSnafu { max_width: 32u32 })?;
+        let first: u32;
+        let second: u32;
+        const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
+        if the_number > MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD + MAX_OID_SECOND_OCTET {
+            first = MAX_OID_FIRST_OCTET;
+            second = the_number - MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD;
+        } else {
+            second = the_number % MAX_OID_THRESHOLD;
+            first = (the_number - second) / MAX_OID_THRESHOLD;
+        }
+        let mut buffer = alloc::vec![first, second];
+
+        while !contents.is_empty() {
+            let (c, number) = parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
+            contents = c;
+            buffer.push(
+                number
+                    .to_u32()
+                    .context(error::IntegerOverflowSnafu { max_width: 32u32 })?,
+            );
+        }
+        crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifierSnafu)
+    }
     /// Parse any GeneralizedTime string, allowing for any from ASN.1 definition
     /// TODO, move to type itself?
     pub fn parse_any_generalized_time_string(
@@ -330,36 +364,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_object_identifier(&mut self, tag: Tag) -> Result<crate::types::ObjectIdentifier> {
-        use num_traits::ToPrimitive;
         let contents = self.parse_primitive_value(tag)?.1;
-        let (mut contents, root_octets) =
-            parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
-        let the_number = root_octets
-            .to_u32()
-            .context(error::IntegerOverflowSnafu { max_width: 32u32 })?;
-        let first: u32;
-        let second: u32;
-        const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
-        if the_number > MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD + MAX_OID_SECOND_OCTET {
-            first = MAX_OID_FIRST_OCTET;
-            second = the_number - MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD;
-        } else {
-            second = the_number % MAX_OID_THRESHOLD;
-            first = (the_number - second) / MAX_OID_THRESHOLD;
-        }
-        let mut buffer = alloc::vec![first, second];
-
-        while !contents.is_empty() {
-            let (c, number) = parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
-            contents = c;
-            buffer.push(
-                number
-                    .to_u32()
-                    .context(error::IntegerOverflowSnafu { max_width: 32u32 })?,
-            );
-        }
-
-        crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifierSnafu)
+        Self::decode_object_identifier_from_bytes(contents)
     }
 
     fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {

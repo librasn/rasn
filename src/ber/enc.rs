@@ -241,6 +241,26 @@ impl Encoder {
                 .insert(tag, core::mem::take(&mut self.output));
         }
     }
+    /// Converts an object identifier into a byte vector in BER format.
+    /// Reusable function by other codecs.
+    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, error::Error> {
+        if oid.len() < 2 {
+            return Err(error::Error::InvalidObjectIdentifier);
+        }
+        let mut bytes = Vec::new();
+
+        let first = oid[0];
+        let second = oid[1];
+
+        if first > MAX_OID_FIRST_OCTET {
+            return Err(error::Error::InvalidObjectIdentifier);
+        }
+        self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
+        for component in oid.iter().skip(2) {
+            self.encode_as_base128(*component, &mut bytes);
+        }
+        Ok(bytes)
+    }
     #[must_use]
     /// Canonical byte presentation for CER/DER as defined in X.690 section 11.7.
     /// Also used for BER on this crate.
@@ -343,26 +363,8 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32]) -> Result<Self::Ok, Self::Error> {
-        if oid.len() < 2 {
-            return Err(error::Error::InvalidObjectIdentifier);
-        }
-        let mut bytes = Vec::new();
-
-        let first = oid[0];
-        let second = oid[1];
-
-        if first > MAX_OID_FIRST_OCTET {
-            return Err(error::Error::InvalidObjectIdentifier);
-        }
-
-        self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
-
-        for component in oid.iter().skip(2) {
-            self.encode_as_base128(*component, &mut bytes);
-        }
-
+        let bytes = self.object_identifier_as_bytes(oid)?;
         self.encode_primitive(tag, &bytes);
-
         Ok(())
     }
 
