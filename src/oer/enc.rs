@@ -69,6 +69,7 @@ impl Default for Encoder {
     }
 }
 /// COER encoder. A subset of OER to provide canonical and unique encoding.  
+#[derive(Debug)]
 pub struct Encoder {
     options: EncoderOptions,
     output: BitString,
@@ -110,9 +111,17 @@ impl Encoder {
     }
 
     #[must_use]
-    pub fn output(&self) -> Vec<u8> {
+    pub fn output(self) -> Vec<u8> {
         // TODO, move from per to utility module?
-        crate::per::to_vec(&self.output)
+        let output = self.bitstring_output();
+        crate::per::to_vec(&output)
+    }
+    #[must_use]
+    pub fn bitstring_output(self) -> BitString {
+        self.options
+            .set_encoding
+            .then(|| self.set_output.values().flatten().collect::<BitString>())
+            .unwrap_or(self.output)
     }
     pub fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
         self.field_bitfield.entry(tag).and_modify(|(_, b)| *b = bit);
@@ -405,16 +414,9 @@ impl Encoder {
         self.extend(tag, value.to_bit_string())?;
         Ok(())
     }
-    #[must_use]
-    pub fn bitstring_output(self) -> BitString {
-        self.options
-            .set_encoding
-            .then(|| self.set_output.values().flatten().collect::<BitString>())
-            .unwrap_or(self.output)
-    }
     fn output_length(&self) -> usize {
         let mut output_length = self.output.len();
-        output_length += self.is_extension_sequence as usize;
+        output_length += usize::from(self.is_extension_sequence);
         output_length += self
             .field_bitfield
             .values()
@@ -426,7 +428,7 @@ impl Encoder {
             output_length += self
                 .set_output
                 .values()
-                .map(|output| output.len())
+                .map(bitvec::vec::BitVec::len)
                 .sum::<usize>();
         }
         output_length
@@ -490,16 +492,11 @@ impl Encoder {
         // Section 16.3 ### Encodings of the components in the extension root ###
         // Must copy before move...
         let extension_fields = core::mem::take(&mut encoder.extension_fields);
-        // dbg!(encoder.field_bitfield.clone());
         if encoder.field_bitfield.values().any(|(a, b)| *b) {
-            // dbg!(&encoder.output.as_raw_slice().clone());
-            buffer.extend(&encoder.output);
+            buffer.extend(encoder.bitstring_output());
         }
-        // dbg!(&buffer.as_raw_slice().clone());
-        // self.output.extend(buffer);
         if !extensions_defined || !extensions_present {
             debug_assert!(self.output.len() % 8 == 0);
-            // dbg!(&self.output.as_raw_slice().clone());
             self.extend(tag, buffer)?;
             return Ok(());
         }
@@ -515,7 +512,7 @@ impl Encoder {
         debug_assert!((bitfield_length + 8 + missing_bits as usize) % 8 == 0);
         self.encode_length(
             &mut buffer,
-            (8 + bitfield_length + missing_bits as usize),
+            8 + bitfield_length + missing_bits as usize,
             false,
             false,
         )?;
@@ -814,7 +811,8 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        value.encode(self)
+        value.encode_with_tag(self, tag)
+        // value.encode(self)
     }
 
     fn encode_sequence<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
@@ -835,14 +833,20 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         // TODO, it seems that constraints here are not C/OER visible? No mention in standard...
         self.set_bit(tag, true)?;
-        if value.len() > MAX_LENGTH_IN_BYTES {
-            return Err(Error::TooLongValue {
-                length: value.len() as u128,
-            });
-        }
-        // Self::check_fixed_size_constraint(value, value.len(), &constraints, |value: &[E]| Ok(()))?;
         let mut buffer = BitString::default();
-        self.encode_length(&mut buffer, 8 * value.len(), false, false)?;
+        let value_len_bytes =
+            self.encode_unconstrained_integer(&value.len().into(), false, false)?;
+        self.encode_length(
+            &mut buffer,
+            if value_len_bytes.is_empty() {
+                1
+            } else {
+                value_len_bytes.len()
+            },
+            false,
+            false,
+        )?;
+        buffer.extend(value_len_bytes);
         for one in value {
             let mut encoder = Self::new(self.options);
             E::encode(one, &mut encoder)?;
@@ -901,7 +905,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut choice_encoder = Self::new(self.options);
+        let mut choice_encoder = Self::new(self.options.without_set_encoding());
         let tag = (encode_fn)(&mut choice_encoder)?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
         let tag_bytes = Self::encode_tag(tag);
