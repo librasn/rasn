@@ -282,6 +282,17 @@ impl Encoder {
         string.push('Z');
         string.into_bytes()
     }
+
+    #[must_use]
+    /// Canonical byte presentation for CER/DER UTCTime as defined in X.690 section 11.8.
+    /// Also used for BER on this crate.
+    pub fn datetime_to_canonical_utc_time_bytes(value: &chrono::DateTime<chrono::Utc>) -> Vec<u8> {
+        value
+            .naive_utc()
+            .format("%y%m%d%H%M%SZ")
+            .to_string()
+            .into_bytes()
+    }
 }
 
 impl crate::Encoder for Encoder {
@@ -456,11 +467,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(
             tag,
-            value
-                .naive_utc()
-                .format("%y%m%d%H%M%SZ")
-                .to_string()
-                .as_bytes(),
+            Self::datetime_to_canonical_utc_time_bytes(value).as_slice(),
         );
 
         Ok(())

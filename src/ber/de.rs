@@ -256,6 +256,57 @@ impl<'input> Decoder<'input> {
             Err(Error::InvalidDate)
         };
     }
+    /// Parse any UTCTime string, can be any from ASN.1 definition
+    /// TODO, move to type itself?
+    pub fn parse_any_utc_time_string(
+        string: alloc::string::String,
+    ) -> Result<types::UtcTime, Error> {
+        // When compared to GeneralizedTime, UTC time has no fractions.
+        let len = string.len();
+        // Largest string, e.g. "820102070000-0500".len() == 17
+        if len > 17 {
+            return Err(Error::InvalidDate);
+        }
+        let format = if string.contains('Z') {
+            if len == 11 {
+                "%y%m%d%H%MZ"
+            } else {
+                "%y%m%d%H%M%SZ"
+            }
+        } else if len == 15 {
+            "%y%m%d%H%M%z"
+        } else {
+            "%y%m%d%H%M%S%z"
+        };
+        match len {
+            11 | 13 => {
+                let naive = NaiveDateTime::parse_from_str(&string, format)
+                    .map_err(|_| Error::InvalidDate)?;
+                Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+            }
+            15 | 17 => Ok(DateTime::parse_from_str(&string, format)
+                .map_err(|_| Error::InvalidDate)?
+                .into()),
+            _ => Err(Error::InvalidDate),
+        }
+    }
+
+    /// Enforce CER/DER restrictions defined in Section 11.8, strictly raise error on non-compliant
+    pub fn parse_canonical_utc_time_string(
+        string: alloc::string::String,
+    ) -> Result<types::UtcTime, Error> {
+        let len = string.len();
+        return if string.ends_with('Z') {
+            let naive = match len {
+                13 => NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
+                    .map_err(|_| Error::InvalidDate)?,
+                _ => Err(Error::InvalidDate)?,
+            };
+            Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+        } else {
+            Err(Error::InvalidDate)
+        };
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -481,24 +532,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
         // Reference https://obj-sys.com/asn1tutorial/node15.html
-        // FIXME - should this be DateTime<UTC> rather than NaiveDateTime ?
         let string = self.decode_utf8_string(tag, <_>::default())?;
-        let format = if string.contains('Z') {
-            if string.len() == 11 {
-                "%y%m%d%H%MZ"
-            } else {
-                "%y%m%d%H%M%SZ"
-            }
-        } else if string.len() == 15 {
-            "%y%m%d%H%M%z"
+        if self.config.encoding_rules.is_ber() {
+            Self::parse_any_utc_time_string(string)
         } else {
-            "%y%m%d%H%M%S%z"
-        };
-
-        chrono::NaiveDateTime::parse_from_str(&string, format)
-            .ok()
-            .context(error::InvalidDateSnafu)
-            .map(|date| types::UtcTime::from_utc(date, chrono::Utc))
+            Self::parse_canonical_utc_time_string(string)
+        }
     }
 
     fn decode_sequence_of<D: Decode>(
@@ -767,22 +806,31 @@ mod tests {
         let time =
             crate::types::GeneralizedTime::parse_from_str("991231235959+0000", "%y%m%d%H%M%S%z")
                 .unwrap();
+        // 991231235959Z
         let has_z = &[
             0x17, 0x0D, 0x39, 0x39, 0x31, 0x32, 0x33, 0x31, 0x32, 0x33, 0x35, 0x39, 0x35, 0x39,
             0x5A,
         ];
+        // 991231235959+0000
         let has_noz = &[
             0x17, 0x11, 0x39, 0x39, 0x31, 0x32, 0x33, 0x31, 0x32, 0x33, 0x35, 0x39, 0x35, 0x39,
-            0x2B, 0x30, 0x32, 0x30, 0x30,
+            0x2B, 0x30, 0x30, 0x30, 0x30,
         ];
         assert_eq!(
             time,
             decode::<chrono::DateTime::<chrono::Utc>>(has_z).unwrap()
         );
+
+        assert_eq!(
+            time,
+            crate::der::decode::<crate::types::UtcTime>(has_z).unwrap()
+        );
+
         assert_eq!(
             time,
             decode::<chrono::DateTime::<chrono::Utc>>(has_noz).unwrap()
         );
+        assert!(crate::der::decode::<crate::types::UtcTime>(has_noz).is_err());
     }
 
     #[test]
