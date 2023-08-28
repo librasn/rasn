@@ -17,6 +17,10 @@ pub enum Codec {
     Uper,
     /// [JSON Encoding Rules](https://obj-sys.com/docs/JSONEncodingRules.pdf)
     Jer,
+    /// X.696 — Octet Encoding Rules
+    Oer,
+    /// X.696 — Canonical Octet Encoding Rules
+    Coer,
 }
 
 impl core::fmt::Display for Codec {
@@ -28,6 +32,8 @@ impl core::fmt::Display for Codec {
             Self::Der => write!(f, "DER"),
             Self::Uper => write!(f, "UPER"),
             Self::Jer => write!(f, "JER"),
+            Self::Oer => write!(f, "OER"),
+            Self::Coer => write!(f, "COER"),
         }
     }
 }
@@ -49,6 +55,8 @@ impl Codec {
             Self::Der => crate::der::encode(value),
             Self::Uper => crate::uper::encode(value),
             Self::Jer => crate::jer::encode(value).map(alloc::string::String::into_bytes),
+            Self::Oer => crate::oer::encode(value),
+            Self::Coer => crate::coer::encode(value),
         }
     }
 
@@ -67,6 +75,8 @@ impl Codec {
             Self::Cer => crate::cer::decode(input),
             Self::Der => crate::der::decode(input),
             Self::Uper => crate::uper::decode(input),
+            Self::Oer => crate::oer::decode(input),
+            Self::Coer => crate::coer::decode(input),
             Self::Jer => alloc::string::String::from_utf8(input.to_vec()).map_or_else(
                 |e| {
                     Err(crate::error::DecodeError::from_kind(

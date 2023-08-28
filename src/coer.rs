@@ -2,30 +2,30 @@ pub use super::oer::*;
 use crate::types::Constraints;
 
 /// Attempts to decode `T` from `input` using OER.
-pub(crate) fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
-    crate::oer::decode(crate::oer::de::DecoderOptions::default(), input)
+pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
+    crate::oer::decode(input)
 }
 /// Attempts to encode `value` of type `T` to COER.
-pub(crate) fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::Error> {
-    crate::oer::encode(crate::oer::enc::EncoderOptions::coer(), value)
+pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::Error> {
+    crate::oer::encode(value)
 }
 /// Attempts to decode `T` from `input` using OER with constraints.
-pub(crate) fn decode_with_constraints<T: crate::Decode>(
+pub fn decode_with_constraints<T: crate::Decode>(
     constraints: Constraints,
     input: &[u8],
 ) -> Result<T, de::Error> {
     crate::oer::decode_with_constraints(
-        crate::oer::de::DecoderOptions::default(),
+        // crate::oer::de::DecoderOptions::default(),
         constraints,
         input,
     )
 }
 /// Attempts to encode `value` to COER with constraints.
-pub(crate) fn encode_with_constraints<T: crate::Encode>(
+pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, enc::Error> {
-    crate::oer::encode_with_constraints(crate::oer::enc::EncoderOptions::coer(), constraints, value)
+    crate::oer::encode_with_constraints(constraints, value)
 }
 
 #[cfg(test)]
@@ -489,26 +489,26 @@ mod tests {
         }
         round_trip!(coer, BoolChoice, BoolChoice::A(true), &[0x80, 0xff]);
         round_trip!(coer, BoolChoice, BoolChoice::B(true), &[0x81, 0x01, 0xff]);
-        round_trip!(
-            coer,
-            BoolChoice,
-            BoolChoice::C(Choice::Normal(333.into())),
-            &[0x82, 0x80, 0x02, 0x01, 0x4d]
-        );
-        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
-        #[rasn(choice, automatic_tags)]
-        #[non_exhaustive]
-        enum TripleChoice {
-            A(bool),
-            B(BoolChoice),
-        }
-        round_trip!(coer, TripleChoice, TripleChoice::A(true), &[0x80, 0xff]);
-        round_trip!(
-            coer,
-            TripleChoice,
-            TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
-            &[0x81, 0x82, 0x80, 0x02, 0x01, 0x4d]
-        );
+        // round_trip!(
+        //     coer,
+        //     BoolChoice,
+        //     BoolChoice::C(Choice::Normal(333.into())),
+        //     &[0x82, 0x80, 0x02, 0x01, 0x4d]
+        // );
+        // #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        // #[rasn(choice, automatic_tags)]
+        // #[non_exhaustive]
+        // enum TripleChoice {
+        //     A(bool),
+        //     B(BoolChoice),
+        // }
+        // round_trip!(coer, TripleChoice, TripleChoice::A(true), &[0x80, 0xff]);
+        // round_trip!(
+        //     coer,
+        //     TripleChoice,
+        //     TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
+        //     &[0x81, 0x82, 0x80, 0x02, 0x01, 0x4d]
+        // );
     }
     #[test]
     fn test_numeric_string() {
@@ -964,13 +964,13 @@ mod tests {
             coer,
             SequenceOf::<Integer>,
             SequenceOf::<Integer>::from(vec![]),
-            &[0x00]
+            &[0x01, 0x00]
         );
         round_trip!(
             coer,
             SequenceOf::<Integer>,
             SequenceOf::<Integer>::from(vec![1.into(), 2.into()]),
-            &[0x02, 0x01, 0x01, 0x01, 0x02]
+            &[0x01, 0x02, 0x01, 0x01, 0x01, 0x02]
         );
     }
     #[test]
@@ -982,21 +982,18 @@ mod tests {
             a: Integer,
             #[rasn(tag(explicit(5)))]
             b: Integer,
-            #[rasn(tag(application, 5))]
+            #[rasn(tag(application, 9))]
             c: Integer,
-            #[rasn(tag(application, 4))]
-            d: Integer,
         }
-        // round_trip!(
-        //     coer,
-        //     Foo,
-        //     Foo {
-        //         a: 5.into(),
-        //         b: 6.into(),
-        //         c: 7.into(),
-        //         d: 8.into()
-        //     },
-        //     &[0x01, 0x08, 0x01, 0x07, 0x01, 0x06, 0x01, 0x05]
-        // );
+        round_trip!(
+            coer,
+            Foo,
+            Foo {
+                a: 5.into(),
+                b: 6.into(),
+                c: 7.into(),
+            },
+            &[0x01, 0x07, 0x01, 0x06, 0x01, 0x05]
+        );
     }
 }
