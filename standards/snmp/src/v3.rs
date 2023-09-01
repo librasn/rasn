@@ -54,7 +54,7 @@ impl Message {
     /// - If the value fails to be encoded as the `codec`.
     pub fn decode_security_parameters<T: SecurityParameters>(
         &self,
-        codec: rasn::Codec,
+        codec: rasn::codec::Codec,
     ) -> Result<T, alloc::boxed::Box<dyn core::fmt::Display>> {
         if self.global_data.security_model != T::ID.into() {
             return Err(Box::new(alloc::format!(
@@ -65,6 +65,7 @@ impl Message {
         }
 
         codec.decode::<T>(&self.security_parameters)
+            .map_err(|error| Box::new(error) as Box<_>)
     }
 
     /// Encodes the given security parameters into the `security_parameters`
@@ -74,12 +75,14 @@ impl Message {
     /// - If the value fails to be encoded as the `codec`.
     pub fn encode_security_parameters<T: SecurityParameters>(
         &mut self,
-        codec: rasn::Codec,
+        codec: rasn::codec::Codec,
         value: &T,
     ) -> Result<(), alloc::boxed::Box<dyn core::fmt::Display>> {
         self.global_data.security_model = T::ID.into();
 
-        self.security_parameters = codec.encode::<T>(value)?.into();
+        self.security_parameters = codec.encode::<T>(value)
+            .map_err(|error| Box::new(error) as Box<_>)?
+            .into();
         Ok(())
     }
 }
