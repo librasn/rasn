@@ -315,14 +315,15 @@ impl crate::Encoder for Encoder {
         &mut self,
         tag: Tag,
         _constraints: Constraints,
-        value: &types::BitString,
+        value: &types::BitStr,
     ) -> Result<Self::Ok, Self::Error> {
         if value.is_empty() {
             self.encode_primitive(tag, &[]);
             Ok(())
         } else {
             let bit_length = value.len();
-            let bytes = value.as_raw_slice();
+            let vec = value.to_bitvec();
+            let bytes = vec.as_raw_slice();
             let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
                 crate::enc::Error::custom(alloc::format!(
                     "failed to convert BIT STRING unused bytes to u8: {err}"

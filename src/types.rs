@@ -27,8 +27,9 @@ pub use {
         open::Open,
         prefix::{Explicit, Implicit},
         strings::{
-            BmpString, FixedOctetString, GeneralString, Ia5String, NumericString, OctetString,
-            PrintableString, TeletexString, Utf8String, VisibleString,
+            BitStr, BitString, BmpString, FixedBitString, FixedOctetString, GeneralString,
+            Ia5String, NumericString, OctetString, PrintableString, TeletexString, Utf8String,
+            VisibleString,
         },
         tag::{Class, Tag, TagTree},
     },
@@ -36,10 +37,6 @@ pub use {
     rasn_derive::AsnType,
 };
 
-///  The `BIT STRING` type.
-pub type BitString = bitvec::vec::BitVec<u8, bitvec::order::Msb0>;
-///  A reference to a `BIT STRING` type.
-pub type BitStr = bitvec::slice::BitSlice<u8, bitvec::order::Msb0>;
 ///  The `SET OF` type.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
 ///  The `UniversalString` type.
@@ -218,7 +215,6 @@ asn_type! {
     OctetString: OCTET_STRING,
     ObjectIdentifier: OBJECT_IDENTIFIER,
     Oid: OBJECT_IDENTIFIER,
-    BitString: BIT_STRING,
     Utf8String: UTF8_STRING,
     UtcTime: UTC_TIME,
     GeneralizedTime: GENERALIZED_TIME,

@@ -1,3 +1,4 @@
+mod bit;
 mod bmp;
 mod constrained;
 mod general;
@@ -12,6 +13,7 @@ use crate::prelude::*;
 
 pub use {
     alloc::string::String as Utf8String,
+    bit::{BitStr, BitString, FixedBitString},
     bmp::BmpString,
     general::GeneralString,
     ia5::Ia5String,

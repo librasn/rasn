@@ -59,7 +59,7 @@ pub trait Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &types::BitString,
+        value: &types::BitStr,
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `ENUMERATED` value.
@@ -515,17 +515,6 @@ impl Encode for &'_ str {
         constraints: Constraints,
     ) -> Result<(), E::Error> {
         encoder.encode_utf8_string(tag, constraints, self).map(drop)
-    }
-}
-
-impl Encode for types::BitString {
-    fn encode_with_tag_and_constraints<E: Encoder>(
-        &self,
-        encoder: &mut E,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, constraints, self).map(drop)
     }
 }
 

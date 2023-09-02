@@ -12,7 +12,7 @@ use crate::{
         self,
         constraints::{self, Extensible},
         fields::FieldPresence,
-        strings::{DynConstrainedCharacterString, StaticPermittedAlphabet},
+        strings::{BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet},
         BitString, Constraints, Enumerated, Tag,
     },
     Encode,
@@ -734,7 +734,7 @@ impl crate::Encoder for Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &BitString,
+        value: &BitStr,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         let mut buffer = BitString::default();

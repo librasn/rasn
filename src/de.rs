@@ -395,16 +395,6 @@ impl Decode for types::ObjectIdentifier {
     }
 }
 
-impl Decode for types::BitString {
-    fn decode_with_tag_and_constraints<D: Decoder>(
-        decoder: &mut D,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<Self, D::Error> {
-        decoder.decode_bit_string(tag, constraints)
-    }
-}
-
 impl Decode for types::Utf8String {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
