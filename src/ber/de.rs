@@ -1,5 +1,8 @@
 //! # Decoding BER
 
+// TODO: Update chrono functions.
+#![allow(deprecated)]
+
 mod config;
 mod error;
 pub(super) mod parser;

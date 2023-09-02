@@ -2,7 +2,7 @@ use snafu::*;
 
 use crate::prelude::*;
 
-pub use self::{enc::EncodeError, de::DecodeError};
+pub use self::{de::DecodeError, enc::EncodeError};
 
 /// A set of supported ASN.1 codecs. Can be used to dynamically encode types
 /// into different codecs at runtime.
@@ -58,15 +58,15 @@ mod enc {
     #[snafu(visibility(pub(crate)))]
     pub enum EncodeError {
         #[snafu(display("APER Error: {}", source))]
-        Aper{ source: crate::aper::enc::Error },
+        Aper { source: crate::aper::enc::Error },
         #[snafu(display("BER Error: {}", source))]
-        Ber{ source: crate::ber::enc::Error },
+        Ber { source: crate::ber::enc::Error },
         #[snafu(display("CER Error: {}", source))]
-        Cer{ source: crate::der::enc::Error },
+        Cer { source: crate::der::enc::Error },
         #[snafu(display("DER Error: {}", source))]
-        Der{ source: crate::der::enc::Error },
+        Der { source: crate::der::enc::Error },
         #[snafu(display("UPER Error: {}", source))]
-        Uper{ source: crate::uper::enc::Error },
+        Uper { source: crate::uper::enc::Error },
     }
 }
 
@@ -77,14 +77,14 @@ mod de {
     #[snafu(visibility(pub(crate)))]
     pub enum DecodeError {
         #[snafu(display("APER Error: {}", source))]
-        Aper{ source: crate::aper::de::Error },
+        Aper { source: crate::aper::de::Error },
         #[snafu(display("BER Error: {}", source))]
-        Ber{ source: crate::ber::de::Error },
+        Ber { source: crate::ber::de::Error },
         #[snafu(display("CER Error: {}", source))]
-        Cer{ source: crate::der::de::Error },
+        Cer { source: crate::der::de::Error },
         #[snafu(display("DER Error: {}", source))]
-        Der{ source: crate::der::de::Error },
+        Der { source: crate::der::de::Error },
         #[snafu(display("UPER Error: {}", source))]
-        Uper{ source: crate::uper::de::Error },
+        Uper { source: crate::uper::de::Error },
     }
 }

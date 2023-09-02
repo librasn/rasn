@@ -33,11 +33,10 @@ macro_rules! round_trip_with_constraints {
     }};
 }
 
+pub mod codec;
 pub mod de;
 pub mod enc;
 pub mod types;
-pub mod codec;
-
 
 // Data Formats
 
@@ -51,10 +50,10 @@ pub mod uper;
 
 #[doc(inline)]
 pub use self::{
+    codec::Codec,
     de::{Decode, Decoder},
     enc::{Encode, Encoder},
     types::{AsnType, Tag, TagTree},
-    codec::Codec,
 };
 
 /// A prelude containing the codec traits and all types defined in the [`types`]

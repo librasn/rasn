@@ -64,7 +64,8 @@ impl Message {
             )) as Box<_>);
         }
 
-        codec.decode::<T>(&self.security_parameters)
+        codec
+            .decode::<T>(&self.security_parameters)
             .map_err(|error| Box::new(error) as Box<_>)
     }
 
@@ -80,7 +81,8 @@ impl Message {
     ) -> Result<(), alloc::boxed::Box<dyn core::fmt::Display>> {
         self.global_data.security_model = T::ID.into();
 
-        self.security_parameters = codec.encode::<T>(value)
+        self.security_parameters = codec
+            .encode::<T>(value)
             .map_err(|error| Box::new(error) as Box<_>)?
             .into();
         Ok(())
