@@ -1011,8 +1011,40 @@ impl<'a> FieldConfig<'a> {
         };
 
         if self.extension_addition {
-            quote! {
-                decoder.decode_extension_addition() #or_else #handle_extension
+            match (
+                self.default.as_ref().map(|path| {
+                    path.as_ref()
+                        .map_or(quote!(<_>::default), |path| quote!(#path))
+                }),
+                self.constraints.has_constraints(),
+            ) {
+                (Some(path), true) => {
+                    quote!(
+                        decoder.decode_extension_addition_with_default_and_constraints(
+                            #path,
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                        ) #or_else
+                    )
+                }
+                (Some(path), false) => {
+                    quote!(
+                        decoder.decode_extension_addition_with_default(
+                            #path,
+                        ) #or_else
+                    )
+                }
+                (None, true) => {
+                    quote!(
+                        decoder.decode_extension_addition_with_constraints(
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                        ) #or_else
+                    )
+                }
+                (None, false) => {
+                    quote! {
+                        decoder.decode_extension_addition() #or_else #handle_extension
+                    }
+                }
             }
         } else {
             quote!({
