@@ -302,6 +302,19 @@ pub trait Encoder {
         }
     }
 
+    /// Encode the present constrained value of an optional field.
+    fn encode_default_with_constraints<E: Encode + PartialEq>(
+        &mut self,
+        constraints: Constraints,
+        value: &E,
+        default: impl FnOnce() -> E,
+    ) -> Result<Self::Ok, Self::Error> {
+        match (*value != (default)()).then_some(value) {
+            Some(value) => self.encode_some_with_tag_and_constraints(E::TAG, constraints, value),
+            None => self.encode_none_with_tag(E::TAG),
+        }
+    }
+
     /// Encode a `CHOICE` value.
     fn encode_choice<E: Encode + crate::types::Choice>(
         &mut self,
