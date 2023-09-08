@@ -1,13 +1,13 @@
 //! # Encoding BER.
 
 mod config;
-mod error;
 
 use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 use chrono::Timelike;
 
 use super::Identifier;
 use crate::{
+    enc::Error as _,
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
@@ -16,8 +16,8 @@ use crate::{
     Encode,
 };
 
+pub use crate::error::EncodeError as Error;
 pub use config::EncoderOptions;
-pub use error::Error;
 
 const START_OF_CONTENTS: u8 = 0x80;
 const END_OF_CONTENTS: &[u8] = &[0, 0];
@@ -243,9 +243,9 @@ impl Encoder {
     }
     /// Converts an object identifier into a byte vector in BER format.
     /// Reusable function by other codecs.
-    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, error::Error> {
+    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, Error> {
         if oid.len() < 2 {
-            return Err(error::Error::InvalidObjectIdentifier);
+            return Err(Error::invalid_object_identifier());
         }
         let mut bytes = Vec::new();
 
@@ -253,7 +253,7 @@ impl Encoder {
         let second = oid[1];
 
         if first > MAX_OID_FIRST_OCTET {
-            return Err(error::Error::InvalidObjectIdentifier);
+            return Err(Error::invalid_object_identifier());
         }
         self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
         for component in oid.iter().skip(2) {
@@ -297,7 +297,7 @@ impl Encoder {
 
 impl crate::Encoder for Encoder {
     type Ok = ();
-    type Error = error::Error;
+    type Error = Error;
 
     fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
@@ -325,7 +325,7 @@ impl crate::Encoder for Encoder {
             let vec = value.to_bitvec();
             let bytes = vec.as_raw_slice();
             let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
-                crate::enc::Error::custom(alloc::format!(
+                Error::custom(alloc::format!(
                     "failed to convert BIT STRING unused bytes to u8: {err}"
                 ))
             })?;

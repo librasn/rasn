@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(not(test), no_std)]
+// #![cfg_attr(not(test), no_std)]
 extern crate alloc;
 
 #[cfg(test)]
@@ -46,6 +46,7 @@ pub mod aper;
 pub mod ber;
 pub mod cer;
 pub mod der;
+mod error;
 pub mod uper;
 
 #[doc(inline)]

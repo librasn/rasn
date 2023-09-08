@@ -8,12 +8,13 @@ use crate::types::variants::Variants;
 #[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
-pub struct Error {
+pub struct DecodeError {
     kind: Kind,
     backtrace: Backtrace,
 }
 
-impl Error {
+impl DecodeError {
+    #[must_use]
     pub fn range_exceeds_platform_width(needed: u32, present: u32) -> Self {
         Self {
             kind: Kind::RangeExceedsPlatformWidth { needed, present },
@@ -21,6 +22,7 @@ impl Error {
         }
     }
 
+    #[must_use]
     pub fn type_not_extensible() -> Self {
         Self {
             kind: Kind::TypeNotExtensible,
@@ -28,6 +30,7 @@ impl Error {
         }
     }
 
+    #[must_use]
     pub fn required_extension_not_present(tag: crate::types::Tag) -> Self {
         Self {
             kind: Kind::RequiredExtensionNotPresent { tag },
@@ -35,6 +38,7 @@ impl Error {
         }
     }
 
+    #[must_use]
     pub fn choice_index_exceeds_platform_width(needed: u32, present: u64) -> Self {
         Self {
             kind: Kind::ChoiceIndexExceedsPlatformWidth { needed, present },
@@ -42,6 +46,7 @@ impl Error {
         }
     }
 
+    #[must_use]
     pub fn choice_index_not_found(index: usize, variants: Variants) -> Self {
         Self {
             kind: Kind::ChoiceIndexNotFound { index, variants },
@@ -50,7 +55,7 @@ impl Error {
     }
 }
 
-impl From<Kind> for Error {
+impl From<Kind> for DecodeError {
     fn from(kind: Kind) -> Self {
         Self {
             kind,
@@ -136,7 +141,7 @@ pub enum Kind {
     },
 }
 
-impl crate::de::Error for Error {
+impl crate::de::Error for DecodeError {
     fn custom<D: core::fmt::Display>(msg: D) -> Self {
         Self::from(Kind::Custom {
             msg: msg.to_string(),
@@ -171,7 +176,9 @@ impl crate::de::Error for Error {
     }
 }
 
-impl From<nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>> for Error {
+impl From<nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>>
+    for DecodeError
+{
     fn from(
         error: nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>,
     ) -> Self {

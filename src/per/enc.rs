@@ -1,9 +1,6 @@
-mod error;
-
 use alloc::{borrow::ToOwned, vec::Vec};
 
 use bitvec::prelude::*;
-use snafu::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
@@ -18,8 +15,7 @@ use crate::{
     Encode,
 };
 
-pub use error::Error;
-
+pub use crate::error::EncodeError as Error;
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -817,8 +813,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32]) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        let der = crate::der::encode_scope(|encoder| encoder.encode_object_identifier(tag, oid))
-            .context(error::DerSnafu)?;
+        let der = crate::der::encode_scope(|encoder| encoder.encode_object_identifier(tag, oid))?;
         self.encode_octet_string(tag, <_>::default(), &der)
     }
 
@@ -921,11 +916,7 @@ impl crate::Encoder for Encoder {
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(
-            tag,
-            <_>::default(),
-            &crate::der::encode(value).context(error::DerSnafu)?,
-        )
+        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
     }
 
     fn encode_generalized_time(
@@ -934,11 +925,7 @@ impl crate::Encoder for Encoder {
         value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(
-            tag,
-            <_>::default(),
-            &crate::der::encode(value).context(error::DerSnafu)?,
-        )
+        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
     }
 
     fn encode_sequence_of<E: Encode>(

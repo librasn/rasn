@@ -1,5 +1,3 @@
-mod error;
-
 use alloc::{collections::VecDeque, vec::Vec};
 use bitvec::field::BitField;
 use snafu::*;
@@ -17,8 +15,9 @@ use crate::{
     Decode,
 };
 
+use crate::error::decode_error;
+pub use crate::error::DecodeError as Error;
 pub type Result<T, E = Error> = core::result::Result<T, E>;
-pub use error::Error;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
@@ -194,7 +193,7 @@ impl<'input> Decoder<'input> {
                     3 => FOURTY_EIGHT_K.into(),
                     4 => SIXTY_FOUR_K as usize,
                     _ => {
-                        return Err(error::Kind::Parser {
+                        return Err(decode_error::Kind::Parser {
                             msg: "Invalid length fragment".into(),
                         }
                         .into())
@@ -622,7 +621,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let octets = self.decode_octets()?.into_vec();
 
         crate::ber::decode(&octets)
-            .context(error::BerSnafu)
+            .context(decode_error::BerSnafu)
             .map_err(From::from)
     }
 
@@ -699,7 +698,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let bytes = self.decode_octet_string(tag, <_>::default())?;
 
         crate::ber::decode(&bytes)
-            .context(error::BerSnafu)
+            .context(decode_error::BerSnafu)
             .map_err(From::from)
     }
 
@@ -707,7 +706,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let bytes = self.decode_octet_string(tag, <_>::default())?;
 
         crate::ber::decode(&bytes)
-            .context(error::BerSnafu)
+            .context(decode_error::BerSnafu)
             .map_err(From::from)
     }
 
