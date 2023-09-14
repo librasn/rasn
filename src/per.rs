@@ -11,7 +11,7 @@ const THIRTY_TWO_K: u16 = 32768;
 const FOURTY_EIGHT_K: u16 = 49152;
 const SIXTY_FOUR_K: u32 = 65536;
 
-/// Attempts to decode `T` from `input` using DER.
+/// Attempts to decode `T` from `input` using PER.
 pub(crate) fn decode<T: crate::Decode>(
     options: de::DecoderOptions,
     input: &[u8],
@@ -22,7 +22,7 @@ pub(crate) fn decode<T: crate::Decode>(
     ))
 }
 
-/// Attempts to encode `value` to DER.
+/// Attempts to encode `value` to PER.
 pub(crate) fn encode<T: crate::Encode>(
     options: enc::EncoderOptions,
     value: &T,
@@ -34,7 +34,7 @@ pub(crate) fn encode<T: crate::Encode>(
     Ok(enc.output())
 }
 
-/// Attempts to decode `T` from `input` using DER.
+/// Attempts to decode `T` from `input` using PER.
 pub(crate) fn decode_with_constraints<T: crate::Decode>(
     options: de::DecoderOptions,
     constraints: Constraints,
@@ -46,7 +46,7 @@ pub(crate) fn decode_with_constraints<T: crate::Decode>(
     )
 }
 
-/// Attempts to encode `value` to DER.
+/// Attempts to encode `value` to PER.
 pub(crate) fn encode_with_constraints<T: crate::Encode>(
     options: enc::EncoderOptions,
     constraints: Constraints,

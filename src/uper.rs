@@ -792,4 +792,37 @@ mod tests {
             ]
         );
     }
+
+    #[test]
+    fn constrained_extension_addition() {
+        #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[non_exhaustive]
+        struct TestSequence {
+            #[rasn(size("0..=8"))]
+            hello: OctetString,
+            #[rasn(
+                extension_addition,
+                value("0..=9"),
+                default = "test_sequence_world_default"
+            )]
+            world: u8,
+        }
+
+        fn test_sequence_world_default() -> u8 {
+            8
+        }
+
+        let ext_value = TestSequence {
+            hello: bytes::Bytes::from(vec![1, 2, 3, 4]),
+            world: 4,
+        };
+
+        round_trip!(
+            uper,
+            TestSequence,
+            ext_value,
+            &[0xA0, 0x08, 0x10, 0x18, 0x20, 0x08, 0x0A, 0x00]
+        );
+    }
 }

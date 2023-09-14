@@ -961,7 +961,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D::decode(&mut decoder).map(Some)
     }
 
-    fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
+    fn decode_extension_addition_with_constraints<D>(
+        &mut self,
+        constraints: Constraints,
+    ) -> core::result::Result<Option<D>, Self::Error>
     where
         D: Decode,
     {
@@ -981,7 +984,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let bytes = self.decode_octets()?;
         let mut decoder = Decoder::new(&bytes, self.options);
 
-        D::decode(&mut decoder).map(Some)
+        D::decode_with_constraints(&mut decoder, constraints).map(Some)
     }
 }
 

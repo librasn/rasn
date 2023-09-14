@@ -225,7 +225,48 @@ pub trait Decoder: Sized {
             .unwrap_or_else(default_fn))
     }
 
+    /// Decode a `DEFAULT` value with constraints in a `SEQUENCE` or `SET` with a given `default_fn`.
+    fn decode_default_with_constraints<D: Decode, F: FnOnce() -> D>(
+        &mut self,
+        default_fn: F,
+        constraints: Constraints,
+    ) -> Result<D, Self::Error> {
+        Ok(self
+            .decode_optional_with_constraints::<D>(constraints)?
+            .unwrap_or_else(default_fn))
+    }
+
     fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
+    where
+        D: Decode,
+    {
+        self.decode_extension_addition_with_constraints(Constraints::default())
+    }
+
+    /// Decode a `DEFAULT` value in a `SEQUENCE`'s or `SET`'s extension
+    fn decode_extension_addition_with_default<D: Decode, F: FnOnce() -> D>(
+        &mut self,
+        default_fn: F,
+    ) -> Result<D, Self::Error> {
+        self.decode_extension_addition_with_default_and_constraints(default_fn, Constraints::default())
+    }
+
+    /// Decode a `DEFAULT` value with constraints in a `SEQUENCE`'s or `SET`'s extension
+    fn decode_extension_addition_with_default_and_constraints<D: Decode, F: FnOnce() -> D>(
+        &mut self,
+        default_fn: F,
+        constraints: Constraints,
+    ) -> Result<D, Self::Error> {
+        Ok(self
+            .decode_extension_addition_with_constraints::<D>(constraints)?
+            .unwrap_or_else(default_fn))
+    }
+
+    /// Decode an extension addition with constraints in a `SEQUENCE` or `SET`
+    fn decode_extension_addition_with_constraints<D>(
+        &mut self,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error>
     where
         D: Decode;
 

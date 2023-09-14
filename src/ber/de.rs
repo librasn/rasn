@@ -645,7 +645,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D::from_tag(self, identifier.tag)
     }
 
-    fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
+    fn decode_extension_addition_with_constraints<D>(
+        &mut self,
+        // Constraints are irrelevant using BER
+        _: Constraints,
+    ) -> core::result::Result<Option<D>, Self::Error>
     where
         D: Decode,
     {
