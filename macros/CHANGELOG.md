@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6](https://github.com/XAMPPRocky/rasn/compare/rasn-derive-v0.9.5...rasn-derive-v0.9.6) - 2023-09-19
+
+### Other
+- Fix/infinite recursion ([#157](https://github.com/XAMPPRocky/rasn/pull/157))
+- Fix/constrained extension ([#156](https://github.com/XAMPPRocky/rasn/pull/156))
+
 ## [0.6.1](https://github.com/XAMPPRocky/rasn/compare/rasn-derive-v0.6.0...rasn-derive-v0.6.1) - 2023-07-11
 
 ### Other
