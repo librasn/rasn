@@ -33,15 +33,14 @@ impl Class {
     }
 }
 
-impl quote::ToTokens for Class {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        use quote::TokenStreamExt;
-        tokens.append_all(match self {
-            Self::Universal => quote!(rasn::types::Class::Universal),
-            Self::Application => quote!(rasn::types::Class::Application),
-            Self::Context => quote!(rasn::types::Class::Context),
-            Self::Private => quote!(rasn::types::Class::Private),
-        });
+impl Class {
+    pub fn to_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
+        match self {
+            Self::Universal => quote!(#crate_root::types::Class::Universal),
+            Self::Application => quote!(#crate_root::types::Class::Application),
+            Self::Context => quote!(#crate_root::types::Class::Context),
+            Self::Private => quote!(#crate_root::types::Class::Private),
+        }
     }
 }
 
@@ -158,7 +157,10 @@ impl Tag {
 
     pub fn to_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
         match self {
-            Self::Value { class, value, .. } => quote!(#crate_root::Tag::new(#class, #value)),
+            Self::Value { class, value, .. } => {
+                let cls = class.to_tokens(crate_root);
+                quote!(#crate_root::Tag::new(#cls, #value))
+            },
             Self::Delegate { ty } => quote!(<#ty as #crate_root::AsnType>::TAG),
         }
     }
