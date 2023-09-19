@@ -825,4 +825,46 @@ mod tests {
             &[0xA0, 0x08, 0x10, 0x18, 0x20, 0x08, 0x0A, 0x00]
         );
     }
+
+    #[test]
+    fn recursive_types() {
+        #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum TestChoice {
+            Number1(()),
+            Number2(bool),
+            Number3(Box<TopLevel>),
+        }
+
+        #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[rasn(automatic_tags)]
+        struct TopLevel {
+            #[rasn(value("1..=8"))]
+            pub test: u8,
+            pub choice: TestChoice,
+        }
+
+        impl TopLevel {
+            pub fn new(test: u8, choice: TestChoice) -> Self {
+                Self { test, choice }
+            }
+        }
+
+        let test_value = TopLevel::new(
+            1,
+            TestChoice::Number3(Box::new(TopLevel {
+                test: 2,
+                choice: TestChoice::Number1(()),
+            })),
+        );
+        round_trip!(
+            uper,
+            TopLevel,
+            test_value,
+            &[8,128]
+        );
+    }
 }
