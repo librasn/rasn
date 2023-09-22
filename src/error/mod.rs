@@ -1,5 +1,7 @@
-pub(crate) mod decode_error;
-pub(crate) mod encode_error;
+pub(crate) mod decode;
+pub(crate) mod encode;
 
-pub use decode_error::DecodeError;
-pub use encode_error::EncodeError;
+pub use decode::DecodeError;
+pub use decode::Kind as DecodeErrorKind;
+pub use encode::EncodeError;
+pub use encode::Kind as EncodeErrorKind;

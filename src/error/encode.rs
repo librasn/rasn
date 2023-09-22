@@ -21,6 +21,7 @@ impl EncodeError {
             backtrace: Backtrace::generate(),
         })
     }
+    #[must_use]
     pub fn invalid_object_identifier() -> Self {
         Self::from(Kind::InvalidObjectIdentifier)
     }

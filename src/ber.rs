@@ -11,14 +11,16 @@ pub(crate) use rules::EncodingRules;
 /// Attempts to decode `T` from `input` using BER.
 /// # Errors
 /// Returns error specific to BER decoder if decoding is not possible.
-pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
+pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeError> {
     T::decode(&mut de::Decoder::new(input, de::DecoderOptions::ber()))
 }
 
 /// Attempts to encode `value` to BER.
 /// # Errors
 /// Returns error specific to BER encoder if encoding is not possible.
-pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::Error> {
+pub fn encode<T: crate::Encode>(
+    value: &T,
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     let mut enc = enc::Encoder::new(enc::EncoderOptions::ber());
 
     value.encode(&mut enc)?;

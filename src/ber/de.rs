@@ -1,12 +1,8 @@
 //! # Decoding BER
 
 mod config;
-mod error;
+// mod error;
 pub(super) mod parser;
-
-use alloc::{borrow::ToOwned, vec::Vec};
-
-use snafu::*;
 
 use super::identifier::Identifier;
 use crate::{
@@ -18,10 +14,13 @@ use crate::{
     },
     Decode,
 };
+use alloc::{borrow::ToOwned, vec::Vec};
 use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
 
-pub use self::{config::DecoderOptions, error::Error};
+pub use self::config::DecoderOptions;
 
+pub use crate::error::DecodeError as Error;
+pub use crate::error::DecodeErrorKind;
 type Result<T, E = Error> = core::result::Result<T, E>;
 
 const EOC: &[u8] = &[0, 0];
@@ -49,7 +48,7 @@ impl<'input> Decoder<'input> {
     }
 
     fn parse_eoc(&mut self) -> Result<()> {
-        let (i, _) = nom::bytes::streaming::tag(EOC)(self.input).map_err(error::map_nom_err)?;
+        let (i, _) = nom::bytes::streaming::tag(EOC)(self.input).map_err(Error::map_nom_err)?;
         self.input = i;
         Ok(())
     }
@@ -67,7 +66,7 @@ impl<'input> Decoder<'input> {
         self.input = input;
         match contents {
             Some(contents) => Ok((identifier, contents)),
-            None => error::IndefiniteLengthNotAllowedSnafu.fail(),
+            None => Err(DecodeErrorKind::IndefiniteLengthNotAllowed.into()),
         }
     }
 
@@ -85,7 +84,7 @@ impl<'input> Decoder<'input> {
     {
         let (identifier, contents) = self.parse_value(tag)?;
 
-        error::assert_tag(tag, identifier.tag)?;
+        Error::assert_tag(tag, identifier.tag)?;
 
         if check_identifier && identifier.is_primitive() {
             return Err(Error::custom("Invalid constructed identifier"));
@@ -104,9 +103,10 @@ impl<'input> Decoder<'input> {
             self.input = inner.input;
             self.parse_eoc()?;
         } else if !inner.input.is_empty() {
-            return Err(Error::UnexpectedExtraData {
+            return Err(DecodeErrorKind::UnexpectedExtraData {
                 length: inner.input.len(),
-            });
+            }
+            .into());
         }
 
         Ok(result)
@@ -118,10 +118,8 @@ impl<'input> Decoder<'input> {
     ) -> Result<crate::types::ObjectIdentifier, Error> {
         use num_traits::ToPrimitive;
         let (mut contents, root_octets) =
-            parser::parse_base128_number(data).map_err(error::map_nom_err)?;
-        let the_number = root_octets
-            .to_u32()
-            .context(error::IntegerOverflowSnafu { max_width: 32u32 })?;
+            parser::parse_base128_number(data).map_err(Error::map_nom_err)?;
+        let the_number = root_octets.to_u32().ok_or(Error::integer_overflow(32u32))?;
         let first: u32;
         let second: u32;
         const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
@@ -135,15 +133,12 @@ impl<'input> Decoder<'input> {
         let mut buffer = alloc::vec![first, second];
 
         while !contents.is_empty() {
-            let (c, number) = parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
+            let (c, number) = parser::parse_base128_number(contents).map_err(Error::map_nom_err)?;
             contents = c;
-            buffer.push(
-                number
-                    .to_u32()
-                    .context(error::IntegerOverflowSnafu { max_width: 32u32 })?,
-            );
+            buffer.push(number.to_u32().ok_or(Error::integer_overflow(32u32))?);
         }
-        crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifierSnafu)
+        crate::types::ObjectIdentifier::new(buffer)
+            .ok_or(DecodeErrorKind::InvalidObjectIdentifier.into())
     }
     /// Parse any GeneralizedTime string, allowing for any from ASN.1 definition
     /// TODO, move to type itself?
@@ -165,7 +160,7 @@ impl<'input> Decoder<'input> {
                 NaiveDateTime::parse_from_str(string, "%Y%m%d%H%.f")
                     .or_else(|_| NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%.f"))
                     .or_else(|_| NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S%.f"))
-                    .map_err(|_| Error::InvalidDate)
+                    .map_err(|_| DecodeErrorKind::InvalidDate.into())
             } else {
                 let fmt_string = match string.len() {
                     8 => "%Y%m%d",
@@ -176,8 +171,8 @@ impl<'input> Decoder<'input> {
                 };
                 match fmt_string.len() {
                     l if l > 0 => NaiveDateTime::parse_from_str(string, fmt_string)
-                        .map_err(|_| Error::InvalidDate),
-                    _ => Err(Error::InvalidDate),
+                        .map_err(|_| DecodeErrorKind::InvalidDate.into()),
+                    _ => Err(DecodeErrorKind::InvalidDate.into()),
                 }
             }
         };
@@ -197,7 +192,7 @@ impl<'input> Decoder<'input> {
                 Some('+') => 1,
                 Some('-') => -1,
                 _ => {
-                    return Err(Error::InvalidDate);
+                    return Err(DecodeErrorKind::InvalidDate.into());
                 }
             };
             let offset_hours = string
@@ -206,22 +201,22 @@ impl<'input> Decoder<'input> {
                 .take(2)
                 .collect::<alloc::string::String>()
                 .parse::<i32>()
-                .map_err(|_| Error::InvalidDate)?;
+                .map_err(|_| DecodeErrorKind::InvalidDate)?;
             let offset_minutes = string
                 .chars()
                 .skip(len - 2)
                 .take(2)
                 .collect::<alloc::string::String>()
                 .parse::<i32>()
-                .map_err(|_| Error::InvalidDate)?;
+                .map_err(|_| DecodeErrorKind::InvalidDate)?;
             if offset_hours > 23 || offset_minutes > 59 {
-                return Err(Error::InvalidDate);
+                return Err(DecodeErrorKind::InvalidDate.into());
             }
             let offset = FixedOffset::east_opt(sign * (offset_hours * 3600 + offset_minutes * 60))
-                .ok_or(Error::InvalidDate)?;
+                .ok_or(DecodeErrorKind::InvalidDate)?;
             return TimeZone::from_local_datetime(&offset, &naive)
                 .single()
-                .ok_or(Error::InvalidDate);
+                .ok_or(DecodeErrorKind::InvalidDate.into());
         }
 
         // Parse without timezone details
@@ -239,23 +234,23 @@ impl<'input> Decoder<'input> {
             if string.contains('.') {
                 // https://github.com/chronotope/chrono/issues/238#issuecomment-378737786
                 NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S%.f")
-                    .map_err(|_| Error::InvalidDate)
+                    .map_err(|_| DecodeErrorKind::InvalidDate.into())
             } else if len == 14 {
                 NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S")
-                    .map_err(|_| Error::InvalidDate)
+                    .map_err(|_| DecodeErrorKind::InvalidDate.into())
             } else {
                 // CER/DER encoding rules don't allow for timezone offset +/
                 // Or missing seconds/minutes/hours
                 // Or comma , instead of dot .
                 // Or local time without timezone
-                Err(Error::InvalidDate)
+                Err(DecodeErrorKind::InvalidDate.into())
             }
         };
         if string.ends_with('Z') {
             let naive = parse_without_timezone(&string[..len - 1])?;
             Ok(naive.and_utc().into())
         } else {
-            Err(Error::InvalidDate)
+            Err(DecodeErrorKind::InvalidDate.into())
         }
     }
     /// Parse any UTCTime string, can be any from ASN.1 definition
@@ -267,7 +262,7 @@ impl<'input> Decoder<'input> {
         let len = string.len();
         // Largest string, e.g. "820102070000-0500".len() == 17
         if len > 17 {
-            return Err(Error::InvalidDate);
+            return Err(DecodeErrorKind::InvalidDate.into());
         }
         let format = if string.contains('Z') {
             if len == 11 {
@@ -283,13 +278,13 @@ impl<'input> Decoder<'input> {
         match len {
             11 | 13 => {
                 let naive = NaiveDateTime::parse_from_str(&string, format)
-                    .map_err(|_| Error::InvalidDate)?;
+                    .map_err(|_| DecodeErrorKind::InvalidDate)?;
                 Ok(naive.and_utc())
             }
             15 | 17 => Ok(DateTime::parse_from_str(&string, format)
-                .map_err(|_| Error::InvalidDate)?
+                .map_err(|_| DecodeErrorKind::InvalidDate)?
                 .into()),
-            _ => Err(Error::InvalidDate),
+            _ => Err(DecodeErrorKind::InvalidDate.into()),
         }
     }
 
@@ -301,12 +296,12 @@ impl<'input> Decoder<'input> {
         if string.ends_with('Z') {
             let naive = match len {
                 13 => NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
-                    .map_err(|_| Error::InvalidDate)?,
-                _ => Err(Error::InvalidDate)?,
+                    .map_err(|_| DecodeErrorKind::InvalidDate)?,
+                _ => Err(DecodeErrorKind::InvalidDate)?,
             };
             Ok(naive.and_utc())
         } else {
-            Err(Error::InvalidDate)
+            Err(DecodeErrorKind::InvalidDate.into())
         }
     }
 }
@@ -338,12 +333,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {
         let (_, contents) = self.parse_primitive_value(tag)?;
-        error::assert_length(1, contents.len())?;
+        Error::assert_length(1, contents.len())?;
         Ok(match contents[0] {
             0 => false,
             0xFF => true,
             _ if self.config.encoding_rules.is_ber() => true,
-            _ => return Err(error::Error::InvalidBool),
+            _ => return Err(Error::from(DecodeErrorKind::InvalidBool)),
         })
     }
 
@@ -368,10 +363,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if identifier.is_primitive() {
             match contents {
                 Some(c) => Ok(c.to_vec()),
-                None => error::IndefiniteLengthNotAllowedSnafu.fail(),
+                None => Err(DecodeErrorKind::IndefiniteLengthNotAllowed.into()),
             }
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
-            error::ConstructedEncodingNotAllowedSnafu.fail()
+            Err(DecodeErrorKind::ConstructedEncodingNotAllowed.into())
         } else {
             let mut buffer = Vec::new();
 
@@ -412,7 +407,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_null(&mut self, tag: Tag) -> Result<()> {
         let (_, contents) = self.parse_primitive_value(tag)?;
-        error::assert_length(0, contents.len())?;
+        Error::assert_length(0, contents.len())?;
         Ok(())
     }
 
@@ -442,12 +437,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
                         let bit_length = string
                             .len()
                             .checked_sub(bits as usize)
-                            .ok_or(Error::InvalidBitString { bits })?;
+                            .ok_or(DecodeErrorKind::InvalidBitString { bits })?;
                         string.truncate(bit_length);
 
                         Ok(string)
                     }
-                    _ => Err(Error::InvalidBitString { bits: unused_bits }),
+                    _ => Err(DecodeErrorKind::InvalidBitString { bits: unused_bits }.into()),
                 }
             })?;
 
@@ -512,7 +507,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let vec = self.decode_octet_string(tag, constraints)?;
         types::Utf8String::from_utf8(vec)
             .ok()
-            .context(error::InvalidUtf8Snafu)
+            .ok_or(DecodeErrorKind::InvalidUtf8.into())
     }
 
     fn decode_general_string(
@@ -644,7 +639,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: crate::types::DecodeChoice,
     {
         let (_, identifier) =
-            parser::parse_identifier_octet(self.input).map_err(error::map_nom_err)?;
+            parser::parse_identifier_octet(self.input).map_err(Error::map_nom_err)?;
         D::from_tag(self, identifier.tag)
     }
 

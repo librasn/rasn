@@ -4,7 +4,7 @@ use nom::IResult;
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-use super::{error, DecoderOptions};
+use super::{DecodeErrorKind, DecoderOptions, Error};
 use crate::{
     ber::identifier::Identifier,
     types::{Class, Tag},
@@ -16,14 +16,14 @@ pub(crate) fn parse_value<'input>(
     input: &'input [u8],
     tag: Option<Tag>,
 ) -> super::Result<(&'input [u8], (Identifier, Option<&'input [u8]>))> {
-    let (input, identifier) = parse_identifier_octet(input).map_err(error::map_nom_err)?;
+    let (input, identifier) = parse_identifier_octet(input).map_err(Error::map_nom_err)?;
 
     if let Some(tag) = tag {
-        error::assert_tag(tag, identifier.tag)?;
+        Error::assert_tag(tag, identifier.tag)?;
     }
 
     let (input, contents) =
-        parse_contents(config, identifier, input).map_err(error::map_nom_err)?;
+        parse_contents(config, identifier, input).map_err(Error::map_nom_err)?;
 
     Ok((input, (identifier, contents)))
 }
@@ -48,7 +48,7 @@ where
         const EOC: &[u8] = &[0, 0];
 
         while !input.is_empty() && !input.starts_with(EOC) {
-            let (_, identifier) = parse_identifier_octet(input).map_err(error::map_nom_err)?;
+            let (_, identifier) = parse_identifier_octet(input).map_err(Error::map_nom_err)?;
             let (i, mut child) =
                 parse_encoded_value(config, input, identifier.tag, primitive_callback)?;
             input = i;
@@ -56,13 +56,13 @@ where
         }
 
         if contents.is_none() {
-            let (i, _) = nom::bytes::streaming::tag(EOC)(input).map_err(error::map_nom_err)?;
+            let (i, _) = nom::bytes::streaming::tag(EOC)(input).map_err(Error::map_nom_err)?;
             input = i;
         }
 
         Ok((input, container))
     } else {
-        Err(error::Error::ConstructedEncodingNotAllowed)
+        Err(Error::from(DecodeErrorKind::ConstructedEncodingNotAllowed))
     }
 }
 

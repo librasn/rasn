@@ -1,6 +1,5 @@
 use alloc::{collections::VecDeque, vec::Vec};
 use bitvec::field::BitField;
-use snafu::*;
 
 use super::{to_left_padded_vec, to_vec, FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
@@ -15,7 +14,6 @@ use crate::{
     Decode,
 };
 
-use crate::error::decode_error;
 pub use crate::error::DecodeError as Error;
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
@@ -193,10 +191,7 @@ impl<'input> Decoder<'input> {
                     3 => FOURTY_EIGHT_K.into(),
                     4 => SIXTY_FOUR_K as usize,
                     _ => {
-                        return Err(decode_error::Kind::Parser {
-                            msg: "Invalid length fragment".into(),
-                        }
-                        .into())
+                        return Err(Error::parser_fail("Invalid length fragment".into()));
                     }
                 };
 
@@ -619,10 +614,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_object_identifier(&mut self, _: Tag) -> Result<crate::types::ObjectIdentifier> {
         let octets = self.decode_octets()?.into_vec();
-
         crate::ber::decode(&octets)
-            .context(decode_error::BerSnafu)
-            .map_err(From::from)
     }
 
     fn decode_bit_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::BitString> {
@@ -698,16 +690,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let bytes = self.decode_octet_string(tag, <_>::default())?;
 
         crate::ber::decode(&bytes)
-            .context(decode_error::BerSnafu)
-            .map_err(From::from)
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
         let bytes = self.decode_octet_string(tag, <_>::default())?;
 
         crate::ber::decode(&bytes)
-            .context(decode_error::BerSnafu)
-            .map_err(From::from)
     }
 
     fn decode_sequence_of<D: Decode>(

@@ -43,20 +43,6 @@ mod tests {
         types::{constraints::*, *},
     };
     #[test]
-    fn test_object_identifier() {
-        // let oid = ObjectIdentifier::new(vec![3u32]);
-        // dbg!(&oid);
-        use crate::per::enc::Encoder;
-        let mut enc = Encoder::new(crate::per::enc::EncoderOptions::unaligned());
-        let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &[3u32]);
-        // let encoder = crate::per::encode(crate::per::enc::EncoderOptions::unaligned(), &oid);
-        dbg!(&result.as_ref().err());
-        // dbg!(result.unwrap());
-
-        // round_trip!(uper, ObjectIdentifier, oid, &[0x06, 0x09, 0x2a]);
-    }
-
-    #[test]
     fn bool() {
         round_trip!(uper, bool, true, &[0x80]);
         round_trip!(uper, bool, false, &[0]);
