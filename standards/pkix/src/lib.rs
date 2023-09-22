@@ -339,7 +339,7 @@ pub struct Extension {
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct CertificateList {
     pub tbs_cert_list: TbsCertList,
-    pub signature_algorithim: AlgorithmIdentifier,
+    pub signature_algorithm: AlgorithmIdentifier,
     pub signature: BitString,
 }
 

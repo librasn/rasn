@@ -611,7 +611,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {
-        self.decode_optional_with_tag(D::TAG)
+        if D::TAG == Tag::EOC {
+            Ok(D::decode(self).ok())
+        } else {
+            self.decode_optional_with_tag(D::TAG)
+        }
     }
 
     /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
