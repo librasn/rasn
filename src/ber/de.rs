@@ -289,13 +289,11 @@ impl<'input> Decoder<'input> {
     }
 
     /// Enforce CER/DER restrictions defined in Section 11.8, strictly raise error on non-compliant
-    pub fn parse_canonical_utc_time_string(
-        string: alloc::string::String,
-    ) -> Result<types::UtcTime, Error> {
+    pub fn parse_canonical_utc_time_string(string: &str) -> Result<types::UtcTime, Error> {
         let len = string.len();
         if string.ends_with('Z') {
             let naive = match len {
-                13 => NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
+                13 => NaiveDateTime::parse_from_str(string, "%y%m%d%H%M%SZ")
                     .map_err(|_| DecodeErrorKind::InvalidDate)?,
                 _ => Err(DecodeErrorKind::InvalidDate)?,
             };
@@ -370,35 +368,32 @@ impl<'input> crate::Decoder for Decoder<'input> {
         } else {
             let mut buffer = Vec::new();
 
-            match contents {
-                Some(mut contents) => {
-                    while !contents.is_empty() {
-                        let (c, mut vec) = self::parser::parse_encoded_value(
-                            &self.config,
-                            contents,
-                            Tag::OCTET_STRING,
-                            |input| Ok(alloc::vec::Vec::from(input)),
-                        )?;
-                        contents = c;
+            if let Some(mut contents) = contents {
+                while !contents.is_empty() {
+                    let (c, mut vec) = self::parser::parse_encoded_value(
+                        &self.config,
+                        contents,
+                        Tag::OCTET_STRING,
+                        |input| Ok(alloc::vec::Vec::from(input)),
+                    )?;
+                    contents = c;
 
-                        buffer.append(&mut vec);
-                    }
+                    buffer.append(&mut vec);
                 }
-                None => {
-                    while !self.input.starts_with(EOC) {
-                        let (c, mut vec) = self::parser::parse_encoded_value(
-                            &self.config,
-                            self.input,
-                            Tag::OCTET_STRING,
-                            |input| Ok(alloc::vec::Vec::from(input)),
-                        )?;
-                        self.input = c;
+            } else {
+                while !self.input.starts_with(EOC) {
+                    let (c, mut vec) = self::parser::parse_encoded_value(
+                        &self.config,
+                        self.input,
+                        Tag::OCTET_STRING,
+                        |input| Ok(alloc::vec::Vec::from(input)),
+                    )?;
+                    self.input = c;
 
-                        buffer.append(&mut vec);
-                    }
-
-                    self.parse_eoc()?;
+                    buffer.append(&mut vec);
                 }
+
+                self.parse_eoc()?;
             }
 
             Ok(buffer)
@@ -419,9 +414,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(&self.config, self.input, tag, |input| {
-                let unused_bits = if let Some(bits) = input.first().copied() {
-                    bits
-                } else {
+                let Some(unused_bits) = input.first().copied() else {
                     return Ok(types::BitString::new());
                 };
 
@@ -533,7 +526,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if self.config.encoding_rules.is_ber() {
             Self::parse_any_utc_time_string(string)
         } else {
-            Self::parse_canonical_utc_time_string(string)
+            Self::parse_canonical_utc_time_string(&string)
         }
     }
 
