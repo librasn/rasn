@@ -1,5 +1,5 @@
 use crate::types::constraints::{Bounded, Size};
-use snafu::*;
+use snafu::{Backtrace, GenerateImplicitData, Snafu};
 
 use alloc::string::ToString;
 
@@ -7,6 +7,7 @@ use alloc::string::ToString;
 #[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
+#[allow(clippy::module_name_repetitions)]
 pub struct EncodeError {
     kind: Kind,
     backtrace: Backtrace,

@@ -1,4 +1,4 @@
-use snafu::*;
+use snafu::{Backtrace, GenerateImplicitData, Snafu};
 
 use crate::de::Error;
 use alloc::string::ToString;
@@ -10,6 +10,7 @@ use crate::types::Tag;
 #[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
+#[allow(clippy::module_name_repetitions)]
 pub struct DecodeError {
     kind: Kind,
     backtrace: Backtrace,
@@ -50,10 +51,10 @@ impl DecodeError {
     }
 
     pub(crate) fn assert_tag(expected: Tag, actual: Tag) -> core::result::Result<(), DecodeError> {
-        if expected != actual {
-            Err(DecodeError::from(Kind::MismatchedTag { expected, actual }))
-        } else {
+        if expected == actual {
             Ok(())
+        } else {
+            Err(DecodeError::from(Kind::MismatchedTag { expected, actual }))
         }
     }
 
@@ -61,13 +62,13 @@ impl DecodeError {
         expected: usize,
         actual: usize,
     ) -> core::result::Result<(), DecodeError> {
-        if expected != actual {
+        if expected == actual {
+            Ok(())
+        } else {
             Err(DecodeError::from(Kind::MismatchedLength {
                 expected,
                 actual,
             }))
-        } else {
-            Ok(())
         }
     }
 
