@@ -150,3 +150,17 @@ pub struct BasicConstraints {
     pub ca: bool,
     pub path_len_constraint: Option<Integer>,
 }
+
+#[test]
+fn result_scoping() {
+    enum Error {}
+    type Result<T> = core::result::Result<T, Error>;
+
+    #[derive(rasn::AsnType, rasn::Encode, rasn::Decode)]
+    #[rasn(choice)]
+    enum Choose {
+        Single(String),
+    }
+
+    let _: Result<()> = Ok(());
+}
