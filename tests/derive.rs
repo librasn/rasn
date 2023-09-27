@@ -151,6 +151,8 @@ pub struct BasicConstraints {
     pub path_len_constraint: Option<Integer>,
 }
 
+// This test will fail to compile if `Result` is used in the derive/proc macros instead of
+// `core::result::Result`
 #[test]
 fn result_scoping() {
     enum Error {}
