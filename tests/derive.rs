@@ -151,6 +151,8 @@ pub struct BasicConstraints {
     pub path_len_constraint: Option<Integer>,
 }
 
+// This test makes sure that Newtype3(Newtype2(Newtype1(T))) results in serializing
+// as T when using the #[rasn(delegate)] attribute when T is a non-universal type.
 #[test]
 fn delegated_newtype_wrapping() {
     #[derive(AsnType, Debug, Decode, Encode, PartialEq)]
