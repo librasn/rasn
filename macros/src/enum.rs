@@ -249,7 +249,7 @@ impl Enum {
             quote! {
                 #[automatically_derived]
                 impl #impl_generics #crate_root::types::DecodeChoice for #name #ty_generics #where_clause {
-                    fn from_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
+                    fn from_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
                         use #crate_root::de::Decode;
                         #from_tag
                     }
