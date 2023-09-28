@@ -27,11 +27,18 @@ pub fn derive_struct_impl(
             }
         } else {
             quote! {
-                <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
-                    decoder,
-                    tag,
-                    <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints),
-                ).map(Self)
+                match tag {
+                    #crate_root::Tag::EOC => {
+                        Ok(Self(<#ty>::decode(decoder)?))
+                    }
+                    _ => {
+                        <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
+                            decoder,
+                            tag,
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints),
+                        ).map(Self)
+                    }
+                }
             }
         }
     } else if config.set {

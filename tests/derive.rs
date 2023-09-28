@@ -151,6 +151,33 @@ pub struct BasicConstraints {
     pub path_len_constraint: Option<Integer>,
 }
 
+// This test makes sure that Newtype3(Newtype2(Newtype1(T))) results in serializing
+// as T when using the #[rasn(delegate)] attribute when T is a non-universal type.
+#[test]
+fn delegated_newtype_wrapping() {
+    #[derive(AsnType, Debug, Decode, Encode, PartialEq)]
+    #[rasn(choice)]
+    enum Hash {
+        #[rasn(tag(explicit(0)))]
+        Sha256(String),
+    }
+
+    #[derive(AsnType, Debug, Decode, Encode, PartialEq)]
+    #[rasn(delegate)]
+    struct TransactionID(Hash);
+
+    #[derive(AsnType, Debug, Decode, Encode, PartialEq)]
+    #[rasn(delegate)]
+    struct PolicyID(TransactionID);
+
+    let policy_id1 = PolicyID(TransactionID(Hash::Sha256("abcdef".into())));
+
+    let ser = rasn::der::encode(&policy_id1).unwrap();
+    assert_eq!(&ser[..], &[160, 8, 12, 6, 97, 98, 99, 100, 101, 102]);
+    let policy_id2: PolicyID = rasn::der::decode(&ser[..]).unwrap();
+    assert_eq!(policy_id1, policy_id2);
+}
+
 // This test will fail to compile if `Result` is used in the derive/proc macros instead of
 // `core::result::Result`
 #[test]
