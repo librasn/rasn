@@ -193,3 +193,20 @@ fn result_scoping() {
 
     let _: Result<()> = Ok(());
 }
+
+// This makes sure enum fields can have a field named "tag"
+#[test]
+fn enum_with_tag_name_variant() {
+    #[derive(AsnType, Encode, Decode)]
+    #[rasn(choice)]
+    enum MyEnum {
+        #[rasn(tag(explicit(0)))]
+        HasTagField {
+            #[rasn(tag(explicit(0)))]
+            note_id: u8,
+            // we should allow named enum fields called "tag"
+            #[rasn(tag(explicit(1)))]
+            tag: String,
+        },
+    }
+}
