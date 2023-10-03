@@ -312,6 +312,11 @@ impl Enum {
                         let ident = f.ident.as_ref().unwrap();
                         quote!(#ident)
                     });
+                    let idents_prefixed = v.fields.iter().map(|f| {
+                        let ident = f.ident.as_ref().unwrap();
+                        let ident_prefixed = format_ident!("__rasn_field_{}", ident);
+                        quote!(#ident_prefixed)
+                    });
 
                     let tag_tokens = variant_tag.to_tokens(crate_root);
                     let encode_impl = crate::encode::map_to_inner_type(
@@ -323,7 +328,7 @@ impl Enum {
                         variant_config.has_explicit_tag(),
                     );
 
-                    quote!(#name::#ident { #(#idents),* } => { #encode_impl.map(|_| #tag_tokens) })
+                    quote!(#name::#ident { #(#idents: #idents_prefixed),* } => { #encode_impl.map(|_| #tag_tokens) })
                 }
                 syn::Fields::Unnamed(_) => {
                     if v.fields.iter().count() != 1 {

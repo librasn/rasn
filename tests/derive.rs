@@ -194,17 +194,16 @@ fn result_scoping() {
     let _: Result<()> = Ok(());
 }
 
-// This makes sure enum fields can have a field named "tag"
+// This makes sure enum fields can have a field named `encoder` or `tag`
 #[test]
-fn enum_with_tag_name_variant() {
+fn enum_with_encoder_tag_name_variants() {
     #[derive(AsnType, Encode, Decode)]
     #[rasn(choice)]
     enum MyEnum {
         #[rasn(tag(explicit(0)))]
-        HasTagField {
+        HasConflictingFields {
             #[rasn(tag(explicit(0)))]
-            note_id: u8,
-            // we should allow named enum fields called "tag"
+            encoder: String,
             #[rasn(tag(explicit(1)))]
             tag: String,
         },
