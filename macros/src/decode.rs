@@ -131,7 +131,7 @@ pub fn derive_struct_impl(
                 };
 
                 (
-                    quote!(const #const_name: Tag = #tag;),
+                    quote!(const #const_name: #crate_root::Tag = #tag;),
                     quote!((#context, #const_name) => { #choice_name::#field_name(#decode_impl) }),
                     quote!(#choice_name::#field_name(value) => { #set_field_impl })
                 )
