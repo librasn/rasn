@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.5...rasn-v0.10.0) - 2023-10-03
+
+### Other
+- Gensym field names ([#166](https://github.com/XAMPPRocky/rasn/pull/166))
+- Delegate newtype EOC ([#163](https://github.com/XAMPPRocky/rasn/pull/163))
+- Fix Result scoping ([#162](https://github.com/XAMPPRocky/rasn/pull/162))
+- Fix/issue 141 ([#158](https://github.com/XAMPPRocky/rasn/pull/158))
+- Fix/infinite recursion ([#157](https://github.com/XAMPPRocky/rasn/pull/157))
+- Fix/constrained extension ([#156](https://github.com/XAMPPRocky/rasn/pull/156))
+- fmt
+- Add FixedBitString, use BitStr for encoding
+- use existing codec type
+- Split and improve UTCTime type ([#152](https://github.com/XAMPPRocky/rasn/pull/152))
+- split OID codec functionality to be usable by other codecs ([#144](https://github.com/XAMPPRocky/rasn/pull/144))
+- document Codec and methods
+- Add `Codec` enum, update `rasn_snmp::v3::Message`
+- Improves BER GeneralizedTime decoders, support for CER/DER strict mode ([#150](https://github.com/XAMPPRocky/rasn/pull/150))
+
 ## [0.9.5](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.4...rasn-v0.9.5) - 2023-08-24
 
 ### Other
