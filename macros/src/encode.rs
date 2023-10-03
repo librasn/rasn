@@ -119,7 +119,8 @@ pub fn map_to_inner_type(
 
             let init_fields = fields.iter().map(|field| {
                 let name = field.ident.as_ref().unwrap();
-                quote!(#name : &#name)
+                let name_prefixed = format_ident!("__rasn_field_{}", name);
+                quote!(#name : &#name_prefixed)
             });
 
             fn wrap(
@@ -182,8 +183,11 @@ fn fields_as_vars(fields: &syn::Fields) -> impl Iterator<Item = proc_macro2::Tok
 
         let name = field
             .ident
-            .is_some()
-            .then(|| self_name.clone())
+            .as_ref()
+            .map(|ident| {
+                let prefixed = format_ident!("__rasn_field_{}", ident);
+                quote!(#prefixed)
+            })
             .unwrap_or_else(|| {
                 let ident = format_ident!("i{}", i);
                 quote!(#ident)
