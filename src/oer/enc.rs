@@ -7,8 +7,8 @@ pub use error::Error;
 
 use crate::oer::helpers;
 use crate::prelude::{
-    Any, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime, Ia5String,
-    NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
+    Any, BitStr, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime,
+    Ia5String, NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
 };
 
 use crate::types::{fields::FieldPresence, BitString, Constraints, Integer};
@@ -559,7 +559,7 @@ impl crate::Encoder for Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &BitString,
+        value: &BitStr,
     ) -> Result<Self::Ok, Self::Error> {
         // TODO When Rec. ITU-T X.680 | ISO/IEC 8824-1, 22.7 applies (i.e., the bitstring type is defined with a
         // "NamedBitList"), the bitstring value shall be encoded with trailing 0 bits added or removed as necessary to satisfy the
@@ -568,7 +568,7 @@ impl crate::Encoder for Encoder {
         self.set_bit(tag, true)?;
         let mut buffer = BitString::default();
 
-        let fixed_size_encode = |value: &BitString| {
+        let fixed_size_encode = |value: &BitStr| {
             let missing_bits: usize = 8 - value.len() % 8;
             let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
             if missing_bits > 0 {
