@@ -892,10 +892,22 @@ mod tests {
             A(bool),
             B(BoolChoice),
         }
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum FourthChoice {
+            A(TripleChoice),
+            B(bool),
+        }
         // round_trip!(
         //     uper,
         //     TripleChoice,
         //     TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
+        //     &[192, 16, 10, 104]
+        // );
+        // round_trip!(
+        //     uper,
+        //     FourthChoice,
+        //     FourthChoice::A(TripleChoice::B(BoolChoice::C(Choice::Normal(333.into())))),
         //     &[192, 16, 10, 104]
         // );
     }
