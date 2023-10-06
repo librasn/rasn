@@ -913,7 +913,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
             } else {
                 let variance = variants.len();
                 let constraints =
-                    constraints::Value::new(constraints::Bounded::new(0, variance as i128)).into();
+                    constraints::Value::new(constraints::Bounded::new(0, (variance - 1) as i128))
+                        .into();
                 self.parse_integer(Constraints::new(&[constraints]))?
             })
             .map_err(|error| {

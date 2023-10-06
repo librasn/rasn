@@ -863,7 +863,7 @@ mod tests {
         round_trip!(uper, TopLevel, test_value, &[8, 128]);
     }
     #[test]
-    fn only_nested_choice() {
+    fn deeply_nested_choice() {
         use crate as rasn;
         #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
         #[rasn(choice, automatic_tags)]
@@ -872,6 +872,12 @@ mod tests {
             High(Integer),
             Medium(Integer),
         }
+        round_trip!(
+            uper,
+            Choice,
+            Choice::Medium(333.into()),
+            &[128, 128, 83, 64]
+        );
         #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
         #[rasn(choice, automatic_tags)]
         enum BoolChoice {
@@ -898,17 +904,17 @@ mod tests {
             A(TripleChoice),
             B(bool),
         }
-        // round_trip!(
-        //     uper,
-        //     TripleChoice,
-        //     TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
-        //     &[192, 16, 10, 104]
-        // );
-        // round_trip!(
-        //     uper,
-        //     FourthChoice,
-        //     FourthChoice::A(TripleChoice::B(BoolChoice::C(Choice::Normal(333.into())))),
-        //     &[192, 16, 10, 104]
-        // );
+        round_trip!(
+            uper,
+            TripleChoice,
+            TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
+            &[192, 16, 10, 104]
+        );
+        round_trip!(
+            uper,
+            FourthChoice,
+            FourthChoice::A(TripleChoice::B(BoolChoice::C(Choice::Normal(333.into())))),
+            &[96, 8, 5, 52]
+        );
     }
 }

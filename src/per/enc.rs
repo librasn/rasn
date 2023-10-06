@@ -1089,13 +1089,12 @@ impl crate::Encoder for Encoder {
         } else {
             Some(None)
         };
-
         match (index, bounds) {
             (index, Some(Some(variance))) => {
                 self.encode_integer_into_buffer(
                     Constraints::new(&[constraints::Value::new(constraints::Bounded::new(
                         0,
-                        variance as i128,
+                        (variance - 1) as i128,
                     ))
                     .into()]),
                     &index.into(),
@@ -1111,7 +1110,6 @@ impl crate::Encoder for Encoder {
                 if output.is_empty() {
                     output.push(0);
                 }
-
                 self.encode_octet_string_into_buffer(<_>::default(), &output, &mut buffer)?;
             }
             (_, None) => {}
