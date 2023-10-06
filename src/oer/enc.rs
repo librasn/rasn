@@ -811,8 +811,14 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        value.encode_with_tag(self, tag)
-        // value.encode(self)
+        if let Some((_, true)) = self.field_bitfield.get(&tag) {
+            value.encode(self)
+        } else if self.field_bitfield.get(&tag).is_none() {
+            value.encode(self)
+        } else {
+            self.set_bit(tag, true)?;
+            value.encode_with_tag(self, tag)
+        }
     }
 
     fn encode_sequence<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>

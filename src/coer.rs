@@ -449,8 +449,9 @@ mod tests {
     }
     #[test]
     fn test_choice() {
-        use crate as rasn;
+        // use crate as rasn;
         #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
         #[rasn(choice, automatic_tags)]
         #[non_exhaustive]
         enum Choice {
@@ -479,6 +480,7 @@ mod tests {
         );
 
         #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
         #[rasn(choice, automatic_tags)]
         #[non_exhaustive]
         enum BoolChoice {
@@ -489,26 +491,59 @@ mod tests {
         }
         round_trip!(coer, BoolChoice, BoolChoice::A(true), &[0x80, 0xff]);
         round_trip!(coer, BoolChoice, BoolChoice::B(true), &[0x81, 0x01, 0xff]);
-        // round_trip!(
-        //     coer,
-        //     BoolChoice,
-        //     BoolChoice::C(Choice::Normal(333.into())),
-        //     &[0x82, 0x80, 0x02, 0x01, 0x4d]
-        // );
-        // #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
-        // #[rasn(choice, automatic_tags)]
-        // #[non_exhaustive]
-        // enum TripleChoice {
-        //     A(bool),
-        //     B(BoolChoice),
-        // }
-        // round_trip!(coer, TripleChoice, TripleChoice::A(true), &[0x80, 0xff]);
-        // round_trip!(
-        //     coer,
-        //     TripleChoice,
-        //     TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
-        //     &[0x81, 0x82, 0x80, 0x02, 0x01, 0x4d]
-        // );
+        round_trip!(
+            coer,
+            BoolChoice,
+            BoolChoice::C(Choice::Normal(333.into())),
+            &[0x82, 0x80, 0x02, 0x01, 0x4d]
+        );
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum TripleChoice {
+            A(bool),
+            B(BoolChoice),
+        }
+        round_trip!(coer, TripleChoice, TripleChoice::A(true), &[0x80, 0xff]);
+        round_trip!(
+            coer,
+            TripleChoice,
+            TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
+            &[0x81, 0x82, 0x80, 0x02, 0x01, 0x4d]
+        );
+        #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum TestChoice {
+            Number1(()),
+            Number2(bool),
+            Number3(Box<TopLevel>),
+        }
+
+        #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[rasn(automatic_tags)]
+        struct TopLevel {
+            #[rasn(value("1..=8"))]
+            pub test: u8,
+            pub choice: TestChoice,
+        }
+
+        impl TopLevel {
+            pub fn new(test: u8, choice: TestChoice) -> Self {
+                Self { test, choice }
+            }
+        }
+
+        let test_value = TopLevel::new(
+            1,
+            TestChoice::Number3(Box::new(TopLevel {
+                test: 2,
+                choice: TestChoice::Number1(()),
+            })),
+        );
+        round_trip!(coer, TopLevel, test_value, &[1, 130, 2, 128]);
     }
     #[test]
     fn test_numeric_string() {
