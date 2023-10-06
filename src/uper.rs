@@ -860,11 +860,43 @@ mod tests {
                 choice: TestChoice::Number1(()),
             })),
         );
+        round_trip!(uper, TopLevel, test_value, &[8, 128]);
+    }
+    #[test]
+    fn only_nested_choice() {
+        use crate as rasn;
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum Choice {
+            Normal(Integer),
+            High(Integer),
+            Medium(Integer),
+        }
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum BoolChoice {
+            A(bool),
+            B(bool),
+            C(Choice),
+        }
         round_trip!(
             uper,
-            TopLevel,
-            test_value,
-            &[8,128]
+            BoolChoice,
+            BoolChoice::C(Choice::Normal(333.into())),
+            &[128, 32, 20, 208]
         );
+
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum TripleChoice {
+            A(bool),
+            B(BoolChoice),
+        }
+        // round_trip!(
+        //     uper,
+        //     TripleChoice,
+        //     TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
+        //     &[192, 16, 10, 104]
+        // );
     }
 }
