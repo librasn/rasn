@@ -912,6 +912,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 self.parse_normally_small_integer()?
             } else {
                 let variance = variants.len();
+                debug_assert!(variance > 0);
                 // https://github.com/XAMPPRocky/rasn/issues/168
                 // Choice index starts from zero, so we need to reduce variance by one
                 let choice_range =

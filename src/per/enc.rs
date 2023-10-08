@@ -1080,6 +1080,7 @@ impl crate::Encoder for Encoder {
 
         let bounds = if is_root_extension {
             let variance = variants.len();
+            debug_assert!(variance > 0);
 
             if variance != 1 {
                 Some(Some(variance))
