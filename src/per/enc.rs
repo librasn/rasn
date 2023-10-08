@@ -1091,12 +1091,15 @@ impl crate::Encoder for Encoder {
         };
         match (index, bounds) {
             (index, Some(Some(variance))) => {
+                // https://github.com/XAMPPRocky/rasn/issues/168
+                // Choice index starts from zero, so we need to reduce variance by one
+                let choice_range = &[constraints::Value::new(constraints::Bounded::new(
+                    0,
+                    (variance - 1) as i128,
+                ))
+                .into()];
                 self.encode_integer_into_buffer(
-                    Constraints::new(&[constraints::Value::new(constraints::Bounded::new(
-                        0,
-                        (variance - 1) as i128,
-                    ))
-                    .into()]),
+                    Constraints::from(choice_range),
                     &index.into(),
                     &mut buffer,
                 )?;
