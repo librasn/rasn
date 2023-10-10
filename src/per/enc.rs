@@ -987,12 +987,16 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        if let Some((_,true)) = self.field_bitfield.get(&tag) {
+        if let Some((_, true)) = self.field_bitfield.get(&tag) {
+            value.encode(self)
+        } else if self.field_bitfield.get(&tag).is_none() {
+            // There is no bitfield if none of the parent objects is struct/set
+            // But we still need to handle nested choices explicitly
             value.encode(self)
         } else {
-        self.set_bit(tag, true)?;
-        value.encode_with_tag(self, tag)
-    }
+            self.set_bit(tag, true)?;
+            value.encode_with_tag(self, tag)
+        }
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
@@ -1076,6 +1080,7 @@ impl crate::Encoder for Encoder {
 
         let bounds = if is_root_extension {
             let variance = variants.len();
+            debug_assert!(variance > 0);
 
             if variance != 1 {
                 Some(Some(variance))
@@ -1085,15 +1090,17 @@ impl crate::Encoder for Encoder {
         } else {
             Some(None)
         };
-
         match (index, bounds) {
             (index, Some(Some(variance))) => {
+                // https://github.com/XAMPPRocky/rasn/issues/168
+                // Choice index starts from zero, so we need to reduce variance by one
+                let choice_range = &[constraints::Value::new(constraints::Bounded::new(
+                    0,
+                    (variance - 1) as i128,
+                ))
+                .into()];
                 self.encode_integer_into_buffer(
-                    Constraints::new(&[constraints::Value::new(constraints::Bounded::new(
-                        0,
-                        variance as i128,
-                    ))
-                    .into()]),
+                    Constraints::from(choice_range),
                     &index.into(),
                     &mut buffer,
                 )?;
@@ -1107,7 +1114,6 @@ impl crate::Encoder for Encoder {
                 if output.is_empty() {
                     output.push(0);
                 }
-
                 self.encode_octet_string_into_buffer(<_>::default(), &output, &mut buffer)?;
             }
             (_, None) => {}

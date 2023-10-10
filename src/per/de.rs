@@ -912,9 +912,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 self.parse_normally_small_integer()?
             } else {
                 let variance = variants.len();
-                let constraints =
-                    constraints::Value::new(constraints::Bounded::new(0, variance as i128)).into();
-                self.parse_integer(Constraints::new(&[constraints]))?
+                debug_assert!(variance > 0);
+                // https://github.com/XAMPPRocky/rasn/issues/168
+                // Choice index starts from zero, so we need to reduce variance by one
+                let choice_range =
+                    constraints::Value::new(constraints::Bounded::new(0, (variance - 1) as i128))
+                        .into();
+                self.parse_integer(Constraints::new(&[choice_range]))?
             })
             .map_err(|error| {
                 Error::choice_index_exceeds_platform_width(
