@@ -236,7 +236,9 @@ impl Encoder {
                         value.to_octet_aligned_index_string()
                     }
                 });
-                let value = value.to_index_string();
+                // 30.5.4 Rec. ITU-T X.691 (02/2021)
+                let value = value.to_index_or_value_bitstring();
+
                 let octet_aligned_value = &octet_aligned_value;
                 self.encode_string_length(
                     &mut buffer,

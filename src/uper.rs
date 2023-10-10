@@ -199,6 +199,65 @@ mod tests {
             &[0x02, 0x39, 0x12]
         );
     }
+    #[test]
+    fn printable_string() {
+        round_trip_with_constraints!(
+            uper,
+            PrintableString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(16)).into())]),
+            PrintableString::from_bytes("0123456789abcdef".as_bytes()).unwrap(),
+            &[0x60, 0xc5, 0x93, 0x36, 0x8d, 0x5b, 0x37, 0x70, 0xe7, 0x0e, 0x2c, 0x79, 0x32, 0xe6]
+        );
+        round_trip_with_constraints!(
+            uper,
+            PrintableString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: 0.into(),
+                    end: 31.into()
+                })
+                .into()
+            )]),
+            "".try_into().unwrap(),
+            &[0x00]
+        );
+        round_trip_with_constraints!(
+            uper,
+            PrintableString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: 0.into(),
+                    end: 31.into()
+                })
+                .into()
+            )]),
+            "2".try_into().unwrap(),
+            &[0x0b, 0x20]
+        );
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct PrintStruct {
+            a: bool,
+            #[rasn(size("36"))]
+            b: PrintableString,
+            c: bool,
+        }
+        round_trip!(
+            uper,
+            PrintStruct,
+            PrintStruct {
+                a: true,
+                b: "123123123123123123123123123123123123".try_into().unwrap(),
+                c: true
+            },
+            &[
+                0xb1, 0x64, 0xcd, 0x8b, 0x26, 0x6c, 0x59, 0x33, 0x62, 0xc9, 0x9b, 0x16, 0x4c, 0xd8,
+                0xb2, 0x66, 0xc5, 0x93, 0x36, 0x2c, 0x99, 0xb1, 0x64, 0xcd, 0x8b, 0x26, 0x6c, 0x59,
+                0x33, 0x62, 0xc9, 0x9c
+            ]
+        );
+    }
 
     #[test]
     fn choice() {
