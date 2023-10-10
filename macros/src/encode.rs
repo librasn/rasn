@@ -153,11 +153,11 @@ pub fn map_to_inner_type(
         syn::Fields::Unit => (quote!(;), quote!()),
     };
 
+    let tag = tag.to_tokens(crate_root);
     let inner_impl = if is_explicit {
-        let tag = tag.to_tokens(crate_root);
         quote!(encoder.encode_explicit_prefix(#tag, &inner).map(drop))
     } else {
-        quote!(inner.encode(encoder))
+        quote!(inner.encode_with_tag(encoder, #tag))
     };
 
     quote! {
