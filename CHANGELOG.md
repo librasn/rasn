@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.0...rasn-v0.10.1) - 2023-10-10
+
+### Fixed
+- *(de)* missing `decode_default_with_tag_and_constraints` ([#170](https://github.com/XAMPPRocky/rasn/pull/170))
+
+### Other
+- Fix nested choice when no struct/set present ([#169](https://github.com/XAMPPRocky/rasn/pull/169))
+- Update rust.yml
+
 ## [0.10.0](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.5...rasn-v0.10.0) - 2023-10-03
 
 ### Other
