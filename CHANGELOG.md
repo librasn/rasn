@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.3](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.2...rasn-v0.10.3) - 2023-10-11
+
+### Other
+- Fixes [#146](https://github.com/XAMPPRocky/rasn/pull/146), VisibleString character set ([#147](https://github.com/XAMPPRocky/rasn/pull/147))
+- Fix/uper integer ([#174](https://github.com/XAMPPRocky/rasn/pull/174))
+
 ## [0.10.2](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.1...rasn-v0.10.2) - 2023-10-10
 
 ### Other
