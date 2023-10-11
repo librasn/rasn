@@ -31,6 +31,14 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         range
     }
 
+    fn to_index_or_value_bitstring(&self) -> types::BitString {
+        if should_be_indexed(Self::CHARACTER_WIDTH, Self::CHARACTER_SET) {
+            self.to_index_string()
+        } else {
+            self.to_bit_string()
+        }
+    }
+
     fn to_index_string(&self) -> types::BitString {
         let index_map = Self::index_map();
         let mut index_string = types::BitString::new();
@@ -164,18 +172,33 @@ pub(crate) fn try_from_permitted_alphabet<S: StaticPermittedAlphabet>(
 ) -> Result<S, FromPermittedAlphabetError> {
     let mut string = S::default();
     let permitted_alphabet_char_width = crate::per::log2(alphabet.len() as i128);
-
-    for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
-        let index = ch.load_be();
-
-        string.push_char(
-            *alphabet
-                .get(&index)
-                .ok_or(FromPermittedAlphabetError::IndexNotFound { index })?,
-        );
+    // Alphabet should be always indexed key-alphabetvalue pairs at this point
+    let values_only = alphabet.values().copied().collect::<Vec<u32>>();
+    if should_be_indexed(permitted_alphabet_char_width, &values_only) {
+        for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
+            let index = ch.load_be();
+            string.push_char(
+                *alphabet
+                    .get(&index)
+                    .ok_or(FromPermittedAlphabetError::IndexNotFound { index })?,
+            );
+        }
+    } else {
+        for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
+            let value = ch.load_be();
+            string.push_char(value);
+        }
     }
 
     Ok(string)
+}
+pub(crate) fn should_be_indexed(width: u32, character_set: &[u32]) -> bool {
+    let largest_value = character_set.iter().copied().max().unwrap_or(0);
+    if 2u32.pow(width) - 1 >= largest_value {
+        false
+    } else {
+        true
+    }
 }
 
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -196,20 +219,35 @@ impl DynConstrainedCharacterString {
     ) -> Result<Self, ConstrainedConversionError> {
         let mut buffer = types::BitString::new();
         let char_width = crate::per::log2(character_set.len() as i128);
-        let alphabet = BTreeMap::from_iter(
-            character_set
-                .iter()
-                .enumerate()
-                .map(|(i, a)| (*a, i as u32)),
-        );
-
-        for ch in data {
-            let Some(index) = alphabet.get(&ch).copied() else {
-                return Err(ConstrainedConversionError);
-            };
-            let range = ((u32::BITS - char_width) as usize)..(u32::BITS as usize);
-            let bit_ch = &index.view_bits::<Msb0>()[range];
-            buffer.extend_from_bitslice(bit_ch);
+        let indexed = should_be_indexed(char_width, character_set);
+        let alphabet: BTreeMap<u32, u32>;
+        if indexed {
+            alphabet = BTreeMap::from_iter(
+                character_set
+                    .iter()
+                    .enumerate()
+                    .map(|(i, a)| (*a, i as u32)),
+            );
+            for ch in data {
+                let Some(index) = alphabet.get(&ch).copied() else {
+                    return Err(ConstrainedConversionError);
+                };
+                let range = ((u32::BITS - char_width) as usize)..(u32::BITS as usize);
+                let bit_ch = &index.view_bits::<Msb0>()[range];
+                buffer.extend_from_bitslice(bit_ch);
+            }
+        } else {
+            alphabet = BTreeMap::from_iter(
+                character_set
+                    .iter()
+                    .enumerate()
+                    .map(|(i, a)| (i as u32, *a)),
+            );
+            for ch in data {
+                let range = ((u32::BITS - char_width) as usize)..(u32::BITS as usize);
+                let bit_ch = &ch.view_bits::<Msb0>()[range];
+                buffer.extend_from_bitslice(bit_ch);
+            }
         }
 
         Ok(Self {
