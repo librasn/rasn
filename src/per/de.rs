@@ -381,15 +381,7 @@ impl<'input> Decoder<'input> {
                         .checked_mul(8)
                         .ok_or(Error::exceeds_max_length(u32::MAX.into()))?;
                     self.parse_non_negative_binary_integer(super::range_from_bits(range))?
-                }
-                (false, OVER_K64..) => {
-                    let bytes = to_vec(&self.decode_octets()?);
-                    value_constraint
-                        .constraint
-                        .as_start()
-                        .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
-                        .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
-                }
+                },
                 (_, _) => self.parse_non_negative_binary_integer(range)?,
             }
         } else {
