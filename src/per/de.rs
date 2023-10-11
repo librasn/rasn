@@ -381,7 +381,7 @@ impl<'input> Decoder<'input> {
                         .checked_mul(8)
                         .ok_or(Error::exceeds_max_length(u32::MAX.into()))?;
                     self.parse_non_negative_binary_integer(super::range_from_bits(range))?
-                },
+                }
                 (_, _) => self.parse_non_negative_binary_integer(range)?,
             }
         } else {
