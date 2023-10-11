@@ -68,13 +68,35 @@ pub(crate) fn range_from_bits(bits: u32) -> i128 {
 }
 
 // Workaround for https://github.com/ferrilab/bitvec/issues/228
-pub(crate) fn to_vec(slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>) -> Vec<u8> {
+pub(crate) fn to_vec(
+    slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>,
+    pad_start: bool,
+) -> Vec<u8> {
     use bitvec::prelude::*;
     let mut vec = Vec::new();
 
-    for slice in slice.chunks(8) {
-        vec.push(slice.load_be());
+    if pad_start {
+        for slice in pad(slice).chunks(8) {
+            vec.push(slice.load_be());
+        }
+    } else {
+        for slice in slice.chunks(8) {
+            vec.push(slice.load_be());
+        }
     }
 
     vec
+}
+
+fn pad(
+    output: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>,
+) -> bitvec::prelude::BitVec<u8, bitvec::order::Msb0> {
+    let missing_bits = 8 - output.len() % 8;
+    if missing_bits == 8 {
+        output.to_bitvec()
+    } else {
+        let mut padding = bitvec::bitvec![u8, bitvec::prelude::Msb0; 0; missing_bits];
+        padding.append(&mut output.to_bitvec());
+        padding
+    }
 }
