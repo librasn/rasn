@@ -678,11 +678,6 @@ impl Encoder {
                         );
                     }
                 }
-                (false, OVER_K64..) => {
-                    self.encode_length(buffer, bytes.len(), <_>::default(), |range| {
-                        Ok(BitString::from_slice(&bytes[range]))
-                    })?;
-                }
                 (_, _) => self.encode_non_negative_binary_integer(buffer, range, &bytes),
             }
         } else {
