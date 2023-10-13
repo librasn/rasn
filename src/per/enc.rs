@@ -1113,7 +1113,9 @@ impl crate::Encoder for Encoder {
                 }
                 self.encode_octet_string_into_buffer(<_>::default(), &output, &mut buffer)?;
             }
-            (_, None) => {}
+            (_, None) => {
+                buffer.extend(choice_encoder.output);
+            }
         }
 
         self.extend(tag, &buffer);
