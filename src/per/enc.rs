@@ -617,17 +617,20 @@ impl Encoder {
         value: &num_bigint::BigInt,
         buffer: &mut BitString,
     ) -> Result<()> {
-        self.encode_extensible_bit(&constraints, buffer, || {
+        let is_extended_value = self.encode_extensible_bit(&constraints, buffer, || {
             constraints.value().map_or(false, |value_range| {
                 value_range.extensible.is_some() && value_range.constraint.bigint_contains(value)
             })
         });
-        let Some(value_range) = constraints.value() else {
+        
+        let value_range = if is_extended_value || constraints.value().is_none() {
             let bytes = value.to_signed_bytes_be();
             self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
             })?;
             return Ok(());
+        } else {
+            constraints.value().unwrap()
         };
 
         let bytes = match value_range.constraint.effective_bigint_value(value.clone()) {
