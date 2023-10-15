@@ -87,7 +87,7 @@ pub(crate) fn to_left_padded_vec(slice: &bitvec::slice::BitSlice<u8, bitvec::ord
     let mut vec = Vec::new();
 
     let missing_bits = 8 - slice.len() % 8;
-    if missing_bits != 8 {
+    if missing_bits == 8 {
         to_vec(slice)
     } else {
         let mut padding = bitvec::bitvec![u8, bitvec::prelude::Msb0; 0; missing_bits];
