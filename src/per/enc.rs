@@ -99,7 +99,7 @@ impl Encoder {
     pub fn output(self) -> Vec<u8> {
         let mut output = self.bitstring_output();
         Self::force_pad_to_alignment(&mut output);
-        super::to_vec(&output, false)
+        super::to_vec(&output)
     }
 
     pub fn bitstring_output(self) -> BitString {

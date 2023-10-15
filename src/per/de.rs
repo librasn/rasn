@@ -4,7 +4,7 @@ use alloc::{collections::VecDeque, vec::Vec};
 use bitvec::field::BitField;
 use snafu::*;
 
-use super::{to_vec, FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
+use super::{to_vec, FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K, to_left_padded_vec};
 use crate::{
     de::Error as _,
     types::{
@@ -342,7 +342,7 @@ impl<'input> Decoder<'input> {
             data.to_bitvec()
         };
 
-        Ok(num_bigint::BigUint::from_bytes_be(&to_vec(&data, true)).into())
+        Ok(num_bigint::BigUint::from_bytes_be(&to_left_padded_vec(&data)).into())
     }
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
@@ -350,7 +350,7 @@ impl<'input> Decoder<'input> {
         let value_constraint = constraints.value();
 
         let Some(value_constraint) = value_constraint.filter(|_| !extensible) else {
-            let bytes = to_vec(&self.decode_octets()?, false);
+            let bytes = to_vec(&self.decode_octets()?);
             return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes));
         };
 
@@ -385,7 +385,7 @@ impl<'input> Decoder<'input> {
                 (_, _) => self.parse_non_negative_binary_integer(range)?,
             }
         } else {
-            let bytes = to_vec(&self.decode_octets()?, false);
+            let bytes = to_vec(&self.decode_octets()?);
             value_constraint
                 .constraint
                 .as_start()
@@ -567,7 +567,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             Ok(input)
         })?;
 
-        Ok(types::Any::new(to_vec(&octet_string, false)))
+        Ok(types::Any::new(to_vec(&octet_string)))
     }
 
     fn decode_bool(&mut self, _: Tag) -> Result<bool> {
@@ -992,11 +992,11 @@ mod tests {
     fn bitvec() {
         use bitvec::prelude::*;
         assert_eq!(
-            to_vec(bitvec::bits![u8, Msb0;       0, 0, 0, 1, 1, 1, 0, 1], false),
+            to_vec(bitvec::bits![u8, Msb0;       0, 0, 0, 1, 1, 1, 0, 1]),
             vec![29]
         );
         assert_eq!(
-            to_vec(&bitvec::bits![u8, Msb0; 1, 1, 0, 0, 0, 1, 1, 1, 0, 1][2..], false),
+            to_vec(&bitvec::bits![u8, Msb0; 1, 1, 0, 0, 0, 1, 1, 1, 0, 1][2..]),
             vec![29]
         );
     }
