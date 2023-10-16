@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.4](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.3...rasn-v0.10.4) - 2023-10-16
+
+### Other
+- four uper issues ([#177](https://github.com/XAMPPRocky/rasn/pull/177))
+
 ## [0.10.3](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.2...rasn-v0.10.3) - 2023-10-11
 
 ### Other
