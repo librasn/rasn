@@ -4,7 +4,7 @@ use alloc::{collections::VecDeque, vec::Vec};
 use bitvec::field::BitField;
 use snafu::*;
 
-use super::{to_vec, FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
+use super::{to_vec, FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K, to_left_padded_vec};
 use crate::{
     de::Error as _,
     types::{
@@ -342,7 +342,7 @@ impl<'input> Decoder<'input> {
             data.to_bitvec()
         };
 
-        Ok(num_bigint::BigUint::from_bytes_be(&to_vec(&data)).into())
+        Ok(num_bigint::BigUint::from_bytes_be(&to_left_padded_vec(&data)).into())
     }
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {

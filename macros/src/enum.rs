@@ -86,6 +86,8 @@ impl Enum {
             }
         });
 
+        let extensible = self.config.constraints.extensible;
+
         let enumerated_impl = self.config.enumerated.then(|| {
             let (variants, extended_variants): (Vec<_>, Vec<_>) = self.variants.iter()
                 .map(|variant| VariantConfig::new(variant, &self.generics, &self.config))
@@ -104,7 +106,7 @@ impl Enum {
 
             let variants = variants.iter().map(|config| config.variant.ident.clone());
             let extended_variant_idents = extended_variants.iter().map(|config| config.variant.ident.clone());
-            let extended_variants = (!extended_variants.is_empty())
+            let extended_variants = extensible
                 .then(|| quote!(Some(&[#(Self::#extended_variant_idents,)*])))
                 .unwrap_or(quote!(None));
             let extended_discriminants = (!extended_variants.is_empty())
