@@ -10,7 +10,7 @@ use crate::{
     enc::Error as _,
     types::{
         self,
-        constraints::{self, Extensible},
+        constraints::{self, Extensible, Size},
         fields::FieldPresence,
         strings::{BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet},
         BitString, Constraints, Enumerated, Tag,
@@ -183,6 +183,14 @@ impl Encoder {
     ) -> Result<()> {
         use crate::types::constraints::Bounded;
         let mut buffer = BitString::default();
+        let string_length = value.len();
+
+        let is_extended_value = self.encode_extensible_bit(&constraints, &mut buffer, || {
+            constraints.size().map_or(false, |size_constraint| {
+                size_constraint.extensible.is_some()
+                    && size_constraint.constraint.contains(&string_length)
+            })
+        });
 
         let is_large_string = if let Some(size) = constraints.size() {
             let width = match constraints.permitted_alphabet() {
@@ -220,12 +228,19 @@ impl Encoder {
                     > self.character_width(super::log2(alphabet.constraint.len() as i128)) =>
             {
                 let alphabet = &alphabet.constraint;
-                let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
-                    .map_err(Error::custom)?;
+                let characters: &DynConstrainedCharacterString =
+                    &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
+                        .map_err(Error::custom)?;
 
-                self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
-                    Ok(characters[range].to_bitvec())
-                })?;
+                self.encode_length(
+                    &mut buffer,
+                    value.len(),
+                    is_extended_value
+                        .then(|| -> Extensible<Size> { <_>::default() })
+                        .as_ref()
+                        .or(constraints.size()),
+                    |range| Ok(characters[range].to_bitvec()),
+                )?;
             }
             _ => {
                 let char_length = value.len();
@@ -244,7 +259,10 @@ impl Encoder {
                     &mut buffer,
                     is_large_string,
                     char_length,
-                    constraints.size(),
+                    is_extended_value
+                        .then(|| -> Extensible<Size> { <_>::default() })
+                        .as_ref()
+                        .or(constraints.size()),
                     |range| {
                         Ok(match octet_aligned_value {
                             Some(value) => types::BitString::from_slice(&value[range]),
@@ -379,10 +397,6 @@ impl Encoder {
 
         if constraints.extensible.is_none() {
             Error::check_length(length, &constraints.constraint)?;
-        } else if constraints.constraint.contains(&length) {
-            buffer.push(false);
-        } else {
-            buffer.push(true);
         }
 
         let constraints = constraints.constraint;
@@ -436,56 +450,7 @@ impl Encoder {
         constraints: Option<&Extensible<constraints::Size>>,
         encode_fn: impl Fn(core::ops::Range<usize>) -> Result<BitString>,
     ) -> Result<()> {
-        let Some(constraints) = constraints else {
-            return self.encode_unconstrained_length(buffer, length, None, encode_fn);
-        };
-
-        if constraints.extensible.is_none() {
-            Error::check_length(length, &constraints.constraint)?;
-        } else if constraints.constraint.contains(&length) {
-            buffer.push(false);
-        } else {
-            buffer.push(true);
-        }
-
-        let constraints = constraints.constraint;
-
-        match constraints.start_and_end() {
-            (Some(_), Some(_)) => {
-                let range = constraints.range().unwrap();
-
-                if range == 0 {
-                    Ok(())
-                } else if range == 1 {
-                    buffer.extend((encode_fn)(0..length)?);
-                    Ok(())
-                } else if range < SIXTY_FOUR_K as usize {
-                    let effective_length = constraints.effective_value(length).into_inner();
-                    let range = (self.options.aligned && range > 256)
-                        .then(|| {
-                            let range = super::log2(range as i128);
-                            super::range_from_bits(
-                                range
-                                    .is_power_of_two()
-                                    .then_some(range)
-                                    .unwrap_or_else(|| range.next_power_of_two()),
-                            )
-                        })
-                        .unwrap_or(range as i128);
-                    self.encode_non_negative_binary_integer(
-                        buffer,
-                        range,
-                        &(effective_length as u32).to_be_bytes(),
-                    );
-                    // self.pad_to_alignment(buffer);
-                    buffer.extend((encode_fn)(0..length)?);
-                    Ok(())
-                } else {
-                    self.encode_unconstrained_length(buffer, length, None, encode_fn)
-                }
-            }
-            _ => self.encode_unconstrained_length(buffer, length, None, encode_fn),
-        }
+        self.encode_string_length(buffer, false, length, constraints, encode_fn)
     }
 
     fn encode_unconstrained_length(
@@ -584,8 +549,14 @@ impl Encoder {
         value: &[u8],
         buffer: &mut BitString,
     ) -> Result<()> {
-        let extensible_is_present = self.encode_extensible_bit(&constraints, buffer, || todo!());
-        let Some(constraints) = constraints.size() else {
+        let octet_string_length = value.len();
+        let extensible_is_present = self.encode_extensible_bit(&constraints, buffer, || {
+            constraints.size().map_or(false, |size_constraint| {
+                size_constraint.extensible.is_some()
+                    && size_constraint.constraint.contains(&octet_string_length)
+            })
+        });
+        let Some(size) = constraints.size() else {
             return self.encode_length(buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&value[range]))
             });
@@ -595,15 +566,19 @@ impl Encoder {
             self.encode_length(buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&value[range]))
             })?;
-        } else if 0
-            == constraints
-                .constraint
-                .effective_value(value.len())
-                .into_inner()
-        {
+        } else if 0 == size.constraint.effective_value(value.len()).into_inner() {
             // NO-OP
+        } else if size.constraint.range() == Some(1) && size.constraint.as_minimum() <= Some(&2) {
+            // ITU-T X.691 (02/2021) §17 NOTE: Octet strings of fixed length less than or equal to two octets are not octet-aligned.
+            // All other octet strings are octet-aligned in the ALIGNED variant.
+            self.encode_length(buffer, value.len(), Some(size), |range| {
+                Ok(BitString::from_slice(&value[range]))
+            })?;
         } else {
-            self.encode_length(buffer, value.len(), Some(constraints), |range| {
+            if size.constraint.range() == Some(1) {
+                self.pad_to_alignment(buffer);
+            }
+            self.encode_string_length(buffer, true, value.len(), Some(size), |range| {
                 Ok(BitString::from_slice(&value[range]))
             })?;
         }
@@ -622,7 +597,7 @@ impl Encoder {
                 value_range.extensible.is_some() && value_range.constraint.bigint_contains(value)
             })
         });
-        
+
         let value_range = if is_extended_value || constraints.value().is_none() {
             let bytes = value.to_signed_bytes_be();
             self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
@@ -738,22 +713,40 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         let mut buffer = BitString::default();
-        let extensible_is_present =
-            self.encode_extensible_bit(&constraints, &mut buffer, || todo!());
+        let bit_string_length = value.len();
+        let extensible_is_present = self.encode_extensible_bit(&constraints, &mut buffer, || {
+            constraints.size().map_or(false, |size_constraint| {
+                size_constraint.extensible.is_some()
+                    && size_constraint.constraint.contains(&bit_string_length)
+            })
+        });
         let size = constraints.size();
 
         if extensible_is_present || size.is_none() {
             self.encode_length(&mut buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from(&value[range]))
             })?;
-        } else if size.map(|size| size.constraint.effective_value(value.len()).into_inner())
-            == Some(0)
-        {
+        } else if size.and_then(|size| size.constraint.range()) == Some(0) {
             // NO-OP
-        } else {
+        } else if size.map_or(false, |size| {
+            size.constraint.range() == Some(1) && size.constraint.as_minimum() <= Some(&16)
+        }) {
+            // ITU-T X.691 (02/2021) §16: Bitstrings constrained to a fixed length less than or equal to 16 bits
+            // do not cause octet alignment. Larger bitstrings are octet-aligned in the ALIGNED variant.
             self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
                 Ok(BitString::from(&value[range]))
             })?;
+        } else {
+            if size.and_then(|size| size.constraint.range()) == Some(1) {
+                self.pad_to_alignment(&mut buffer);
+            }
+            self.encode_string_length(
+                &mut buffer,
+                true,
+                value.len(),
+                constraints.size(),
+                |range| Ok(BitString::from(&value[range])),
+            )?;
         }
 
         self.extend(tag, &buffer);
@@ -957,6 +950,13 @@ impl crate::Encoder for Encoder {
         let mut buffer = BitString::default();
         let options = self.options;
         self.set_bit(tag, true)?;
+
+        self.encode_extensible_bit(&constraints, &mut buffer, || {
+            constraints.size().map_or(false, |size_constraint| {
+                size_constraint.extensible.is_some()
+                    && size_constraint.constraint.contains(&values.len())
+            })
+        });
 
         self.encode_length(&mut buffer, values.len(), constraints.size(), |range| {
             let mut buffer = BitString::default();
@@ -1392,6 +1392,137 @@ mod tests {
             EncoderOptions::aligned(),
             VisibleString::try_from("John").unwrap(),
             &[4, 0x4A, 0x6F, 0x68, 0x6E],
+        );
+    }
+
+    #[test]
+    fn constrained_visible_string() {
+        use crate::{types::VisibleString, AsnType};
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("1..=3", extensible))]
+        #[rasn(crate_root = "crate")]
+        struct ExtSizeRangeString(pub VisibleString);
+
+        // Extensible VisibleString with size range constraint
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeString(VisibleString::try_from("abc").unwrap()),
+            &[88, 113, 99],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeString(VisibleString::try_from("abc").unwrap()),
+            &[64, 97, 98, 99],
+        );
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeString(VisibleString::try_from("abcd").unwrap()),
+            &[130, 97, 197, 143, 32],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeString(VisibleString::try_from("abcd").unwrap()),
+            &[128, 4, 97, 98, 99, 100],
+        );
+    }
+
+    #[test]
+    fn constrained_bit_string() {
+        use crate::AsnType;
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("1..=4", extensible))]
+        #[rasn(crate_root = "crate")]
+        struct ExtSizeRangeBitStr(pub BitString);
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("2"))]
+        #[rasn(crate_root = "crate")]
+        struct StrictSizeBitStr(pub BitString);
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("2", extensible))]
+        #[rasn(crate_root = "crate")]
+        struct ExtStrictSizeBitStr(pub BitString);
+
+        // Extensible BIT STRING with size range constraint
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeBitStr(BitString::from_iter([true].iter())),
+            &[16],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeBitStr(BitString::from_iter([true].iter())),
+            &[0, 128],
+        );
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeBitStr(BitString::from_iter(
+                [true, false, true, false, true, true].iter(),
+            )),
+            &[131, 86],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeBitStr(BitString::from_iter(
+                [true, false, true, false, true, true].iter(),
+            )),
+            &[128, 6, 172],
+        );
+        // Edge case ITU-T X.691 (02/2021) §16 Note: strictly sized BIT STRINGs shorter than 17 bits
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtStrictSizeBitStr(BitString::from_iter([true, true].iter())),
+            &[96],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtStrictSizeBitStr(BitString::from_iter([true, true].iter())),
+            &[96],
+        );
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtStrictSizeBitStr(BitString::from_iter([true, true, true].iter())),
+            &[129, 240],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtStrictSizeBitStr(BitString::from_iter([true, true, true].iter())),
+            &[128, 3, 224],
+        );
+    }
+
+    #[test]
+    fn constrained_octet_string() {
+        use crate::{types::OctetString, AsnType};
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("1..=3", extensible))]
+        #[rasn(crate_root = "crate")]
+        struct ExtSizeRangeOctetStr(pub OctetString);
+
+        // Extensible OCTET STRING with size range constraint
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2])),
+            &[32, 32, 64],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2])),
+            &[32, 1, 2],
+        );
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2, 3, 4])),
+            &[130, 0, 129, 1, 130, 0],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2, 3, 4])),
+            &[128, 4, 1, 2, 3, 4],
         );
     }
 
