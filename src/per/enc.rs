@@ -556,7 +556,7 @@ impl Encoder {
                     && size_constraint.constraint.contains(&octet_string_length)
             })
         });
-        let Some(constraints) = constraints.size() else {
+        let Some(size) = constraints.size() else {
             return self.encode_length(buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&value[range]))
             });
@@ -566,15 +566,19 @@ impl Encoder {
             self.encode_length(buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&value[range]))
             })?;
-        } else if 0
-            == constraints
-                .constraint
-                .effective_value(value.len())
-                .into_inner()
-        {
+        } else if 0 == size.constraint.effective_value(value.len()).into_inner() {
             // NO-OP
+        } else if size.constraint.range() == Some(1) && size.constraint.as_minimum() <= Some(&2) {
+            // ITU-T X.691 (02/2021) §17 NOTE: Octet strings of fixed length less than or equal to two octets are not octet-aligned.
+            // All other octet strings are octet-aligned in the ALIGNED variant.
+            self.encode_length(buffer, value.len(), Some(size), |range| {
+                Ok(BitString::from_slice(&value[range]))
+            })?;
         } else {
-            self.encode_length(buffer, value.len(), Some(constraints), |range| {
+            if size.constraint.range() == Some(1) {
+                self.pad_to_alignment(buffer);
+            }
+            self.encode_string_length(buffer, true, value.len(), Some(size), |range| {
                 Ok(BitString::from_slice(&value[range]))
             })?;
         }
@@ -724,10 +728,25 @@ impl crate::Encoder for Encoder {
             })?;
         } else if size.and_then(|size| size.constraint.range()) == Some(0) {
             // NO-OP
-        } else {
+        } else if size.map_or(false, |size| {
+            size.constraint.range() == Some(1) && size.constraint.as_minimum() <= Some(&16)
+        }) {
+            // ITU-T X.691 (02/2021) §16: Bitstrings constrained to a fixed length less than or equal to 16 bits
+            // do not cause octet alignment. Larger bitstrings are octet-aligned in the ALIGNED variant.
             self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
                 Ok(BitString::from(&value[range]))
             })?;
+        } else {
+            if size.and_then(|size| size.constraint.range()) == Some(1) {
+                self.pad_to_alignment(&mut buffer);
+            }
+            self.encode_string_length(
+                &mut buffer,
+                true,
+                value.len(),
+                constraints.size(),
+                |range| Ok(BitString::from(&value[range])),
+            )?;
         }
 
         self.extend(tag, &buffer);
