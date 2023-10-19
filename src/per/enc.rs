@@ -1396,6 +1396,137 @@ mod tests {
     }
 
     #[test]
+    fn constrained_visible_string() {
+        use crate::{types::VisibleString, AsnType};
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("1..=3", extensible))]
+        #[rasn(crate_root = "crate")]
+        struct ExtSizeRangeString(pub VisibleString);
+
+        // Extensible VisibleString with size range constraint
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeString(VisibleString::try_from("abc").unwrap()),
+            &[88, 113, 99],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeString(VisibleString::try_from("abc").unwrap()),
+            &[64, 97, 98, 99],
+        );
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeString(VisibleString::try_from("abcd").unwrap()),
+            &[130, 97, 197, 143, 32],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeString(VisibleString::try_from("abcd").unwrap()),
+            &[128, 4, 97, 98, 99, 100],
+        );
+    }
+
+    #[test]
+    fn constrained_bit_string() {
+        use crate::AsnType;
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("1..=4", extensible))]
+        #[rasn(crate_root = "crate")]
+        struct ExtSizeRangeBitStr(pub BitString);
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("2"))]
+        #[rasn(crate_root = "crate")]
+        struct StrictSizeBitStr(pub BitString);
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("2", extensible))]
+        #[rasn(crate_root = "crate")]
+        struct ExtStrictSizeBitStr(pub BitString);
+
+        // Extensible BIT STRING with size range constraint
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeBitStr(BitString::from_iter([true].iter())),
+            &[16],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeBitStr(BitString::from_iter([true].iter())),
+            &[0, 128],
+        );
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeBitStr(BitString::from_iter(
+                [true, false, true, false, true, true].iter(),
+            )),
+            &[131, 86],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeBitStr(BitString::from_iter(
+                [true, false, true, false, true, true].iter(),
+            )),
+            &[128, 6, 172],
+        );
+        // Edge case ITU-T X.691 (02/2021) §16 Note: strictly sized BIT STRINGs shorter than 17 bits
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtStrictSizeBitStr(BitString::from_iter([true, true].iter())),
+            &[96],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtStrictSizeBitStr(BitString::from_iter([true, true].iter())),
+            &[96],
+        );
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtStrictSizeBitStr(BitString::from_iter([true, true, true].iter())),
+            &[129, 240],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtStrictSizeBitStr(BitString::from_iter([true, true, true].iter())),
+            &[128, 3, 224],
+        );
+    }
+
+    #[test]
+    fn constrained_octet_string() {
+        use crate::{types::OctetString, AsnType};
+
+        #[derive(AsnType, Encode, Clone, PartialEq)]
+        #[rasn(delegate, size("1..=3", extensible))]
+        #[rasn(crate_root = "crate")]
+        struct ExtSizeRangeOctetStr(pub OctetString);
+
+        // Extensible OCTET STRING with size range constraint
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2])),
+            &[32, 32, 64],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2])),
+            &[32, 1, 2],
+        );
+        assert_encode(
+            EncoderOptions::unaligned(),
+            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2, 3, 4])),
+            &[130, 0, 129, 1, 130, 0],
+        );
+        assert_encode(
+            EncoderOptions::aligned(),
+            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2, 3, 4])),
+            &[128, 4, 1, 2, 3, 4],
+        );
+    }
+
+    #[test]
     fn sequence_of() {
         let make_buffer =
             |length| crate::uper::encode(&alloc::vec![Byte::default(); length]).unwrap();
