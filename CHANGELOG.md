@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.5](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.4...rasn-v0.10.5) - 2023-10-19
+
+### Fixed
+- *(per)* encoding extensible string types ([#179](https://github.com/XAMPPRocky/rasn/pull/179))
+
 ## [0.10.4](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.3...rasn-v0.10.4) - 2023-10-16
 
 ### Other
