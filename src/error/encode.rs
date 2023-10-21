@@ -8,6 +8,8 @@ pub enum CodecEncodeError {
     Ber(BerEncodeError),
     Cer(CerEncodeError),
     Der(DerEncodeError),
+    // Uper(UperEncodeError),
+    // Aper(AperEncodeError),
 }
 
 #[derive(Snafu)]
@@ -31,6 +33,13 @@ impl EncodeError {
             backtrace: Backtrace::generate(),
         })
     }
+    pub fn integer_type_conversion(msg: alloc::string::String, codec: crate::Codec) -> Self {
+        Self {
+            kind: Kind::IntegerTypeConversion { msg },
+            codec,
+            backtrace: Backtrace::generate(),
+        }
+    }
     #[must_use]
     pub fn variant_not_in_choice(codec: crate::Codec) -> Self {
         Self {
@@ -48,9 +57,9 @@ impl EncodeError {
         }
     }
     #[must_use]
-    pub fn codec_specific(inner: CodecEncodeError, codec: crate::Codec) -> Self {
+    fn codec_specific(inner: CodecEncodeError, codec: crate::Codec) -> Self {
         Self {
-            kind: Kind::CodecError { inner },
+            kind: Kind::CodecSpecific { inner },
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -75,7 +84,9 @@ pub enum Kind {
     #[snafu(display("custom error:\n{}", msg))]
     Custom { msg: alloc::string::String },
     #[snafu(display("Wrapped codec-specific error"))]
-    CodecError { inner: CodecEncodeError },
+    CodecSpecific { inner: CodecEncodeError },
+    #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
+    IntegerTypeConversion { msg: alloc::string::String },
     #[snafu(display("Selected Variant not found from Choice"))]
     VariantNotInChoice,
 }

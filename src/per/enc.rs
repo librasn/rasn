@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
 
 use bitvec::prelude::*;
 
@@ -25,6 +25,7 @@ pub struct EncoderOptions {
 }
 
 impl EncoderOptions {
+    #[must_use]
     pub fn aligned() -> Self {
         Self {
             aligned: true,
@@ -32,6 +33,7 @@ impl EncoderOptions {
         }
     }
 
+    #[must_use]
     pub fn unaligned() -> Self {
         Self {
             aligned: false,
@@ -39,11 +41,13 @@ impl EncoderOptions {
         }
     }
 
+    #[must_use]
     fn without_set_encoding(mut self) -> Self {
         self.set_encoding = false;
         self
     }
-    fn current_codec(&self) -> crate::Codec {
+    #[must_use]
+    fn current_codec(self) -> crate::Codec {
         if self.aligned {
             crate::Codec::Aper
         } else {
@@ -621,14 +625,15 @@ impl Encoder {
             either::Right(value) => value.to_signed_bytes_be(),
         };
 
-        let effective_value: i128 = value_range
-            .constraint
-            .effective_value(
-                value
-                    .try_into()
-                    .map_err(|e| Error::custom(e, self.codec()))?,
-            )
-            .either_into();
+        let effective_value: i128 =
+            value_range
+                .constraint
+                .effective_value(value.try_into().map_err(
+                    |e: num_bigint::TryFromBigIntError<()>| {
+                        Error::integer_type_conversion(e.to_string(), self.codec())
+                    },
+                )?)
+                .either_into();
 
         const K64: i128 = SIXTY_FOUR_K as i128;
         const OVER_K64: i128 = K64 + 1;
