@@ -405,10 +405,6 @@ impl Encoder {
 
         if constraints.extensible.is_none() {
             Error::check_length(length, &constraints.constraint, self.codec())?;
-        } else if constraints.constraint.contains(&length) {
-            buffer.push(false);
-        } else {
-            buffer.push(true);
         }
 
         let constraints = constraints.constraint;
