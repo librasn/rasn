@@ -7,7 +7,6 @@ use chrono::Timelike;
 
 use super::Identifier;
 use crate::{
-    enc::Error as _,
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
@@ -16,7 +15,7 @@ use crate::{
     Encode,
 };
 
-pub use crate::error::EncodeError as Error;
+pub use crate::error::{BerEncodeError, EncodeError, EncodeErrorKind};
 pub use config::EncoderOptions;
 
 const START_OF_CONTENTS: u8 = 0x80;
@@ -45,6 +44,9 @@ impl Encoder {
             output: <_>::default(),
             set_buffer: <_>::default(),
         }
+    }
+    pub fn codec(&self) -> crate::Codec {
+        self.config.current_codec()
     }
 
     /// Creates a new instance from the given `config`, and uses SET encoding
@@ -188,14 +190,19 @@ impl Encoder {
         }
     }
 
-    fn encode_octet_string_(&mut self, tag: Tag, value: &[u8]) -> Result<(), Error> {
+    fn encode_octet_string_(&mut self, tag: Tag, value: &[u8]) -> Result<(), EncodeError> {
         self.encode_string(tag, Tag::OCTET_STRING, value)
     }
 
     /// "STRING" types in ASN.1 BER (OCTET STRING, UTF8 STRING) are either
     /// primitive encoded, or in certain variants like CER they are constructed
     /// encoded containing primitive encoded chunks.
-    fn encode_string(&mut self, tag: Tag, nested_tag: Tag, value: &[u8]) -> Result<(), Error> {
+    fn encode_string(
+        &mut self,
+        tag: Tag,
+        nested_tag: Tag,
+        value: &[u8],
+    ) -> Result<(), EncodeError> {
         let max_string_length = self.config.encoding_rules.max_string_length();
 
         if value.len() > max_string_length {
@@ -243,9 +250,9 @@ impl Encoder {
     }
     /// Converts an object identifier into a byte vector in BER format.
     /// Reusable function by other codecs.
-    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, Error> {
+    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, EncodeError> {
         if oid.len() < 2 {
-            return Err(Error::invalid_object_identifier());
+            return Err(BerEncodeError::invalid_object_identifier().into());
         }
         let mut bytes = Vec::new();
 
@@ -253,7 +260,7 @@ impl Encoder {
         let second = oid[1];
 
         if first > MAX_OID_FIRST_OCTET {
-            return Err(Error::invalid_object_identifier());
+            return Err(BerEncodeError::invalid_object_identifier().into());
         }
         self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
         for component in oid.iter().skip(2) {
@@ -297,13 +304,11 @@ impl Encoder {
 
 impl crate::Encoder for Encoder {
     type Ok = ();
-    type Error = Error;
+    type Error = EncodeError;
 
     fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
-            return Err(crate::enc::Error::custom(
-                "Cannot encode `ANY` types in `SET` fields.",
-            ));
+            return Err(BerEncodeError::AnyInSet.into());
         }
 
         self.output.extend_from_slice(&value.contents);
@@ -325,9 +330,10 @@ impl crate::Encoder for Encoder {
             let vec = value.to_bitvec();
             let bytes = vec.as_raw_slice();
             let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
-                Error::custom(alloc::format!(
-                    "failed to convert BIT STRING unused bytes to u8: {err}"
-                ))
+                EncodeError::from_kind(
+                    EncodeErrorKind::BitStringUnusedBytesToU8 { err },
+                    self.codec(),
+                )
             })?;
             let mut encoded = Vec::with_capacity(bytes.len() + 1);
             encoded.push(unused_bits);

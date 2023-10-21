@@ -43,6 +43,13 @@ impl EncoderOptions {
         self.set_encoding = false;
         self
     }
+    fn current_codec(&self) -> crate::Codec {
+        if self.aligned {
+            crate::Codec::Aper
+        } else {
+            crate::Codec::Uper
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -68,7 +75,9 @@ impl Encoder {
             parent_output_length: <_>::default(),
         }
     }
-
+    fn codec(&self) -> crate::Codec {
+        self.options.current_codec()
+    }
     fn new_set_encoder<C: crate::types::Constructed>(&self) -> Self {
         let mut options = self.options;
         options.set_encoding = true;
@@ -224,9 +233,8 @@ impl Encoder {
                     > self.character_width(super::log2(alphabet.constraint.len() as i128)) =>
             {
                 let alphabet = &alphabet.constraint;
-                let characters: &DynConstrainedCharacterString =
-                    &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
-                        .map_err(Error::custom)?;
+                let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
+                    .map_err(|e| Error::custom(e, self.codec()))?;
 
                 self.encode_length(
                     &mut buffer,
@@ -392,7 +400,11 @@ impl Encoder {
         };
 
         if constraints.extensible.is_none() {
-            Error::check_length(length, &constraints.constraint)?;
+            Error::check_length(length, &constraints.constraint, self.codec())?;
+        } else if constraints.constraint.contains(&length) {
+            buffer.push(false);
+        } else {
+            buffer.push(true);
         }
 
         let constraints = constraints.constraint;
@@ -611,7 +623,11 @@ impl Encoder {
 
         let effective_value: i128 = value_range
             .constraint
-            .effective_value(value.try_into().map_err(Error::custom)?)
+            .effective_value(
+                value
+                    .try_into()
+                    .map_err(|e| Error::custom(e, self.codec()))?,
+            )
             .either_into();
 
         const K64: i128 = SIXTY_FOUR_K as i128;
@@ -1063,7 +1079,7 @@ impl crate::Encoder for Encoder {
             .iter()
             .enumerate()
             .find_map(|(i, &variant_tag)| (tag == variant_tag).then_some(i))
-            .ok_or_else(|| Error::custom("variant not found in choice"))?;
+            .ok_or_else(|| Error::variant_not_in_choice(self.codec()))?;
 
         let bounds = if is_root_extension {
             let variance = variants.len();

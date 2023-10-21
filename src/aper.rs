@@ -13,7 +13,9 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::per::de::Error
 }
 
 /// Attempts to encode `value` to APER-CANONICAL.
-pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+pub fn encode<T: crate::Encode>(
+    value: &T,
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     crate::per::encode(enc::EncoderOptions::aligned(), value)
 }
 
@@ -29,7 +31,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
 pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
-) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     crate::per::encode_with_constraints(enc::EncoderOptions::aligned(), constraints, value)
 }
 

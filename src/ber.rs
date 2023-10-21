@@ -32,8 +32,8 @@ pub fn encode<T: crate::Encode>(
 /// # Errors
 /// Returns error specific to BER encoder if encoding is not possible.
 pub fn encode_scope(
-    encode_fn: impl FnOnce(&mut crate::ber::enc::Encoder) -> Result<(), crate::ber::enc::Error>,
-) -> Result<alloc::vec::Vec<u8>, crate::ber::enc::Error> {
+    encode_fn: impl FnOnce(&mut crate::ber::enc::Encoder) -> Result<(), crate::error::EncodeError>,
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
 
     (encode_fn)(&mut enc)?;

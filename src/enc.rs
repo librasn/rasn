@@ -341,12 +341,12 @@ pub trait Encoder {
 
 /// A generic error that occurred while trying to encode ASN.1.
 pub trait Error: core::fmt::Display {
-    fn custom<D: core::fmt::Display>(msg: D) -> Self;
+    fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self;
 }
 
 impl Error for core::convert::Infallible {
-    fn custom<D: core::fmt::Display>(msg: D) -> Self {
-        core::panic!("Infallible error! {}", msg)
+    fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self {
+        core::panic!("Infallible error! {}, from: {}", msg, codec)
     }
 }
 

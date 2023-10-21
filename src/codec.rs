@@ -2,7 +2,8 @@ use snafu::*;
 
 use crate::prelude::*;
 
-pub use self::{de::DecodeError, enc::EncodeError};
+// pub use self::{de::DecodeError, enc::EncodeError};
+pub use self::de::DecodeError;
 
 /// A set of supported ASN.1 codecs. Can be used to dynamically encode types
 /// into different codecs at runtime.
@@ -20,21 +21,35 @@ pub enum Codec {
     /// X.691 — Packed Encoding Rules (Unaligned)
     Uper,
 }
+impl core::fmt::Display for Codec {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Aper => write!(f, "APER"),
+            Self::Ber => write!(f, "BER"),
+            Self::Cer => write!(f, "CER"),
+            Self::Der => write!(f, "DER"),
+            Self::Uper => write!(f, "UPER"),
+        }
+    }
+}
 
 impl Codec {
     /// Encodes a given value based on the value of `Codec`.
     ///
     /// # Errors
     /// - If the value fails to be encoded.
-    pub fn encode<T: Encode>(self, value: &T) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-        match self {
-            Self::Aper => crate::aper::encode(value).context(enc::AperSnafu),
-            Self::Ber => crate::ber::encode(value).context(enc::BerSnafu),
-            Self::Cer => crate::cer::encode(value).context(enc::CerSnafu),
-            Self::Der => crate::der::encode(value).context(enc::DerSnafu),
-            Self::Uper => crate::uper::encode(value).context(enc::UperSnafu),
-        }
-    }
+    // pub fn encode<T: Encode, E: crate::error::CodecError>(
+    //     self,
+    //     value: &T,
+    // ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError<E>> {
+    //     match self {
+    //         Self::Aper => crate::aper::encode(value).context(enc::AperSnafu),
+    //         Self::Ber => crate::ber::encode(value).context(enc::BerSnafu),
+    //         Self::Cer => crate::cer::encode(value).context(enc::CerSnafu),
+    //         Self::Der => crate::der::encode(value).context(enc::DerSnafu),
+    //         Self::Uper => crate::uper::encode(value).context(enc::UperSnafu),
+    //     }
+    // }
 
     /// Decodes `input` to `D` based on the value of `Codec`.
     ///
@@ -52,22 +67,22 @@ impl Codec {
 }
 
 mod enc {
-    use super::*;
+    // use super::*;
 
-    #[derive(Debug, Snafu)]
-    #[snafu(visibility(pub(crate)))]
-    pub enum EncodeError {
-        #[snafu(display("APER Error: {}", source))]
-        Aper { source: crate::aper::enc::Error },
-        #[snafu(display("BER Error: {}", source))]
-        Ber { source: crate::ber::enc::Error },
-        #[snafu(display("CER Error: {}", source))]
-        Cer { source: crate::der::enc::Error },
-        #[snafu(display("DER Error: {}", source))]
-        Der { source: crate::der::enc::Error },
-        #[snafu(display("UPER Error: {}", source))]
-        Uper { source: crate::uper::enc::Error },
-    }
+    // #[derive(Debug, Snafu)]
+    // #[snafu(visibility(pub(crate)))]
+    // pub enum EncodeError {
+    //     #[snafu(display("APER Error: {}", source))]
+    //     Aper { source: crate::aper::enc::Error },
+    //     #[snafu(display("BER Error: {}", source))]
+    //     Ber { source: crate::ber::enc::Error },
+    //     #[snafu(display("CER Error: {}", source))]
+    //     Cer { source: crate::der::enc::Error },
+    //     #[snafu(display("DER Error: {}", source))]
+    //     Der { source: crate::der::enc::Error },
+    //     #[snafu(display("UPER Error: {}", source))]
+    //     Uper { source: crate::uper::enc::Error },
+    // }
 }
 
 mod de {

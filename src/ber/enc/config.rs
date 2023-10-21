@@ -27,4 +27,11 @@ impl EncoderOptions {
             encoding_rules: EncodingRules::Der,
         }
     }
+    pub fn current_codec(&self) -> crate::Codec {
+        match self.encoding_rules {
+            EncodingRules::Ber => crate::Codec::Ber,
+            EncodingRules::Cer => crate::Codec::Cer,
+            EncodingRules::Der => crate::Codec::Der,
+        }
+    }
 }
