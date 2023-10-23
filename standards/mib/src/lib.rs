@@ -2,7 +2,7 @@
 #![no_std]
 
 extern crate alloc;
-
+use alloc::string::ToString;
 pub mod address_family_numbers;
 
 use alloc::{vec, vec::Vec};
@@ -241,7 +241,7 @@ pub mod interfaces {
     }
 
     impl core::convert::TryFrom<Entry> for Opaque {
-        type Error = rasn::ber::enc::Error;
+        type Error = rasn::error::EncodeError;
 
         fn try_from(value: Entry) -> Result<Self, Self::Error> {
             value.to_opaque()
@@ -296,7 +296,12 @@ pub mod interfaces {
             constraints: Constraints,
         ) -> Result<(), EN::Error> {
             self.to_opaque()
-                .map_err(rasn::enc::Error::custom)?
+                .map_err(|e| {
+                    rasn::error::EncodeError::opaque_conversion_failed(
+                        e.to_string(),
+                        EN::codec(encoder),
+                    )
+                })?
                 .encode_with_tag_and_constraints(encoder, tag, constraints)
         }
     }

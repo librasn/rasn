@@ -19,8 +19,16 @@ where
     const VALUE: &'static rasn::types::Oid;
 
     /// Converts `self` into its SMI data type.
-    fn into_object_syntax(self) -> Result<Self::SmiSyntax, <Self as TryInto<Self::Syntax>>::Error> {
-        Ok(self.try_into().map_err(rasn::enc::Error::custom)?.into())
+    /// # Errors
+    /// Returns custom `EncodeError` if the conversion fails.
+    fn into_object_syntax(
+        self,
+        codec: rasn::Codec,
+    ) -> Result<Self::SmiSyntax, <Self as TryInto<Self::Syntax>>::Error> {
+        Ok(self
+            .try_into()
+            .map_err(|e| rasn::enc::Error::custom(e, codec))?
+            .into())
     }
 }
 

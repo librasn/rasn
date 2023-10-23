@@ -12,7 +12,7 @@ use crate::{
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
         Constraints, Enumerated, Tag,
     },
-    Encode,
+    Codec, Encode,
 };
 
 pub use crate::error::{BerEncodeError, EncodeError, EncodeErrorKind};
@@ -306,6 +306,9 @@ impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = EncodeError;
 
+    fn codec(&self) -> Codec {
+        Self::codec(self)
+    }
     fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
             return Err(BerEncodeError::AnyInSet.into());

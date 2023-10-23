@@ -74,7 +74,7 @@ macro_rules! opaque_impls {
         }
 
         impl core::convert::TryFrom<$name> for $crate::v2::Opaque {
-            type Error = $crate::rasn::ber::enc::Error;
+            type Error = $crate::rasn::error::EncodeError;
 
             fn try_from(value: $name) -> Result<Self, Self::Error> {
                 use $crate::v1::ToOpaque;
@@ -90,7 +90,7 @@ macro_rules! opaque_impls {
                 constraints: $crate::rasn::types::Constraints,
             ) -> Result<(), EN::Error> {
                 self.to_opaque()
-                    .map_err($crate::rasn::enc::Error::custom)?
+                    .map_err(|e| $crate::rasn::error::EncodeError::opaque_conversion_failed(e.to_string(), EN::codec(&encoder)))?
                     .encode_with_tag_and_constraints(encoder, tag, constraints)
             }
         }

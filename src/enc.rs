@@ -46,7 +46,9 @@ pub trait Encode: AsnType {
 /// A **data format** encode any ASN.1 data type.
 pub trait Encoder {
     type Ok;
-    type Error: Error;
+    type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
+
+    fn codec(&self) -> crate::Codec;
 
     /// Encode an unknown ASN.1 value.
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error>;

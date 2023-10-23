@@ -4,7 +4,6 @@ use bitvec::prelude::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
-    enc::Error as _,
     types::{
         self,
         constraints::{self, Extensible, Size},
@@ -238,7 +237,7 @@ impl Encoder {
             {
                 let alphabet = &alphabet.constraint;
                 let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
-                    .map_err(|e| Error::custom(e, self.codec()))?;
+                    .map_err(|e| Error::constraint_not_satisfied(e.to_string(), self.codec()))?;
 
                 self.encode_length(
                     &mut buffer,
@@ -298,7 +297,7 @@ impl Encoder {
     }
 
     fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
-        !extension_fields.iter().all(|vec| vec.is_empty())
+        !extension_fields.iter().all(Vec::is_empty)
     }
 
     fn encode_constructed<C: crate::types::Constructed>(
@@ -713,6 +712,9 @@ impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = Error;
 
+    fn codec(&self) -> crate::Codec {
+        Self::codec(self)
+    }
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         self.encode_octet_string(tag, <_>::default(), &value.contents)

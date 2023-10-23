@@ -23,6 +23,14 @@ pub struct EncodeError {
     backtrace: Backtrace,
 }
 impl EncodeError {
+    #[must_use]
+    pub fn constraint_not_satisfied(msg: alloc::string::String, codec: crate::Codec) -> Self {
+        Self {
+            kind: Kind::ConstraintNotSatisfied { msg },
+            codec,
+            backtrace: Backtrace::generate(),
+        }
+    }
     pub fn check_length(length: usize, expected: &Size, codec: crate::Codec) -> Result<(), Self> {
         expected.contains_or_else(&length, || Self {
             kind: Kind::InvalidLength {
@@ -33,9 +41,18 @@ impl EncodeError {
             backtrace: Backtrace::generate(),
         })
     }
+    #[must_use]
     pub fn integer_type_conversion(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self {
-            kind: Kind::IntegerTypeConversion { msg },
+            kind: Kind::IntegerTypeConversionFailed { msg },
+            codec,
+            backtrace: Backtrace::generate(),
+        }
+    }
+    #[must_use]
+    pub fn opaque_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
+        Self {
+            kind: Kind::OpaqueConversionFailed { msg },
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -85,8 +102,12 @@ pub enum Kind {
     Custom { msg: alloc::string::String },
     #[snafu(display("Wrapped codec-specific error"))]
     CodecSpecific { inner: CodecEncodeError },
+    #[snafu(display("Constraint not satisfied: {msg}"))]
+    ConstraintNotSatisfied { msg: alloc::string::String },
     #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
-    IntegerTypeConversion { msg: alloc::string::String },
+    IntegerTypeConversionFailed { msg: alloc::string::String },
+    #[snafu(display("Conversion to Opaque type failed: {msg}"))]
+    OpaqueConversionFailed { msg: alloc::string::String },
     #[snafu(display("Selected Variant not found from Choice"))]
     VariantNotInChoice,
 }

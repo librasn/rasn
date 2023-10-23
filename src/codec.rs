@@ -38,18 +38,18 @@ impl Codec {
     ///
     /// # Errors
     /// - If the value fails to be encoded.
-    // pub fn encode<T: Encode, E: crate::error::CodecError>(
-    //     self,
-    //     value: &T,
-    // ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError<E>> {
-    //     match self {
-    //         Self::Aper => crate::aper::encode(value).context(enc::AperSnafu),
-    //         Self::Ber => crate::ber::encode(value).context(enc::BerSnafu),
-    //         Self::Cer => crate::cer::encode(value).context(enc::CerSnafu),
-    //         Self::Der => crate::der::encode(value).context(enc::DerSnafu),
-    //         Self::Uper => crate::uper::encode(value).context(enc::UperSnafu),
-    //     }
-    // }
+    pub fn encode<T: Encode>(
+        self,
+        value: &T,
+    ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
+        match self {
+            Self::Aper => crate::aper::encode(value),
+            Self::Ber => crate::ber::encode(value),
+            Self::Cer => crate::cer::encode(value),
+            Self::Der => crate::der::encode(value),
+            Self::Uper => crate::uper::encode(value),
+        }
+    }
 
     /// Decodes `input` to `D` based on the value of `Codec`.
     ///
