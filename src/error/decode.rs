@@ -51,6 +51,10 @@ pub struct DecodeError {
 
 impl DecodeError {
     #[must_use]
+    pub fn alphabet_constraint_not_satisfied(msg: alloc::string::String, codec: Codec) -> Self {
+        Self::from_kind(Kind::AlphabetConstraintNotSatisfied { msg }, codec)
+    }
+    #[must_use]
     pub fn range_exceeds_platform_width(needed: u32, present: u32, codec: Codec) -> Self {
         Self::from_kind(Kind::RangeExceedsPlatformWidth { needed, present }, codec)
     }
@@ -89,6 +93,17 @@ impl DecodeError {
     pub fn invalid_bit_string(bits: u8, codec: Codec) -> Self {
         Self::from_kind(Kind::InvalidBitString { bits }, codec)
     }
+    #[must_use]
+    pub fn missing_tag_class_or_value_in_sequence_or_set(
+        class: crate::types::Class,
+        value: u32,
+        codec: Codec,
+    ) -> Self {
+        Self::from_kind(
+            Kind::MissingTagClassOrValueInSequenceOrSet { class, value },
+            codec,
+        )
+    }
 
     #[must_use]
     pub fn type_not_extensible(codec: Codec) -> Self {
@@ -103,7 +118,16 @@ impl DecodeError {
     pub fn required_extension_not_present(tag: crate::types::Tag, codec: Codec) -> Self {
         Self::from_kind(Kind::RequiredExtensionNotPresent { tag }, codec)
     }
-
+    #[must_use]
+    pub fn enumeration_index_not_found(index: usize, extended_list: bool, codec: Codec) -> Self {
+        Self::from_kind(
+            Kind::EnumerationIndexNotFound {
+                index,
+                extended_list,
+            },
+            codec,
+        )
+    }
     #[must_use]
     pub fn choice_index_exceeds_platform_width(needed: u32, present: u64, codec: Codec) -> Self {
         Self::from_kind(
@@ -194,8 +218,22 @@ impl DecodeError {
 #[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
 pub enum Kind {
+    #[snafu(display("Alphabet constraint not satisfied {}", msg))]
+    AlphabetConstraintNotSatisfied { msg: alloc::string::String },
     #[snafu(display("Wrapped codec-specific decode error"))]
     CodecSpecific { inner: CodecDecodeError },
+
+    #[snafu(display(
+        "Enumeration index '{}' did not match any variant. Extended list: {}",
+        index,
+        extended_list
+    ))]
+    EnumerationIndexNotFound {
+        /// The found index of the choice variant.
+        index: usize,
+        /// Whether the index was checked from the extended variants.
+        extended_list: bool,
+    },
 
     #[snafu(display("choice index '{index}' did not match any variant"))]
     ChoiceIndexNotFound {
@@ -285,6 +323,13 @@ pub enum Kind {
         /// The field's name.
         name: &'static str,
     },
+    #[snafu(display("Expected class: {}, value: {} in sequence or setMissing tag class or value in sequence or set", class, value))]
+    MissingTagClassOrValueInSequenceOrSet {
+        /// The field's name.
+        class: crate::types::Class,
+        value: u32,
+    },
+
     #[snafu(display("integer range larger than possible to address on this platform. needed: {needed} present: {present}"))]
     RangeExceedsPlatformWidth {
         /// Amount of bytes needed.
@@ -429,17 +474,14 @@ impl crate::de::Error for DecodeError {
     }
 }
 
-// impl From<nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>>
-//     for DecodeError
-// {
-//     fn from(
-//         error: nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>,
-//     ) -> Self {
-//         let msg = match error {
-//             nom::Err::Incomplete(needed) => return Self::from_kind(Kind::Incomplete { needed }, codec),
-//             err => alloc::format!("Parsing Failure: {}", err),
-//         };
-//
-//         Self::from(Kind::Parser { msg })
-//     }
-// }
+impl From<nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>> for Kind {
+    fn from(
+        error: nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>,
+    ) -> Self {
+        let msg = match error {
+            nom::Err::Incomplete(needed) => return Self::Incomplete { needed },
+            err => alloc::format!("Parsing Failure: {}", err),
+        };
+        Self::Parser { msg }
+    }
+}

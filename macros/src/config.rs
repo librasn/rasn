@@ -920,7 +920,7 @@ impl<'a> FieldConfig<'a> {
                 .unwrap_or_else(|| context.to_string())
         );
 
-        let or_else = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error))?);
+        let or_else = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error, decoder.codec()))?);
         let default_fn = self.default.as_ref().map(|default_fn| match default_fn {
             Some(path) => quote!(#path),
             None => quote!(<#ty>::default),
@@ -929,7 +929,7 @@ impl<'a> FieldConfig<'a> {
         let tag = self.tag(context);
         let constraints = self.constraints.const_expr(crate_root);
         let handle_extension = if self.is_not_option_or_default_type() {
-            quote!(.ok_or_else(|| #crate_root::de::Error::field_error(#ident, "extension required but not present"))?)
+            quote!(.ok_or_else(|| #crate_root::de::Error::field_error(#ident, "extension required but not present", decoder.codec()))?)
         } else if self.is_default_type() {
             quote!(.unwrap_or_else(#default_fn))
         } else {

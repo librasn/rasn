@@ -57,11 +57,11 @@ impl<const N: usize> Decode for FixedBitString<N> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        let out = decoder.decode_bit_string(tag, constraints)?.as_bitslice();
-        out.try_into().map_err(|_| {
+        let out = decoder.decode_bit_string(tag, constraints)?;
+        out.as_bitslice().try_into().map_err(|_| {
             D::Error::from(DecodeError::fixed_string_conversion_failed(
                 Tag::BIT_STRING,
-                out.len(),
+                out.as_bitslice().len(),
                 N,
                 decoder.codec(),
             ))

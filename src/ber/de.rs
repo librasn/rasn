@@ -443,7 +443,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_object_identifier(&mut self, tag: Tag) -> Result<crate::types::ObjectIdentifier> {
         let contents = self.parse_primitive_value(tag)?.1;
-        Self::decode_object_identifier_from_bytes(&mut self, contents)
+        self.decode_object_identifier_from_bytes(contents)
     }
 
     fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {
@@ -749,7 +749,7 @@ mod tests {
     use super::*;
     use crate::types::*;
 
-    fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, self::Error> {
+    fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
         let mut decoder = self::Decoder::new(input, self::DecoderOptions::ber());
         match T::decode(&mut decoder) {
             Ok(result) => {

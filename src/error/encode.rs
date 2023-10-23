@@ -40,6 +40,7 @@ impl EncodeError {
             backtrace: Backtrace::generate(),
         })
     }
+    /// An error for failed conversion from BitInt or BigUint to primitive integer types
     #[must_use]
     pub fn integer_type_conversion(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self {

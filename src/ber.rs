@@ -120,6 +120,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::items_after_statements)]
     fn set() {
         #[derive(Debug, PartialEq)]
         struct Set {
@@ -171,13 +172,13 @@ mod tests {
                     Age(u32),
                     Name(Utf8String),
                 }
-
+                let codec = decoder.codec();
                 decoder.decode_set::<Fields, _, _, _>(
                     tag,
                     |decoder, indice, tag| match (indice, tag) {
                         (0, u32::TAG) => <_>::decode(decoder).map(Fields::Age),
                         (1, Utf8String::TAG) => <_>::decode(decoder).map(Fields::Name),
-                        (_, _) => Err(D::Error::custom("unknown field", D::codec(&decoder))),
+                        (_, _) => Err(D::Error::custom("unknown field", codec)),
                     },
                     |fields| {
                         let mut age = None;
@@ -191,12 +192,8 @@ mod tests {
                         }
 
                         Ok(Self {
-                            age: age.ok_or_else(|| {
-                                D::Error::missing_field("age", D::codec(&decoder))
-                            })?,
-                            name: name.ok_or_else(|| {
-                                D::Error::missing_field("name", D::codec(&decoder))
-                            })?,
+                            age: age.ok_or_else(|| D::Error::missing_field("age", codec))?,
+                            name: name.ok_or_else(|| D::Error::missing_field("name", codec))?,
                         })
                     },
                 )

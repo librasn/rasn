@@ -8,7 +8,7 @@ use crate::types::Constraints;
 pub use super::per::*;
 
 /// Attempts to decode `T` from `input` using APER-BASIC.
-pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::per::de::Error> {
+pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeError> {
     crate::per::decode(de::DecoderOptions::aligned(), input)
 }
 
@@ -23,7 +23,7 @@ pub fn encode<T: crate::Encode>(
 pub fn decode_with_constraints<T: crate::Decode>(
     constraints: Constraints,
     input: &[u8],
-) -> Result<T, crate::per::de::Error> {
+) -> Result<T, crate::error::DecodeError> {
     crate::per::decode_with_constraints(de::DecoderOptions::aligned(), constraints, input)
 }
 
