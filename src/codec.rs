@@ -1,9 +1,4 @@
-use snafu::*;
-
 use crate::prelude::*;
-
-// pub use self::{de::DecodeError, enc::EncodeError};
-pub use self::de::DecodeError;
 
 /// A set of supported ASN.1 codecs. Can be used to dynamically encode types
 /// into different codecs at runtime.
@@ -37,7 +32,7 @@ impl Codec {
     /// Encodes a given value based on the value of `Codec`.
     ///
     /// # Errors
-    /// - If the value fails to be encoded.
+    /// - If the value fails to be encoded, returns `EncodeError` struct.
     pub fn encode<T: Encode>(
         self,
         value: &T,
@@ -54,52 +49,14 @@ impl Codec {
     /// Decodes `input` to `D` based on the value of `Codec`.
     ///
     /// # Errors
-    /// - If `D` cannot be decoded from `input`.
-    pub fn decode<D: Decode>(&self, input: &[u8]) -> Result<D, DecodeError> {
+    /// - If `D` cannot be decoded from `input`, returns `DecodeError` struct.
+    pub fn decode<D: Decode>(&self, input: &[u8]) -> Result<D, crate::error::DecodeError> {
         match self {
-            Self::Aper => crate::aper::decode(input).context(de::AperSnafu),
-            Self::Ber => crate::ber::decode(input).context(de::BerSnafu),
-            Self::Cer => crate::cer::decode(input).context(de::CerSnafu),
-            Self::Der => crate::der::decode(input).context(de::DerSnafu),
-            Self::Uper => crate::uper::decode(input).context(de::UperSnafu),
+            Self::Aper => crate::aper::decode(input),
+            Self::Ber => crate::ber::decode(input),
+            Self::Cer => crate::cer::decode(input),
+            Self::Der => crate::der::decode(input),
+            Self::Uper => crate::uper::decode(input),
         }
-    }
-}
-
-mod enc {
-    // use super::*;
-
-    // #[derive(Debug, Snafu)]
-    // #[snafu(visibility(pub(crate)))]
-    // pub enum EncodeError {
-    //     #[snafu(display("APER Error: {}", source))]
-    //     Aper { source: crate::aper::enc::Error },
-    //     #[snafu(display("BER Error: {}", source))]
-    //     Ber { source: crate::ber::enc::Error },
-    //     #[snafu(display("CER Error: {}", source))]
-    //     Cer { source: crate::der::enc::Error },
-    //     #[snafu(display("DER Error: {}", source))]
-    //     Der { source: crate::der::enc::Error },
-    //     #[snafu(display("UPER Error: {}", source))]
-    //     Uper { source: crate::uper::enc::Error },
-    // }
-}
-
-mod de {
-    use super::*;
-
-    #[derive(Debug, Snafu)]
-    #[snafu(visibility(pub(crate)))]
-    pub enum DecodeError {
-        #[snafu(display("APER Error: {}", source))]
-        Aper { source: crate::aper::de::Error },
-        #[snafu(display("BER Error: {}", source))]
-        Ber { source: crate::ber::de::Error },
-        #[snafu(display("CER Error: {}", source))]
-        Cer { source: crate::der::de::Error },
-        #[snafu(display("DER Error: {}", source))]
-        Der { source: crate::der::de::Error },
-        #[snafu(display("UPER Error: {}", source))]
-        Uper { source: crate::uper::de::Error },
     }
 }

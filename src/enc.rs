@@ -344,6 +344,7 @@ pub trait Encoder {
 
 /// A generic error that occurred while trying to encode ASN.1.
 pub trait Error: core::fmt::Display {
+    /// Creates a new general error using `msg` and current `codec` when encoding ASN.1.
     fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self;
 }
 

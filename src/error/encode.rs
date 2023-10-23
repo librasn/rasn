@@ -12,9 +12,8 @@ pub enum CodecEncodeError {
     // Aper(AperEncodeError),
 }
 
-#[derive(Snafu)]
+#[derive(Snafu, Debug)]
 #[snafu(visibility(pub(crate)))]
-#[derive(Debug)]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
 #[allow(clippy::module_name_repetitions)]
 pub struct EncodeError {
@@ -100,7 +99,7 @@ pub enum Kind {
     },
     #[snafu(display("custom error:\n{}", msg))]
     Custom { msg: alloc::string::String },
-    #[snafu(display("Wrapped codec-specific error"))]
+    #[snafu(display("Wrapped codec-specific encode error"))]
     CodecSpecific { inner: CodecEncodeError },
     #[snafu(display("Constraint not satisfied: {msg}"))]
     ConstraintNotSatisfied { msg: alloc::string::String },

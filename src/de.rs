@@ -294,22 +294,27 @@ pub trait Decoder: Sized {
 }
 
 /// A generic error that can occur while decoding ASN.1.
+/// Caller needs always to pass a `crate::Codec` variant to `Error` when implementing the decoder
 pub trait Error: core::fmt::Display {
     /// Creates a new general error using `msg` when decoding ASN.1.
-    fn custom<D: core::fmt::Display>(msg: D) -> Self;
+    fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self;
     /// Creates a new error about needing more data to finish parsing.
-    fn incomplete(needed: Needed) -> Self;
+    fn incomplete(needed: Needed, codec: crate::Codec) -> Self;
     /// Creates a new error about exceeding the maximum allowed data for a type.
-    fn exceeds_max_length(length: num_bigint::BigUint) -> Self;
+    fn exceeds_max_length(length: num_bigint::BigUint, codec: crate::Codec) -> Self;
     /// Creates a new error about a missing field.
-    fn missing_field(name: &'static str) -> Self;
+    fn missing_field(name: &'static str, codec: crate::Codec) -> Self;
     /// Creates a new error about being unable to match any variant in a choice.
-    fn no_valid_choice(name: &'static str) -> Self;
+    fn no_valid_choice(name: &'static str, codec: crate::Codec) -> Self;
     /// Creates a new error about being unable to decode a field in a compound
     /// type, such as a set or sequence.
-    fn field_error<D: core::fmt::Display>(name: &'static str, error: D) -> Self;
+    fn field_error<D: core::fmt::Display>(
+        name: &'static str,
+        error: D,
+        codec: crate::Codec,
+    ) -> Self;
     /// Creates a new error about finding a duplicate field.
-    fn duplicate_field(name: &'static str) -> Self;
+    fn duplicate_field(name: &'static str, codec: crate::Codec) -> Self;
 }
 
 impl Decode for () {

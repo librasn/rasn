@@ -1,91 +1,167 @@
 use snafu::{Backtrace, GenerateImplicitData, Snafu};
 
 use crate::de::Error;
+use crate::Codec;
 use alloc::string::ToString;
 
 use crate::types::variants::Variants;
 use crate::types::Tag;
 
-#[derive(Snafu)]
-#[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
+pub enum CodecDecodeError {
+    Ber(BerDecodeErrorKind),
+    Cer(CerDecodeErrorKind),
+    Der(DerDecodeErrorKind),
+    Uper(UperDecodeErrorKind),
+    Aper(AperDecodeErrorKind),
+}
+
+macro_rules! impl_from {
+    ($variant:ident, $error_kind:ty) => {
+        impl From<$error_kind> for DecodeError {
+            fn from(error: $error_kind) -> Self {
+                Self::from_codec_kind(CodecDecodeError::$variant(error))
+            }
+        }
+    };
+}
+
+// implement From for each variant of CodecDecodeError into DecodeError
+impl_from!(Ber, BerDecodeErrorKind);
+impl_from!(Cer, CerDecodeErrorKind);
+impl_from!(Der, DerDecodeErrorKind);
+impl_from!(Uper, UperDecodeErrorKind);
+impl_from!(Aper, AperDecodeErrorKind);
+
+impl From<CodecDecodeError> for DecodeError {
+    fn from(error: CodecDecodeError) -> Self {
+        Self::from_codec_kind(error)
+    }
+}
+
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub(crate)))]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
 #[allow(clippy::module_name_repetitions)]
 pub struct DecodeError {
     kind: Kind,
+    codec: Codec,
     backtrace: Backtrace,
 }
 
 impl DecodeError {
     #[must_use]
-    pub fn range_exceeds_platform_width(needed: u32, present: u32) -> Self {
-        Self::from(Kind::RangeExceedsPlatformWidth { needed, present })
+    pub fn range_exceeds_platform_width(needed: u32, present: u32, codec: Codec) -> Self {
+        Self::from_kind(Kind::RangeExceedsPlatformWidth { needed, present }, codec)
     }
     #[must_use]
-    pub fn integer_overflow(max_width: u32) -> Self {
-        Self::from(Kind::IntegerOverflow { max_width })
+    pub fn integer_overflow(max_width: u32, codec: Codec) -> Self {
+        Self::from_kind(Kind::IntegerOverflow { max_width }, codec)
+    }
+    #[must_use]
+    pub fn integer_type_conversion_failed(msg: alloc::string::String, codec: Codec) -> Self {
+        Self::from_kind(Kind::IntegerTypeConversionFailed { msg }, codec)
+    }
+    #[must_use]
+    pub fn invalid_bit_string(bits: u8, codec: Codec) -> Self {
+        Self::from_kind(Kind::InvalidBitString { bits }, codec)
     }
 
     #[must_use]
-    pub fn type_not_extensible() -> Self {
-        Self::from(Kind::TypeNotExtensible)
+    pub fn type_not_extensible(codec: Codec) -> Self {
+        Self::from_kind(Kind::TypeNotExtensible, codec)
     }
     #[must_use]
-    pub fn parser_fail(msg: alloc::string::String) -> Self {
-        Self::from(Kind::Parser { msg })
+    pub fn parser_fail(msg: alloc::string::String, codec: Codec) -> Self {
+        Self::from_kind(Kind::Parser { msg }, codec)
     }
 
     #[must_use]
-    pub fn required_extension_not_present(tag: crate::types::Tag) -> Self {
-        Self::from(Kind::RequiredExtensionNotPresent { tag })
+    pub fn required_extension_not_present(tag: crate::types::Tag, codec: Codec) -> Self {
+        Self::from_kind(Kind::RequiredExtensionNotPresent { tag }, codec)
     }
 
     #[must_use]
-    pub fn choice_index_exceeds_platform_width(needed: u32, present: u64) -> Self {
-        Self::from(Kind::ChoiceIndexExceedsPlatformWidth { needed, present })
+    pub fn choice_index_exceeds_platform_width(needed: u32, present: u64, codec: Codec) -> Self {
+        Self::from_kind(
+            Kind::ChoiceIndexExceedsPlatformWidth { needed, present },
+            codec,
+        )
     }
 
     #[must_use]
-    pub fn choice_index_not_found(index: usize, variants: Variants) -> Self {
-        Self::from(Kind::ChoiceIndexNotFound { index, variants })
+    pub fn choice_index_not_found(index: usize, variants: Variants, codec: Codec) -> Self {
+        Self::from_kind(Kind::ChoiceIndexNotFound { index, variants }, codec)
+    }
+    #[must_use]
+    pub fn string_conversion_failed(tag: Tag, msg: alloc::string::String, codec: Codec) -> Self {
+        Self::from_kind(Kind::StringConversionFailed { tag, msg }, codec)
+    }
+    #[must_use]
+    pub fn unexpected_extra_data(length: usize, codec: Codec) -> Self {
+        Self::from_kind(Kind::UnexpectedExtraData { length }, codec)
     }
 
-    pub(crate) fn assert_tag(expected: Tag, actual: Tag) -> core::result::Result<(), DecodeError> {
+    pub(crate) fn assert_tag(
+        expected: Tag,
+        actual: Tag,
+        codec: Codec,
+    ) -> core::result::Result<(), DecodeError> {
         if expected == actual {
             Ok(())
         } else {
-            Err(DecodeError::from(Kind::MismatchedTag { expected, actual }))
+            Err(DecodeError::from_kind(
+                Kind::MismatchedTag { expected, actual },
+                codec,
+            ))
         }
     }
 
     pub(crate) fn assert_length(
         expected: usize,
         actual: usize,
+        codec: Codec,
     ) -> core::result::Result<(), DecodeError> {
         if expected == actual {
             Ok(())
         } else {
-            Err(DecodeError::from(Kind::MismatchedLength {
-                expected,
-                actual,
-            }))
+            Err(DecodeError::from_kind(
+                Kind::MismatchedLength { expected, actual },
+                codec,
+            ))
         }
     }
 
-    pub(crate) fn map_nom_err(error: nom::Err<nom::error::Error<&[u8]>>) -> DecodeError {
+    pub(crate) fn map_nom_err(
+        error: nom::Err<nom::error::Error<&[u8]>>,
+        codec: Codec,
+    ) -> DecodeError {
         let msg = match error {
-            nom::Err::Incomplete(needed) => return DecodeError::incomplete(needed),
+            nom::Err::Incomplete(needed) => return DecodeError::incomplete(needed, codec),
             err => alloc::format!("Parsing Failure: {}", err),
         };
 
-        DecodeError::parser_fail(msg)
+        DecodeError::parser_fail(msg, codec)
     }
-}
-
-impl From<Kind> for DecodeError {
-    fn from(kind: Kind) -> Self {
+    pub(crate) fn from_kind(kind: Kind, codec: Codec) -> Self {
         Self {
             kind,
+            codec,
+            backtrace: Backtrace::generate(),
+        }
+    }
+    #[must_use]
+    pub(crate) fn from_codec_kind(inner: CodecDecodeError) -> Self {
+        let codec = match inner {
+            CodecDecodeError::Ber(_) => crate::Codec::Ber,
+            CodecDecodeError::Cer(_) => crate::Codec::Cer,
+            CodecDecodeError::Der(_) => crate::Codec::Der,
+            CodecDecodeError::Uper(_) => crate::Codec::Uper,
+            CodecDecodeError::Aper(_) => crate::Codec::Aper,
+        };
+        Self {
+            kind: Kind::CodecSpecific { inner },
+            codec,
             backtrace: Backtrace::generate(),
         }
     }
@@ -95,8 +171,9 @@ impl From<Kind> for DecodeError {
 #[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
 pub enum Kind {
-    /// Constructed encoding encountered but not allowed.
-    ConstructedEncodingNotAllowed,
+    #[snafu(display("Wrapped codec-specific decode error"))]
+    CodecSpecific { inner: CodecDecodeError },
+
     #[snafu(display("choice index '{index}' did not match any variant"))]
     ChoiceIndexNotFound {
         /// The found index of the choice variant.
@@ -116,6 +193,8 @@ pub enum Kind {
         /// The error's message.
         msg: alloc::string::String,
     },
+    #[snafu(display("Invalid discriminant for enumerated type."))]
+    InvalidDiscriminant,
     #[snafu(display("Duplicate field for `{}`", name))]
     DuplicateField {
         /// The field's name.
@@ -145,6 +224,8 @@ pub enum Kind {
         /// The maximum integer width.
         max_width: u32,
     },
+    #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
+    IntegerTypeConversionFailed { msg: alloc::string::String },
     /// The bit string contains invalid bits.
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
     InvalidBitString {
@@ -152,13 +233,8 @@ pub enum Kind {
         bits: u8,
     },
     /// BOOL value is not `0` or `0xFF`. Applies: BER/OER/PER?
+    #[snafu(display("Bool value is not `0` or `0xFF` as canonical requires."))]
     InvalidBool,
-    /// OBJECT IDENTIFIER with missing or corrupt root nodes.
-    InvalidObjectIdentifier,
-    /// Invalid UTF-8 data.
-    InvalidUtf8,
-    /// Invalid date.
-    InvalidDate,
     /// The length does not match what was expected.
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
     MismatchedLength {
@@ -199,11 +275,17 @@ pub enum Kind {
         /// The error's message.
         msg: alloc::string::String,
     },
-    // #[snafu(display("Error in wrapped BER: {}", source))]
-    // Ber {
-    //     /// The error's message.
-    //     source: crate::ber::de::Error,
-    // },
+    #[snafu(display(
+        "Failed to convert byte array into valid ASN.1 string. String type as tag: {} Error: {}",
+        tag,
+        msg
+    ))]
+    StringConversionFailed {
+        /// Universal tag of the string type.
+        tag: Tag,
+        /// The error's message.
+        msg: alloc::string::String,
+    },
     #[snafu(display("No valid choice for `{}`", name))]
     NoValidChoice {
         /// The field's name.
@@ -220,56 +302,101 @@ pub enum Kind {
     },
 }
 
-// impl Kind {
-//     fn to_error() {}
-// }
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub(crate)))]
+pub enum BerDecodeErrorKind {
+    #[snafu(display("Invalid constructed identifier for ASN.1 value: not primitive."))]
+    InvalidConstructedIdentifier,
+    /// Invalid date.
+    #[snafu(display("Invalid date string: {}", msg))]
+    InvalidDate { msg: alloc::string::String },
+    #[snafu(display("Invalid object identifier with missing or corrupt root nodes."))]
+    InvalidObjectIdentifier,
+}
+
+impl BerDecodeErrorKind {
+    pub fn invalid_constructed_identifier() -> CodecDecodeError {
+        CodecDecodeError::Ber(Self::InvalidConstructedIdentifier)
+    }
+    pub fn invalid_date(msg: alloc::string::String) -> CodecDecodeError {
+        CodecDecodeError::Ber(Self::InvalidDate { msg })
+    }
+}
+
+#[derive(Snafu, Debug)]
+// TODO check if there codec-specific errors here
+#[snafu(visibility(pub(crate)))]
+pub enum CerDecodeErrorKind {}
+
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub(crate)))]
+pub enum DerDecodeErrorKind {
+    #[snafu(display("Constructed encoding encountered but not allowed."))]
+    ConstructedEncodingNotAllowed,
+}
+
+// TODO check if there codec-specific errors here
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub(crate)))]
+pub enum UperDecodeErrorKind {}
+
+// TODO check if there codec-specific errors here
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub(crate)))]
+pub enum AperDecodeErrorKind {}
 
 impl crate::de::Error for DecodeError {
-    fn custom<D: core::fmt::Display>(msg: D) -> Self {
-        Self::from(Kind::Custom {
-            msg: msg.to_string(),
-        })
+    fn custom<D: core::fmt::Display>(msg: D, codec: Codec) -> Self {
+        Self::from_kind(
+            Kind::Custom {
+                msg: msg.to_string(),
+            },
+            codec,
+        )
     }
 
-    fn incomplete(needed: nom::Needed) -> Self {
-        Self::from(Kind::Incomplete { needed })
+    fn incomplete(needed: nom::Needed, codec: Codec) -> Self {
+        Self::from_kind(Kind::Incomplete { needed }, codec)
     }
 
-    fn exceeds_max_length(length: num_bigint::BigUint) -> Self {
-        Self::from(Kind::ExceedsMaxLength { length })
+    fn exceeds_max_length(length: num_bigint::BigUint, codec: Codec) -> Self {
+        Self::from_kind(Kind::ExceedsMaxLength { length }, codec)
     }
 
-    fn missing_field(name: &'static str) -> Self {
-        Self::from(Kind::MissingField { name })
+    fn missing_field(name: &'static str, codec: Codec) -> Self {
+        Self::from_kind(Kind::MissingField { name }, codec)
     }
 
-    fn no_valid_choice(name: &'static str) -> Self {
-        Self::from(Kind::NoValidChoice { name })
+    fn no_valid_choice(name: &'static str, codec: Codec) -> Self {
+        Self::from_kind(Kind::NoValidChoice { name }, codec)
     }
 
-    fn field_error<D: core::fmt::Display>(name: &'static str, error: D) -> Self {
-        Self::from(Kind::FieldError {
-            name,
-            msg: error.to_string(),
-        })
+    fn field_error<D: core::fmt::Display>(name: &'static str, error: D, codec: Codec) -> Self {
+        Self::from_kind(
+            Kind::FieldError {
+                name,
+                msg: error.to_string(),
+            },
+            codec,
+        )
     }
 
-    fn duplicate_field(name: &'static str) -> Self {
-        Self::from(Kind::DuplicateField { name })
-    }
-}
-
-impl From<nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>>
-    for DecodeError
-{
-    fn from(
-        error: nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>,
-    ) -> Self {
-        let msg = match error {
-            nom::Err::Incomplete(needed) => return Self::from(Kind::Incomplete { needed }),
-            err => alloc::format!("Parsing Failure: {}", err),
-        };
-
-        Self::from(Kind::Parser { msg })
+    fn duplicate_field(name: &'static str, codec: Codec) -> Self {
+        Self::from_kind(Kind::DuplicateField { name }, codec)
     }
 }
+
+// impl From<nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>>
+//     for DecodeError
+// {
+//     fn from(
+//         error: nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>,
+//     ) -> Self {
+//         let msg = match error {
+//             nom::Err::Incomplete(needed) => return Self::from_kind(Kind::Incomplete { needed }, codec),
+//             err => alloc::format!("Parsing Failure: {}", err),
+//         };
+//
+//         Self::from(Kind::Parser { msg })
+//     }
+// }

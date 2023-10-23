@@ -4,7 +4,7 @@ use nom::IResult;
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-use super::{DecodeErrorKind, DecoderOptions, Error};
+use super::{DecodeError, DecoderOptions, DerDecodeErrorKind};
 use crate::{
     ber::identifier::Identifier,
     types::{Class, Tag},
@@ -16,14 +16,15 @@ pub(crate) fn parse_value<'input>(
     input: &'input [u8],
     tag: Option<Tag>,
 ) -> super::Result<(&'input [u8], (Identifier, Option<&'input [u8]>))> {
-    let (input, identifier) = parse_identifier_octet(input).map_err(Error::map_nom_err)?;
+    let (input, identifier) = parse_identifier_octet(input)
+        .map_err(|e| DecodeError::map_nom_err(e, config.current_codec()))?;
 
     if let Some(tag) = tag {
-        Error::assert_tag(tag, identifier.tag)?;
+        DecodeError::assert_tag(tag, identifier.tag, config.current_codec())?;
     }
 
-    let (input, contents) =
-        parse_contents(config, identifier, input).map_err(Error::map_nom_err)?;
+    let (input, contents) = parse_contents(config, identifier, input)
+        .map_err(|e| DecodeError::map_nom_err(e, config.current_codec()))?;
 
     Ok((input, (identifier, contents)))
 }
@@ -32,7 +33,7 @@ pub(crate) fn parse_encoded_value<'config, 'input, RV>(
     config: &'config DecoderOptions,
     slice: &'input [u8],
     tag: Tag,
-    primitive_callback: fn(&'input [u8]) -> super::Result<RV>,
+    primitive_callback: fn(&'input [u8], crate::Codec) -> super::Result<RV>,
 ) -> super::Result<(&'input [u8], RV)>
 where
     RV: Appendable,
@@ -40,7 +41,10 @@ where
     let (input, (identifier, contents)) = parse_value(config, slice, Some(tag))?;
 
     if identifier.is_primitive() {
-        Ok((input, (primitive_callback)(contents.unwrap())?))
+        Ok((
+            input,
+            (primitive_callback)(contents.unwrap(), config.current_codec())?,
+        ))
     } else if config.encoding_rules.allows_constructed_strings() {
         let mut container = RV::new();
         let mut input = input;
@@ -48,7 +52,8 @@ where
         const EOC: &[u8] = &[0, 0];
 
         while !input.is_empty() && !input.starts_with(EOC) {
-            let (_, identifier) = parse_identifier_octet(input).map_err(Error::map_nom_err)?;
+            let (_, identifier) = parse_identifier_octet(input)
+                .map_err(|e| DecodeError::map_nom_err(e, config.current_codec()))?;
             let (i, mut child) =
                 parse_encoded_value(config, input, identifier.tag, primitive_callback)?;
             input = i;
@@ -56,13 +61,14 @@ where
         }
 
         if contents.is_none() {
-            let (i, _) = nom::bytes::streaming::tag(EOC)(input).map_err(Error::map_nom_err)?;
+            let (i, _) = nom::bytes::streaming::tag(EOC)(input)
+                .map_err(|e| DecodeError::map_nom_err(e, config.current_codec()))?;
             input = i;
         }
 
         Ok((input, container))
     } else {
-        Err(Error::from(DecodeErrorKind::ConstructedEncodingNotAllowed))
+        Err(DerDecodeErrorKind::ConstructedEncodingNotAllowed.into())
     }
 }
 
