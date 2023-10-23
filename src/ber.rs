@@ -177,7 +177,7 @@ mod tests {
                     |decoder, indice, tag| match (indice, tag) {
                         (0, u32::TAG) => <_>::decode(decoder).map(Fields::Age),
                         (1, Utf8String::TAG) => <_>::decode(decoder).map(Fields::Name),
-                        (_, _) => Err(D::Error::custom("unknown field")),
+                        (_, _) => Err(D::Error::custom("unknown field", D::codec(&decoder))),
                     },
                     |fields| {
                         let mut age = None;
@@ -191,8 +191,12 @@ mod tests {
                         }
 
                         Ok(Self {
-                            age: age.ok_or_else(|| D::Error::missing_field("age"))?,
-                            name: name.ok_or_else(|| D::Error::missing_field("name"))?,
+                            age: age.ok_or_else(|| {
+                                D::Error::missing_field("age", D::codec(&decoder))
+                            })?,
+                            name: name.ok_or_else(|| {
+                                D::Error::missing_field("name", D::codec(&decoder))
+                            })?,
                         })
                     },
                 )

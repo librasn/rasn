@@ -55,6 +55,29 @@ impl DecodeError {
         Self::from_kind(Kind::RangeExceedsPlatformWidth { needed, present }, codec)
     }
     #[must_use]
+    pub fn fixed_string_conversion_failed(
+        tag: Tag,
+        actual: usize,
+        expected: usize,
+        codec: Codec,
+    ) -> Self {
+        Self::from_kind(
+            Kind::FixedStringConversionFailed {
+                tag,
+                actual,
+                expected,
+            },
+            codec,
+        )
+    }
+    #[must_use]
+    pub fn incorrect_item_number_in_sequence(expected: usize, actual: usize, codec: Codec) -> Self {
+        Self::from_kind(
+            Kind::IncorrectItemNumberInSequence { expected, actual },
+            codec,
+        )
+    }
+    #[must_use]
     pub fn integer_overflow(max_width: u32, codec: Codec) -> Self {
         Self::from_kind(Kind::IntegerOverflow { max_width }, codec)
     }
@@ -216,6 +239,12 @@ pub enum Kind {
         /// Amount of bytes needed.
         needed: nom::Needed,
     },
+    IncorrectItemNumberInSequence {
+        /// The expected item number.
+        expected: usize,
+        /// The actual item number.
+        actual: usize,
+    },
     /// Indefinite length encountered but not allowed.
     IndefiniteLengthNotAllowed,
     /// The actual integer exceeded the expected width.
@@ -285,6 +314,20 @@ pub enum Kind {
         tag: Tag,
         /// The error's message.
         msg: alloc::string::String,
+    },
+    #[snafu(display(
+        "Failed to convert byte array into valid fixed-sized ASN.1 string. String type as tag: {}, actual: {}, expected: {}",
+        tag,
+        actual,
+        expected
+    ))]
+    FixedStringConversionFailed {
+        /// Universal tag of the string type.
+        tag: Tag,
+        /// Expected length
+        expected: usize,
+        /// Actual length
+        actual: usize,
     },
     #[snafu(display("No valid choice for `{}`", name))]
     NoValidChoice {

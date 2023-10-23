@@ -5,7 +5,6 @@ pub(super) mod parser;
 
 use super::identifier::Identifier;
 use crate::{
-    de::Error as _,
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},

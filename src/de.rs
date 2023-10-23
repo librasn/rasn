@@ -1,8 +1,9 @@
 //! Generic ASN.1 decoding framework.
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, string::ToString, vec::Vec};
 use core::convert::TryInto;
 
+use crate::error::DecodeError;
 use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
 
 pub use nom::Needed;
@@ -47,6 +48,8 @@ pub trait Decode: Sized + AsnType {
 
 /// A **data format** decode any ASN.1 data type.
 pub trait Decoder: Sized {
+    // TODO, when associated type defaults are stabilized, use this instead?
+    // type Error = crate::error::DecodeError;
     type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
 
     /// Returns codec variant of `Codec` that current decoder is decoding.
@@ -372,7 +375,7 @@ macro_rules! impl_integers {
                         tag,
                         constraints,
                     )?
-                ).map_err(Error::custom)
+                ).map_err(|e: num_bigint::TryFromBigIntError<types::Integer>|D::Error::from(DecodeError::integer_type_conversion_failed(e.to_string(), D::codec(&decoder))))
             }
         }
         )+
@@ -526,12 +529,11 @@ impl<T: Decode + Default, const N: usize> Decode for [T; N] {
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
         let sequence = decoder.decode_sequence_of(tag, constraints)?;
-
         sequence.try_into().map_err(|seq: Vec<_>| {
-            Error::custom(alloc::format!(
-                "Incorrect number of items provided. Expected {}, Actual {}.",
+            D::Error::from(DecodeError::incorrect_item_number_in_sequence(
                 N,
-                seq.len()
+                seq.len(),
+                D::codec(&decoder),
             ))
         })
     }
