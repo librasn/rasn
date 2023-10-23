@@ -47,7 +47,10 @@ pub trait Decode: Sized + AsnType {
 
 /// A **data format** decode any ASN.1 data type.
 pub trait Decoder: Sized {
-    type Error: Error;
+    type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
+
+    /// Returns codec variant of `Codec` that current decoder is decoding.
+    fn codec(&self) -> crate::Codec;
 
     /// Decode a unknown ASN.1 value identified by `tag` from the available input.
     fn decode_any(&mut self) -> Result<types::Any, Self::Error>;

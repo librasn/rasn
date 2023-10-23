@@ -33,6 +33,14 @@ impl DecoderOptions {
     pub fn unaligned() -> Self {
         Self { aligned: false }
     }
+    #[must_use]
+    fn current_codec(self) -> crate::Codec {
+        if self.aligned {
+            crate::Codec::Aper
+        } else {
+            crate::Codec::Uper
+        }
+    }
 }
 
 pub struct Decoder<'input> {
@@ -46,6 +54,9 @@ pub struct Decoder<'input> {
 }
 
 impl<'input> Decoder<'input> {
+    pub fn codec(&self) -> crate::Codec {
+        self.options.current_codec()
+    }
     pub fn new(input: &'input crate::types::BitStr, options: DecoderOptions) -> Self {
         Self {
             input: input.into(),
@@ -552,6 +563,9 @@ impl<'input> Decoder<'input> {
 impl<'input> crate::Decoder for Decoder<'input> {
     type Error = Error;
 
+    fn codec(&self) -> crate::Codec {
+        Self::codec(self)
+    }
     fn decode_any(&mut self) -> Result<types::Any> {
         let mut octet_string = types::BitString::default();
 

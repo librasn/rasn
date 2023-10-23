@@ -37,6 +37,7 @@ enum ByteOrBytes {
 
 impl Encoder {
     /// Creates a new instance from the given `config`.
+    #[must_use]
     pub fn new(config: EncoderOptions) -> Self {
         Self {
             config,
@@ -45,12 +46,14 @@ impl Encoder {
             set_buffer: <_>::default(),
         }
     }
+    #[must_use]
     pub fn codec(&self) -> crate::Codec {
         self.config.current_codec()
     }
 
     /// Creates a new instance from the given `config`, and uses SET encoding
     /// logic, ensuring that all messages are encoded in order by tag.
+    #[must_use]
     pub fn new_set(config: EncoderOptions) -> Self {
         Self {
             config,

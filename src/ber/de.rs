@@ -33,7 +33,13 @@ pub struct Decoder<'input> {
 }
 
 impl<'input> Decoder<'input> {
+    /// Return the current codec `Codec` variant
+    #[must_use]
+    pub fn codec(&self) -> crate::Codec {
+        self.config.current_codec()
+    }
     /// Create a new [`Decoder`] from the given `input` and `config`.
+    #[must_use]
     pub fn new(input: &'input [u8], config: DecoderOptions) -> Self {
         Self {
             input,
@@ -43,6 +49,7 @@ impl<'input> Decoder<'input> {
     }
 
     /// Return a number of the decoded bytes by this decoder
+    #[must_use]
     pub fn decoded_len(&self) -> usize {
         self.initial_len - self.input.len()
     }
@@ -307,6 +314,9 @@ impl<'input> Decoder<'input> {
 impl<'input> crate::Decoder for Decoder<'input> {
     type Error = Error;
 
+    fn codec(&self) -> crate::Codec {
+        Self::codec(self)
+    }
     fn decode_any(&mut self) -> Result<types::Any> {
         let (mut input, (identifier, contents)) =
             self::parser::parse_value(&self.config, self.input, None)?;

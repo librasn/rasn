@@ -48,6 +48,7 @@ pub trait Encoder {
     type Ok;
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
 
+    /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;
 
     /// Encode an unknown ASN.1 value.
