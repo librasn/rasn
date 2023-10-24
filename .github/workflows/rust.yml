@@ -45,6 +45,8 @@ jobs:
         shell: bash
       - run: ci/test.bash cargo ${{ matrix.target }}
         shell: bash
+      - run: ci/fmt-check.bash cargo
+        shell: bash
 
     strategy:
       fail-fast: true
@@ -80,6 +82,8 @@ jobs:
         # Only test on macOS platforms since we can't simulate the others.
       - run: ci/test.bash cross ${{ matrix.target }}
         if: matrix.target == 'x86_64-apple-darwin'
+      - run: ci/fmt-check.bash cargo
+        shell: bash
 
     strategy:
       fail-fast: true
@@ -118,6 +122,8 @@ jobs:
           !contains(matrix.target, 'solaris') &&
           matrix.target != 'armv5te-unknown-linux-musleabi' &&
           matrix.target != 'sparc64-unknown-linux-gnu'
+      - run: ci/fmt-check.bash cargo
+        shell: bash
 
     strategy:
       fail-fast: true
