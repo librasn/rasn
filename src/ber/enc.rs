@@ -2,7 +2,7 @@
 
 mod config;
 
-use alloc::{collections::VecDeque, string::ToString, vec::Vec};
+use alloc::{borrow::ToOwned, collections::VecDeque, string::ToString, vec::Vec};
 use chrono::Timelike;
 
 use super::Identifier;
@@ -255,7 +255,7 @@ impl Encoder {
     /// Reusable function by other codecs.
     pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, EncodeError> {
         if oid.len() < 2 {
-            return Err(BerEncodeErrorKind::invalid_object_identifier().into());
+            return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
         }
         let mut bytes = Vec::new();
 
@@ -263,7 +263,7 @@ impl Encoder {
         let second = oid[1];
 
         if first > MAX_OID_FIRST_OCTET {
-            return Err(BerEncodeErrorKind::invalid_object_identifier().into());
+            return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
         }
         self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
         for component in oid.iter().skip(2) {

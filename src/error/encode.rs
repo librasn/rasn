@@ -45,7 +45,7 @@ impl From<CodecEncodeError> for EncodeError {
 /// There is `Kind::CodecSpecific` variant which wraps the codec-specific
 /// errors as `CodecEncodeError` type.
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
 #[allow(clippy::module_name_repetitions)]
 pub struct EncodeError {
@@ -122,9 +122,9 @@ impl EncodeError {
     }
 }
 
-/// EncodeError kinds which are common for all codecs.
+/// `EncodeError` kinds which are common for all codecs.
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum Kind {
     #[snafu(display("Failed to convert BIT STRING unused bytes to u8: {err}"))]
@@ -147,50 +147,51 @@ pub enum Kind {
     #[snafu(display("Selected Variant not found from Choice"))]
     VariantNotInChoice,
 }
-/// EncodeError kinds which are specific for BER.
+/// Error kinds of `Kind::CodecSpecific` which are specific for BER.
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum BerEncodeErrorKind {
     #[snafu(display("Cannot encode `ANY` types in `SET` fields"))]
     AnyInSet,
     /// `OBJECT IDENTIFIER` must have at least two components.
     #[snafu(display(
-    "Invalid Object Identifier: must have at least two components and first octet must be 0, 1 or 2"
+    "Invalid Object Identifier: must have at least two components and first octet must be 0, 1 or 2. Provided: {:?}", oid
     ))]
-    InvalidObjectIdentifier,
+    InvalidObjectIdentifier { oid: alloc::vec::Vec<u32> },
 }
 impl BerEncodeErrorKind {
     #[must_use]
-    pub fn invalid_object_identifier() -> Self {
-        Self::InvalidObjectIdentifier
+    pub fn invalid_object_identifier(oid: alloc::vec::Vec<u32>) -> Self {
+        Self::InvalidObjectIdentifier { oid }
     }
 }
 
 // TODO are there CER/DER specific errors?
-/// EncodeError kinds which are specific for CER.
+/// Error kinds of `Kind::CodecSpecific` which are specific for CER.
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum CerEncodeErrorKind {}
 
-/// EncodeError kinds which are specific for DER.
+/// Error kinds of `Kind::CodecSpecific` which are specific for DER.
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum DerEncodeErrorKind {}
 
-/// EncodeError kinds which are specific for UPER.
+/// Error kinds of `Kind::CodecSpecific` which are specific for UPER.
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum UperEncodeErrorKind {}
 
-/// EncodeError kinds which are specific for APER.
+/// Error kinds of `Kind::CodecSpecific` which are specific for APER.
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperEncodeErrorKind {}
+
 impl crate::enc::Error for EncodeError {
     fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self {
         Self {
@@ -200,5 +201,60 @@ impl crate::enc::Error for EncodeError {
             codec,
             backtrace: Backtrace::generate(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{ObjectIdentifier, Tag};
+
+    #[test]
+    fn test_ber_error() {
+        use crate::ber::enc;
+        use crate::enc::Encoder;
+
+        let oid = ObjectIdentifier::new(vec![2, 5, 4, 3]);
+        assert!(oid.is_some());
+        // Higher level abstraction does not allow us to provide OID errors because we provide only valid types
+        let oid_encoded = crate::Codec::Ber.encode(&oid);
+        assert!(oid_encoded.is_ok());
+
+        let oid = vec![3, 5, 4, 3];
+
+        let mut enc = enc::Encoder::new(enc::EncoderOptions::ber());
+        let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &oid);
+        assert!(result.is_err());
+        match result {
+            Err(EncodeError {
+                kind:
+                    Kind::CodecSpecific {
+                        inner:
+                            CodecEncodeError::Ber(BerEncodeErrorKind::InvalidObjectIdentifier {
+                                ..
+                            }),
+                    },
+                ..
+            }) => {}
+            _ => panic!("Expected invalid object identifier error of specific type!"),
+        }
+        // Debug output should look something like this:
+        // dbg!(result.err());
+        // EncodeError {
+        //     kind: CodecSpecific {
+        //         inner: Ber(
+        //             InvalidObjectIdentifier {
+        //                 oid: [
+        //                     3,
+        //                     5,
+        //                     4,
+        //                     3,
+        //                 ],
+        //             },
+        //         ),
+        //     },
+        //     codec: Ber,
+        //     backtrace: Backtrace( .... ),
+        // },
     }
 }

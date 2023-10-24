@@ -41,7 +41,7 @@ impl From<CodecDecodeError> for DecodeError {
 }
 
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
 #[allow(clippy::module_name_repetitions)]
 pub struct DecodeError {
@@ -216,7 +216,7 @@ impl DecodeError {
 }
 
 #[derive(Snafu)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Kind {
@@ -231,7 +231,7 @@ pub enum Kind {
         extended_list
     ))]
     EnumerationIndexNotFound {
-        /// The found index of the choice variant.
+        /// The found index of the enumerated variant.
         index: usize,
         /// Whether the index was checked from the extended variants.
         extended_list: bool,
@@ -278,15 +278,19 @@ pub enum Kind {
         /// Amount of bytes needed.
         needed: nom::Needed,
     },
+    #[snafu(display(
+        "Invalid item number in Sequence: expected {}, actual {}",
+        expected,
+        actual
+    ))]
     IncorrectItemNumberInSequence {
         /// The expected item number.
         expected: usize,
         /// The actual item number.
         actual: usize,
     },
-    /// Indefinite length encountered but not allowed.
+    #[snafu(display("Indefinite length encountered but not allowed."))]
     IndefiniteLengthNotAllowed,
-    /// The actual integer exceeded the expected width.
     #[snafu(display("Actual integer larger than expected {} bits", max_width))]
     IntegerOverflow {
         /// The maximum integer width.
@@ -294,7 +298,6 @@ pub enum Kind {
     },
     #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
     IntegerTypeConversionFailed { msg: alloc::string::String },
-    /// The bit string contains invalid bits.
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
     InvalidBitString {
         /// The amount of invalid bits.
@@ -324,7 +327,7 @@ pub enum Kind {
         /// The field's name.
         name: &'static str,
     },
-    #[snafu(display("Expected class: {}, value: {} in sequence or setMissing tag class or value in sequence or set", class, value))]
+    #[snafu(display("Expected class: {}, value: {} in sequence or set Missing tag class or value in sequence or set", class, value))]
     MissingTagClassOrValueInSequenceOrSet {
         /// The field's name.
         class: crate::types::Class,
@@ -394,7 +397,7 @@ pub enum Kind {
 }
 
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum BerDecodeErrorKind {
     #[snafu(display("Invalid constructed identifier for ASN.1 value: not primitive."))]
@@ -419,12 +422,12 @@ impl BerDecodeErrorKind {
 
 #[derive(Snafu, Debug)]
 // TODO check if there codec-specific errors here
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum CerDecodeErrorKind {}
 
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum DerDecodeErrorKind {
     #[snafu(display("Constructed encoding encountered but not allowed."))]
@@ -433,13 +436,13 @@ pub enum DerDecodeErrorKind {
 
 // TODO check if there codec-specific errors here
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum UperDecodeErrorKind {}
 
 // TODO check if there codec-specific errors here
 #[derive(Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
+#[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperDecodeErrorKind {}
 
