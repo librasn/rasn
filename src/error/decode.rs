@@ -180,15 +180,14 @@ impl DecodeError {
         }
     }
 
-    pub(crate) fn map_nom_err(
-        error: nom::Err<nom::error::Error<&[u8]>>,
+    pub(crate) fn map_nom_err<T: core::fmt::Debug>(
+        error: nom::Err<nom::error::Error<T>>,
         codec: Codec,
     ) -> DecodeError {
         let msg = match error {
             nom::Err::Incomplete(needed) => return DecodeError::incomplete(needed, codec),
-            err => alloc::format!("Parsing Failure: {}", err),
+            err => alloc::format!("Parsing Failure: {err}"),
         };
-
         DecodeError::parser_fail(msg, codec)
     }
     #[must_use]
@@ -390,6 +389,8 @@ pub enum Kind {
         /// The amount of garbage data.
         length: usize,
     },
+    #[snafu(display("Unknown field with index {} and tag {}", index, tag))]
+    UnknownField { index: usize, tag: Tag },
 }
 
 #[derive(Snafu, Debug)]
@@ -481,16 +482,7 @@ impl crate::de::Error for DecodeError {
     fn duplicate_field(name: &'static str, codec: Codec) -> Self {
         Self::from_kind(Kind::DuplicateField { name }, codec)
     }
-}
-
-impl From<nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>> for Kind {
-    fn from(
-        error: nom::Err<nom::error::Error<nom_bitvec::BSlice<'_, u8, bitvec::order::Msb0>>>,
-    ) -> Self {
-        let msg = match error {
-            nom::Err::Incomplete(needed) => return Self::Incomplete { needed },
-            err => alloc::format!("Parsing Failure: {}", err),
-        };
-        Self::Parser { msg }
+    fn unknown_field(index: usize, tag: Tag, codec: Codec) -> Self {
+        Self::from_kind(Kind::UnknownField { index, tag }, codec)
     }
 }

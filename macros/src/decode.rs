@@ -98,7 +98,7 @@ pub fn derive_struct_impl(
             syn::Fields::Named(_) => quote!({ #(#field_names2),* }),
         };
 
-        let (field_const_defs, field_match_arms, field_set_arms): ( Vec<_>, Vec<_>, Vec<_>) = itertools::multiunzip(container.fields
+        let (field_const_defs, field_match_arms, field_set_arms): (Vec<_>, Vec<_>, Vec<_>) = itertools::multiunzip(container.fields
             .iter()
             .enumerate()
             .zip(field_type_names)
@@ -148,7 +148,7 @@ pub fn derive_struct_impl(
 
                     Ok(match (index, tag) {
                         #(#field_match_arms)*
-                        _ => return Err(#crate_root::de::Error::custom("Unknown field provided.", codec)),
+                        _ => return Err(#crate_root::de::Error::unknown_field(index, tag, codec)),
                     })
                 },
                 |fields| {

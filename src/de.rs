@@ -326,6 +326,9 @@ pub trait Error: core::fmt::Display {
     /// Creates a new error about finding a duplicate field.
     #[must_use]
     fn duplicate_field(name: &'static str, codec: crate::Codec) -> Self;
+    /// Create a new error about unknown field.
+    #[must_use]
+    fn unknown_field(index: usize, tag: Tag, codec: crate::Codec) -> Self;
 }
 
 impl Decode for () {
@@ -383,7 +386,7 @@ macro_rules! impl_integers {
                         tag,
                         constraints,
                     )?
-                ).map_err(|e: num_bigint::TryFromBigIntError<types::Integer>|D::Error::from(DecodeError::integer_type_conversion_failed(e.to_string(), D::codec(&decoder))))
+                ).map_err(|e: num_bigint::TryFromBigIntError<types::Integer>|D::Error::from(DecodeError::integer_type_conversion_failed(e.to_string(), decoder.codec())))
             }
         }
         )+

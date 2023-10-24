@@ -122,7 +122,7 @@ impl<'input> Decoder<'input> {
             Ok(input)
         } else {
             let (input, _) = nom::bytes::streaming::take(input.len() % 8)(input)
-                .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
             Ok(input)
         }
     }
@@ -133,7 +133,7 @@ impl<'input> Decoder<'input> {
     ) -> Result<InputSlice<'input>> {
         let (input, bitset) =
             nom::bytes::streaming::take(fields.number_of_optional_and_default_fields())(self.input)
-                .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
 
         self.input = input;
         Ok(bitset)
@@ -171,7 +171,7 @@ impl<'input> Decoder<'input> {
 
         let input = self.decode_length(self.input, <_>::default(), &mut |input, length| {
             let (input, data) = nom::bytes::streaming::take(length * 8)(input)
-                .map_err(|e| DecodeError::from_kind(e.into(), codec))?;
+                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
             buffer.extend(&*data);
             Ok(input)
         })?;
@@ -187,25 +187,25 @@ impl<'input> Decoder<'input> {
     ) -> Result<InputSlice<'input>> {
         input = self.parse_padding(input)?;
         let (input, mask) = nom::bytes::streaming::take(1u8)(input)
-            .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
 
         if !mask[0] {
             let (input, length) = nom::bytes::streaming::take(7u8)(input)
                 .map(|(i, bs)| (i, bs.to_bitvec()))
-                .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
             (decode_fn)(input, length.load_be::<usize>())
         } else {
             let (input, mask) = nom::bytes::streaming::take(1u8)(input)
-                .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
 
             if !mask[0] {
                 let (input, length) = nom::bytes::streaming::take(14u8)(input)
                     .map(|(i, bs)| (i, bs.to_bitvec()))
-                    .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
                 (decode_fn)(input, length.load_be::<usize>())
             } else {
                 let (input, mask) = nom::bytes::streaming::take(6u8)(input)
-                    .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
                 let length: usize = match mask.load_be::<u8>() {
                     1 => SIXTEEN_K.into(),
                     2 => THIRTY_TWO_K.into(),
@@ -271,7 +271,7 @@ impl<'input> Decoder<'input> {
                 };
 
                 let (mut input, length) = nom::bytes::streaming::take(super::log2(range))(input)
-                    .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
                 if is_large_string {
                     input = self.parse_padding(input)?;
                 }
@@ -323,7 +323,7 @@ impl<'input> Decoder<'input> {
                 };
 
                 let (mut input, length) = nom::bytes::streaming::take(super::log2(range))(input)
-                    .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
                 input = self.parse_padding(input)?;
                 length
                     .load_be::<usize>()
@@ -341,7 +341,7 @@ impl<'input> Decoder<'input> {
 
     fn parse_one_bit(&mut self) -> Result<bool> {
         let (input, boolean) = nom::bytes::streaming::take(1u8)(self.input)
-            .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
         Ok(boolean[0])
     }
@@ -360,7 +360,7 @@ impl<'input> Decoder<'input> {
     fn parse_non_negative_binary_integer(&mut self, range: i128) -> Result<types::Integer> {
         let bits = super::log2(range);
         let (input, data) = nom::bytes::streaming::take(bits)(self.input)
-            .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
         let data = if data.len() < 8 {
             let mut buffer = types::BitString::repeat(false, 8 - data.len());
@@ -447,7 +447,7 @@ impl<'input> Decoder<'input> {
                     DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
                 },
             )?)(self.input)
-            .map_err(|e| DecodeError::from_kind(e.into(), self.codec()))?;
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
 
         let extensions_present: VecDeque<_> = self
@@ -547,7 +547,7 @@ impl<'input> Decoder<'input> {
             }
 
             let (input, part) = nom::bytes::streaming::take(length * char_width)(input)
-                .map_err(|e| DecodeError::from_kind(e.into(), codec))?;
+                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
             bit_string.extend(&*part);
             Ok(input)
         })?;
@@ -623,7 +623,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         self.decode_extensible_container(<_>::default(), |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
-                .map_err(|e| DecodeError::from_kind(e.into(), codec))?;
+                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
             octet_string.extend(&*part);
             Ok(input)
         })?;
@@ -672,7 +672,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
-                .map_err(|e| DecodeError::from_kind(e.into(), codec))?;
+                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
 
             octet_string.extend(&*part);
             Ok(input)
@@ -696,7 +696,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length)(input)
-                .map_err(|e| DecodeError::from_kind(e.into(), codec))?;
+                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
             bit_string.extend(&*part);
             Ok(input)
         })?;
