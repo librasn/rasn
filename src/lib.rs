@@ -47,6 +47,8 @@ pub mod ber;
 pub mod cer;
 pub mod der;
 pub mod uper;
+#[cfg(feature = "jer")]
+pub mod jer;
 
 #[doc(inline)]
 pub use self::{
@@ -64,6 +66,10 @@ pub mod prelude {
         enc::{Encode, Encoder},
         types::*,
     };
+    #[cfg(feature = "jer")]
+    pub use serde::{Serialize, Deserialize};
+    #[cfg(feature = "jer")]
+    pub use crate::jer::JerInteger;
 }
 
 #[cfg(test)]
