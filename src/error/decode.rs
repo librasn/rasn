@@ -8,6 +8,7 @@ use crate::types::variants::Variants;
 use crate::types::Tag;
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum CodecDecodeError {
     Ber(BerDecodeErrorKind),
     Cer(CerDecodeErrorKind),
@@ -190,6 +191,7 @@ impl DecodeError {
 
         DecodeError::parser_fail(msg, codec)
     }
+    #[must_use]
     pub(crate) fn from_kind(kind: Kind, codec: Codec) -> Self {
         Self {
             kind,
@@ -198,7 +200,7 @@ impl DecodeError {
         }
     }
     #[must_use]
-    pub(crate) fn from_codec_kind(inner: CodecDecodeError) -> Self {
+    fn from_codec_kind(inner: CodecDecodeError) -> Self {
         let codec = match inner {
             CodecDecodeError::Ber(_) => crate::Codec::Ber,
             CodecDecodeError::Cer(_) => crate::Codec::Cer,
@@ -217,6 +219,7 @@ impl DecodeError {
 #[derive(Snafu)]
 #[snafu(visibility(pub(crate)))]
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum Kind {
     #[snafu(display("Alphabet constraint not satisfied {}", msg))]
     AlphabetConstraintNotSatisfied { msg: alloc::string::String },
@@ -234,7 +237,6 @@ pub enum Kind {
         /// Whether the index was checked from the extended variants.
         extended_list: bool,
     },
-
     #[snafu(display("choice index '{index}' did not match any variant"))]
     ChoiceIndexNotFound {
         /// The found index of the choice variant.
@@ -392,6 +394,7 @@ pub enum Kind {
 
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub(crate)))]
+#[non_exhaustive]
 pub enum BerDecodeErrorKind {
     #[snafu(display("Invalid constructed identifier for ASN.1 value: not primitive."))]
     InvalidConstructedIdentifier,
@@ -403,9 +406,11 @@ pub enum BerDecodeErrorKind {
 }
 
 impl BerDecodeErrorKind {
+    #[must_use]
     pub fn invalid_constructed_identifier() -> CodecDecodeError {
         CodecDecodeError::Ber(Self::InvalidConstructedIdentifier)
     }
+    #[must_use]
     pub fn invalid_date(msg: alloc::string::String) -> CodecDecodeError {
         CodecDecodeError::Ber(Self::InvalidDate { msg })
     }
@@ -414,10 +419,12 @@ impl BerDecodeErrorKind {
 #[derive(Snafu, Debug)]
 // TODO check if there codec-specific errors here
 #[snafu(visibility(pub(crate)))]
+#[non_exhaustive]
 pub enum CerDecodeErrorKind {}
 
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub(crate)))]
+#[non_exhaustive]
 pub enum DerDecodeErrorKind {
     #[snafu(display("Constructed encoding encountered but not allowed."))]
     ConstructedEncodingNotAllowed,
@@ -426,11 +433,13 @@ pub enum DerDecodeErrorKind {
 // TODO check if there codec-specific errors here
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub(crate)))]
+#[non_exhaustive]
 pub enum UperDecodeErrorKind {}
 
 // TODO check if there codec-specific errors here
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub(crate)))]
+#[non_exhaustive]
 pub enum AperDecodeErrorKind {}
 
 impl crate::de::Error for DecodeError {

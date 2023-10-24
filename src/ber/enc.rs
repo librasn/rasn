@@ -15,7 +15,7 @@ use crate::{
     Codec, Encode,
 };
 
-pub use crate::error::{BerEncodeError, EncodeError, EncodeErrorKind};
+pub use crate::error::{BerEncodeErrorKind, EncodeError, EncodeErrorKind};
 pub use config::EncoderOptions;
 
 const START_OF_CONTENTS: u8 = 0x80;
@@ -255,7 +255,7 @@ impl Encoder {
     /// Reusable function by other codecs.
     pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, EncodeError> {
         if oid.len() < 2 {
-            return Err(BerEncodeError::invalid_object_identifier().into());
+            return Err(BerEncodeErrorKind::invalid_object_identifier().into());
         }
         let mut bytes = Vec::new();
 
@@ -263,7 +263,7 @@ impl Encoder {
         let second = oid[1];
 
         if first > MAX_OID_FIRST_OCTET {
-            return Err(BerEncodeError::invalid_object_identifier().into());
+            return Err(BerEncodeErrorKind::invalid_object_identifier().into());
         }
         self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
         for component in oid.iter().skip(2) {
@@ -314,7 +314,7 @@ impl crate::Encoder for Encoder {
     }
     fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
-            return Err(BerEncodeError::AnyInSet.into());
+            return Err(BerEncodeErrorKind::AnyInSet.into());
         }
 
         self.output.extend_from_slice(&value.contents);

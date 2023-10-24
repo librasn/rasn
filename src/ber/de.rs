@@ -96,9 +96,7 @@ impl<'input> Decoder<'input> {
         DecodeError::assert_tag(tag, identifier.tag, self.codec())?;
 
         if check_identifier && identifier.is_primitive() {
-            return Err(DecodeError::from_codec_kind(
-                BerDecodeErrorKind::invalid_constructed_identifier(),
-            ));
+            return Err(BerDecodeErrorKind::invalid_constructed_identifier().into());
         }
 
         let (streaming, contents) = match contents {

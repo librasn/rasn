@@ -625,7 +625,7 @@ impl Encoder {
                 .constraint
                 .effective_value(value.try_into().map_err(
                     |e: num_bigint::TryFromBigIntError<()>| {
-                        Error::integer_type_conversion(e.to_string(), self.codec())
+                        Error::integer_type_conversion_failed(e.to_string(), self.codec())
                     },
                 )?)
                 .either_into();
