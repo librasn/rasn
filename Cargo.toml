@@ -24,7 +24,7 @@ repository = "https://github.com/XAMPPRocky/rasn.git"
 
 [workspace.dependencies]
 pretty_assertions = "1.1"
-chrono = { version = "0.4.26", default-features = false, features = ["alloc"] }
+chrono = { version = "0.4.27", default-features = false, features = ["alloc"] }
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 
 [features]

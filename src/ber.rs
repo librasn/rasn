@@ -320,17 +320,17 @@ mod tests {
         );
         // "230122130000-0500" - converts to canonical form "230122180000Z"
         let offset = FixedOffset::east_opt(-3600 * 5).unwrap();
-        let dt1 = UtcTime::from(DateTime::<FixedOffset>::from_local(
+        let dt1 = DateTime::<FixedOffset>::from_naive_utc_and_offset(
             NaiveDate::from_ymd_opt(2023, 1, 22)
                 .unwrap()
-                .and_hms_opt(13, 0, 0)
+                .and_hms_opt(18, 0, 0)
                 .unwrap(),
             offset,
-        ));
+        );
         round_trip!(
             ber,
             UtcTime,
-            dt1,
+            dt1.into(),
             &[
                 0x17, 0x0d, 0x32, 0x33, 0x30, 0x31, 0x32, 0x32, 0x31, 0x38, 0x30, 0x30, 0x30, 0x30,
                 0x5a
