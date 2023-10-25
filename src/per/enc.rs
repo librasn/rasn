@@ -183,7 +183,7 @@ impl Encoder {
             .unwrap_or_default()
     }
 
-    fn encode_known_multipler_string<S: StaticPermittedAlphabet>(
+    fn encode_known_multiplier_string<S: StaticPermittedAlphabet>(
         &mut self,
         tag: Tag,
         constraints: &Constraints,
@@ -856,7 +856,7 @@ impl crate::Encoder for Encoder {
         value: &types::VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_ia5_string(
@@ -866,7 +866,7 @@ impl crate::Encoder for Encoder {
         value: &types::Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_general_string(
@@ -886,7 +886,7 @@ impl crate::Encoder for Encoder {
         value: &types::PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_numeric_string(
@@ -896,7 +896,7 @@ impl crate::Encoder for Encoder {
         value: &types::NumericString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_teletex_string(
@@ -916,7 +916,7 @@ impl crate::Encoder for Encoder {
         value: &types::BmpString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_utf8_string(
