@@ -1,3 +1,4 @@
+use super::strings::PermittedAlphabetError;
 use alloc::string::ToString;
 
 use snafu::{Backtrace, GenerateImplicitData, Snafu};
@@ -46,15 +47,15 @@ impl From<CodecDecodeError> for DecodeError {
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
 #[allow(clippy::module_name_repetitions)]
 pub struct DecodeError {
-    kind: Kind,
-    codec: Codec,
-    backtrace: Backtrace,
+    pub kind: Kind,
+    pub codec: Codec,
+    pub backtrace: Backtrace,
 }
 
 impl DecodeError {
     #[must_use]
-    pub fn alphabet_constraint_not_satisfied(msg: alloc::string::String, codec: Codec) -> Self {
-        Self::from_kind(Kind::AlphabetConstraintNotSatisfied { msg }, codec)
+    pub fn alphabet_constraint_not_satisfied(reason: PermittedAlphabetError, codec: Codec) -> Self {
+        Self::from_kind(Kind::AlphabetConstraintNotSatisfied { reason }, codec)
     }
     #[must_use]
     pub fn range_exceeds_platform_width(needed: u32, present: u32, codec: Codec) -> Self {
@@ -222,8 +223,8 @@ impl DecodeError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Kind {
-    #[snafu(display("Alphabet constraint not satisfied {}", msg))]
-    AlphabetConstraintNotSatisfied { msg: alloc::string::String },
+    #[snafu(display("Alphabet constraint not satisfied {}", reason))]
+    AlphabetConstraintNotSatisfied { reason: PermittedAlphabetError },
     #[snafu(display("Wrapped codec-specific decode error"))]
     CodecSpecific { inner: CodecDecodeError },
 

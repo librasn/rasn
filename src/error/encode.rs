@@ -45,9 +45,51 @@ impl From<CodecEncodeError> for EncodeError {
 /// There is `Kind::CodecSpecific` variant which wraps the codec-specific
 /// errors as `CodecEncodeError` type.
 /// # Example
-/// ```rust
-/// use rasn::{*, types::*, enc::*, error::*};
+/// ```
 ///
+/// use rasn::prelude::*;
+/// use rasn::error::{EncodeErrorKind, strings::PermittedAlphabetError};
+/// use rasn::codec::Codec;
+///
+/// #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+/// #[rasn(delegate, from("a..z"))]
+/// struct MyConstrainedString (
+///     VisibleString,
+/// );
+///
+/// fn main() {
+///
+///     let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
+///     let encoded = Codec::Uper.encode(&constrained_str);
+///     match encoded {
+///         Ok(succ) => {
+///             println!("Successful encoding!");
+///             dbg!(succ);
+///         }
+///         Err(e) => {
+///             // e is EncodeError
+///             match e.kind {
+///                 EncodeErrorKind::AlphabetConstraintNotSatisfied {
+///                     reason: PermittedAlphabetError::CharacterNotFound {character },
+///                 } => {
+///                     println!("Codec: {}", e.codec);
+///                     println!("Character {} not found from the permitted list.",
+///                              char::from_u32(character).unwrap());
+///                     println!("Backtrace:\n{}", e.backtrace);
+///                 }
+///                 _ => {
+///                     panic!("Unexpected error!");
+///                 }
+///             }
+///         }
+///     }
+///     // Should print ->
+///     //
+///     // Codec: UPER
+///     // Character D not found from the permitted list.
+///     // Backtrace: ...
+///
+/// }
 /// ```
 ///
 #[derive(Snafu, Debug)]
@@ -55,22 +97,25 @@ impl From<CodecEncodeError> for EncodeError {
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
 #[allow(clippy::module_name_repetitions)]
 pub struct EncodeError {
-    kind: Kind,
-    codec: crate::Codec,
-    backtrace: Backtrace,
+    pub kind: EncodeErrorKind,
+    pub codec: crate::Codec,
+    pub backtrace: Backtrace,
 }
 impl EncodeError {
     #[must_use]
-    pub fn constraint_not_satisfied(msg: alloc::string::String, codec: crate::Codec) -> Self {
+    pub fn alphabet_constraint_not_satisfied(
+        reason: super::strings::PermittedAlphabetError,
+        codec: crate::Codec,
+    ) -> Self {
         Self {
-            kind: Kind::ConstraintNotSatisfied { msg },
+            kind: EncodeErrorKind::AlphabetConstraintNotSatisfied { reason },
             codec,
             backtrace: Backtrace::generate(),
         }
     }
     pub fn check_length(length: usize, expected: &Size, codec: crate::Codec) -> Result<(), Self> {
         expected.contains_or_else(&length, || Self {
-            kind: Kind::InvalidLength {
+            kind: EncodeErrorKind::InvalidLength {
                 length,
                 expected: (**expected),
             },
@@ -82,7 +127,7 @@ impl EncodeError {
     #[must_use]
     pub fn integer_type_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self {
-            kind: Kind::IntegerTypeConversionFailed { msg },
+            kind: EncodeErrorKind::IntegerTypeConversionFailed { msg },
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -90,7 +135,7 @@ impl EncodeError {
     #[must_use]
     pub fn opaque_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self {
-            kind: Kind::OpaqueConversionFailed { msg },
+            kind: EncodeErrorKind::OpaqueConversionFailed { msg },
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -98,13 +143,13 @@ impl EncodeError {
     #[must_use]
     pub fn variant_not_in_choice(codec: crate::Codec) -> Self {
         Self {
-            kind: Kind::VariantNotInChoice,
+            kind: EncodeErrorKind::VariantNotInChoice,
             codec,
             backtrace: Backtrace::generate(),
         }
     }
     #[must_use]
-    pub fn from_kind(kind: Kind, codec: crate::Codec) -> Self {
+    pub fn from_kind(kind: EncodeErrorKind, codec: crate::Codec) -> Self {
         Self {
             kind,
             codec,
@@ -121,7 +166,7 @@ impl EncodeError {
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
         };
         Self {
-            kind: Kind::CodecSpecific { inner },
+            kind: EncodeErrorKind::CodecSpecific { inner },
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -132,7 +177,7 @@ impl EncodeError {
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
-pub enum Kind {
+pub enum EncodeErrorKind {
     #[snafu(display("Failed to convert BIT STRING unused bytes to u8: {err}"))]
     BitStringUnusedBytesToU8 { err: core::num::TryFromIntError },
     #[snafu(display("invalid length, expected: {expected}; actual: {length}"))]
@@ -144,8 +189,10 @@ pub enum Kind {
     Custom { msg: alloc::string::String },
     #[snafu(display("Wrapped codec-specific encode error"))]
     CodecSpecific { inner: CodecEncodeError },
-    #[snafu(display("Constraint not satisfied: {msg}"))]
-    ConstraintNotSatisfied { msg: alloc::string::String },
+    #[snafu(display("Constraint not satisfied: {reason}"))]
+    AlphabetConstraintNotSatisfied {
+        reason: super::strings::PermittedAlphabetError,
+    },
     #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
     IntegerTypeConversionFailed { msg: alloc::string::String },
     #[snafu(display("Conversion to Opaque type failed: {msg}"))]
@@ -201,7 +248,7 @@ pub enum AperEncodeErrorKind {}
 impl crate::enc::Error for EncodeError {
     fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self {
         Self {
-            kind: Kind::Custom {
+            kind: EncodeErrorKind::Custom {
                 msg: msg.to_string(),
             },
             codec,
@@ -213,7 +260,7 @@ impl crate::enc::Error for EncodeError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{ObjectIdentifier, Tag};
+    use crate::prelude::*;
 
     #[test]
     fn test_ber_error() {
@@ -234,7 +281,7 @@ mod tests {
         match result {
             Err(EncodeError {
                 kind:
-                    Kind::CodecSpecific {
+                    EncodeErrorKind::CodecSpecific {
                         inner:
                             CodecEncodeError::Ber(BerEncodeErrorKind::InvalidObjectIdentifier {
                                 ..
@@ -262,5 +309,34 @@ mod tests {
         //     codec: Ber,
         //     backtrace: Backtrace( .... ),
         // },
+    }
+    #[test]
+    fn test_uper_constrained_string_error() {
+        use crate as rasn;
+        use rasn::codec::Codec;
+        use rasn::error::{strings::PermittedAlphabetError, EncodeErrorKind};
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(delegate, from("a..z"))]
+        struct MyConstrainedString(VisibleString);
+
+        let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
+        let encoded = Codec::Uper.encode(&constrained_str);
+        match encoded {
+            Ok(succ) => {
+                println!("Successful encoding!");
+                dbg!(succ);
+            }
+            Err(e) => {
+                // EncodeError
+                match e.kind {
+                    EncodeErrorKind::AlphabetConstraintNotSatisfied {
+                        reason: PermittedAlphabetError::CharacterNotFound { .. },
+                    } => {}
+                    _ => {
+                        panic!("Unexpected error!");
+                    }
+                }
+            }
+        }
     }
 }

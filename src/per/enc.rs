@@ -237,7 +237,7 @@ impl Encoder {
             {
                 let alphabet = &alphabet.constraint;
                 let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
-                    .map_err(|e| Error::constraint_not_satisfied(e.to_string(), self.codec()))?;
+                    .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
 
                 self.encode_length(
                     &mut buffer,

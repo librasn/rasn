@@ -472,6 +472,7 @@ impl<'input> Decoder<'input> {
         Ok(true)
     }
 
+    #[allow(clippy::too_many_lines)]
     fn parse_fixed_width_string<ALPHABET: StaticPermittedAlphabet>(
         &mut self,
         constraints: Constraints,
@@ -583,14 +584,13 @@ impl<'input> Decoder<'input> {
                         .map(|(i, e)| (i as u32, e))
                         .collect();
                     ALPHABET::try_from_permitted_alphabet(&bit_string, Some(&map)).map_err(|e| {
-                        DecodeError::alphabet_constraint_not_satisfied(e.to_string(), self.codec())
+                        DecodeError::alphabet_constraint_not_satisfied(e, self.codec())
                     })
                 }
             }
             None if !self.options.aligned => {
-                ALPHABET::try_from_permitted_alphabet(&bit_string, None).map_err(|e| {
-                    DecodeError::alphabet_constraint_not_satisfied(e.to_string(), self.codec())
-                })
+                ALPHABET::try_from_permitted_alphabet(&bit_string, None)
+                    .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec()))
             }
             _ => ALPHABET::try_from_bits(
                 bit_string,
@@ -604,9 +604,7 @@ impl<'input> Decoder<'input> {
                     })
                     .unwrap_or(ALPHABET::CHARACTER_WIDTH) as usize,
             )
-            .map_err(|e| {
-                DecodeError::alphabet_constraint_not_satisfied(e.to_string(), self.codec())
-            }),
+            .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec())),
         }
     }
 }
