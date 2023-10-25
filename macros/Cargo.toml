@@ -12,6 +12,9 @@ repository.workspace = true
 [lib]
 proc-macro = true
 
+[features]
+text-based-encodings = []
+
 [dependencies]
 syn = { version = "1.0.39", features = ["extra-traits"] }
 quote = "1.0.7"

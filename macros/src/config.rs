@@ -1101,6 +1101,8 @@ impl<'a> FieldConfig<'a> {
         let crate_root = &self.container_config.crate_root;
         let tag = self.tag(context);
         let tag_tree = self.tag_tree(context);
+        #[cfg(feature = "text-based-encodings")]
+        let name = format!(r#""{}""#, self.field.ident.as_ref().unwrap());
 
         let constructor = quote::format_ident!(
             "{}",
@@ -1111,7 +1113,10 @@ impl<'a> FieldConfig<'a> {
             }
         );
 
-        quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree) })
+        #[cfg(not(feature = "text-based-encodings"))]
+        return quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree) });
+        #[cfg(feature = "text-based-encodings")]
+        return quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree, #name) });
     }
 
     pub fn field_type(&self) -> FieldType {

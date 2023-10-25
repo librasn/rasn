@@ -66,10 +66,6 @@ pub mod prelude {
         enc::{Encode, Encoder},
         types::*,
     };
-    #[cfg(feature = "jer")]
-    pub use serde::{Serialize, Deserialize};
-    #[cfg(feature = "jer")]
-    pub use crate::jer::JerInteger;
 }
 
 #[cfg(test)]
