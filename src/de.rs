@@ -544,7 +544,7 @@ impl<T: Decode + Default, const N: usize> Decode for [T; N] {
             D::Error::from(DecodeError::incorrect_item_number_in_sequence(
                 N,
                 seq.len(),
-                D::codec(&decoder),
+                decoder.codec(),
             ))
         })
     }

@@ -3,7 +3,7 @@ use snafu::{Backtrace, GenerateImplicitData, Snafu};
 
 use alloc::string::ToString;
 
-/// Variants for every codec-specific error kind.
+/// Variants for every codec-specific `EncodeError` kind.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum CodecEncodeError {
@@ -44,6 +44,12 @@ impl From<CodecEncodeError> for EncodeError {
 ///
 /// There is `Kind::CodecSpecific` variant which wraps the codec-specific
 /// errors as `CodecEncodeError` type.
+/// # Example
+/// ```rust
+/// use rasn::{*, types::*, enc::*, error::*};
+///
+/// ```
+///
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
@@ -147,7 +153,7 @@ pub enum Kind {
     #[snafu(display("Selected Variant not found from Choice"))]
     VariantNotInChoice,
 }
-/// Error kinds of `Kind::CodecSpecific` which are specific for BER.
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for BER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
@@ -167,26 +173,26 @@ impl BerEncodeErrorKind {
     }
 }
 
-// TODO are there CER/DER specific errors?
-/// Error kinds of `Kind::CodecSpecific` which are specific for CER.
+// TODO are there CER/DER/APER/UPER specific errors?
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for CER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum CerEncodeErrorKind {}
 
-/// Error kinds of `Kind::CodecSpecific` which are specific for DER.
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for DER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum DerEncodeErrorKind {}
 
-/// Error kinds of `Kind::CodecSpecific` which are specific for UPER.
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for UPER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum UperEncodeErrorKind {}
 
-/// Error kinds of `Kind::CodecSpecific` which are specific for APER.
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for APER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]

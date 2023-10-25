@@ -1,12 +1,13 @@
+use alloc::string::ToString;
+
 use snafu::{Backtrace, GenerateImplicitData, Snafu};
 
 use crate::de::Error;
-use crate::Codec;
-use alloc::string::ToString;
-
 use crate::types::variants::Variants;
 use crate::types::Tag;
+use crate::Codec;
 
+/// Variants for every codec-specific `DecodeError` kind.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum CodecDecodeError {
@@ -215,6 +216,7 @@ impl DecodeError {
     }
 }
 
+/// `DecodeError` kinds which are common for all codecs.
 #[derive(Snafu)]
 #[snafu(visibility(pub))]
 #[derive(Debug)]
@@ -365,10 +367,10 @@ pub enum Kind {
         msg: alloc::string::String,
     },
     #[snafu(display(
-        "Failed to convert byte array into valid fixed-sized ASN.1 string. String type as tag: {}, actual: {}, expected: {}",
-        tag,
-        actual,
-        expected
+    "Failed to convert byte array into valid fixed-sized ASN.1 string. String type as tag: {}, actual: {}, expected: {}",
+    tag,
+    actual,
+    expected
     ))]
     FixedStringConversionFailed {
         /// Universal tag of the string type.
@@ -396,6 +398,7 @@ pub enum Kind {
     UnknownField { index: usize, tag: Tag },
 }
 
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for BER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
@@ -420,12 +423,14 @@ impl BerDecodeErrorKind {
     }
 }
 
-#[derive(Snafu, Debug)]
 // TODO check if there codec-specific errors here
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for CER.
+#[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum CerDecodeErrorKind {}
 
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for DER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
@@ -435,12 +440,14 @@ pub enum DerDecodeErrorKind {
 }
 
 // TODO check if there codec-specific errors here
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for UPER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum UperDecodeErrorKind {}
 
 // TODO check if there codec-specific errors here
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for APER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
