@@ -1,43 +1,47 @@
 //! # Decoding JER
 
-use core::iter::Peekable;
-
 use crate::{
     de::Error,
     types::{fields::Fields, *},
 };
-use serde_json::{de::StrRead, Deserializer, StreamDeserializer, Value};
+use serde_json::{Deserializer, Value};
 
 macro_rules! decode_jer_value {
     ($decoder_fn:expr, $input:expr) => {
         $input
-            .next()
-            .ok_or(error::Error::eoi())?
-            .map_err(|e| error::Error::Parser {
-                msg: alloc::format!("{e}"),
-            })
+            .pop()
+            .ok_or(error::Error::eoi())
             .and_then($decoder_fn)
     };
 }
 
 pub mod error;
-pub struct Decoder<'i> {
-    input: Peekable<StreamDeserializer<'i, StrRead<'i>, Value>>,
+pub struct Decoder {
+    stack: alloc::vec::Vec<Value>,
+    at_level: usize,
 }
 
-impl<'input> Decoder<'input> {
-    pub fn new(input: &'input str) -> Self {
-        Self {
-            input: Deserializer::from_str(input).into_iter::<Value>().peekable(),
-        }
+impl Decoder {
+    pub fn new(input: &str) -> Result<Self, error::Error> {
+        let root = Deserializer::from_str(input)
+            .into_iter::<Value>()
+            .next()
+            .ok_or(error::Error::eoi())?
+            .map_err(|e| error::Error::Parser {
+                msg: alloc::format!("{e}"),
+            })?;
+        Ok(Self {
+            stack: alloc::vec![root],
+            at_level: 0,
+        })
     }
 }
 
-impl<'i> crate::Decoder for Decoder<'i> {
+impl crate::Decoder for Decoder {
     type Error = error::Error;
 
     fn decode_any(&mut self) -> Result<Any, Self::Error> {
-        decode_jer_value!(Self::any_from_value, self.input)
+        decode_jer_value!(Self::any_from_value, self.stack)
     }
 
     fn decode_bit_string(
@@ -45,30 +49,30 @@ impl<'i> crate::Decoder for Decoder<'i> {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<BitString, Self::Error> {
-        decode_jer_value!(Self::bit_string_from_value, self.input)
+        decode_jer_value!(Self::bit_string_from_value, self.stack)
     }
 
     fn decode_bool(&mut self, _t: crate::Tag) -> Result<bool, Self::Error> {
-        decode_jer_value!(Self::boolean_from_value, self.input)
+        decode_jer_value!(Self::boolean_from_value, self.stack)
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, _t: crate::Tag) -> Result<E, Self::Error> {
-        decode_jer_value!(Self::enumerated_from_value, self.input)
+        decode_jer_value!(Self::enumerated_from_value, self.stack)
     }
 
     fn decode_integer(&mut self, _t: crate::Tag, _c: Constraints) -> Result<Integer, Self::Error> {
-        decode_jer_value!(Self::integer_from_value, self.input)
+        decode_jer_value!(Self::integer_from_value, self.stack)
     }
 
     fn decode_null(&mut self, _t: crate::Tag) -> Result<(), Self::Error> {
-        decode_jer_value!(Self::null_from_value, self.input)
+        decode_jer_value!(Self::null_from_value, self.stack)
     }
 
     fn decode_object_identifier(
         &mut self,
         _t: crate::Tag,
     ) -> Result<ObjectIdentifier, Self::Error> {
-        decode_jer_value!(Self::object_identifier_from_value, self.input)
+        decode_jer_value!(Self::object_identifier_from_value, self.stack)
     }
 
     fn decode_sequence<D, F>(&mut self, _: crate::Tag, decode_fn: F) -> Result<D, Self::Error>
@@ -76,7 +80,23 @@ impl<'i> crate::Decoder for Decoder<'i> {
         D: Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
-        decode_jer_value!(|v| Self::sequence_from_value(self, v, decode_fn), self.input)
+        let mut last = self.stack.pop().ok_or(error::Error::eoi())?;
+        let value_map = last.as_object_mut().ok_or(error::Error::TypeMismatch {
+            needed: "object",
+            found: alloc::format!("unknown"),
+        })?;
+        let mut field_names = [D::FIELDS, D::EXTENDED_FIELDS.unwrap_or(Fields::empty())]
+            .iter()
+            .flat_map(|f| f.iter())
+            .map(|f| f.name)
+            .collect::<alloc::vec::Vec<&str>>();
+        field_names.reverse();
+        for name in field_names {
+            self.stack
+                .push(value_map.remove(name).unwrap_or(Value::Null));
+        }
+
+        (decode_fn)(self)
     }
 
     fn decode_sequence_of<D: crate::Decode>(
@@ -205,20 +225,12 @@ impl<'i> crate::Decoder for Decoder<'i> {
     }
 
     fn decode_optional<D: crate::Decode>(&mut self) -> Result<Option<D>, Self::Error> {
-        match self
-            .input
-            .peek()
-            .ok_or(error::Error::eoi())?
-            .as_ref()
-            .map_err(|e| error::Error::Parser {
-                msg: alloc::format!("{e}"),
-            })? {
-            Value::Null => {
-                self.input.next();
-                Ok(None)
-            },
-            _ => {
-                D::decode(self).map(|d| Some(d))
+        let last = self.stack.pop().ok_or(error::Error::eoi())?;
+        match last {
+            Value::Null => Ok(None),
+            v => {
+                self.stack.push(v);
+                Some(D::decode(self)).transpose()
             }
         }
     }
@@ -268,7 +280,7 @@ impl<'i> crate::Decoder for Decoder<'i> {
 ///
 /// -------------------------------------------------------------------
 
-impl<'i> Decoder<'i> {
+impl Decoder {
     fn any_from_value(value: Value) -> Result<Any, error::Error> {
         Ok(Any::new(alloc::format!("{value}").as_bytes().to_vec()))
     }
@@ -354,31 +366,5 @@ impl<'i> Decoder<'i> {
             .ok_or(error::Error::custom(&alloc::format!(
                 "Failed to construct OID from value {value}"
             )))
-    }
-
-    fn sequence_from_value<'a, D, F>(&mut self, value: Value, decode_fn: F) -> Result<D, error::Error>
-    where
-        D: Constructed,
-        F: FnOnce(&mut Self) -> Result<D, error::Error>,
-    {
-        self.input.
-        // let object = value.as_object().ok_or(error::Error::TypeMismatch {
-        //     needed: "object",
-        //     found: alloc::format!("{value}"),
-        // })?;
-        // let sequence_values = [D::FIELDS, D::EXTENDED_FIELDS.unwrap_or(Fields::empty())]
-        //     .iter()
-        //     .flat_map(|f| f.iter())
-        //     .fold(alloc::string::String::new(), |mut acc, field| {
-        //         let val = object
-        //             .get(field.name)
-        //             .map_or(alloc::string::String::from("null "), |v| {
-        //                 alloc::format!("{v} ")
-        //             });
-        //         acc.push_str(&val);
-        //         acc
-        //     });
-        // let mut sequence_decoder = Decoder::<'a>::new(&sequence_values);
-        // (decode_fn)(&mut sequence_decoder)
     }
 }

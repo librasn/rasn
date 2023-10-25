@@ -1102,7 +1102,11 @@ impl<'a> FieldConfig<'a> {
         let tag = self.tag(context);
         let tag_tree = self.tag_tree(context);
         #[cfg(feature = "text-based-encodings")]
-        let name = format!(r#""{}""#, self.field.ident.as_ref().unwrap());
+        let name = self
+            .field
+            .ident
+            .as_ref()
+            .map_or(String::from(r#""#), |id| format!(r#"{}"#, id));
 
         let constructor = quote::format_ident!(
             "{}",
@@ -1116,7 +1120,9 @@ impl<'a> FieldConfig<'a> {
         #[cfg(not(feature = "text-based-encodings"))]
         return quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree) });
         #[cfg(feature = "text-based-encodings")]
-        return quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree, #name) });
+        {
+            return quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree, #name) });
+        }
     }
 
     pub fn field_type(&self) -> FieldType {
