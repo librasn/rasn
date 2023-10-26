@@ -1106,7 +1106,10 @@ impl<'a> FieldConfig<'a> {
             .field
             .ident
             .as_ref()
-            .map_or(String::from(r#""#), |id| format!(r#"{}"#, id));
+            .map_or(
+                syn::LitStr::new("", proc_macro2::Span::call_site()), 
+                |id| syn::LitStr::new(&id.to_string(), proc_macro2::Span::call_site())
+            );
 
         let constructor = quote::format_ident!(
             "{}",

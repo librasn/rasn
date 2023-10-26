@@ -3,6 +3,7 @@
 use crate::{
     de::Error,
     types::{fields::Fields, *},
+    Decode,
 };
 use serde_json::{Deserializer, Value};
 
@@ -18,7 +19,6 @@ macro_rules! decode_jer_value {
 pub mod error;
 pub struct Decoder {
     stack: alloc::vec::Vec<Value>,
-    at_level: usize,
 }
 
 impl Decoder {
@@ -32,8 +32,15 @@ impl Decoder {
             })?;
         Ok(Self {
             stack: alloc::vec![root],
-            at_level: 0,
         })
+    }
+}
+
+impl From<Value> for Decoder {
+    fn from(value: Value) -> Self {
+        Self {
+            stack: alloc::vec![value],
+        }
     }
 }
 
@@ -104,7 +111,7 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<SequenceOf<D>, Self::Error> {
-        todo!()
+        decode_jer_value!(|v| self.sequence_of_from_value(v), self.stack)
     }
 
     fn decode_set_of<D: crate::Decode + Ord>(
@@ -112,7 +119,7 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<SetOf<D>, Self::Error> {
-        todo!()
+        decode_jer_value!(|v| self.set_of_from_value(v), self.stack)
     }
 
     fn decode_octet_string(
@@ -128,7 +135,7 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<Utf8String, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::string_from_value, self.stack)
     }
 
     fn decode_visible_string(
@@ -136,7 +143,11 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<VisibleString, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::string_from_value, self.stack)?
+            .try_into()
+            .map_err(|e| {
+                error::Error::custom(&alloc::format!("Error transforming VisibleString: {e:?}"))
+            })
     }
 
     fn decode_general_string(
@@ -144,7 +155,11 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<GeneralString, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::string_from_value, self.stack)?
+            .try_into()
+            .map_err(|e| {
+                error::Error::custom(&alloc::format!("Error transforming GeneralString: {e:?}"))
+            })
     }
 
     fn decode_ia5_string(
@@ -152,7 +167,11 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<Ia5String, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::string_from_value, self.stack)?
+            .try_into()
+            .map_err(|e| {
+                error::Error::custom(&alloc::format!("Error transforming IA5String: {e:?}"))
+            })
     }
 
     fn decode_printable_string(
@@ -160,7 +179,11 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<PrintableString, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::string_from_value, self.stack)?
+            .try_into()
+            .map_err(|e| {
+                error::Error::custom(&alloc::format!("Error transforming PrintableString: {e:?}"))
+            })
     }
 
     fn decode_numeric_string(
@@ -168,7 +191,11 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<NumericString, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::string_from_value, self.stack)?
+            .try_into()
+            .map_err(|e| {
+                error::Error::custom(&alloc::format!("Error transforming NumericString: {e:?}"))
+            })
     }
 
     fn decode_teletex_string(
@@ -184,14 +211,18 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<BmpString, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::string_from_value, self.stack)?
+            .try_into()
+            .map_err(|e| {
+                error::Error::custom(&alloc::format!("Error transforming BMPString: {e:?}"))
+            })
     }
 
     fn decode_explicit_prefix<D: crate::Decode>(
         &mut self,
         _t: crate::Tag,
     ) -> Result<D, Self::Error> {
-        todo!()
+        D::decode(self)
     }
 
     fn decode_utc_time(&mut self, _t: crate::Tag) -> Result<UtcTime, Self::Error> {
@@ -214,14 +245,42 @@ impl crate::Decoder for Decoder {
         D: Fn(&mut Self, usize, crate::Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        todo!()
+        let mut last = self.stack.pop().ok_or(error::Error::eoi())?;
+        let value_map = last.as_object_mut().ok_or(error::Error::TypeMismatch {
+            needed: "object",
+            found: alloc::format!("unknown"),
+        })?;
+        let mut field_indices = SET::FIELDS
+            .iter()
+            .enumerate()
+            .collect::<alloc::vec::Vec<_>>();
+        let mut fields = alloc::vec![];
+        field_indices
+            .sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+        for (index, field) in field_indices.into_iter() {
+            self.stack
+                .push(value_map.remove(field.name).unwrap_or(Value::Null));
+            fields.push((decode_fn)(self, index, field.tag)?);
+        }
+
+        for (index, field) in SET::EXTENDED_FIELDS
+            .iter()
+            .flat_map(|fields| fields.iter())
+            .enumerate()
+        {
+            self.stack
+                .push(value_map.remove(field.name).unwrap_or(Value::Null));
+            fields.push((decode_fn)(self, index + SET::FIELDS.len(), field.tag)?)
+        }
+
+        (field_fn)(fields)
     }
 
     fn decode_choice<D>(&mut self, _c: Constraints) -> Result<D, Self::Error>
     where
         D: DecodeChoice,
     {
-        todo!()
+        decode_jer_value!(|v| self.choice_from_value::<D>(v), self.stack)
     }
 
     fn decode_optional<D: crate::Decode>(&mut self) -> Result<Option<D>, Self::Error> {
@@ -366,5 +425,86 @@ impl Decoder {
             .ok_or(error::Error::custom(&alloc::format!(
                 "Failed to construct OID from value {value}"
             )))
+    }
+
+    fn sequence_of_from_value<D: Decode>(
+        &mut self,
+        value: Value,
+    ) -> Result<SequenceOf<D>, error::Error> {
+        value
+            .as_array()
+            .ok_or(error::Error::TypeMismatch {
+                needed: "array",
+                found: alloc::format!("{value}"),
+            })?
+            .clone()
+            .into_iter()
+            .map(|v| {
+                self.stack.push(v);
+                D::decode(self)
+            })
+            .collect()
+    }
+
+    fn set_of_from_value<D: Decode + Ord>(
+        &mut self,
+        value: Value,
+    ) -> Result<SetOf<D>, error::Error> {
+        value
+            .as_array()
+            .ok_or(error::Error::TypeMismatch {
+                needed: "array",
+                found: alloc::format!("{value}"),
+            })?
+            .clone()
+            .into_iter()
+            .try_fold(SetOf::new(), |mut acc, v| {
+                self.stack.push(v);
+                acc.insert(D::decode(self)?);
+                Ok(acc)
+            })
+    }
+
+    fn string_from_value(value: Value) -> Result<alloc::string::String, error::Error> {
+        value
+            .as_str()
+            .ok_or(error::Error::TypeMismatch {
+                needed: "string",
+                found: alloc::format!("{value}"),
+            })
+            .map(|n| n.into())
+    }
+
+    fn choice_from_value<D>(&mut self, value: Value) -> Result<D, error::Error>
+    where
+        D: DecodeChoice,
+    {
+        let tag = value
+            .as_object()
+            .ok_or(error::Error::TypeMismatch {
+                needed: "object",
+                found: alloc::format!("{value}"),
+            })?
+            .into_iter()
+            .next()
+            .and_then(|(k, v)| {
+                D::IDENTIFIERS
+                    .iter()
+                    .enumerate()
+                    .find(|id| id.1.eq_ignore_ascii_case(k))
+                    .map(|(i, _)| (i, v))
+            })
+            .map_or(Tag::EOC, |(i, v)| {
+                match variants::Variants::from_slice(&[D::VARIANTS, D::EXTENDED_VARIANTS].concat())
+                    .get(i)
+                {
+                    Some(t) => {
+                        self.stack.push(v.clone());
+                        t.clone()
+                    }
+                    None => Tag::EOC,
+                }
+            });
+        D::from_tag(self, tag)
     }
 }

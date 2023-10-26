@@ -72,8 +72,16 @@ impl Enum {
                 }
             });
 
+        #[cfg(feature = "text-based-encodings")]
+        let identifiers = self
+            .variants
+            .iter()
+            .map(|v| syn::LitStr::new(&v.ident.to_string(), proc_macro2::Span::call_site()))
+            .collect_vec();
+
         let constraints_def = self.config.constraints.const_static_def(crate_root);
 
+        #[cfg(not(feature = "text-based-encodings"))]
         let choice_impl = self.config.choice.then(|| quote! {
             impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
                 const VARIANTS: &'static [#crate_root::types::TagTree] = &[
@@ -82,7 +90,21 @@ impl Enum {
                 const EXTENDED_VARIANTS: &'static [#crate_root::types::TagTree] = &[
                     #(#extended_variants),*
                 ];
+            }
+        });
 
+        #[cfg(feature = "text-based-encodings")]
+        let choice_impl = self.config.choice.then(|| quote! {
+            impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
+                const VARIANTS: &'static [#crate_root::types::TagTree] = &[
+                    #(#base_variants),*
+                ];
+                const EXTENDED_VARIANTS: &'static [#crate_root::types::TagTree] = &[
+                    #(#extended_variants),*
+                ];
+                const IDENTIFIERS: &'static [&'static str] = &[
+                    #(#identifiers),*
+                ];
             }
         });
 

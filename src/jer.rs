@@ -35,11 +35,11 @@ mod tests {
     }
 
     #[derive(AsnType, Decode, Encode, Debug)]
-    #[rasn(automatic_tags)]
+    #[rasn(choice, automatic_tags)]
     #[rasn(crate_root = "crate")]
-    struct Inner {
+    enum Inner {
         #[rasn(value("0..3"))]
-        wine: u8,
+        Wine(u8)
     }
 
     #[test]
