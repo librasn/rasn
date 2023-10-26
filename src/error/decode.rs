@@ -53,6 +53,71 @@ impl From<CodecDecodeError> for DecodeError {
 /// errors as `CodecEncodeError` type.
 ///
 /// # Example
+/// ```rust
+/// use nom::Needed;
+/// use rasn::codec::Codec;
+/// use rasn::error::DecodeErrorKind;
+/// use rasn::prelude::*;
+///
+/// #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+/// #[rasn(delegate)]
+/// struct MyString(pub VisibleString);
+///
+/// fn main() {
+///     // Hello, World! in decimal bytes with trailing zeros
+///     let hello_data = vec![
+///         13, 145, 151, 102, 205, 235, 16, 119, 223, 203, 102, 68, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+///         0,
+///     ];
+///     // Initially parse the first 2 bytes for Error demonstration purposes
+///     let mut total = 2;
+///
+///     loop {
+///         let decoded = Codec::Uper.decode::<MyString>(&hello_data[0..hello_data.len().min(total)]);
+///         match decoded {
+///             Ok(succ) => {
+///                 println!("Successful decoding!");
+///                 println!("Decoded string: {}", succ.0);
+///                 break;
+///             }
+///             Err(e) => {
+///                 // e is DecodeError
+///                 match e.kind {
+///                     DecodeErrorKind::Incomplete { needed } => {
+///                         println!("Codec error source: {}", e.codec);
+///                         println!("Error kind: {}", e.kind);
+///                         // Here you need to know, that VisibleString has width of 7 bits and UPER parses input
+///                         // as bits, if you want to build logic around it, and feed exactly the correct amount of data.
+///                         // Usually you might need to just provide one byte at time instead when something is missing, since
+///                         // inner logic might not be known to you, and data structures can get complex.
+///                         total += match needed {
+///                             Needed::Size(n) => {
+///                                 let missing_bytes = n.get() / 7;
+///                                 missing_bytes
+///                             }
+///                             _ => {
+///                                 println!("Backtrace:\n{}", e.backtrace);
+///                                 panic!("Unexpected error! {e:?}");
+///                             }
+///                         }
+///                     }
+///                     k => {
+///                         println!("Backtrace:\n{}", e.backtrace);
+///                         panic!("Unexpected error! {k:?}");
+///                     }
+///                 }
+///             }
+///         }
+///     }
+/// }
+///```
+/// The previous will produce something like following:
+/// ```text
+/// Codec error: UPER
+/// Error kind: Need more BITS to continue: (Size(83)).
+/// Successful decoding!
+/// Decoded string: Hello, world!
+/// ```
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
@@ -270,9 +335,12 @@ pub enum Kind {
         name: &'static str,
         msg: alloc::string::String,
     },
-    #[snafu(display("Need more bytes to continue ({:?}).", needed))]
+    /// Input is provided as BIT slice for nom in UPER/APER.
+    /// On BER/CER/DER it is as BYTE slice.
+    /// Hence, `needed` field can describe either bits or bytes depending on the codec.
+    #[snafu(display("Need more BITS to continue: ({:?}).", needed))]
     Incomplete {
-        /// Amount of bytes needed.
+        /// Amount of bits/bytes needed.
         needed: nom::Needed,
     },
     #[snafu(display(
@@ -495,5 +563,67 @@ impl crate::de::Error for DecodeError {
     }
     fn unknown_field(index: usize, tag: Tag, codec: Codec) -> Self {
         Self::from_kind(Kind::UnknownField { index, tag }, codec)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use crate::prelude::*;
+    #[test]
+    fn test_ber_decode_date() {
+        use crate::error::{DecodeError, DecodeErrorKind};
+        // "230122130000-050Z" as bytes
+        let data = [
+            23, 17, 50, 51, 48, 49, 50, 50, 49, 51, 48, 48, 48, 48, 45, 48, 53, 48, 90,
+        ];
+        let result = crate::ber::decode::<UtcTime>(&data);
+        match result {
+            Err(DecodeError {
+                kind:
+                    DecodeErrorKind::CodecSpecific {
+                        inner:
+                            crate::error::CodecDecodeError::Ber(
+                                crate::error::BerDecodeErrorKind::InvalidDate { msg },
+                            ),
+                        ..
+                    },
+                ..
+            }) => {
+                assert_eq!(msg, "230122130000-050Z");
+            }
+            Ok(_) => panic!("Expected error"),
+            _ => {
+                panic!("Unexpected error")
+            }
+        }
+    }
+    #[test]
+    fn test_uper_missing_choice_index() {
+        use crate as rasn;
+        use crate::error::{DecodeError, DecodeErrorKind};
+        use crate::Codec;
+        #[derive(AsnType, Decode, Debug, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum MyChoice {
+            Normal(Integer),
+            High(Integer),
+            Medium(Integer),
+        }
+        // Value 333 encoded for missing choice index 3
+        let data = [192, 128, 83, 64];
+        let result = Codec::Uper.decode::<MyChoice>(&data);
+        match result {
+            Ok(_) => {
+                panic!("Unexpected OK!");
+            }
+            Err(DecodeError {
+                kind: DecodeErrorKind::ChoiceIndexNotFound { index, .. },
+                ..
+            }) => {
+                assert_eq!(index, 3);
+            }
+            Err(e) => {
+                panic!("Unexpected error kind: {e}");
+            }
+        }
     }
 }

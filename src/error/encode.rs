@@ -327,10 +327,7 @@ mod tests {
         let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
         let encoded = Codec::Uper.encode(&constrained_str);
         match encoded {
-            Ok(succ) => {
-                println!("Successful encoding!");
-                dbg!(succ);
-            }
+            Ok(_) => {}
             Err(e) => {
                 // EncodeError
                 match e.kind {
