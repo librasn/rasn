@@ -42,6 +42,17 @@ impl From<CodecDecodeError> for DecodeError {
     }
 }
 
+/// An error type for failed decoding for every decoder.
+/// Abstracts over the different generic and codec-specific errors.
+///
+/// `kind` field is used to determine the kind of error that occurred.
+/// `codec` field is used to determine the codec that failed.
+/// `backtrace` field is used to determine the backtrace of the error.
+///
+/// There is `Kind::CodecSpecific` variant which wraps the codec-specific
+/// errors as `CodecEncodeError` type.
+///
+/// # Example
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
@@ -152,22 +163,7 @@ impl DecodeError {
         Self::from_kind(Kind::UnexpectedExtraData { length }, codec)
     }
 
-    pub(crate) fn assert_tag(
-        expected: Tag,
-        actual: Tag,
-        codec: Codec,
-    ) -> core::result::Result<(), DecodeError> {
-        if expected == actual {
-            Ok(())
-        } else {
-            Err(DecodeError::from_kind(
-                Kind::MismatchedTag { expected, actual },
-                codec,
-            ))
-        }
-    }
-
-    pub(crate) fn assert_length(
+    pub fn assert_length(
         expected: usize,
         actual: usize,
         codec: Codec,
@@ -182,7 +178,7 @@ impl DecodeError {
         }
     }
 
-    pub(crate) fn map_nom_err<T: core::fmt::Debug>(
+    pub fn map_nom_err<T: core::fmt::Debug>(
         error: nom::Err<nom::error::Error<T>>,
         codec: Codec,
     ) -> DecodeError {
@@ -193,7 +189,7 @@ impl DecodeError {
         DecodeError::parser_fail(msg, codec)
     }
     #[must_use]
-    pub(crate) fn from_kind(kind: Kind, codec: Codec) -> Self {
+    pub fn from_kind(kind: Kind, codec: Codec) -> Self {
         Self {
             kind,
             codec,
@@ -258,8 +254,6 @@ pub enum Kind {
         /// The error's message.
         msg: alloc::string::String,
     },
-    #[snafu(display("Invalid discriminant for enumerated type."))]
-    InvalidDiscriminant,
     #[snafu(display("Duplicate field for `{}`", name))]
     DuplicateField {
         /// The field's name.
@@ -292,8 +286,6 @@ pub enum Kind {
         /// The actual item number.
         actual: usize,
     },
-    #[snafu(display("Indefinite length encountered but not allowed."))]
-    IndefiniteLengthNotAllowed,
     #[snafu(display("Actual integer larger than expected {} bits", max_width))]
     IntegerOverflow {
         /// The maximum integer width.
@@ -307,8 +299,11 @@ pub enum Kind {
         bits: u8,
     },
     /// BOOL value is not `0` or `0xFF`. Applies: BER/OER/PER?
-    #[snafu(display("Bool value is not `0` or `0xFF` as canonical requires."))]
-    InvalidBool,
+    #[snafu(display(
+        "Bool value is not `0` or `0xFF` as canonical requires. Actual: {}",
+        value
+    ))]
+    InvalidBool { value: u8 },
     /// The length does not match what was expected.
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
     MismatchedLength {
@@ -317,14 +312,7 @@ pub enum Kind {
         /// The actual length.
         actual: usize,
     },
-    /// The tag does not match what was expected.
-    #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
-    MismatchedTag {
-        /// The expected tag.
-        expected: Tag,
-        /// The actual tag.
-        actual: Tag,
-    },
+
     #[snafu(display("Missing field `{}`", name))]
     MissingField {
         /// The field's name.
@@ -346,11 +334,6 @@ pub enum Kind {
     },
     #[snafu(display("Extension with class `{}` and tag `{}` required, but not present", tag.class, tag.value))]
     RequiredExtensionNotPresent { tag: crate::types::Tag },
-    // #[snafu(display("Need more bytes to continue ({:?}).", needed))]
-    // ExceedsMaxLength {
-    //     /// Amount of bytes needed.
-    //     needed: num_bigint::BigUint,
-    // },
     #[snafu(display("Error in Parser: {}", msg))]
     Parser {
         /// The error's message.
@@ -374,7 +357,7 @@ pub enum Kind {
     expected
     ))]
     FixedStringConversionFailed {
-        /// Universal tag of the string type.
+        /// Tag of the string type.
         tag: Tag,
         /// Expected length
         expected: usize,
@@ -404,6 +387,13 @@ pub enum Kind {
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum BerDecodeErrorKind {
+    #[snafu(display("Discriminant value '{}' did not match any variant", discriminant))]
+    DiscriminantValueNotFound {
+        /// The found value of the discriminant
+        discriminant: isize,
+    },
+    #[snafu(display("Indefinite length encountered but not allowed."))]
+    IndefiniteLengthNotAllowed,
     #[snafu(display("Invalid constructed identifier for ASN.1 value: not primitive."))]
     InvalidConstructedIdentifier,
     /// Invalid date.
@@ -411,20 +401,30 @@ pub enum BerDecodeErrorKind {
     InvalidDate { msg: alloc::string::String },
     #[snafu(display("Invalid object identifier with missing or corrupt root nodes."))]
     InvalidObjectIdentifier,
+    /// The tag does not match what was expected.
+    #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
+    MismatchedTag {
+        /// The expected tag.
+        expected: Tag,
+        /// The actual tag.
+        actual: Tag,
+    },
 }
 
 impl BerDecodeErrorKind {
     #[must_use]
-    pub fn invalid_constructed_identifier() -> CodecDecodeError {
-        CodecDecodeError::Ber(Self::InvalidConstructedIdentifier)
-    }
-    #[must_use]
     pub fn invalid_date(msg: alloc::string::String) -> CodecDecodeError {
         CodecDecodeError::Ber(Self::InvalidDate { msg })
     }
+    pub fn assert_tag(expected: Tag, actual: Tag) -> core::result::Result<(), DecodeError> {
+        if expected == actual {
+            Ok(())
+        } else {
+            Err(Self::MismatchedTag { expected, actual }.into())
+        }
+    }
 }
-
-// TODO check if there codec-specific errors here
+// TODO check if there are more codec-specific errors here
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for CER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]

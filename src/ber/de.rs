@@ -72,10 +72,7 @@ impl<'input> Decoder<'input> {
         self.input = input;
         match contents {
             Some(contents) => Ok((identifier, contents)),
-            None => Err(DecodeError::from_kind(
-                DecodeErrorKind::IndefiniteLengthNotAllowed,
-                self.codec(),
-            )),
+            None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
         }
     }
 
@@ -93,10 +90,10 @@ impl<'input> Decoder<'input> {
     {
         let (identifier, contents) = self.parse_value(tag)?;
 
-        DecodeError::assert_tag(tag, identifier.tag, self.codec())?;
+        BerDecodeErrorKind::assert_tag(tag, identifier.tag)?;
 
         if check_identifier && identifier.is_primitive() {
-            return Err(BerDecodeErrorKind::invalid_constructed_identifier().into());
+            return Err(BerDecodeErrorKind::InvalidConstructedIdentifier.into());
         }
 
         let (streaming, contents) = match contents {
@@ -361,7 +358,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             _ if self.config.encoding_rules.is_ber() => true,
             _ => {
                 return Err(DecodeError::from_kind(
-                    DecodeErrorKind::InvalidBool,
+                    DecodeErrorKind::InvalidBool { value: contents[0] },
                     self.codec(),
                 ))
             }
@@ -369,14 +366,15 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E> {
-        E::from_discriminant(
-            self.decode_integer(tag, <_>::default())?
-                .try_into()
-                .map_err(|e: num_bigint::TryFromBigIntError<types::Integer>| {
-                    DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
-                })?,
-        )
-        .ok_or_else(|| DecodeError::from_kind(DecodeErrorKind::InvalidDiscriminant, self.codec()))
+        let discriminant = self
+            .decode_integer(tag, <_>::default())?
+            .try_into()
+            .map_err(|e: num_bigint::TryFromBigIntError<types::Integer>| {
+                DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
+            })?;
+
+        E::from_discriminant(discriminant)
+            .ok_or_else(|| BerDecodeErrorKind::DiscriminantValueNotFound { discriminant }.into())
     }
 
     fn decode_integer(&mut self, tag: Tag, _: Constraints) -> Result<types::Integer> {
@@ -391,10 +389,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if identifier.is_primitive() {
             match contents {
                 Some(c) => Ok(c.to_vec()),
-                None => Err(DecodeError::from_kind(
-                    DecodeErrorKind::IndefiniteLengthNotAllowed,
-                    self.codec(),
-                )),
+                None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
             }
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
             Err(DerDecodeErrorKind::ConstructedEncodingNotAllowed.into())

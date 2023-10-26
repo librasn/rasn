@@ -337,7 +337,7 @@ impl crate::Encoder for Encoder {
             let bytes = vec.as_raw_slice();
             let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
                 EncodeError::from_kind(
-                    EncodeErrorKind::BitStringUnusedBytesToU8 { err },
+                    EncodeErrorKind::FailedBitStringUnusedBitsToU8 { err },
                     self.codec(),
                 )
             })?;

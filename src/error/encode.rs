@@ -38,12 +38,14 @@ impl From<CodecEncodeError> for EncodeError {
 
 /// An error type for failed encoding for every encoder.
 /// Abstracts over the different generic and codec-specific errors.
+///
 /// `kind` field is used to determine the kind of error that occurred.
 /// `codec` field is used to determine the codec that failed.
 /// `backtrace` field is used to determine the backtrace of the error.
 ///
 /// There is `Kind::CodecSpecific` variant which wraps the codec-specific
 /// errors as `CodecEncodeError` type.
+///
 /// # Example
 /// ```
 ///
@@ -178,11 +180,13 @@ impl EncodeError {
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum EncodeErrorKind {
-    #[snafu(display("Failed to convert BIT STRING unused bytes to u8: {err}"))]
-    BitStringUnusedBytesToU8 { err: core::num::TryFromIntError },
+    #[snafu(display("Failed to convert BIT STRING unused bits to u8: {err}"))]
+    FailedBitStringUnusedBitsToU8 { err: core::num::TryFromIntError },
     #[snafu(display("invalid length, expected: {expected}; actual: {length}"))]
     InvalidLength {
+        /// Actual length of the data
         length: usize,
+        /// Expected length of the data
         expected: Bounded<usize>,
     },
     #[snafu(display("custom error:\n{}", msg))]
@@ -191,6 +195,7 @@ pub enum EncodeErrorKind {
     CodecSpecific { inner: CodecEncodeError },
     #[snafu(display("Constraint not satisfied: {reason}"))]
     AlphabetConstraintNotSatisfied {
+        /// Inner error from mapping realized characters to allowed characters
         reason: super::strings::PermittedAlphabetError,
     },
     #[snafu(display("Failed to cast integer to another integer type: {msg} "))]

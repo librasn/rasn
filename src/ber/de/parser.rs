@@ -4,7 +4,7 @@ use nom::IResult;
 use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
-use super::{DecodeError, DecoderOptions, DerDecodeErrorKind};
+use super::{BerDecodeErrorKind, DecodeError, DecoderOptions, DerDecodeErrorKind};
 use crate::{
     ber::identifier::Identifier,
     types::{Class, Tag},
@@ -20,7 +20,7 @@ pub(crate) fn parse_value<'input>(
         .map_err(|e| DecodeError::map_nom_err(e, config.current_codec()))?;
 
     if let Some(tag) = tag {
-        DecodeError::assert_tag(tag, identifier.tag, config.current_codec())?;
+        BerDecodeErrorKind::assert_tag(tag, identifier.tag)?;
     }
 
     let (input, contents) = parse_contents(config, identifier, input)
