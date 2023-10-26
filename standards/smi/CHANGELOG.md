@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.6](https://github.com/XAMPPRocky/rasn/compare/rasn-smi-v0.10.5...rasn-smi-v0.10.6) - 2023-10-26
+
+### Other
+- update dependencies
+
 ## [0.10.0](https://github.com/XAMPPRocky/rasn/compare/rasn-smi-v0.9.5...rasn-smi-v0.10.0) - 2023-10-03
 
 ### Other
