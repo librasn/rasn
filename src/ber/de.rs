@@ -1,8 +1,5 @@
 //! # Decoding BER
 
-// TODO: Update chrono functions.
-#![allow(deprecated)]
-
 mod config;
 mod error;
 pub(super) mod parser;
@@ -21,7 +18,7 @@ use crate::{
     },
     Decode,
 };
-use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
 
 pub use self::{config::DecoderOptions, error::Error};
 
@@ -186,7 +183,7 @@ impl<'input> Decoder<'input> {
         };
         if string.ends_with('Z') {
             let naive = parse_without_timezone(&string[..len - 1])?;
-            return Ok(DateTime::<Utc>::from_utc(naive, Utc).into());
+            return Ok(naive.and_utc().into());
         }
         // Check for timezone offset
         if len > 5
@@ -222,12 +219,14 @@ impl<'input> Decoder<'input> {
             }
             let offset = FixedOffset::east_opt(sign * (offset_hours * 3600 + offset_minutes * 60))
                 .ok_or(Error::InvalidDate)?;
-            return Ok(DateTime::<FixedOffset>::from_local(naive, offset).into());
+            return TimeZone::from_local_datetime(&offset, &naive)
+                .single()
+                .ok_or(Error::InvalidDate);
         }
 
         // Parse without timezone details
         let naive = parse_without_timezone(&string)?;
-        Ok(DateTime::<Utc>::from_local(naive, Utc).into())
+        Ok(naive.and_utc().into())
     }
     /// Enforce CER/DER restrictions defined in Section 11.7, strictly raise error on non-compliant
     pub fn parse_canonical_generalized_time_string(
@@ -252,12 +251,12 @@ impl<'input> Decoder<'input> {
                 Err(Error::InvalidDate)
             }
         };
-        return if string.ends_with('Z') {
+        if string.ends_with('Z') {
             let naive = parse_without_timezone(&string[..len - 1])?;
-            Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+            Ok(naive.and_utc().into())
         } else {
             Err(Error::InvalidDate)
-        };
+        }
     }
     /// Parse any UTCTime string, can be any from ASN.1 definition
     /// TODO, move to type itself?
@@ -285,7 +284,7 @@ impl<'input> Decoder<'input> {
             11 | 13 => {
                 let naive = NaiveDateTime::parse_from_str(&string, format)
                     .map_err(|_| Error::InvalidDate)?;
-                Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+                Ok(naive.and_utc())
             }
             15 | 17 => Ok(DateTime::parse_from_str(&string, format)
                 .map_err(|_| Error::InvalidDate)?
@@ -299,16 +298,16 @@ impl<'input> Decoder<'input> {
         string: alloc::string::String,
     ) -> Result<types::UtcTime, Error> {
         let len = string.len();
-        return if string.ends_with('Z') {
+        if string.ends_with('Z') {
             let naive = match len {
                 13 => NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
                     .map_err(|_| Error::InvalidDate)?,
                 _ => Err(Error::InvalidDate)?,
             };
-            Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+            Ok(naive.and_utc())
         } else {
             Err(Error::InvalidDate)
-        };
+        }
     }
 }
 
