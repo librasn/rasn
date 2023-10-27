@@ -1,4 +1,4 @@
-use std::ops::{Neg, Deref};
+use std::ops::{Deref};
 
 use quote::ToTokens;
 use syn::{Lit, NestedMeta, Path, UnOp};

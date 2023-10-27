@@ -245,12 +245,12 @@ mod tests {
         round_trip_jer!(
             TestTypeA, 
             TestTypeA { juice: 0.into(), wine: Inner::Wine(4), grappa: BitString::from_iter([true, false].iter())}, 
-            "{\"juice\":0,\"wine\":{\"Wine\":4},\"grappa\":\"10\"}"
+            "{\"grappa\":\"10\",\"juice\":0,\"wine\":{\"Wine\":4}}"
         );
         round_trip_jer!(
             Very, 
             Very { a: Some(Nested { very: Some(Struct { strct: None }), nested: Some(false) }) }, 
-            "{\"a\":{\"very\":{},\"nested\":false}}"
+            "{\"a\":{\"nested\":false,\"very\":{}}}"
         );
     }
 }

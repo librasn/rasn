@@ -28,7 +28,7 @@ chrono = { version = "0.4.26", default-features = false, features = ["alloc"] }
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 
 [features]
-default = ["macros","jer"]
+default = ["macros"]
 macros = ["rasn-derive"]
 jer = ["serde","serde_json","rasn-derive?/text-based-encodings"]
 
