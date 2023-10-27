@@ -1,5 +1,7 @@
+use std::ops::{Neg, Deref};
+
 use quote::ToTokens;
-use syn::{Lit, NestedMeta, Path};
+use syn::{Lit, NestedMeta, Path, UnOp};
 
 use crate::{ext::TypeExt, tag::Tag};
 
@@ -513,7 +515,7 @@ impl<'config> VariantConfig<'config> {
         }
     }
 
-    pub fn discriminant(&self) -> Option<usize> {
+    pub fn discriminant(&self) -> Option<isize> {
         self.variant
             .discriminant
             .as_ref()
@@ -522,6 +524,20 @@ impl<'config> VariantConfig<'config> {
                     lit: syn::Lit::Int(int),
                     ..
                 }) => int.base10_parse().ok(),
+                syn::Expr::Unary(syn::ExprUnary {
+                    op: UnOp::Neg(_),
+                    expr: e,
+                    ..
+                }) => {
+                    if let syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Int(int),
+                        ..
+                    }) = e.deref() {
+                        int.base10_parse().map(|i: isize| -i).ok()
+                    } else {
+                        None
+                    }
+                },
                 _ => None,
             })
     }
