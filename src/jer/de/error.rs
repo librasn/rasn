@@ -8,7 +8,11 @@ use snafu::Snafu;
 pub enum Error {
     #[snafu(display("Unexpected end of input while decoding JER JSON."))]
     EndOfInput {},
-    #[snafu(display("Found mismatching JSON value. Expected type {}. Found value {}.", needed, found))]
+    #[snafu(display(
+        "Found mismatching JSON value. Expected type {}. Found value {}.",
+        needed,
+        found
+    ))]
     TypeMismatch {
         needed: &'static str,
         found: alloc::string::String,
@@ -63,7 +67,7 @@ pub enum Error {
 
 impl Error {
     pub fn eoi() -> Self {
-        Self::EndOfInput {  }
+        Self::EndOfInput {}
     }
 
     pub fn no_valid_variant(discriminator: Value) -> Self {
@@ -109,8 +113,12 @@ impl crate::de::Error for Error {
 impl From<crate::ber::de::Error> for Error {
     fn from(value: crate::ber::de::Error) -> Self {
         match value {
-            crate::der::de::Error::InvalidDate => Self::Custom { msg: "Error parsing time string!".into() },
-            e => Self::Custom { msg: alloc::format!("Error invoking BER parser: {e:?}") }
+            crate::der::de::Error::InvalidDate => Self::Custom {
+                msg: "Error parsing time string!".into(),
+            },
+            e => Self::Custom {
+                msg: alloc::format!("Error invoking BER parser: {e:?}"),
+            },
         }
     }
 }

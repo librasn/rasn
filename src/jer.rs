@@ -107,7 +107,7 @@ mod tests {
         #[rasn(size("0..3"))]
         Test2(Utf8String),
         #[rasn(extension_addition)]
-        Test3(bool)
+        Test3(bool),
     }
 
     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
@@ -220,36 +220,69 @@ mod tests {
     #[test]
     fn choice() {
         round_trip_jer!(SimpleChoice, SimpleChoice::Test1(3), "{\"Test1\":3}");
-        round_trip_jer!(SimpleChoice, SimpleChoice::Test2("foo".into()), "{\"Test2\":\"foo\"}");
+        round_trip_jer!(
+            SimpleChoice,
+            SimpleChoice::Test2("foo".into()),
+            "{\"Test2\":\"foo\"}"
+        );
         round_trip_jer!(ExtChoice, ExtChoice::Test1(255), "{\"Test1\":255}");
-        round_trip_jer!(ExtChoice, ExtChoice::Test2("bar".into()), "{\"Test2\":\"bar\"}");
+        round_trip_jer!(
+            ExtChoice,
+            ExtChoice::Test2("bar".into()),
+            "{\"Test2\":\"bar\"}"
+        );
         round_trip_jer!(ExtChoice, ExtChoice::Test3(true), "{\"Test3\":true}");
     }
 
     #[test]
     fn sequence_of() {
-        round_trip_jer!(SequenceOf<SimpleChoice>, alloc::vec![SimpleChoice::Test1(3)], "[{\"Test1\":3}]");
-        round_trip_jer!(SequenceOf<u8>, alloc::vec![1,2,3,4,5,5,3], "[1,2,3,4,5,5,3]");
+        round_trip_jer!(
+            SequenceOf<SimpleChoice>,
+            alloc::vec![SimpleChoice::Test1(3)],
+            "[{\"Test1\":3}]"
+        );
+        round_trip_jer!(
+            SequenceOf<u8>,
+            alloc::vec![1, 2, 3, 4, 5, 5, 3],
+            "[1,2,3,4,5,5,3]"
+        );
         round_trip_jer!(SequenceOf<bool>, alloc::vec![], "[]");
     }
 
     #[test]
     fn set_of() {
-        round_trip_jer!(SetOf<SimpleChoice>, alloc::vec![SimpleChoice::Test1(3)].into_iter().collect(), "[{\"Test1\":3}]");
-        round_trip_jer!(SetOf<u8>, alloc::vec![1,2,3,4,5].into_iter().collect(), "[1,2,3,4,5]");
+        round_trip_jer!(
+            SetOf<SimpleChoice>,
+            alloc::vec![SimpleChoice::Test1(3)].into_iter().collect(),
+            "[{\"Test1\":3}]"
+        );
+        round_trip_jer!(
+            SetOf<u8>,
+            alloc::vec![1, 2, 3, 4, 5].into_iter().collect(),
+            "[1,2,3,4,5]"
+        );
         round_trip_jer!(SetOf<bool>, alloc::vec![].into_iter().collect(), "[]");
     }
 
     #[test]
     fn seqence() {
         round_trip_jer!(
-            TestTypeA, 
-            TestTypeA { juice: 0.into(), wine: Inner::Wine(4), grappa: BitString::from_iter([true, false].iter())}, 
+            TestTypeA,
+            TestTypeA {
+                juice: 0.into(),
+                wine: Inner::Wine(4),
+                grappa: BitString::from_iter([true, false].iter())
+            },
             "{\"grappa\":\"10\",\"juice\":0,\"wine\":{\"Wine\":4}}"
         );
         round_trip_jer!(
-            Very, 
-            Very { a: Some(Nested { very: Some(Struct { strct: None }), nested: Some(false) }) }, 
+            Very,
+            Very {
+                a: Some(Nested {
+                    very: Some(Struct { strct: None }),
+                    nested: Some(false)
+                })
+            },
             "{\"a\":{\"nested\":false,\"very\":{}}}"
         );
     }

@@ -236,7 +236,6 @@ pub trait Decoder: Sized {
             .unwrap_or_else(default_fn))
     }
 
-
     /// Decode a `DEFAULT` value in a `SEQUENCE` or `SET` with `tag`, `constraints` and `default_fn`.
     fn decode_default_with_tag_and_constraints<D: Decode, F: FnOnce() -> D>(
         &mut self,
@@ -261,7 +260,10 @@ pub trait Decoder: Sized {
         &mut self,
         default_fn: F,
     ) -> Result<D, Self::Error> {
-        self.decode_extension_addition_with_default_and_constraints(default_fn, Constraints::default())
+        self.decode_extension_addition_with_default_and_constraints(
+            default_fn,
+            Constraints::default(),
+        )
     }
 
     /// Decode a `DEFAULT` value with constraints in a `SEQUENCE`'s or `SET`'s extension

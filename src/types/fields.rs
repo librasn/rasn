@@ -109,7 +109,7 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Required,
-            name
+            name,
         }
     }
 
@@ -118,7 +118,7 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Optional,
-            name
+            name,
         }
     }
 
@@ -127,7 +127,7 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Default,
-            name
+            name,
         }
     }
 }

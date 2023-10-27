@@ -4,7 +4,7 @@ use alloc::{collections::VecDeque, vec::Vec};
 use bitvec::field::BitField;
 use snafu::*;
 
-use super::{to_vec, FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K, to_left_padded_vec};
+use super::{to_left_padded_vec, to_vec, FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
     de::Error as _,
     types::{

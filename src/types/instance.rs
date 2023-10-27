@@ -53,14 +53,14 @@ impl<T: AsnType> crate::types::Constructed for InstanceOf<T> {
             tag_tree: ObjectIdentifier::TAG_TREE,
             presence: FieldPresence::Required,
             #[cfg(feature = "jer")]
-            name: "type_id"
+            name: "type_id",
         },
         Field {
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Required,
             #[cfg(feature = "jer")]
-            name: "value"
+            name: "value",
         },
     ]);
 }

@@ -149,7 +149,7 @@ mod tests {
                     crate::types::fields::Field::new_required(
                         Utf8String::TAG,
                         Utf8String::TAG_TREE,
-                        "name"
+                        "name",
                     ),
                 ]);
         }

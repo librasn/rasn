@@ -147,9 +147,7 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
                     .iter()
                     .flat_map(|array| array.iter()),
             )
-            .find_map(|(lhs, value)| 
-            (lhs == self).then_some(*value)
-        )
+            .find_map(|(lhs, value)| (lhs == self).then_some(*value))
             .expect("variant not defined in `Enumerated`")
     }
 

@@ -46,9 +46,9 @@ pub mod aper;
 pub mod ber;
 pub mod cer;
 pub mod der;
-pub mod uper;
 #[cfg(feature = "jer")]
 pub mod jer;
+pub mod uper;
 
 #[doc(inline)]
 pub use self::{

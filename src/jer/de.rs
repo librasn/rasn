@@ -532,7 +532,9 @@ impl Decoder {
         )?)
     }
 
-    fn general_time_from_value(value: Value) -> Result<chrono::DateTime<chrono::FixedOffset>, error::Error> {
+    fn general_time_from_value(
+        value: Value,
+    ) -> Result<chrono::DateTime<chrono::FixedOffset>, error::Error> {
         Ok(crate::ber::de::Decoder::parse_any_generalized_time_string(
             value
                 .as_str()

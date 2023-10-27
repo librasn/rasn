@@ -68,9 +68,7 @@ pub(crate) fn range_from_bits(bits: u32) -> i128 {
 }
 
 // Workaround for https://github.com/ferrilab/bitvec/issues/228
-pub(crate) fn to_vec(
-    slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>,
-) -> Vec<u8> {
+pub(crate) fn to_vec(slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>) -> Vec<u8> {
     use bitvec::prelude::*;
     let mut vec = Vec::new();
 
@@ -81,7 +79,9 @@ pub(crate) fn to_vec(
     vec
 }
 
-pub(crate) fn to_left_padded_vec(slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>) -> Vec<u8> {
+pub(crate) fn to_left_padded_vec(
+    slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>,
+) -> Vec<u8> {
     use bitvec::prelude::*;
 
     let mut vec = Vec::new();

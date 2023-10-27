@@ -1,4 +1,4 @@
-use std::ops::{Deref};
+use std::ops::Deref;
 
 use quote::ToTokens;
 use syn::{Lit, NestedMeta, Path, UnOp};
@@ -532,12 +532,13 @@ impl<'config> VariantConfig<'config> {
                     if let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Int(int),
                         ..
-                    }) = e.deref() {
+                    }) = e.deref()
+                    {
                         int.base10_parse().map(|i: isize| -i).ok()
                     } else {
                         None
                     }
-                },
+                }
                 _ => None,
             })
     }
@@ -1122,10 +1123,9 @@ impl<'a> FieldConfig<'a> {
             .field
             .ident
             .as_ref()
-            .map_or(
-                syn::LitStr::new("", proc_macro2::Span::call_site()), 
-                |id| syn::LitStr::new(&id.to_string(), proc_macro2::Span::call_site())
-            );
+            .map_or(syn::LitStr::new("", proc_macro2::Span::call_site()), |id| {
+                syn::LitStr::new(&id.to_string(), proc_macro2::Span::call_site())
+            });
 
         let constructor = quote::format_ident!(
             "{}",
