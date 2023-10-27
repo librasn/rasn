@@ -208,7 +208,7 @@ impl crate::Encoder for Encoder {
         &mut self,
         _t: crate::Tag,
         _c: crate::types::Constraints,
-        value: &crate::types::TeletexString,
+        _value: &crate::types::TeletexString,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
