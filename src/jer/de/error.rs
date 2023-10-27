@@ -105,3 +105,12 @@ impl crate::de::Error for Error {
         Self::NoValidChoice { name }
     }
 }
+
+impl From<crate::ber::de::Error> for Error {
+    fn from(value: crate::ber::de::Error) -> Self {
+        match value {
+            crate::der::de::Error::InvalidDate => Self::Custom { msg: "Error parsing time string!".into() },
+            e => Self::Custom { msg: alloc::format!("Error invoking BER parser: {e:?}") }
+        }
+    }
+}

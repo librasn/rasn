@@ -324,6 +324,20 @@ impl Enum {
 
     fn encode_choice(&self, generics: &syn::Generics) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
+        #[cfg(feature = "text-based-encodings")]
+        let identifiers = self.variants.iter().map(|v| {
+            let ident = &v.ident;
+            let name = &self.name;
+
+            let identifier = syn::LitStr::new(&v.ident.to_string(), proc_macro2::Span::call_site());
+
+            match &v.fields {
+                syn::Fields::Named(_) => quote!(#name::#ident { .. } => #identifier),
+                syn::Fields::Unnamed(_) => quote!(#name::#ident (_) => #identifier),
+                syn::Fields::Unit => quote!(#name::#ident => #identifier),
+            }
+        });
+
         let variants = self.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
             let name = &self.name;
@@ -395,6 +409,20 @@ impl Enum {
             }
         });
 
+        #[cfg(feature = "text-based-encodings")]
+        let encode_variants = quote! {
+            encoder.encode_choice::<Self>(
+                Self::CONSTRAINTS,
+                match self {
+                    #(#identifiers),*
+                },
+                |encoder| match self {
+                    #(#variants),*
+                }
+            )
+        };
+
+        #[cfg(not(feature = "text-based-encodings"))]
         let encode_variants = quote! {
             encoder.encode_choice::<Self>(Self::CONSTRAINTS, |encoder| match self {
                 #(#variants),*

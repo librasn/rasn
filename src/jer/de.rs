@@ -127,7 +127,7 @@ impl crate::Decoder for Decoder {
         _t: crate::Tag,
         _c: Constraints,
     ) -> Result<alloc::vec::Vec<u8>, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::octet_string_from_value, self.stack)
     }
 
     fn decode_utf8_string(
@@ -226,11 +226,11 @@ impl crate::Decoder for Decoder {
     }
 
     fn decode_utc_time(&mut self, _t: crate::Tag) -> Result<UtcTime, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::utc_time_from_value, self.stack)
     }
 
     fn decode_generalized_time(&mut self, _t: crate::Tag) -> Result<GeneralizedTime, Self::Error> {
-        todo!()
+        decode_jer_value!(Self::general_time_from_value, self.stack)
     }
 
     fn decode_set<FIELDS, SET, D, F>(
@@ -375,7 +375,7 @@ impl Decoder {
 
     fn enumerated_from_value<E: Enumerated>(value: Value) -> Result<E, error::Error> {
         value
-            .as_u64()
+            .as_i64()
             .ok_or(error::Error::TypeMismatch {
                 needed: "enumerable index",
                 found: alloc::format!("{value}"),
@@ -506,5 +506,41 @@ impl Decoder {
                 }
             });
         D::from_tag(self, tag)
+    }
+
+    fn octet_string_from_value(value: Value) -> Result<alloc::vec::Vec<u8>, error::Error> {
+        let octet_string = value.as_str().ok_or(error::Error::TypeMismatch {
+            needed: "octet string",
+            found: alloc::format!("{value}"),
+        })?;
+        (0..octet_string.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&octet_string[i..=i + 1], 16))
+            .collect::<Result<alloc::vec::Vec<u8>, _>>()
+            .map_err(|_| error::Error::custom("Failed to parse octet string."))
+    }
+
+    fn utc_time_from_value(value: Value) -> Result<chrono::DateTime<chrono::Utc>, error::Error> {
+        Ok(crate::ber::de::Decoder::parse_any_utc_time_string(
+            value
+                .as_str()
+                .ok_or(error::Error::TypeMismatch {
+                    needed: "time string",
+                    found: alloc::format!("{value}"),
+                })?
+                .into(),
+        )?)
+    }
+
+    fn general_time_from_value(value: Value) -> Result<chrono::DateTime<chrono::FixedOffset>, error::Error> {
+        Ok(crate::ber::de::Decoder::parse_any_generalized_time_string(
+            value
+                .as_str()
+                .ok_or(error::Error::TypeMismatch {
+                    needed: "time string",
+                    found: alloc::format!("{value}"),
+                })?
+                .into(),
+        )?)
     }
 }
