@@ -94,12 +94,12 @@ impl Enum {
                 .partition(|config| !config.extension_addition);
 
             let discriminants = variants.iter().enumerate().map(|(i, config)| {
-                let discriminant = config.discriminant().unwrap_or(i) as isize;
+                let discriminant = config.discriminant().unwrap_or(i as isize);
                 let variant = &config.variant.ident;
                 quote!((Self::#variant, #discriminant))
             });
             let extended_discriminants = extended_variants.iter().enumerate().map(|(i, config)| {
-                let discriminant = config.discriminant().unwrap_or(i) as isize;
+                let discriminant = config.discriminant().unwrap_or(i as isize);
                 let variant = &config.variant.ident;
                 quote!((Self::#variant, #discriminant))
             });
