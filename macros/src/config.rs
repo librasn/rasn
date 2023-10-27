@@ -1,4 +1,4 @@
-use std::ops::{Neg, Deref};
+use std::ops::{Deref, Neg};
 
 use quote::ToTokens;
 use syn::{Lit, NestedMeta, Path, UnOp};
@@ -532,12 +532,13 @@ impl<'config> VariantConfig<'config> {
                     if let syn::Expr::Lit(syn::ExprLit {
                         lit: syn::Lit::Int(int),
                         ..
-                    }) = e.deref() {
+                    }) = e.deref()
+                    {
                         int.base10_parse().map(|i: isize| -i).ok()
                     } else {
                         None
                     }
-                },
+                }
                 _ => None,
             })
     }
