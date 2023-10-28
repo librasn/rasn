@@ -246,7 +246,7 @@ impl Enum {
             let from_tag = quote! {
                 #(#decode_ops)*
 
-                Err(#crate_root::de::Error::no_valid_choice(#str_name))
+                Err(#crate_root::de::Error::no_valid_choice(#str_name, decoder.codec()))
             };
             quote! {
                 #[automatically_derived]

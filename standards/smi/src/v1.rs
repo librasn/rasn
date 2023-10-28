@@ -3,6 +3,7 @@
 use core::convert::TryInto;
 
 use rasn::{
+    error::EncodeError,
     types::{Constraints, FixedOctetString, Integer, ObjectIdentifier, OctetString, Oid},
     AsnType, Decode, Encode, Tag,
 };
@@ -75,11 +76,11 @@ pub struct Opaque(alloc::vec::Vec<u8>);
 /// Helper trait for wrapping any valid ASN.1 type in an `Opaque` struct which
 /// first encodes the data into Basic Encoding Rules.
 pub trait ToOpaque {
-    fn to_opaque(&self) -> Result<Opaque, rasn::ber::enc::Error>;
+    fn to_opaque(&self) -> Result<Opaque, EncodeError>;
 }
 
 impl<T: Encode> ToOpaque for T {
-    fn to_opaque(&self) -> Result<Opaque, rasn::ber::enc::Error> {
+    fn to_opaque(&self) -> Result<Opaque, EncodeError> {
         rasn::ber::encode(self).map(Opaque)
     }
 }

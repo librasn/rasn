@@ -11,6 +11,7 @@ pub struct Identifier {
 
 impl Identifier {
     /// Instantiates a new instance of `Identifier` from its components.
+    #[must_use]
     pub fn new(class: Class, is_constructed: bool, tag: u32) -> Self {
         Self {
             tag: Tag::new(class, tag),
@@ -19,6 +20,7 @@ impl Identifier {
     }
 
     /// Instantiates a new instance of `Identifier` from its components.
+    #[must_use]
     pub fn from_tag(tag: Tag, is_constructed: bool) -> Self {
         Self {
             tag,
@@ -27,6 +29,7 @@ impl Identifier {
     }
 
     /// Instantiates a new tag from `self` with `tag` overwritten.
+    #[must_use]
     pub fn tag(self, tag: u32) -> Self {
         Self {
             tag: self.tag.set_value(tag),
@@ -36,12 +39,14 @@ impl Identifier {
 
     /// Returns whether the identifier is for a type that is using
     /// "constructed" encoding.
+    #[must_use]
     pub fn is_constructed(&self) -> bool {
         self.is_constructed
     }
 
     /// Returns whether the identifier is for a type that is using
     /// "primitive" encoding.
+    #[must_use]
     pub fn is_primitive(&self) -> bool {
         !self.is_constructed()
     }

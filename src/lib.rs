@@ -46,6 +46,7 @@ pub mod aper;
 pub mod ber;
 pub mod cer;
 pub mod der;
+pub mod error;
 pub mod uper;
 
 #[doc(inline)]
@@ -182,7 +183,9 @@ mod tests {
 
                 let integer = decoder.decode_integer(tag, constraints)?;
 
-                Ok(Self(<_>::try_from(integer).map_err(D::Error::custom)?))
+                Ok(Self(
+                    <_>::try_from(integer).map_err(|e| D::Error::custom(e, decoder.codec()))?,
+                ))
             }
         }
 

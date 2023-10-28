@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::error::strings::{InvalidNumericString, PermittedAlphabetError};
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 
 /// A string which can only contain numbers or `SPACE` characters.
@@ -8,14 +9,15 @@ pub struct NumericString(Vec<u8>);
 
 impl NumericString {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidNumericString> {
-        if !bytes
-            .iter()
-            .all(|byte| Self::CHARACTER_SET.contains(&(*byte as u32)))
-        {
-            Err(InvalidNumericString)
-        } else {
-            Ok(Self(bytes.to_owned()))
-        }
+        bytes.iter().try_for_each(|byte| {
+            if Self::CHARACTER_SET.contains(&(*byte as u32)) {
+                Ok(())
+            } else {
+                Err(InvalidNumericString { character: *byte })
+            }
+        })?;
+
+        Ok(Self(bytes.to_owned()))
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -24,7 +26,7 @@ impl NumericString {
 }
 
 impl TryFrom<BitString> for NumericString {
-    type Error = FromPermittedAlphabetError;
+    type Error = PermittedAlphabetError;
 
     fn try_from(string: BitString) -> Result<Self, Self::Error> {
         Self::try_from_permitted_alphabet(&string, None)
@@ -100,8 +102,3 @@ impl StaticPermittedAlphabet for NumericString {
         self.0.push(ch as u8);
     }
 }
-
-#[derive(snafu::Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
-#[snafu(display("Invalid numeric string"))]
-pub struct InvalidNumericString;

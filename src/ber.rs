@@ -11,14 +11,16 @@ pub(crate) use rules::EncodingRules;
 /// Attempts to decode `T` from `input` using BER.
 /// # Errors
 /// Returns error specific to BER decoder if decoding is not possible.
-pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
+pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeError> {
     T::decode(&mut de::Decoder::new(input, de::DecoderOptions::ber()))
 }
 
 /// Attempts to encode `value` to BER.
 /// # Errors
 /// Returns error specific to BER encoder if encoding is not possible.
-pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::Error> {
+pub fn encode<T: crate::Encode>(
+    value: &T,
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     let mut enc = enc::Encoder::new(enc::EncoderOptions::ber());
 
     value.encode(&mut enc)?;
@@ -30,8 +32,8 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::E
 /// # Errors
 /// Returns error specific to BER encoder if encoding is not possible.
 pub fn encode_scope(
-    encode_fn: impl FnOnce(&mut crate::ber::enc::Encoder) -> Result<(), crate::ber::enc::Error>,
-) -> Result<alloc::vec::Vec<u8>, crate::ber::enc::Error> {
+    encode_fn: impl FnOnce(&mut crate::ber::enc::Encoder) -> Result<(), crate::error::EncodeError>,
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
 
     (encode_fn)(&mut enc)?;
@@ -118,6 +120,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::items_after_statements)]
     fn set() {
         #[derive(Debug, PartialEq)]
         struct Set {
@@ -169,13 +172,13 @@ mod tests {
                     Age(u32),
                     Name(Utf8String),
                 }
-
+                let codec = decoder.codec();
                 decoder.decode_set::<Fields, _, _, _>(
                     tag,
                     |decoder, indice, tag| match (indice, tag) {
                         (0, u32::TAG) => <_>::decode(decoder).map(Fields::Age),
                         (1, Utf8String::TAG) => <_>::decode(decoder).map(Fields::Name),
-                        (_, _) => Err(D::Error::custom("unknown field")),
+                        (_, _) => Err(D::Error::custom("unknown field", codec)),
                     },
                     |fields| {
                         let mut age = None;
@@ -189,8 +192,8 @@ mod tests {
                         }
 
                         Ok(Self {
-                            age: age.ok_or_else(|| D::Error::missing_field("age"))?,
-                            name: name.ok_or_else(|| D::Error::missing_field("name"))?,
+                            age: age.ok_or_else(|| D::Error::missing_field("age", codec))?,
+                            name: name.ok_or_else(|| D::Error::missing_field("name", codec))?,
                         })
                     },
                 )

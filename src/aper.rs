@@ -8,12 +8,14 @@ use crate::types::Constraints;
 pub use super::per::*;
 
 /// Attempts to decode `T` from `input` using APER-BASIC.
-pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::per::de::Error> {
+pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeError> {
     crate::per::decode(de::DecoderOptions::aligned(), input)
 }
 
 /// Attempts to encode `value` to APER-CANONICAL.
-pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+pub fn encode<T: crate::Encode>(
+    value: &T,
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     crate::per::encode(enc::EncoderOptions::aligned(), value)
 }
 
@@ -21,7 +23,7 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, crate:
 pub fn decode_with_constraints<T: crate::Decode>(
     constraints: Constraints,
     input: &[u8],
-) -> Result<T, crate::per::de::Error> {
+) -> Result<T, crate::error::DecodeError> {
     crate::per::decode_with_constraints(de::DecoderOptions::aligned(), constraints, input)
 }
 
@@ -29,7 +31,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
 pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
-) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     crate::per::encode_with_constraints(enc::EncoderOptions::aligned(), constraints, value)
 }
 
