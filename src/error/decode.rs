@@ -7,8 +7,7 @@ use snafu::Snafu;
 use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::de::Error;
-use crate::types::variants::Variants;
-use crate::types::Tag;
+use crate::types::{variants::Variants, Class, Tag};
 use crate::Codec;
 
 /// Variants for every codec-specific `DecodeError` kind.
@@ -21,6 +20,8 @@ pub enum CodecDecodeError {
     Uper(UperDecodeErrorKind),
     Aper(AperDecodeErrorKind),
     Jer(JerDecodeErrorKind),
+    Oer(OerDecodeErrorKind),
+    Coer(CoerDecodeErrorKind),
 }
 
 macro_rules! impl_from {
@@ -40,6 +41,8 @@ impl_from!(Der, DerDecodeErrorKind);
 impl_from!(Uper, UperDecodeErrorKind);
 impl_from!(Aper, AperDecodeErrorKind);
 impl_from!(Jer, JerDecodeErrorKind);
+impl_from!(Oer, OerDecodeErrorKind);
+impl_from!(Coer, CoerDecodeErrorKind);
 
 impl From<CodecDecodeError> for DecodeError {
     fn from(error: CodecDecodeError) -> Self {
@@ -304,6 +307,8 @@ impl DecodeError {
             CodecDecodeError::Uper(_) => crate::Codec::Uper,
             CodecDecodeError::Aper(_) => crate::Codec::Aper,
             CodecDecodeError::Jer(_) => crate::Codec::Jer,
+            CodecDecodeError::Oer(_) => crate::Codec::Oer,
+            CodecDecodeError::Coer(_) => crate::Codec::Coer,
         };
         Self {
             kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
@@ -593,6 +598,25 @@ pub enum UperDecodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperDecodeErrorKind {}
+
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum OerDecodeErrorKind {
+    #[snafu(display(
+        "Invalid tag class when decoding choice: actual {:?}, but must be one of  Universal (0b00), Application (0b01), Context (0b10) or Private (0b11).",
+       class
+    ))]
+    InvalidTagClassOnChoice {
+        /// The actual class.
+        class: u8,
+    },
+}
+
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum CoerDecodeErrorKind {}
 
 impl crate::de::Error for DecodeError {
     fn custom<D: core::fmt::Display>(msg: D, codec: Codec) -> Self {
