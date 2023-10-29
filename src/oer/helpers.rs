@@ -96,9 +96,4 @@ pub fn integer_to_bitvec_bytes(value: &Integer, signed: bool) -> Option<BitVec<u
     } else {
         None
     }
-    // else {
-    //     Err(EncodeError::Custom {
-    //         msg: "Negative value has been provided to be converted into unsigned bytes".to_string(),
-    //     })
-    // }
 }

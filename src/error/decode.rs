@@ -418,7 +418,7 @@ pub enum DecodeErrorKind {
         /// The amount of invalid bits.
         bits: u8,
     },
-    /// BOOL value is not `0` or `0xFF`. Applies: BER/OER/PER?
+    /// BOOL value is not `0` or `0xFF`. Applies: BER/COER/PER? TODO categorize better
     #[snafu(display(
         "Bool value is not `0` or `0xFF` as canonical requires. Actual: {}",
         value
@@ -617,6 +617,15 @@ pub enum OerDecodeErrorKind {
         /// The actual class.
         class: u8,
     },
+    #[snafu(display("Invalid tag number when decoding Choice. Value: {value}"))]
+    InvalidTagNumberOnChoice { value: u32 },
+}
+
+impl OerDecodeErrorKind {
+    #[must_use]
+    pub fn invalid_tag_number_on_choice(value: u32) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidTagNumberOnChoice { value }).into()
+    }
 }
 
 #[derive(Snafu, Debug)]

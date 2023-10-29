@@ -26,29 +26,25 @@ use num_traits::{One, ToPrimitive};
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
 const MAX_LENGTH: [u8; 127] = [0xff; 127];
 const MAX_LENGTH_LENGTH: usize = MAX_LENGTH.len();
-use crate::error::{DecodeError, OerDecodeErrorKind};
+use crate::error::{DecodeError, DecodeErrorKind, OerDecodeErrorKind};
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
     encoding_rules: EncodingRules, // default COER
-    // Strict mode raises error when there are bytes left in buffer after parsing
-    strict_mode: bool, // default true
 }
 impl DecoderOptions {
     #[must_use]
     pub const fn oer() -> Self {
         Self {
             encoding_rules: EncodingRules::Oer,
-            strict_mode: false,
         }
     }
     #[must_use]
     pub const fn coer() -> Self {
         Self {
             encoding_rules: EncodingRules::Coer,
-            strict_mode: false,
         }
     }
     #[must_use]
@@ -119,14 +115,16 @@ impl<'input> Decoder<'input> {
             let mut tag_number = 0u32;
             let mut next_byte = self.parse_one_byte()?;
             if next_byte & 0b1000_0000 > 0 {
-                return Err(DecodeError::custom("Invalid tag number, first subsequent byte should not be full zeros after leading bit", self.codec()));
+                return Err(OerDecodeErrorKind::invalid_tag_number_on_choice(u32::from(
+                    next_byte & 0b1000_0000,
+                )));
             }
             loop {
                 // Constructs tag number from multiple 7-bit sized chunks
-                tag_number = tag_number.checked_shl(7).ok_or(DecodeError::custom(
-                    "Tag size exceeds platform width",
-                    self.codec(),
-                ))? | u32::from(next_byte & 0b0111_1111);
+                tag_number = tag_number
+                    .checked_shl(7)
+                    .ok_or(OerDecodeErrorKind::invalid_tag_number_on_choice(tag_number))?
+                    | u32::from(next_byte & 0b0111_1111);
                 if next_byte & 0b1000_0000 == 0 {
                     break;
                 }
@@ -412,8 +410,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.parse_bit_string(&constraints)
     }
     /// One octet is used to present bool, false is 0x0 and true is value up to 0xff
+    /// In COER, only 0x0 and 0xff are valid values
     fn decode_bool(&mut self, _: Tag) -> Result<bool, Self::Error> {
-        Ok(self.parse_one_byte()? > 0)
+        let byte = self.parse_one_byte()?;
+        Ok(match byte {
+            0 => false,
+            0xFF => true,
+            _ if self.options.encoding_rules.is_oer() => true,
+            _ => {
+                return Err(DecodeError::from_kind(
+                    DecodeErrorKind::InvalidBool { value: byte },
+                    self.codec(),
+                ))
+            }
+        })
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error> {

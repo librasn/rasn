@@ -68,6 +68,10 @@ impl EncodingRules {
     pub fn is_coer(self) -> bool {
         matches!(self, Self::Coer)
     }
+    #[must_use]
+    pub fn is_oer(self) -> bool {
+        matches!(self, Self::Oer)
+    }
 }
 impl Default for Encoder {
     fn default() -> Self {
