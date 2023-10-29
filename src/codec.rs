@@ -1,3 +1,4 @@
+use crate::error::{DecodeError, EncodeError};
 use crate::prelude::*;
 
 /// A set of supported ASN.1 codecs. Can be used to dynamically encode types
@@ -21,6 +22,19 @@ pub enum Codec {
     Oer,
     /// X.696 — Canonical Octet Encoding Rules
     Coer,
+}
+impl core::fmt::Display for Codec {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Aper => write!(f, "APER"),
+            Self::Ber => write!(f, "BER"),
+            Self::Cer => write!(f, "CER"),
+            Self::Der => write!(f, "DER"),
+            Self::Uper => write!(f, "UPER"),
+            Self::Oer => write!(f, "OER"),
+            Self::Coer => write!(f, "COER"),
+        }
+    }
 }
 
 impl core::fmt::Display for Codec {

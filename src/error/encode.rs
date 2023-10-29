@@ -161,17 +161,16 @@ impl EncodeError {
         expected.contains_or_else(&length, || Self {
             kind: Box::new(EncodeErrorKind::InvalidLength {
                 length,
-                expected: expected
-                    .0
-                    .as_end()
-                    .or_else(|| expected.0.as_start())
-                    .unwrap_or(&0)
-                    .to_owned(),
+                expected: **expected,
             }),
             codec,
             #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         })
+    }
+    #[must_use]
+    pub fn length_exceeds_platform_size(codec: crate::Codec) -> Self {
+        Self::from_kind(EncodeErrorKind::LengthExceedsPlatformSize, codec)
     }
     /// An error for failed conversion from `BitInt` or `BigUint` to primitive integer types
     #[must_use]
@@ -179,7 +178,7 @@ impl EncodeError {
         Self::from_kind(EncodeErrorKind::IntegerTypeConversionFailed { msg }, codec)
     }
     #[must_use]
-    pub fn invalid_length(length: usize, expected: usize, codec: crate::Codec) -> Self {
+    pub fn invalid_length(length: usize, expected: Bounded<usize>, codec: crate::Codec) -> Self {
         Self {
             kind: Box::new(EncodeErrorKind::InvalidLength { length, expected }),
             codec,
@@ -235,8 +234,10 @@ pub enum EncodeErrorKind {
         /// Actual length of the data
         length: usize,
         /// Expected length of the data
-        expected: usize,
+        expected: Bounded<usize>,
     },
+    #[snafu(display("invalid length, exceeds platform maximum size usize::MAX"))]
+    LengthExceedsPlatformSize,
     #[snafu(display("Integer does not fit to the reserved octets {expected}; actual: {value}"))]
     MoreBytesThanExpected { value: usize, expected: usize },
     #[snafu(display("custom error:\n{}", msg))]
