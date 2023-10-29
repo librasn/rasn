@@ -381,7 +381,7 @@ impl<'input> Decoder<'input> {
             .collect();
 
         for (field, is_present) in &extensions_present {
-            if field.is_not_optional_or_default() && !is_present {
+            if field.is_not_optional_or_default() && !*is_present {
                 return Err(DecodeError::required_extension_not_present(
                     field.tag,
                     self.codec(),
@@ -709,10 +709,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
             field_indices.sort_by(|(_, a), (_, b)| {
                 a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag())
             });
-            for (indice, field) in field_indices.into_iter() {
+            for (indice, field) in field_indices {
                 match field_map.get(&field).copied() {
                     Some(true) | None => {
-                        fields.push((decode_fn)(&mut set_decoder, indice, field.tag)?)
+                        fields.push((decode_fn)(&mut set_decoder, indice, field.tag)?);
                     }
                     Some(false) => {}
                 }
@@ -720,14 +720,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
             for (indice, field) in SET::EXTENDED_FIELDS
                 .iter()
-                .flat_map(|fields| fields.iter())
+                .flat_map(Fields::iter)
                 .enumerate()
             {
                 fields.push((decode_fn)(
                     &mut set_decoder,
                     indice + SET::FIELDS.len(),
                     field.tag,
-                )?)
+                )?);
             }
 
             self.input = set_decoder.input;
@@ -791,7 +791,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_extension_addition_with_constraints<D>(
         &mut self,
         constraints: Constraints,
-    ) -> core::result::Result<Option<D>, Self::Error>
+    ) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
     {
@@ -863,12 +863,12 @@ mod tests {
     #[test]
     fn test_decode_length_invalid() {
         let data: BitString = BitString::from_slice(&[0xffu8]);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         // Length determinant is > 127 without subsequent bytes
         assert!(decoder.decode_length().is_err());
         // Still missing some data
         let data: BitString = BitString::from_slice(&[0xffu8, 0xff]);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         // Length determinant is > 127 without subsequent bytes
         assert!(decoder.decode_length().is_err());
     }
@@ -886,16 +886,16 @@ mod tests {
 
         // # SHORT FORM
         let data: BitString = BitString::from_slice(&[0x01u8, 0xff]);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(1u8));
         let data: BitString = BitString::from_slice(&[0x03u8, 0xff, 0xff, 0xfe]);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(3u8));
         // Max for short form
         let mut data: [u8; 0x80] = [0xffu8; 0x80];
         data[0] = 0x7f; // length determinant
         let data: BitString = BitString::from_slice(&data);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(127u8));
 
         // # LONG FORM
@@ -909,7 +909,7 @@ mod tests {
         combined[3..].copy_from_slice(&data);
 
         let data: BitString = BitString::from_slice(&combined);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(258u16));
     }
     #[test]
@@ -926,7 +926,7 @@ mod tests {
             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
             0xff, 0xff, 0xff, 0xff,
         ]);
-        let mut decoder = crate::oer::Decoder::new(&vc, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&vc, DecoderOptions::oer());
         let number = BigInt::from(256).pow(127) - 1;
         let constraints = Constraints::default();
         let new_number = decoder
@@ -943,22 +943,22 @@ mod tests {
         let value_range = &[Constraint::Value(Extensible::new(Value::new(range_bound)))];
         let consts = Constraints::new(value_range);
         let data = BitString::from_slice(&[0x01u8]);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
         assert_eq!(decoded_int, 1.into());
 
         let data = BitString::from_slice(&[0xffu8]);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
         assert_eq!(decoded_int, 255.into());
 
         let data = BitString::from_slice(&[0xffu8, 0xff]);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
         assert_eq!(decoded_int, 255.into());
 
         let data = BitString::from_slice(&[0x02u8, 0xff, 0x01]);
-        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
         let decoded_int = decoder
             .decode_integer_with_constraints(&Constraints::new(&[Constraint::Size(
                 Size::new(Bounded::None).into(),
