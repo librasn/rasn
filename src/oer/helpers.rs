@@ -1,9 +1,7 @@
-use crate::oer::enc::Error;
 use crate::types::{
     constraints::{Bounded, Extensible, Value},
     Integer,
 };
-use alloc::string::ToString;
 use bitvec::prelude::{BitVec, Msb0};
 use num_traits::{Signed, Zero};
 
@@ -86,18 +84,21 @@ pub fn determine_integer_size_and_sign<T, U, E>(
         Bounded::Single(value) => transform_fn(data, value < 0, octet_size_by_range(value)),
     }
 }
-pub fn integer_to_bitvec_bytes(value: &Integer, signed: bool) -> Result<BitVec<u8, Msb0>, Error> {
+pub fn integer_to_bitvec_bytes(value: &Integer, signed: bool) -> Option<BitVec<u8, Msb0>> {
     if signed {
-        Ok(BitVec::<u8, Msb0>::from_slice(
+        Some(BitVec::<u8, Msb0>::from_slice(
             &(value.to_signed_bytes_be()),
         ))
     } else if !signed && (value.is_positive() || value.is_zero()) {
-        Ok(BitVec::<u8, Msb0>::from_slice(
+        Some(BitVec::<u8, Msb0>::from_slice(
             &(value.to_biguint().unwrap().to_bytes_be()),
         ))
     } else {
-        Err(Error::Custom {
-            msg: "Negative value has been provided to be converted into unsigned bytes".to_string(),
-        })
+        None
     }
+    // else {
+    //     Err(EncodeError::Custom {
+    //         msg: "Negative value has been provided to be converted into unsigned bytes".to_string(),
+    //     })
+    // }
 }

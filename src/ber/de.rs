@@ -372,7 +372,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             })?;
 
         E::from_discriminant(discriminant)
-            .ok_or_else(|| BerDecodeErrorKind::DiscriminantValueNotFound { discriminant }.into())
+            .ok_or_else(|| DecodeError::discriminant_value_not_found(discriminant, self.codec()))
     }
 
     fn decode_integer(&mut self, tag: Tag, _: Constraints) -> Result<types::Integer> {

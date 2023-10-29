@@ -16,7 +16,6 @@ use crate::{Encode, Tag};
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
 /// On this crate, only canonical version will be used to provide unique and reproducible encodings.
 /// Basic-OER is not supported and it might be that never will.
-mod config;
 use crate::error::{CoerEncodeErrorKind, EncodeError, EncodeErrorKind};
 
 // pub type Result<T, E = EncodeError> = core::result::Result<T, E>;
@@ -208,16 +207,24 @@ impl Encoder {
         let length = if length % 8 == 0 {
             length / 8
         } else {
-            Err(CoerEncodeErrorKind::LengthNotAsBitLength {
+            return Err(CoerEncodeErrorKind::LengthNotAsBitLength {
                 length,
                 remainder: length % 8,
             }
-            .into())?
+            .into());
         };
         // On some cases we want to present length also as signed integer
         // E.g. length of a enumerated value
         //  ITU-T X.696 (02/2021) 11.4 ???? Seems like it is not needed
-        let bytes = helpers::integer_to_bitvec_bytes(&Integer::from(length), signed)?;
+        let bytes =
+            helpers::integer_to_bitvec_bytes(&Integer::from(length), signed).ok_or_else(|| {
+                EncodeError::integer_type_conversion_failed(
+                    "Negative integer value has been provided to be converted into unsigned bytes"
+                        .to_string(),
+                    self.codec(),
+                )
+            })?;
+
         if length < 128 && !forced_long_form {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
             buffer.extend(&bytes);
@@ -260,7 +267,13 @@ impl Encoder {
         signed: bool,
         long_form_short_length: bool,
     ) -> Result<BitString, EncodeError> {
-        helpers::integer_to_bitvec_bytes(value_to_enc, signed)
+        helpers::integer_to_bitvec_bytes(value_to_enc, signed).ok_or_else(|| {
+            EncodeError::integer_type_conversion_failed(
+                "Negative integer value has been provided to be converted into unsigned bytes"
+                    .to_string(),
+                self.codec(),
+            )
+        })
     }
 
     /// Encode an integer value with constraints.
@@ -400,11 +413,7 @@ impl Encoder {
         // Prior checks before encoding with length determinant
         let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
         if length > max_permitted_length {
-            return Err(EncodeError::invalid_length(
-                length,
-                max_permitted_length,
-                self.codec(),
-            ));
+            return Err(EncodeError::length_exceeds_platform_size(self.codec()));
         }
         Ok(false)
     }
@@ -1015,13 +1024,7 @@ mod tests {
         encoder.output.clear();
         let value = BigInt::from(256);
         let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &value);
-        assert!(matches!(
-            result,
-            Err(Error::IntegerOutOfRange {
-                value,
-                expected: bound
-            })
-        ));
+        assert!(matches!(result, Err(encode_error)));
     }
     #[test]
     fn test_integer_with_length_determinant() {

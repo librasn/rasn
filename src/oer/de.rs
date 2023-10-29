@@ -334,12 +334,13 @@ impl<'input> Decoder<'input> {
         }
     }
     fn extension_is_present(&mut self) -> Result<Option<(Field, bool)>, DecodeError> {
+        let codec = self.codec();
         Ok(self
             .extensions_present
             .as_mut()
-            .ok_or( ||DecodeError::type_not_extensible( self.codec()))?
+            .ok_or_else(|| DecodeError::type_not_extensible(codec))?
             .as_mut()
-            .ok_or(|_|DecodeError::type_not_extensible(self.codec()))?
+            .ok_or_else(|| DecodeError::type_not_extensible(codec))?
             .pop_front())
     }
     fn parse_extension_header(&mut self) -> Result<bool, DecodeError> {
@@ -353,7 +354,8 @@ impl<'input> Decoder<'input> {
         if extensions_length < 1u8.into() {
             return Err(DecodeError::custom(
                 "Extension length should be at least 1 byte",
-            , self.codec()));
+                self.codec(),
+            ));
         }
         // Must be at least 8 bits at this point or error is already raised
         let bitfield = self.extract_data_by_length(extensions_length)?.to_bitvec();
@@ -363,10 +365,10 @@ impl<'input> Decoder<'input> {
         let unused_bits: usize = unused_bits.load();
 
         if unused_bits > bitfield.len() || unused_bits > 7 {
-            return Err(
-                DecodeError::custom("Invalid extension bitfield initial octet"),
+            return Err(DecodeError::custom(
+                "Invalid extension bitfield initial octet",
                 self.codec(),
-            );
+            ));
         }
         let (bitfield, _) = bitfield.split_at(bitfield.len() - unused_bits);
 
@@ -380,10 +382,10 @@ impl<'input> Decoder<'input> {
 
         for (field, is_present) in &extensions_present {
             if field.is_not_optional_or_default() && !is_present {
-                return Err(
-                    DecodeError::required_extension_not_present(field.tag),
+                return Err(DecodeError::required_extension_not_present(
+                    field.tag,
                     self.codec(),
-                );
+                ));
             }
         }
         self.extensions_present = Some(Some(extensions_present));
@@ -396,7 +398,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     type Error = DecodeError;
 
     fn codec(&self) -> Codec {
-        self.options.currenct_codec()
+        self.codec()
     }
     fn decode_any(&mut self) -> Result<Any, Self::Error> {
         todo!()
@@ -419,16 +421,21 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if byte < 128 {
             // Short form
             E::from_discriminant(isize::from(byte))
-                .ok_or_else(|| DecodeError::enum_variant_not_found(byte.into()))
+                .ok_or_else(|| DecodeError::discriminant_value_not_found(byte.into(), self.codec()))
         } else {
             // Long form, value as signed integer
             let length = byte & 0x7fu8;
             let data = self.decode_integer_from_bytes(true, Some(length.into()))?;
-            E::from_discriminant(
-                data.to_isize()
-                    .ok_or(|e|DecodeError::choice_index_exceeds_platform_width(u32::MAX, data.to_usize(), self.codec()))?,
-            )
-            .ok_or_else(|| DecodeError::enum_variant_not_found(data.to_isize().unwrap(), self.codec()))
+            E::from_discriminant(data.to_isize().ok_or_else(|| {
+                DecodeError::choice_index_exceeds_platform_width(
+                    u32::MAX,
+                    data.to_u64().unwrap(),
+                    self.codec(),
+                )
+            })?)
+            .ok_or_else(|| {
+                DecodeError::discriminant_value_not_found(data.to_isize().unwrap(), self.codec())
+            })
         }
     }
 
@@ -741,9 +748,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if is_root_extension {
             D::from_tag(self, tag)
         } else if is_extensible && is_extended_extension {
+            let options = self.options;
             let length = self.decode_length()?;
             let bytes = self.extract_data_by_length(length)?;
-            let mut decoder = Decoder::new(&bytes, self.options);
+            let mut decoder = Decoder::new(&bytes, options);
             D::from_tag(&mut decoder, tag)
         } else {
             return Err(DecodeError::custom(
@@ -825,7 +833,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         // Values of the extensions are only left
         let bytes = self.input;
-        let mut decoder = Decoder::new(&bytes);
+        let mut decoder = Decoder::new(&bytes, self.options);
 
         D::decode(&mut decoder).map(Some)
     }
@@ -860,7 +868,7 @@ mod tests {
         assert!(decoder.decode_length().is_err());
         // Still missing some data
         let data: BitString = BitString::from_slice(&[0xffu8, 0xff]);
-        let mut decoder = crate::oer::Decoder::new(&data);
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         // Length determinant is > 127 without subsequent bytes
         assert!(decoder.decode_length().is_err());
     }
@@ -878,16 +886,16 @@ mod tests {
 
         // # SHORT FORM
         let data: BitString = BitString::from_slice(&[0x01u8, 0xff]);
-        let mut decoder = crate::oer::Decoder::new(&data, crate::oer::DecoderOptions::oer());
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(1u8));
         let data: BitString = BitString::from_slice(&[0x03u8, 0xff, 0xff, 0xfe]);
-        let mut decoder = crate::oer::Decoder::new(&data, crate::oer::DecoderOptions::oer());
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(3u8));
         // Max for short form
         let mut data: [u8; 0x80] = [0xffu8; 0x80];
         data[0] = 0x7f; // length determinant
         let data: BitString = BitString::from_slice(&data);
-        let mut decoder = crate::oer::Decoder::new(&data);
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(127u8));
 
         // # LONG FORM
@@ -901,7 +909,7 @@ mod tests {
         combined[3..].copy_from_slice(&data);
 
         let data: BitString = BitString::from_slice(&combined);
-        let mut decoder = crate::oer::Decoder::new(&data, crate::oer::DecoderOptions::oer());
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), BigUint::from(258u16));
     }
     #[test]
@@ -918,7 +926,7 @@ mod tests {
             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
             0xff, 0xff, 0xff, 0xff,
         ]);
-        let mut decoder = crate::oer::Decoder::new(&vc);
+        let mut decoder = crate::oer::Decoder::new(&vc, DecoderOptions::oer());
         let number = BigInt::from(256).pow(127) - 1;
         let constraints = Constraints::default();
         let new_number = decoder
@@ -935,22 +943,22 @@ mod tests {
         let value_range = &[Constraint::Value(Extensible::new(Value::new(range_bound)))];
         let consts = Constraints::new(value_range);
         let data = BitString::from_slice(&[0x01u8]);
-        let mut decoder = crate::oer::Decoder::new(&data);
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
         assert_eq!(decoded_int, 1.into());
 
         let data = BitString::from_slice(&[0xffu8]);
-        let mut decoder = crate::oer::Decoder::new(&data);
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
         assert_eq!(decoded_int, 255.into());
 
         let data = BitString::from_slice(&[0xffu8, 0xff]);
-        let mut decoder = crate::oer::Decoder::new(&data);
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
         assert_eq!(decoded_int, 255.into());
 
         let data = BitString::from_slice(&[0x02u8, 0xff, 0x01]);
-        let mut decoder = crate::oer::Decoder::new(&data);
+        let mut decoder = crate::oer::Decoder::new(&data, DecoderOptions::oer());
         let decoded_int = decoder
             .decode_integer_with_constraints(&Constraints::new(&[Constraint::Size(
                 Size::new(Bounded::None).into(),

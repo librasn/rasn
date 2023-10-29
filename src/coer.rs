@@ -1,19 +1,20 @@
 pub use super::oer::*;
+use crate::error::{DecodeError, EncodeError};
 use crate::types::Constraints;
 
 /// Attempts to decode `T` from `input` using OER.
-pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, de::Error> {
+pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
     crate::oer::decode(input)
 }
 /// Attempts to encode `value` of type `T` to COER.
-pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, enc::Error> {
+pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, EncodeError> {
     crate::oer::encode(value)
 }
 /// Attempts to decode `T` from `input` using OER with constraints.
 pub fn decode_with_constraints<T: crate::Decode>(
     constraints: Constraints,
     input: &[u8],
-) -> Result<T, de::Error> {
+) -> Result<T, DecodeError> {
     crate::oer::decode_with_constraints(
         // crate::oer::de::DecoderOptions::default(),
         constraints,
@@ -24,7 +25,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
 pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
-) -> Result<alloc::vec::Vec<u8>, enc::Error> {
+) -> Result<alloc::vec::Vec<u8>, EncodeError> {
     crate::oer::encode_with_constraints(constraints, value)
 }
 
