@@ -253,6 +253,10 @@ impl DecodeError {
             codec,
         )
     }
+    #[must_use]
+    pub fn length_exceeds_platform_width(msg: alloc::string::String, codec: Codec) -> Self {
+        Self::from_kind(Kind::LengthExceedsPlatformWidth { msg }, codec)
+    }
 
     #[must_use]
     pub fn choice_index_not_found(index: usize, variants: Variants, codec: Codec) -> Self {
@@ -381,6 +385,8 @@ pub enum DecodeErrorKind {
         /// The maximum length.
         length: num_bigint::BigUint,
     },
+    #[snafu(display("Length of the incoming data is either incorrect or your device is up by miracle. More than usize::MAX number of data requested."))]
+    LengthExceedsPlatformWidth { msg: alloc::string::String },
     #[snafu(display("Error when decoding field `{}`: {}", name, nested))]
     FieldError {
         /// The field's name.
@@ -631,7 +637,10 @@ impl OerDecodeErrorKind {
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
-pub enum CoerDecodeErrorKind {}
+pub enum CoerDecodeErrorKind {
+    #[snafu(display("Invalid Canonical Octet Encoding, not encoded as the smallest possible number of octets: {msg}"))]
+    NotValidCanonicalEncoding { msg: alloc::string::String },
+}
 
 impl crate::de::Error for DecodeError {
     fn custom<D: core::fmt::Display>(msg: D, codec: Codec) -> Self {

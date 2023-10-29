@@ -26,7 +26,7 @@ use num_traits::{One, ToPrimitive};
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
 const MAX_LENGTH: [u8; 127] = [0xff; 127];
 const MAX_LENGTH_LENGTH: usize = MAX_LENGTH.len();
-use crate::error::{DecodeError, DecodeErrorKind, OerDecodeErrorKind};
+use crate::error::{CoerDecodeErrorKind, DecodeError, DecodeErrorKind, OerDecodeErrorKind};
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
@@ -138,7 +138,7 @@ impl<'input> Decoder<'input> {
     /// There is a short form and long form for length determinant in OER encoding.
     /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
     /// Max length for data type can be 2^1016 - 1 octets
-    fn decode_length(&mut self) -> Result<BigUint, DecodeError> {
+    fn decode_length(&mut self) -> Result<usize, DecodeError> {
         // In OER decoding, there might be cases when there are multiple zero octets as padding
         // or the length is encoded in more than one octet.
         let mut only_zeros: bool = false;
@@ -150,14 +150,20 @@ impl<'input> Decoder<'input> {
                 only_zeros = false;
                 break;
             }
+            if self.options.encoding_rules.is_coer() {
+                return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                    msg: "Leading zeros are not allowed in COER on length encoding.".to_string(),
+                }
+                .into());
+            }
             only_zeros = true;
         }
         if only_zeros {
             // Only zeros, length is zero
-            return Ok(BigUint::from(0u8));
+            return Ok(0);
         }
         if possible_length < 128 {
-            Ok(BigUint::from(possible_length))
+            Ok(usize::from(possible_length))
         } else {
             // We have the length of the length, mask and extract only 7 bis
             let length = possible_length & 0x7fu8;
@@ -169,12 +175,21 @@ impl<'input> Decoder<'input> {
             match result {
                 Ok((input, data)) => {
                     self.input = input;
-                    let length = BigUint::from_bytes_be(data.as_bytes());
-                    if length > usize::MAX.into() {
-                        Err(DecodeError::custom(alloc::format!("Length of the incoming data is either incorrect or your device is up by miracle: {length}"), self.codec()))
-                    } else {
-                        Ok(length)
+                    if data.len() > usize::BITS as usize {
+                        return Err(DecodeError::length_exceeds_platform_width(
+                            "Length is larger than usize can present, and therefore unlikely that data can be processed.".to_string(),
+                            self.codec(),
+                        ));
                     }
+                    let length = data.load_be::<usize>();
+                    if length < 128 && self.options.encoding_rules.is_coer() {
+                        return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                            msg: "Length determinant could have been encoded in short form."
+                                .to_string(),
+                        }
+                        .into());
+                    }
+                    Ok(length.to_usize().unwrap_or(0))
                 }
                 Err(e) => Err(e),
             }
@@ -184,12 +199,15 @@ impl<'input> Decoder<'input> {
     /// Since we rely on memory and `BitSlice`, we cannot handle larger data length than `0x1fff_ffff_ffff_ffff`
     /// 'length' is the length of the data in bytes (octets)
     /// Returns the data
-    fn extract_data_by_length(&mut self, length: BigUint) -> Result<InputSlice, DecodeError> {
-        if length == BigUint::from(0u8) {
+    fn extract_data_by_length(&mut self, length: usize) -> Result<InputSlice, DecodeError> {
+        if length == 0 {
             return Ok(InputSlice::from(bitvec::slice::BitSlice::from_slice(&[])));
         }
-        if &length * 8u8 > BigUint::from(bitvec::slice::BitSlice::<usize>::MAX_BITS) {
-            return Err(DecodeError::exceeds_max_length(length, self.codec()));
+        if &length * 8usize > bitvec::slice::BitSlice::<usize>::MAX_BITS {
+            return Err(DecodeError::length_exceeds_platform_width(
+                "Length is larger than BitSlice can hold data.".to_string(),
+                self.codec(),
+            ));
         }
         let (input, data) = nom::bytes::streaming::take(length.to_usize().unwrap() * 8)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
@@ -200,7 +218,7 @@ impl<'input> Decoder<'input> {
     fn decode_integer_from_bytes(
         &mut self,
         signed: bool,
-        length: Option<BigUint>,
+        length: Option<usize>,
     ) -> Result<Integer, DecodeError> {
         if let Some(length) = length {
             let data = self.extract_data_by_length(length)?;
@@ -226,7 +244,7 @@ impl<'input> Decoder<'input> {
         // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
             helpers::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
-                self.decode_integer_from_bytes(sign, octets.map(BigUint::from))
+                self.decode_integer_from_bytes(sign, octets.map(usize::from))
             })
         } else {
             // No constraints
@@ -247,7 +265,7 @@ impl<'input> Decoder<'input> {
                     Ok(length) => {
                         let bytes_required = div_ceil(*length, 8);
                         let data = self
-                            .extract_data_by_length(BigUint::from(bytes_required))?
+                            .extract_data_by_length(bytes_required)?
                             .slice(..*length);
                         Ok(BitString::from_bitslice(&data))
                     }
@@ -264,14 +282,14 @@ impl<'input> Decoder<'input> {
             ));
         }
         // Remove one from length as one describes trailing zeros...
-        let data_bit_length: usize = ((&length - 1u8) * 8u8).try_into().map_err(|_| {
+        let data_bit_length: usize = ((&length - 1usize) * 8usize).try_into().map_err(|_| {
             DecodeError::custom(
                 "Total length exceeds BitSlice max usize when decoding BitString",
                 self.codec(),
             )
         })?;
         let data = self
-            .extract_data_by_length(length.clone() - BigUint::from(1u8))?
+            .extract_data_by_length(length - 1)?
             .slice(..(data_bit_length - num_unused_bits as usize));
         Ok(BitString::from_bitslice(data.into()))
     }
@@ -283,7 +301,7 @@ impl<'input> Decoder<'input> {
             // Fixed size, only data is included
             if size.constraint.is_fixed() && size.extensible.is_none() {
                 let data = self
-                    .extract_data_by_length(BigUint::from(*size.constraint.as_start().unwrap()))
+                    .extract_data_by_length(*size.constraint.as_start().unwrap())
                     .map(|data| data.to_bitvec())?;
                 return T::try_from_bits(data, 8).map_err(|_| {
                     DecodeError::custom(
@@ -548,7 +566,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             // Fixed size, only data is included
             if size.constraint.is_fixed() && size.extensible.is_none() {
                 let data = self
-                    .extract_data_by_length(BigUint::from(*size.constraint.as_start().unwrap()))
+                    .extract_data_by_length(*size.constraint.as_start().unwrap_or(&0))
                     .map(|data| data.as_bytes().to_vec());
                 return data;
             }
@@ -897,16 +915,16 @@ mod tests {
         // # SHORT FORM
         let data: BitString = BitString::from_slice(&[0x01u8, 0xff]);
         let mut decoder = Decoder::new(&data, DecoderOptions::oer());
-        assert_eq!(decoder.decode_length().unwrap(), BigUint::from(1u8));
+        assert_eq!(decoder.decode_length().unwrap(), 1);
         let data: BitString = BitString::from_slice(&[0x03u8, 0xff, 0xff, 0xfe]);
         let mut decoder = Decoder::new(&data, DecoderOptions::oer());
-        assert_eq!(decoder.decode_length().unwrap(), BigUint::from(3u8));
+        assert_eq!(decoder.decode_length().unwrap(), 3);
         // Max for short form
         let mut data: [u8; 0x80] = [0xffu8; 0x80];
         data[0] = 0x7f; // length determinant
         let data: BitString = BitString::from_slice(&data);
         let mut decoder = Decoder::new(&data, DecoderOptions::oer());
-        assert_eq!(decoder.decode_length().unwrap(), BigUint::from(127u8));
+        assert_eq!(decoder.decode_length().unwrap(), 127);
 
         // # LONG FORM
         // Length of the length should be 2 octets, 0x7f - 0x82 = 2, length is 258 octets
@@ -920,7 +938,7 @@ mod tests {
 
         let data: BitString = BitString::from_slice(&combined);
         let mut decoder = Decoder::new(&data, DecoderOptions::oer());
-        assert_eq!(decoder.decode_length().unwrap(), BigUint::from(258u16));
+        assert_eq!(decoder.decode_length().unwrap(), 258usize);
     }
     #[test]
     fn test_long_form_length_decode() {
@@ -943,6 +961,31 @@ mod tests {
             .decode_integer_with_constraints(&constraints)
             .unwrap();
         assert_eq!(new_number, number);
+
+        // Test maximum possible length
+        let length: [u8; 1] = [0x80u8 + u8::try_from(usize::BITS / 8u32).unwrap()]; // first bit is 1, remaining tells length of the length
+        let length_determinant: [u8; (usize::BITS / 8u32) as usize] =
+            [0xff; (usize::BITS / 8u32) as usize];
+        let mut combined: [u8; 1 + (usize::BITS / 8u32) as usize] =
+            [0x0; 1 + (usize::BITS / 8u32) as usize];
+        combined[..1].copy_from_slice(&length);
+        combined[1..=(usize::BITS / 8u32) as usize].copy_from_slice(&length_determinant);
+        let data: BitString = BitString::from_slice(&combined);
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let new_length = decoder.decode_length().unwrap();
+        assert_eq!(new_length, usize::MAX);
+        // Test length > usize::MAX
+        let length: [u8; 1] = [0x80u8 + u8::try_from(usize::BITS / 8u32).unwrap() + 1]; // first bit is 1, remaining tells length of the length
+        let length_determinant: [u8; (usize::BITS / 8u32) as usize + 1] =
+            [0xff; (usize::BITS / 8u32) as usize + 1];
+        let mut combined: [u8; 1 + (usize::BITS / 8u32) as usize + 1] =
+            [0x0; 1 + (usize::BITS / 8u32) as usize + 1];
+        combined[..1].copy_from_slice(&length);
+        combined[1..=(usize::BITS / 8u32 + 1) as usize].copy_from_slice(&length_determinant);
+        let data: BitString = BitString::from_slice(&combined);
+        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let new_length = decoder.decode_length();
+        assert!(new_length.is_err());
     }
     #[test]
     fn test_integer_decode_with_constraints() {
