@@ -34,6 +34,8 @@ The encoder and decoder have been written in 100% safe Rust and fuzzed with [Ame
 - Aligned Packed Encoding Rules (APER)
 - Unaligned Packed Encoding Rules (UPER)
 - JSON Encoding Rules (JER)
+- Octet Encoding Rules (OER)
+- Canonical Octet Encoding Rules (COER)
 
 [bun]: https://aflplus.plus
 
