@@ -409,7 +409,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.codec()
     }
     fn decode_any(&mut self) -> Result<Any, Self::Error> {
-        todo!()
+        panic!("Not every type can be decoded as Any in OER.")
     }
 
     fn decode_bit_string(
@@ -822,7 +822,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
         &mut self,
         constraints: Constraints,
     ) -> Result<Option<D>, Self::Error> {
-        todo!()
+        let is_present = self.require_field(D::TAG)?;
+        if is_present {
+            D::decode_with_constraints(self, constraints).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     fn decode_optional_with_tag_and_constraints<D: Decode>(
@@ -830,7 +835,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Option<D>, Self::Error> {
-        todo!()
+        let is_present = self.require_field(tag)?;
+        if is_present {
+            D::decode_with_tag_and_constraints(self, tag, constraints).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     fn decode_extension_addition_with_constraints<D>(
