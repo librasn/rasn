@@ -353,6 +353,8 @@ pub enum CoerEncodeErrorKind {
     "Provided length in not correct format. Should be bits as multiple of 8. {remainder}; actual: {length}"
     ))]
     LengthNotAsBitLength { length: usize, remainder: usize },
+    #[snafu(display("Provided integer exceeds limits of the constrained word sizes."))]
+    InvalidConstrainedIntegerOctetSize,
 }
 
 impl crate::enc::Error for EncodeError {
