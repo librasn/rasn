@@ -10,7 +10,7 @@ use crate::prelude::{
     TeletexString, UtcTime, VisibleString,
 };
 use crate::types::fields::{Field, Fields};
-use crate::{de::Error as _, Codec, Decode, Tag};
+use crate::{Codec, Decode, Tag};
 use alloc::{
     collections::VecDeque,
     string::{String, ToString},
@@ -205,7 +205,7 @@ impl<'input> Decoder<'input> {
         }
         if &length * 8usize > bitvec::slice::BitSlice::<usize>::MAX_BITS {
             return Err(DecodeError::length_exceeds_platform_width(
-                "Length is larger than BitSlice can hold data.".to_string(),
+                "Length is larger than BitSlice can hold data on this platform.".to_string(),
                 self.codec(),
             ));
         }
@@ -448,7 +448,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             let data = self.decode_integer_from_bytes(true, Some(length.into()))?;
             let discriminant = data.to_isize().ok_or_else(|| {
                 DecodeError::length_exceeds_platform_width(
-                    "Enumerated discriminant too large for this platform.".to_string(),
+                    "Enumerated discriminant value too large for this platform.".to_string(),
                     self.codec(),
                 )
             })?;
@@ -553,7 +553,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<SetOf<D>, Self::Error> {
-        todo!()
+        self.decode_sequence_of(tag, constraints)
+            .map(|seq| seq.into_iter().collect())
     }
 
     fn decode_octet_string(
