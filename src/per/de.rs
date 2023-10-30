@@ -2,7 +2,7 @@ use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
-use crate::utils::{to_left_padded_vec, to_vec};
+use crate::bits::{to_left_padded_vec, to_vec};
 use crate::{
     de::Error as _,
     types::{
@@ -260,8 +260,8 @@ impl<'input> Decoder<'input> {
             } else {
                 let range = if self.options.aligned && range > 256 {
                     input = self.parse_padding(input)?;
-                    let range = crate::utils::log2(range as i128);
-                    crate::utils::range_from_bits(
+                    let range = crate::num::log2(range as i128);
+                    crate::bits::range_from_len(
                         range
                             .is_power_of_two()
                             .then_some(range)
@@ -272,7 +272,7 @@ impl<'input> Decoder<'input> {
                 };
 
                 let (mut input, length) =
-                    nom::bytes::streaming::take(crate::utils::log2(range))(input)
+                    nom::bytes::streaming::take(crate::num::log2(range))(input)
                         .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
                 if is_large_string {
                     input = self.parse_padding(input)?;
@@ -313,8 +313,8 @@ impl<'input> Decoder<'input> {
             } else {
                 let range = if self.options.aligned && range > 256 {
                     input = self.parse_padding(input)?;
-                    let range = crate::utils::log2(range as i128);
-                    crate::utils::range_from_bits(
+                    let range = crate::num::log2(range as i128);
+                    crate::bits::range_from_len(
                         range
                             .is_power_of_two()
                             .then_some(range)
@@ -325,7 +325,7 @@ impl<'input> Decoder<'input> {
                 };
 
                 let (mut input, length) =
-                    nom::bytes::streaming::take(crate::utils::log2(range))(input)
+                    nom::bytes::streaming::take(crate::num::log2(range))(input)
                         .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
                 input = self.parse_padding(input)?;
                 length
@@ -361,7 +361,7 @@ impl<'input> Decoder<'input> {
     }
 
     fn parse_non_negative_binary_integer(&mut self, range: i128) -> Result<types::Integer> {
-        let bits = crate::utils::log2(range);
+        let bits = crate::num::log2(range);
         let (input, data) = nom::bytes::streaming::take(bits)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
@@ -401,7 +401,7 @@ impl<'input> Decoder<'input> {
                 }
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
-                        num_integer::div_ceil(crate::utils::log2(range), 8) as i128;
+                        num_integer::div_ceil(crate::num::log2(range), 8) as i128;
                     let length: u32 = self
                         .parse_non_negative_binary_integer(range_len_in_bytes)?
                         .try_into()
@@ -420,7 +420,7 @@ impl<'input> Decoder<'input> {
                             u32::MAX.into(),
                             self.codec(),
                         ))?;
-                    self.parse_non_negative_binary_integer(crate::utils::range_from_bits(range))?
+                    self.parse_non_negative_binary_integer(crate::bits::range_from_len(range))?
                 }
                 (_, _) => self.parse_non_negative_binary_integer(range)?,
             }
@@ -486,7 +486,7 @@ impl<'input> Decoder<'input> {
         let mut bit_string = types::BitString::default();
         let char_width = constraints
             .permitted_alphabet()
-            .map(|alphabet| crate::utils::log2(alphabet.constraint.len() as i128) as usize)
+            .map(|alphabet| crate::num::log2(alphabet.constraint.len() as i128) as usize)
             .unwrap_or(ALPHABET::character_width() as usize);
 
         let char_width = (self.options.aligned && !char_width.is_power_of_two())
@@ -565,13 +565,13 @@ impl<'input> Decoder<'input> {
                         .aligned
                         .then(|| {
                             let alphabet_width =
-                                crate::utils::log2(alphabet.constraint.len() as i128);
+                                crate::num::log2(alphabet.constraint.len() as i128);
                             alphabet_width
                                 .is_power_of_two()
                                 .then_some(alphabet_width)
                                 .unwrap_or_else(|| alphabet_width.next_power_of_two())
                         })
-                        .unwrap_or(crate::utils::log2(alphabet.constraint.len() as i128)) =>
+                        .unwrap_or(crate::num::log2(alphabet.constraint.len() as i128)) =>
             {
                 if alphabet.constraint.len() == 1 {
                     let mut string = ALPHABET::default();

@@ -9,7 +9,7 @@ use crate::types;
 
 pub(crate) trait StaticPermittedAlphabet: Sized + Default {
     const CHARACTER_SET: &'static [u32];
-    const CHARACTER_WIDTH: u32 = crate::utils::log2(Self::CHARACTER_SET.len() as i128);
+    const CHARACTER_WIDTH: u32 = crate::num::log2(Self::CHARACTER_SET.len() as i128);
 
     fn push_char(&mut self, ch: u32);
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_>;
@@ -56,7 +56,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
             index_string.extend(padding);
         }
 
-        crate::utils::to_vec(&index_string)
+        crate::bits::to_vec(&index_string)
     }
 
     fn octet_aligned_char_width(&self) -> u32 {
@@ -85,11 +85,11 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
             octet_string
                 .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS - width) as usize..]);
         }
-        crate::utils::to_vec(&octet_string)
+        crate::bits::to_vec(&octet_string)
     }
 
     fn character_width() -> u32 {
-        crate::utils::log2(Self::CHARACTER_SET.len() as i128)
+        crate::num::log2(Self::CHARACTER_SET.len() as i128)
     }
 
     fn len(&self) -> usize {
@@ -160,7 +160,7 @@ pub(crate) fn try_from_permitted_alphabet<S: StaticPermittedAlphabet>(
     alphabet: &BTreeMap<u32, u32>,
 ) -> Result<S, PermittedAlphabetError> {
     let mut string = S::default();
-    let permitted_alphabet_char_width = crate::utils::log2(alphabet.len() as i128);
+    let permitted_alphabet_char_width = crate::num::log2(alphabet.len() as i128);
     // Alphabet should be always indexed key-alphabetvalue pairs at this point
     let values_only = alphabet.values().copied().collect::<Vec<u32>>();
     if should_be_indexed(permitted_alphabet_char_width, &values_only) {
@@ -202,7 +202,7 @@ impl DynConstrainedCharacterString {
         character_set: &[u32],
     ) -> Result<Self, PermittedAlphabetError> {
         let mut buffer = types::BitString::new();
-        let char_width = crate::utils::log2(character_set.len() as i128);
+        let char_width = crate::num::log2(character_set.len() as i128);
         let indexed = should_be_indexed(char_width, character_set);
         let alphabet: BTreeMap<u32, u32>;
         if indexed {
@@ -239,7 +239,7 @@ impl DynConstrainedCharacterString {
     }
 
     pub fn character_width(&self) -> usize {
-        crate::utils::log2(self.character_set.len() as i128) as usize
+        crate::num::log2(self.character_set.len() as i128) as usize
     }
 
     #[allow(unused)]

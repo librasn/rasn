@@ -107,7 +107,7 @@ impl Encoder {
     pub fn output(self) -> Vec<u8> {
         let mut output = self.bitstring_output();
         Self::force_pad_to_alignment(&mut output);
-        crate::utils::to_vec(&output)
+        crate::bits::to_vec(&output)
     }
 
     pub fn bitstring_output(self) -> BitString {
@@ -203,7 +203,7 @@ impl Encoder {
         let is_large_string = if let Some(size) = constraints.size() {
             let width = match constraints.permitted_alphabet() {
                 Some(alphabet) => {
-                    self.character_width(crate::utils::log2(alphabet.constraint.len() as i128))
+                    self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
                 }
                 None => self.character_width(S::CHARACTER_WIDTH),
             };
@@ -233,8 +233,7 @@ impl Encoder {
         match constraints.permitted_alphabet() {
             Some(alphabet)
                 if S::CHARACTER_WIDTH
-                    > self
-                        .character_width(crate::utils::log2(alphabet.constraint.len() as i128)) =>
+                    > self.character_width(crate::num::log2(alphabet.constraint.len() as i128)) =>
             {
                 let alphabet = &alphabet.constraint;
                 let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
@@ -422,8 +421,8 @@ impl Encoder {
                     let effective_length = constraints.effective_value(length).into_inner();
                     let range = (self.options.aligned && range > 256)
                         .then(|| {
-                            let range = crate::utils::log2(range as i128);
-                            crate::utils::range_from_bits(
+                            let range = crate::num::log2(range as i128);
+                            crate::bits::range_from_len(
                                 range
                                     .is_power_of_two()
                                     .then_some(range)
@@ -646,7 +645,7 @@ impl Encoder {
                 }
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
-                        num_integer::div_ceil(crate::utils::log2(range), 8) as i128;
+                        num_integer::div_ceil(crate::num::log2(range), 8) as i128;
 
                     if effective_value == 0 {
                         self.encode_non_negative_binary_integer(
@@ -658,8 +657,7 @@ impl Encoder {
                         self.encode_non_negative_binary_integer(&mut *buffer, 255, &bytes);
                     } else {
                         let range_value_in_bytes =
-                            num_integer::div_ceil(crate::utils::log2(effective_value + 1), 8)
-                                as i128;
+                            num_integer::div_ceil(crate::num::log2(effective_value + 1), 8) as i128;
                         self.encode_non_negative_binary_integer(
                             buffer,
                             range_len_in_bytes,
@@ -668,7 +666,7 @@ impl Encoder {
                         self.pad_to_alignment(&mut *buffer);
                         self.encode_non_negative_binary_integer(
                             &mut *buffer,
-                            crate::utils::range_from_bits(range_value_in_bytes as u32 * 8),
+                            crate::bits::range_from_len(range_value_in_bytes as u32 * 8),
                             &bytes,
                         );
                     }
@@ -691,7 +689,7 @@ impl Encoder {
         bytes: &[u8],
     ) {
         use core::cmp::Ordering;
-        let total_bits = crate::utils::log2(range) as usize;
+        let total_bits = crate::num::log2(range) as usize;
         let bits = BitVec::<u8, Msb0>::from_slice(bytes);
         let bits = match total_bits.cmp(&bits.len()) {
             Ordering::Greater => {

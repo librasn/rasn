@@ -1,13 +1,9 @@
-//! Module for different utility functions which are used in the library.
+//! Module for different bit modification functions which are used in the library.
 
 use alloc::vec::Vec;
 
-pub(crate) const fn log2(x: i128) -> u32 {
-    i128::BITS - (x - 1).leading_zeros()
-}
-
-pub(crate) fn range_from_bits(bits: u32) -> i128 {
-    2i128.pow(bits) - 1
+pub(crate) fn range_from_len(bit_length: u32) -> i128 {
+    2i128.pow(bit_length) - 1
 }
 
 // Workaround for https://github.com/ferrilab/bitvec/issues/228
