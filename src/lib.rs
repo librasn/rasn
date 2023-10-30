@@ -44,9 +44,11 @@ mod per;
 
 pub mod aper;
 pub mod ber;
+mod bits;
 pub mod cer;
 pub mod der;
 pub mod error;
+mod num;
 pub mod uper;
 
 #[doc(inline)]
