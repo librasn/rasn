@@ -1,6 +1,5 @@
 use alloc::{string::ToString, vec::Vec};
 
-use crate::enc::Error as _;
 use crate::oer::helpers;
 use crate::prelude::{
     Any, BitStr, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime,
