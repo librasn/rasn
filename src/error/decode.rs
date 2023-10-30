@@ -9,7 +9,7 @@ use snafu::Snafu;
 use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::de::Error;
-use crate::types::{variants::Variants, Tag};
+use crate::types::{constraints::Bounded, variants::Variants, Integer, Tag};
 use crate::Codec;
 
 /// Variants for every codec-specific `DecodeError` kind.
@@ -159,6 +159,14 @@ impl DecodeError {
         )
     }
     #[must_use]
+    pub fn size_constraint_not_satisfied(
+        size: Option<usize>,
+        expected: alloc::string::String,
+        codec: Codec,
+    ) -> Self {
+        Self::from_kind(Kind::SizeConstraintNotSatisfied { size, expected }, codec)
+    }
+    #[must_use]
     pub fn discriminant_value_not_found(discriminant: isize, codec: Codec) -> Self {
         Self::from_kind(Kind::DiscriminantValueNotFound { discriminant }, codec)
     }
@@ -226,7 +234,7 @@ impl DecodeError {
     }
 
     #[must_use]
-    pub fn required_extension_not_present(tag: crate::types::Tag, codec: Codec) -> Self {
+    pub fn required_extension_not_present(tag: Tag, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::RequiredExtensionNotPresent { tag }, codec)
     }
     #[must_use]
@@ -337,6 +345,20 @@ impl DecodeError {
 pub enum DecodeErrorKind {
     #[snafu(display("Alphabet constraint not satisfied {}", reason))]
     AlphabetConstraintNotSatisfied { reason: PermittedAlphabetError },
+    #[snafu(display("Size constraint not satisfied: expected: {expected}; actual: {size:?}"))]
+    SizeConstraintNotSatisfied {
+        /// Actual sie of the data
+        size: Option<usize>,
+        /// Expected size by the constraint
+        expected: alloc::string::String,
+    },
+    #[snafu(display("Value constraint not satisfied: expected: {expected}; actual: {value}"))]
+    ValueConstraintNotSatisfied {
+        /// Actual value of the data
+        value: Integer,
+        /// Expected value by the constraint
+        expected: Bounded<i128>,
+    },
     #[snafu(display("Wrapped codec-specific decode error"))]
     CodecSpecific { inner: CodecDecodeError },
 
@@ -625,12 +647,24 @@ pub enum OerDecodeErrorKind {
     },
     #[snafu(display("Invalid tag number when decoding Choice. Value: {value}"))]
     InvalidTagNumberOnChoice { value: u32 },
+    #[snafu(display(
+        "Tag not found from the variants of the platform when decoding Choice. Tag: {value}, extensible status: {is_extensible}"
+    ))]
+    InvalidTagVariantOnChoice { value: Tag, is_extensible: bool },
 }
 
 impl OerDecodeErrorKind {
     #[must_use]
     pub fn invalid_tag_number_on_choice(value: u32) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidTagNumberOnChoice { value }).into()
+    }
+    #[must_use]
+    pub fn invalid_tag_variant_on_choice(value: Tag, is_extensible: bool) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidTagVariantOnChoice {
+            value,
+            is_extensible,
+        })
+        .into()
     }
 }
 
