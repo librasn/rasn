@@ -407,7 +407,10 @@ pub enum DecodeErrorKind {
         /// The maximum length.
         length: num_bigint::BigUint,
     },
-    #[snafu(display("Length of the incoming data is either incorrect or your device is up by miracle. More than usize::MAX number of data requested."))]
+    ///  More than `usize::MAX` number of data requested.
+    #[snafu(display(
+        "Length of the incoming data is either incorrect or your device is up by miracle."
+    ))]
     LengthExceedsPlatformWidth { msg: alloc::string::String },
     #[snafu(display("Error when decoding field `{}`: {}", name, nested))]
     FieldError {
@@ -637,10 +640,8 @@ pub enum AperDecodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum OerDecodeErrorKind {
-    #[snafu(display(
-        "Invalid tag class when decoding choice: actual {:?}, but must be one of  Universal (0b00), Application (0b01), Context (0b10) or Private (0b11).",
-       class
-    ))]
+    /// Tag class must be one of Universal (0b00), Application (0b01), Context (0b10) or Private (0b11).
+    #[snafu(display("Invalid tag class when decoding choice: actual {:?}", class))]
     InvalidTagClassOnChoice {
         /// The actual class.
         class: u8,

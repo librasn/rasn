@@ -439,21 +439,27 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error> {
         let byte = self.parse_one_byte()?;
         if byte < 128 {
-            // Short form
+            // Short form, use value directly as unsigned integer
             E::from_discriminant(isize::from(byte))
                 .ok_or_else(|| DecodeError::discriminant_value_not_found(byte.into(), self.codec()))
         } else {
-            // Long form, value as signed integer
+            // Long form, value as signed integer. Previous byte is length of the subsequent octets
             let length = byte & 0x7fu8;
             let data = self.decode_integer_from_bytes(true, Some(length.into()))?;
-            E::from_discriminant(data.to_isize().ok_or_else(|| {
-                DecodeError::choice_index_exceeds_platform_width(
-                    u32::MAX,
-                    data.to_u64().unwrap(),
+            let discriminant = data.to_isize().ok_or_else(|| {
+                DecodeError::length_exceeds_platform_width(
+                    "Enumerated discriminant too large for this platform.".to_string(),
                     self.codec(),
                 )
-            })?)
-            .ok_or_else(|| {
+            })?;
+            if (0..128).contains(&discriminant) && self.options.encoding_rules.is_coer() {
+                return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                    msg: "Enumerated discriminant should have been encoded in short form."
+                        .to_string(),
+                }
+                .into());
+            }
+            E::from_discriminant(discriminant).ok_or_else(|| {
                 DecodeError::discriminant_value_not_found(data.to_isize().unwrap(), self.codec())
             })
         }
