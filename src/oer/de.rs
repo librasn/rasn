@@ -137,7 +137,7 @@ impl<'input> Decoder<'input> {
     }
     /// There is a short form and long form for length determinant in OER encoding.
     /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
-    /// Max length for data type can be 2^1016 - 1 octets
+    /// Max length for data type could be 2^1016 - 1 octets, however on this implementation it is limited to `usize::MAX`
     fn decode_length(&mut self) -> Result<usize, DecodeError> {
         // In OER decoding, there might be cases when there are multiple zero octets as padding
         // or the length is encoded in more than one octet.
@@ -152,7 +152,7 @@ impl<'input> Decoder<'input> {
             }
             if self.options.encoding_rules.is_coer() {
                 return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
-                    msg: "Leading zeros are not allowed in COER on length encoding.".to_string(),
+                    msg: "Leading zeros are not allowed in COER on length determinant.".to_string(),
                 }
                 .into());
             }
@@ -256,8 +256,9 @@ impl<'input> Decoder<'input> {
             // Fixed size, only data is included
             if size.constraint.is_fixed() && size.extensible.is_none() {
                 let length = size.constraint.as_start().ok_or_else(|| {
-                    Err(DecodeError::custom(
-                        "Fixed size constraint should have value",
+                    Err(DecodeError::size_constraint_not_satisfied(
+                        None,
+                        "Fixed size constraint should have value".to_string(),
                         self.codec(),
                     ))
                 });
@@ -282,9 +283,9 @@ impl<'input> Decoder<'input> {
             ));
         }
         // Remove one from length as one describes trailing zeros...
-        let data_bit_length: usize = ((&length - 1usize) * 8usize).try_into().map_err(|_| {
-            DecodeError::custom(
-                "Total length exceeds BitSlice max usize when decoding BitString",
+        let data_bit_length: usize = (&length - 1usize).checked_mul(8).ok_or_else(|| {
+            DecodeError::length_exceeds_platform_width(
+                "Total length exceeds BitSlice max usize when decoding BitString".to_string(),
                 self.codec(),
             )
         })?;
@@ -293,7 +294,9 @@ impl<'input> Decoder<'input> {
             .slice(..(data_bit_length - num_unused_bits as usize));
         Ok(BitString::from_bitslice(data.into()))
     }
-    fn parse_known_multiplier_string<T: crate::types::strings::StaticPermittedAlphabet>(
+    fn parse_known_multiplier_string<
+        T: crate::types::strings::StaticPermittedAlphabet + crate::types::AsnType,
+    >(
         &mut self,
         constraints: &Constraints,
     ) -> Result<T, DecodeError> {
@@ -303,20 +306,14 @@ impl<'input> Decoder<'input> {
                 let data = self
                     .extract_data_by_length(*size.constraint.as_start().unwrap())
                     .map(|data| data.to_bitvec())?;
-                return T::try_from_bits(data, 8).map_err(|_| {
-                    DecodeError::custom(
-                        "Invalid data when decoding known multiplier string and constructing the type",
-                    self.codec())
+                return T::try_from_bits(data, 8).map_err(|e| {
+                    DecodeError::string_conversion_failed(T::TAG, e.to_string(), self.codec())
                 });
             }
         }
         let length = self.decode_length()?;
-        T::try_from_bits(self.extract_data_by_length(length)?.to_bitvec(), 8).map_err(|_| {
-            DecodeError::custom(
-                "Invalid data when decoding known multiplier string and constructing the type",
-                self.codec(),
-            )
-        })
+        T::try_from_bits(self.extract_data_by_length(length)?.to_bitvec(), 8)
+            .map_err(|e| DecodeError::string_conversion_failed(T::TAG, e.to_string(), self.codec()))
     }
     fn parse_optional_and_default_field_bitmap(
         &mut self,
@@ -339,12 +336,9 @@ impl<'input> Decoder<'input> {
         {
             Ok(self.fields.pop_front().unwrap().1)
         } else {
-            Err(DecodeError::custom(
-                alloc::format!(
-                    "expected class: {}, value: {} in sequence or set",
-                    tag.class,
-                    tag.value
-                ),
+            Err(DecodeError::missing_tag_class_or_value_in_sequence_or_set(
+                tag.class,
+                tag.value,
                 self.codec(),
             ))
         }
@@ -566,7 +560,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
             // Fixed size, only data is included
             if size.constraint.is_fixed() && size.extensible.is_none() {
                 let data = self
-                    .extract_data_by_length(*size.constraint.as_start().unwrap_or(&0))
+                    .extract_data_by_length(*size.constraint.as_start().ok_or_else(|| {
+                        DecodeError::size_constraint_not_satisfied(
+                            None,
+                            "Fixed size constraint should have value when decoding Octet String"
+                                .to_string(),
+                            self.codec(),
+                        )
+                    })?)
                     .map(|data| data.as_bytes().to_vec());
                 return data;
             }
@@ -583,8 +584,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
     ) -> Result<String, Self::Error> {
         self.decode_octet_string(tag, constraints)
             .and_then(|bytes| {
-                String::from_utf8(bytes)
-                    .map_err(|_| DecodeError::custom("Invalid UTF-8 string", self.codec()))
+                String::from_utf8(bytes).map_err(|e| {
+                    DecodeError::string_conversion_failed(
+                        Tag::UTF8_STRING,
+                        e.to_string(),
+                        self.codec(),
+                    )
+                })
             })
     }
 
@@ -601,11 +607,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<GeneralString, Self::Error> {
-        GeneralString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|_| {
-            DecodeError::custom(
-                "Invalid data when decoding general string and constructing the type",
-                self.codec(),
-            )
+        GeneralString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(Tag::GENERAL_STRING, e.to_string(), self.codec())
         })
     }
 
@@ -638,11 +641,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<TeletexString, Self::Error> {
-        TeletexString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|_| {
-            DecodeError::custom(
-                "Invalid data when decoding teletext string and constructing the type",
-                self.codec(),
-            )
+        TeletexString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(Tag::TELETEX_STRING, e.to_string(), self.codec())
         })
     }
 
@@ -660,16 +660,26 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<UtcTime, Self::Error> {
         let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
-            .map_err(|_| DecodeError::custom("Invalid UTF-8 string", self.codec()))?;
+            .map_err(|e| {
+                DecodeError::string_conversion_failed(
+                    Tag::UTF8_STRING,
+                    "UTCTime should be UTF8 encoded.".to_string(),
+                    self.codec(),
+                )
+            })?;
         crate::der::de::Decoder::parse_canonical_utc_time_string(&string)
-            .map_err(|err| DecodeError::custom(err.to_string(), self.codec()))
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<GeneralizedTime, Self::Error> {
         let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
-            .map_err(|_| DecodeError::custom("Invalid UTF-8 string", self.codec()))?;
+            .map_err(|_| {
+                DecodeError::string_conversion_failed(
+                    Tag::UTF8_STRING,
+                    "GeneralizedTime should be UTF8 encoded".to_string(),
+                    self.codec(),
+                )
+            })?;
         crate::der::de::Decoder::parse_canonical_generalized_time_string(string)
-            .map_err(|err| DecodeError::custom(err.to_string(), self.codec()))
     }
 
     fn decode_set<FIELDS, SET, D, F>(
@@ -782,9 +792,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
             let mut decoder = Decoder::new(&bytes, options);
             D::from_tag(&mut decoder, tag)
         } else {
-            return Err(DecodeError::custom(
-                alloc::format!("Tag not found from the variants of the platform. Extensible status: {is_extensible}"), self.codec()),
-            );
+            return Err(OerDecodeErrorKind::invalid_tag_variant_on_choice(
+                tag,
+                is_extensible,
+            ));
         }
     }
 
