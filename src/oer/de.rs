@@ -19,9 +19,9 @@ use alloc::{
 use bitvec::field::BitField;
 use bitvec::macros::internal::funty::Fundamental;
 use nom::{AsBytes, Slice};
-use num_bigint::{BigUint, Sign};
+use num_bigint::Sign;
 use num_integer::div_ceil;
-use num_traits::{One, ToPrimitive};
+use num_traits::ToPrimitive;
 
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
 const MAX_LENGTH: [u8; 127] = [0xff; 127];
@@ -277,9 +277,9 @@ impl<'input> Decoder<'input> {
         let length = self.decode_length()?;
         let num_unused_bits = self.parse_one_byte()?;
         if num_unused_bits > 7 {
-            return Err(DecodeError::custom(
-                "Marked number of unused bits should be less than 8 when decoding BitString",
-                self.codec(),
+            return Err(OerDecodeErrorKind::invalid_bit_string(
+                "Marked number of unused bits should be less than 8 when decoding BitString"
+                    .to_string(),
             ));
         }
         // Remove one from length as one describes trailing zeros...
@@ -362,9 +362,8 @@ impl<'input> Decoder<'input> {
         let extensions_length = self.decode_length()?;
         // If length is 0, then there is only initial octet
         if extensions_length < 1u8.into() {
-            return Err(DecodeError::custom(
-                "Extension length should be at least 1 byte",
-                self.codec(),
+            return Err(OerDecodeErrorKind::invalid_extension_header(
+                "Extension length should be at least 1 byte".to_string(),
             ));
         }
         // Must be at least 8 bits at this point or error is already raised
@@ -375,9 +374,8 @@ impl<'input> Decoder<'input> {
         let unused_bits: usize = unused_bits.load();
 
         if unused_bits > bitfield.len() || unused_bits > 7 {
-            return Err(DecodeError::custom(
-                "Invalid extension bitfield initial octet",
-                self.codec(),
+            return Err(OerDecodeErrorKind::invalid_extension_header(
+                "Invalid extension bitfield initial octet".to_string(),
             ));
         }
         let (bitfield, _) = bitfield.split_at(bitfield.len() - unused_bits);
@@ -529,16 +527,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
     ) -> Result<Vec<D>, Self::Error> {
         let mut sequence_of = Vec::new();
         let length_of_quantity = self.decode_length()?;
-        let length =
-            BigUint::from_bytes_be(self.extract_data_by_length(length_of_quantity)?.as_bytes());
+        let length = self
+            .extract_data_by_length(length_of_quantity)?
+            .load_be::<usize>();
 
-        let mut start = BigUint::one();
+        let mut start = 1;
         while start <= length {
             let mut decoder = Self::new(self.input.0, self.options);
             let value = D::decode(&mut decoder)?;
             self.input = decoder.input;
             sequence_of.push(value);
-            start += BigUint::one();
+            start += 1;
         }
         Ok(sequence_of)
     }
@@ -881,6 +880,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 #[cfg(test)]
 mod tests {
     #![allow(clippy::assertions_on_constants)]
+    use num_bigint::BigUint;
 
     use super::*;
     use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Size, Value};

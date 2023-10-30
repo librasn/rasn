@@ -351,10 +351,7 @@ impl Encoder {
     ) -> Result<BitString, EncodeError> {
         use core::cmp::Ordering;
         if octets > 8 {
-            return Err(EncodeError::custom(
-                alloc::format!("Unexpected constrained integer byte size: {octets}"),
-                self.codec(),
-            ));
+            return Err(CoerEncodeErrorKind::InvalidConstrainedIntegerOctetSize.into());
         }
         let bytes = if signed {
             value.to_signed_bytes_be()

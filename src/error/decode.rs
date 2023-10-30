@@ -651,6 +651,15 @@ pub enum OerDecodeErrorKind {
         "Tag not found from the variants of the platform when decoding Choice. Tag: {value}, extensible status: {is_extensible}"
     ))]
     InvalidTagVariantOnChoice { value: Tag, is_extensible: bool },
+    #[snafu(display("Invalid BitString: {msg}"))]
+    InvalidOerBitString {
+        /// The amount of invalid bits.
+        msg: alloc::string::String,
+    },
+    InvalidExtensionHeader {
+        /// The amount of invalid bits.
+        msg: alloc::string::String,
+    },
 }
 
 impl OerDecodeErrorKind {
@@ -665,6 +674,14 @@ impl OerDecodeErrorKind {
             is_extensible,
         })
         .into()
+    }
+    #[must_use]
+    pub fn invalid_bit_string(msg: alloc::string::String) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidOerBitString { msg }).into()
+    }
+    #[must_use]
+    pub fn invalid_extension_header(msg: alloc::string::String) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidExtensionHeader { msg }).into()
     }
 }
 
