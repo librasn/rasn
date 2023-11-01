@@ -386,6 +386,7 @@ impl<'input> Decoder<'input> {
             match (self.options.aligned, range) {
                 (_, 0) => return Ok(value_constraint.constraint.minimum().into()),
                 (true, 256) => {
+                    dbg!("Hello!");
                     self.input = self.parse_padding(self.input)?;
                     self.parse_non_negative_binary_integer(range)?
                 }

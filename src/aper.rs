@@ -433,4 +433,51 @@ mod tests {
             &[0x01]
         );
     }
+    #[test]
+    fn issue_192() {
+        // https://github.com/XAMPPRocky/rasn/issues/192
+        use crate as rasn;
+
+        use rasn::AsnType;
+        #[derive(rasn::AsnType, rasn::Encode, rasn::Decode, Debug, Clone, PartialEq, Eq)]
+        #[rasn(delegate, value("0..=7"))]
+        pub struct Number(pub Integer);
+
+        impl From<u8> for Number {
+            fn from(value: u8) -> Self {
+                Self(Integer::from(value))
+            }
+        }
+
+        #[derive(rasn::AsnType, rasn::Encode, rasn::Decode, Debug, Clone, PartialEq, Eq)]
+        #[rasn(automatic_tags, option_type(Option))]
+        #[non_exhaustive]
+        pub struct Updates {
+            // pub updates: Vec<u8>,
+            // pub updates: SequenceOf<Number>,
+            pub updates: OctetString,
+        }
+
+        #[derive(rasn::AsnType, rasn::Encode, rasn::Decode, Debug, Clone, PartialEq, Eq)]
+        #[rasn(automatic_tags, option_type(Option))]
+        #[rasn(choice)]
+        // #[non_exhaustive]
+        pub enum Message {
+            Updates(Updates),
+        }
+
+        // let msg = Message::Updates(Updates {
+        //     updates: vec![Number::from(0)],
+        // });
+        let msg = Message::Updates(Updates {
+            updates: vec![0].into(),
+        });
+        let buf = rasn::aper::encode(&msg).unwrap();
+        dbg!(&buf);
+        let desert = rasn::aper::decode::<Message>(&buf);
+        // dbg!(&desert.err().unwrap().kind);
+        // assert_eq!(desert.unwrap(), msg);
+
+        // round_trip!(aper, Message, msg, &[0, 64, 0]);
+    }
 }

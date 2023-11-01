@@ -311,6 +311,8 @@ impl Encoder {
         if C::EXTENDED_FIELDS.is_some() {
             buffer.push(Self::encoded_extension_addition(&encoder.extension_fields));
         }
+        dbg!(&buffer);
+        dbg!(&encoder.output);
 
         for bit in encoder
             .field_bitfield
@@ -439,8 +441,12 @@ impl Encoder {
                     if is_large_string {
                         self.pad_to_alignment(buffer);
                     }
+                    dbg!(&buffer);
+                    dbg!(&self.parent_output_length);
+                    dbg!(&self.output);
 
                     buffer.extend((encode_fn)(0..length)?);
+                    dbg!(&buffer);
                     Ok(())
                 } else {
                     self.encode_unconstrained_length(buffer, length, None, encode_fn)
