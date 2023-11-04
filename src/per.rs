@@ -57,11 +57,3 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 
     Ok(enc.output())
 }
-
-pub(crate) const fn log2(x: i128) -> u32 {
-    i128::BITS - (x - 1).leading_zeros()
-}
-
-pub(crate) fn range_from_bits(bits: u32) -> i128 {
-    2i128.pow(bits) - 1
-}
