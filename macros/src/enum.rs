@@ -72,7 +72,6 @@ impl Enum {
                 }
             });
 
-        #[cfg(feature = "text-based-encodings")]
         let identifiers = self
             .variants
             .iter()
@@ -81,19 +80,6 @@ impl Enum {
 
         let constraints_def = self.config.constraints.const_static_def(crate_root);
 
-        #[cfg(not(feature = "text-based-encodings"))]
-        let choice_impl = self.config.choice.then(|| quote! {
-            impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
-                const VARIANTS: &'static [#crate_root::types::TagTree] = &[
-                    #(#base_variants),*
-                ];
-                const EXTENDED_VARIANTS: &'static [#crate_root::types::TagTree] = &[
-                    #(#extended_variants),*
-                ];
-            }
-        });
-
-        #[cfg(feature = "text-based-encodings")]
         let choice_impl = self.config.choice.then(|| quote! {
             impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
                 const VARIANTS: &'static [#crate_root::types::TagTree] = &[
@@ -324,7 +310,7 @@ impl Enum {
 
     fn encode_choice(&self, generics: &syn::Generics) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
-        #[cfg(feature = "text-based-encodings")]
+
         let identifiers = self.variants.iter().map(|v| {
             let ident = &v.ident;
             let name = &self.name;
@@ -409,7 +395,6 @@ impl Enum {
             }
         });
 
-        #[cfg(feature = "text-based-encodings")]
         let encode_variants = quote! {
             encoder.encode_choice::<Self>(
                 Self::CONSTRAINTS,
@@ -420,13 +405,6 @@ impl Enum {
                     #(#variants),*
                 }
             )
-        };
-
-        #[cfg(not(feature = "text-based-encodings"))]
-        let encode_variants = quote! {
-            encoder.encode_choice::<Self>(Self::CONSTRAINTS, |encoder| match self {
-                #(#variants),*
-            })
         };
 
         let encode_impl = if self.config.has_explicit_tag() {

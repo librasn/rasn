@@ -1,6 +1,6 @@
 //! # Encoding JER.
 
-use jzon::{JsonValue, object::Object};
+use jzon::{object::Object, JsonValue};
 
 use crate::types::{fields::Fields, variants};
 
@@ -276,8 +276,7 @@ impl crate::Encoder for Encoder {
         for name in field_names {
             self.stack.push(name);
         }
-        self.constructed_stack
-            .push(Object::new());
+        self.constructed_stack.push(Object::new());
         (encoder_scope)(self)?;
         let value_map = self.constructed_stack.pop().ok_or(error::Error::Parser {
             msg: "Internal stack mismatch!".into(),
@@ -367,8 +366,7 @@ impl crate::Encoder for Encoder {
         if variants.is_empty() {
             self.update_root_or_constructed(JsonValue::Object(Object::new()))
         } else {
-            self.constructed_stack
-                .push(Object::new());
+            self.constructed_stack.push(Object::new());
             self.stack.push(identifier);
             (encode_fn)(self)?;
             let value_map = self.constructed_stack.pop().ok_or(error::Error::Parser {

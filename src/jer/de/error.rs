@@ -125,6 +125,8 @@ impl From<crate::ber::de::Error> for Error {
 
 impl From<jzon::Error> for Error {
     fn from(value: jzon::Error) -> Self {
-        Self::Custom { msg: alloc::format!("Error decoding JSON: {value:?}") }
+        Self::Custom {
+            msg: alloc::format!("Error decoding JSON: {value:?}"),
+        }
     }
 }

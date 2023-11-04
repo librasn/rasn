@@ -393,10 +393,13 @@ impl Decoder {
     }
 
     fn null_from_value(value: JsonValue) -> Result<(), error::Error> {
-        value.is_null().then(|| ()).ok_or(error::Error::TypeMismatch {
-            needed: "null",
-            found: alloc::format!("{value}"),
-        })
+        value
+            .is_null()
+            .then(|| ())
+            .ok_or(error::Error::TypeMismatch {
+                needed: "null",
+                found: alloc::format!("{value}"),
+            })
     }
 
     fn object_identifier_from_value(value: JsonValue) -> Result<ObjectIdentifier, error::Error> {
@@ -515,7 +518,9 @@ impl Decoder {
             .map_err(|_| error::Error::custom("Failed to parse octet string."))
     }
 
-    fn utc_time_from_value(value: JsonValue) -> Result<chrono::DateTime<chrono::Utc>, error::Error> {
+    fn utc_time_from_value(
+        value: JsonValue,
+    ) -> Result<chrono::DateTime<chrono::Utc>, error::Error> {
         Ok(crate::ber::de::Decoder::parse_any_utc_time_string(
             value
                 .as_str()

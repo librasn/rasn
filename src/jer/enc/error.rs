@@ -44,9 +44,7 @@ impl crate::enc::Error for Error {
 impl From<jzon::Error> for Error {
     fn from(value: jzon::Error) -> Self {
         Self::JsonEncodingError {
-            upstream: alloc::format!(
-                "Encountered an error during JER-encoding: {value:#?}"
-            ),
+            upstream: alloc::format!("Encountered an error during JER-encoding: {value:#?}"),
         }
     }
 }
