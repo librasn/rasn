@@ -1,6 +1,6 @@
 //! # Encoding JER.
 
-use serde_json::{Map, Value};
+use jzon::{JsonValue, object::Object};
 
 use crate::types::{fields::Fields, variants};
 
@@ -8,8 +8,8 @@ pub mod error;
 
 pub struct Encoder {
     stack: alloc::vec::Vec<&'static str>,
-    constructed_stack: alloc::vec::Vec<Map<alloc::string::String, Value>>,
-    root_value: Option<Value>,
+    constructed_stack: alloc::vec::Vec<Object>,
+    root_value: Option<JsonValue>,
 }
 
 impl Encoder {
@@ -21,16 +21,15 @@ impl Encoder {
         }
     }
 
-    pub fn root_value(self) -> Result<Value, error::Error> {
+    pub fn root_value(self) -> Result<JsonValue, error::Error> {
         self.root_value.ok_or(error::Error::NoRootValueFound)
     }
 
     pub fn to_json(self) -> alloc::string::String {
-        self.root_value
-            .map_or(<_>::default(), |v| alloc::format!("{v}"))
+        self.root_value.map_or(<_>::default(), |v| v.dump())
     }
 
-    fn update_root_or_constructed(&mut self, value: Value) -> Result<(), error::Error> {
+    fn update_root_or_constructed(&mut self, value: JsonValue) -> Result<(), error::Error> {
         match self.stack.pop() {
             Some(id) => {
                 self.constructed_stack
@@ -62,7 +61,7 @@ impl crate::Encoder for Encoder {
     }
 
     fn encode_bool(&mut self, _: crate::Tag, value: bool) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::Bool(value))
+        self.update_root_or_constructed(JsonValue::Boolean(value))
     }
 
     fn encode_bit_string(
@@ -71,7 +70,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &crate::types::BitStr,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(value.iter().fold(
+        self.update_root_or_constructed(JsonValue::String(value.iter().fold(
             alloc::string::String::new(),
             |mut acc, bit| {
                 acc.push(if *bit { '1' } else { '0' });
@@ -85,7 +84,7 @@ impl crate::Encoder for Encoder {
         _: crate::Tag,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::Number(value.discriminant().into()))
+        self.update_root_or_constructed(JsonValue::Number(value.discriminant().into()))
     }
 
     fn encode_object_identifier(
@@ -93,7 +92,7 @@ impl crate::Encoder for Encoder {
         _t: crate::Tag,
         value: &[u32],
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             value
                 .iter()
                 .map(|arc| alloc::format!("{arc}"))
@@ -113,11 +112,11 @@ impl crate::Encoder for Encoder {
             .map_err(|_| error::Error::ExceedsSupportedIntSize {
                 value: value.clone(),
             })?;
-        self.update_root_or_constructed(Value::Number(as_i64.into()))
+        self.update_root_or_constructed(JsonValue::Number(as_i64.into()))
     }
 
     fn encode_null(&mut self, _: crate::Tag) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::Null)
+        self.update_root_or_constructed(JsonValue::Null)
     }
 
     fn encode_octet_string(
@@ -126,7 +125,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(value.iter().fold(
+        self.update_root_or_constructed(JsonValue::String(value.iter().fold(
             alloc::string::String::new(),
             |mut acc, bit| {
                 acc.push_str(&alloc::format!("{bit:02X?}"));
@@ -141,7 +140,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &crate::types::GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             alloc::string::String::from_utf8(value.to_vec())
                 .map_err(|e| error::Error::InvalidCharacter { error: e })?,
         ))
@@ -153,7 +152,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &str,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(value.into()))
+        self.update_root_or_constructed(JsonValue::String(value.into()))
     }
 
     fn encode_visible_string(
@@ -162,7 +161,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &crate::types::VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             alloc::string::String::from_utf8(value.as_iso646_bytes().to_vec())
                 .map_err(|e| error::Error::InvalidCharacter { error: e })?,
         ))
@@ -174,7 +173,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &crate::types::Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             alloc::string::String::from_utf8(value.as_iso646_bytes().to_vec())
                 .map_err(|e| error::Error::InvalidCharacter { error: e })?,
         ))
@@ -186,7 +185,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &crate::types::PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             alloc::string::String::from_utf8(value.as_bytes().to_vec())
                 .map_err(|e| error::Error::InvalidCharacter { error: e })?,
         ))
@@ -198,7 +197,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &crate::types::NumericString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             alloc::string::String::from_utf8(value.as_bytes().to_vec())
                 .map_err(|e| error::Error::InvalidCharacter { error: e })?,
         ))
@@ -219,7 +218,7 @@ impl crate::Encoder for Encoder {
         _c: crate::types::Constraints,
         value: &crate::types::BmpString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             alloc::string::String::from_utf8(value.to_bytes())
                 .map_err(|e| error::Error::InvalidCharacter { error: e })?,
         ))
@@ -230,7 +229,7 @@ impl crate::Encoder for Encoder {
         _t: crate::Tag,
         value: &crate::types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             alloc::string::String::from_utf8(
                 crate::ber::enc::Encoder::datetime_to_canonical_generalized_time_bytes(value),
             )
@@ -243,7 +242,7 @@ impl crate::Encoder for Encoder {
         _t: crate::Tag,
         value: &crate::types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::String(
+        self.update_root_or_constructed(JsonValue::String(
             alloc::string::String::from_utf8(
                 crate::ber::enc::Encoder::datetime_to_canonical_utc_time_bytes(value),
             )
@@ -278,12 +277,12 @@ impl crate::Encoder for Encoder {
             self.stack.push(name);
         }
         self.constructed_stack
-            .push(Map::<alloc::string::String, Value>::new());
+            .push(Object::new());
         (encoder_scope)(self)?;
         let value_map = self.constructed_stack.pop().ok_or(error::Error::Parser {
             msg: "Internal stack mismatch!".into(),
         })?;
-        self.update_root_or_constructed(Value::Object(value_map))
+        self.update_root_or_constructed(JsonValue::Object(value_map))
     }
 
     fn encode_sequence_of<E: crate::Encode>(
@@ -292,7 +291,7 @@ impl crate::Encoder for Encoder {
         value: &[E],
         _c: crate::types::Constraints,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::Array(value.iter().try_fold(
+        self.update_root_or_constructed(JsonValue::Array(value.iter().try_fold(
             alloc::vec![],
             |mut acc, v| {
                 let mut item_encoder = Self::new();
@@ -320,7 +319,7 @@ impl crate::Encoder for Encoder {
         value: &crate::types::SetOf<E>,
         _c: crate::types::Constraints,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::Array(value.iter().try_fold(
+        self.update_root_or_constructed(JsonValue::Array(value.iter().try_fold(
             alloc::vec![],
             |mut acc, v| {
                 let mut item_encoder = Self::new();
@@ -366,19 +365,16 @@ impl crate::Encoder for Encoder {
         let variants =
             variants::Variants::from_slice(&[E::VARIANTS, E::EXTENDED_VARIANTS].concat());
         if variants.is_empty() {
-            self.update_root_or_constructed(Value::Object(Map::<
-                alloc::string::String,
-                serde_json::Value,
-            >::new()))
+            self.update_root_or_constructed(JsonValue::Object(Object::new()))
         } else {
             self.constructed_stack
-                .push(Map::<alloc::string::String, Value>::new());
+                .push(Object::new());
             self.stack.push(identifier);
             (encode_fn)(self)?;
             let value_map = self.constructed_stack.pop().ok_or(error::Error::Parser {
                 msg: "Internal stack mismatch!".into(),
             })?;
-            self.update_root_or_constructed(Value::Object(value_map))
+            self.update_root_or_constructed(JsonValue::Object(value_map))
         }
     }
 

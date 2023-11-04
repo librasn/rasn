@@ -28,9 +28,9 @@ chrono = { version = "0.4.26", default-features = false, features = ["alloc"] }
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 
 [features]
-default = ["macros"]
+default = ["macros","jer"]
 macros = ["rasn-derive"]
-jer = ["serde","serde_json","rasn-derive?/text-based-encodings"]
+jer = ["rasn-derive?/text-based-encodings"]
 
 [[bench]]
 name = "criterion"
@@ -58,8 +58,7 @@ arrayvec = { version = "0.7.4", default-features = false }
 either = { version = "1.9.0", default-features = false }
 once_cell = { version = "1.18.0", default-features = false, features = ["race", "alloc"] }
 num-integer = { version = "0.1.45", default-features = false, features = ["i128"] }
-serde = { version = "1.0.189", optional = true, default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.107", optional = true, default-features = false, features = ["alloc"] }
+jzon = "0.12.5"
 
 [dev-dependencies]
 criterion = "0.5.1"

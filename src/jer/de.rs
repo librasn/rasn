@@ -1,11 +1,12 @@
 //! # Decoding JER
 
+use jzon::JsonValue;
+
 use crate::{
     de::Error,
     types::{fields::Fields, *},
     Decode,
 };
-use serde_json::{Deserializer, Value};
 
 macro_rules! decode_jer_value {
     ($decoder_fn:expr, $input:expr) => {
@@ -18,26 +19,20 @@ macro_rules! decode_jer_value {
 
 pub mod error;
 pub struct Decoder {
-    stack: alloc::vec::Vec<Value>,
+    stack: alloc::vec::Vec<JsonValue>,
 }
 
 impl Decoder {
     pub fn new(input: &str) -> Result<Self, error::Error> {
-        let root = Deserializer::from_str(input)
-            .into_iter::<Value>()
-            .next()
-            .ok_or(error::Error::eoi())?
-            .map_err(|e| error::Error::Parser {
-                msg: alloc::format!("{e}"),
-            })?;
+        let root = jzon::parse(input)?;
         Ok(Self {
             stack: alloc::vec![root],
         })
     }
 }
 
-impl From<Value> for Decoder {
-    fn from(value: Value) -> Self {
+impl From<JsonValue> for Decoder {
+    fn from(value: JsonValue) -> Self {
         Self {
             stack: alloc::vec![value],
         }
@@ -100,7 +95,7 @@ impl crate::Decoder for Decoder {
         field_names.reverse();
         for name in field_names {
             self.stack
-                .push(value_map.remove(name).unwrap_or(Value::Null));
+                .push(value_map.remove(name).unwrap_or(JsonValue::Null));
         }
 
         (decode_fn)(self)
@@ -259,7 +254,7 @@ impl crate::Decoder for Decoder {
             .sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
         for (index, field) in field_indices.into_iter() {
             self.stack
-                .push(value_map.remove(field.name).unwrap_or(Value::Null));
+                .push(value_map.remove(field.name).unwrap_or(JsonValue::Null));
             fields.push((decode_fn)(self, index, field.tag)?);
         }
 
@@ -269,7 +264,7 @@ impl crate::Decoder for Decoder {
             .enumerate()
         {
             self.stack
-                .push(value_map.remove(field.name).unwrap_or(Value::Null));
+                .push(value_map.remove(field.name).unwrap_or(JsonValue::Null));
             fields.push((decode_fn)(self, index + SET::FIELDS.len(), field.tag)?)
         }
 
@@ -286,7 +281,7 @@ impl crate::Decoder for Decoder {
     fn decode_optional<D: crate::Decode>(&mut self) -> Result<Option<D>, Self::Error> {
         let last = self.stack.pop().ok_or(error::Error::eoi())?;
         match last {
-            Value::Null => Ok(None),
+            JsonValue::Null => Ok(None),
             v => {
                 self.stack.push(v);
                 Some(D::decode(self)).transpose()
@@ -340,11 +335,11 @@ impl crate::Decoder for Decoder {
 // -------------------------------------------------------------------
 
 impl Decoder {
-    fn any_from_value(value: Value) -> Result<Any, error::Error> {
+    fn any_from_value(value: JsonValue) -> Result<Any, error::Error> {
         Ok(Any::new(alloc::format!("{value}").as_bytes().to_vec()))
     }
 
-    fn bit_string_from_value(value: Value) -> Result<BitString, error::Error> {
+    fn bit_string_from_value(value: JsonValue) -> Result<BitString, error::Error> {
         value
             .as_str()
             .ok_or(error::Error::TypeMismatch {
@@ -366,14 +361,14 @@ impl Decoder {
             })
     }
 
-    fn boolean_from_value(value: Value) -> Result<bool, error::Error> {
+    fn boolean_from_value(value: JsonValue) -> Result<bool, error::Error> {
         value.as_bool().ok_or(error::Error::TypeMismatch {
             needed: "boolean",
             found: alloc::format!("{value}"),
         })
     }
 
-    fn enumerated_from_value<E: Enumerated>(value: Value) -> Result<E, error::Error> {
+    fn enumerated_from_value<E: Enumerated>(value: JsonValue) -> Result<E, error::Error> {
         value
             .as_i64()
             .ok_or(error::Error::TypeMismatch {
@@ -387,7 +382,7 @@ impl Decoder {
             .ok_or(error::Error::no_valid_variant(value))
     }
 
-    fn integer_from_value(value: Value) -> Result<Integer, error::Error> {
+    fn integer_from_value(value: JsonValue) -> Result<Integer, error::Error> {
         value
             .as_i64()
             .ok_or(error::Error::TypeMismatch {
@@ -397,14 +392,14 @@ impl Decoder {
             .map(|n| n.into())
     }
 
-    fn null_from_value(value: Value) -> Result<(), error::Error> {
-        value.as_null().ok_or(error::Error::TypeMismatch {
+    fn null_from_value(value: JsonValue) -> Result<(), error::Error> {
+        value.is_null().then(|| ()).ok_or(error::Error::TypeMismatch {
             needed: "null",
             found: alloc::format!("{value}"),
         })
     }
 
-    fn object_identifier_from_value(value: Value) -> Result<ObjectIdentifier, error::Error> {
+    fn object_identifier_from_value(value: JsonValue) -> Result<ObjectIdentifier, error::Error> {
         value
             .as_str()
             .ok_or(error::Error::TypeMismatch {
@@ -429,7 +424,7 @@ impl Decoder {
 
     fn sequence_of_from_value<D: Decode>(
         &mut self,
-        value: Value,
+        value: JsonValue,
     ) -> Result<SequenceOf<D>, error::Error> {
         value
             .as_array()
@@ -448,7 +443,7 @@ impl Decoder {
 
     fn set_of_from_value<D: Decode + Ord>(
         &mut self,
-        value: Value,
+        value: JsonValue,
     ) -> Result<SetOf<D>, error::Error> {
         value
             .as_array()
@@ -465,7 +460,7 @@ impl Decoder {
             })
     }
 
-    fn string_from_value(value: Value) -> Result<alloc::string::String, error::Error> {
+    fn string_from_value(value: JsonValue) -> Result<alloc::string::String, error::Error> {
         value
             .as_str()
             .ok_or(error::Error::TypeMismatch {
@@ -475,7 +470,7 @@ impl Decoder {
             .map(|n| n.into())
     }
 
-    fn choice_from_value<D>(&mut self, value: Value) -> Result<D, error::Error>
+    fn choice_from_value<D>(&mut self, value: JsonValue) -> Result<D, error::Error>
     where
         D: DecodeChoice,
     {
@@ -485,13 +480,13 @@ impl Decoder {
                 needed: "object",
                 found: alloc::format!("{value}"),
             })?
-            .into_iter()
+            .iter()
             .next()
             .and_then(|(k, v)| {
                 D::IDENTIFIERS
                     .iter()
                     .enumerate()
-                    .find(|id| id.1.eq_ignore_ascii_case(k))
+                    .find(|id| id.1.eq_ignore_ascii_case(&k))
                     .map(|(i, _)| (i, v))
             })
             .map_or(Tag::EOC, |(i, v)| {
@@ -508,7 +503,7 @@ impl Decoder {
         D::from_tag(self, tag)
     }
 
-    fn octet_string_from_value(value: Value) -> Result<alloc::vec::Vec<u8>, error::Error> {
+    fn octet_string_from_value(value: JsonValue) -> Result<alloc::vec::Vec<u8>, error::Error> {
         let octet_string = value.as_str().ok_or(error::Error::TypeMismatch {
             needed: "octet string",
             found: alloc::format!("{value}"),
@@ -520,7 +515,7 @@ impl Decoder {
             .map_err(|_| error::Error::custom("Failed to parse octet string."))
     }
 
-    fn utc_time_from_value(value: Value) -> Result<chrono::DateTime<chrono::Utc>, error::Error> {
+    fn utc_time_from_value(value: JsonValue) -> Result<chrono::DateTime<chrono::Utc>, error::Error> {
         Ok(crate::ber::de::Decoder::parse_any_utc_time_string(
             value
                 .as_str()
@@ -533,7 +528,7 @@ impl Decoder {
     }
 
     fn general_time_from_value(
-        value: Value,
+        value: JsonValue,
     ) -> Result<chrono::DateTime<chrono::FixedOffset>, error::Error> {
         Ok(crate::ber::de::Decoder::parse_any_generalized_time_string(
             value

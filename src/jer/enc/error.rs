@@ -6,7 +6,7 @@ use snafu::*;
 #[derive(Debug)]
 pub enum Error {
     /// Upstream `serde` error
-    SerdeEncodingError { upstream: alloc::string::String },
+    JsonEncodingError { upstream: alloc::string::String },
     /// Error to be thrown when the JER encoder contains no encoded root value
     #[snafu(display("No encoded root value found!"))]
     NoRootValueFound,
@@ -41,11 +41,11 @@ impl crate::enc::Error for Error {
     }
 }
 
-impl From<serde_json::Error> for Error {
-    fn from(value: serde_json::Error) -> Self {
-        Self::SerdeEncodingError {
+impl From<jzon::Error> for Error {
+    fn from(value: jzon::Error) -> Self {
+        Self::JsonEncodingError {
             upstream: alloc::format!(
-                "Encountered an error during JER-encoding with serde: {value:#?}"
+                "Encountered an error during JER-encoding: {value:#?}"
             ),
         }
     }

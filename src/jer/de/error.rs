@@ -1,4 +1,4 @@
-use serde_json::Value;
+use jzon::JsonValue;
 use snafu::Snafu;
 
 /// An error that occurred when decoding JER.
@@ -56,7 +56,7 @@ pub enum Error {
     #[snafu(display("No valid enumerated variant for `{}`", discriminator))]
     NoValidVariant {
         /// The variant's discriminator.
-        discriminator: Value,
+        discriminator: JsonValue,
     },
     #[snafu(display("Custom: {}", msg))]
     Custom {
@@ -70,7 +70,7 @@ impl Error {
         Self::EndOfInput {}
     }
 
-    pub fn no_valid_variant(discriminator: Value) -> Self {
+    pub fn no_valid_variant(discriminator: JsonValue) -> Self {
         Self::NoValidVariant { discriminator }
     }
 }
@@ -120,5 +120,11 @@ impl From<crate::ber::de::Error> for Error {
                 msg: alloc::format!("Error invoking BER parser: {e:?}"),
             },
         }
+    }
+}
+
+impl From<jzon::Error> for Error {
+    fn from(value: jzon::Error) -> Self {
+        Self::Custom { msg: alloc::format!("Error decoding JSON: {value:?}") }
     }
 }

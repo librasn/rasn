@@ -273,7 +273,7 @@ mod tests {
                 wine: Inner::Wine(4),
                 grappa: BitString::from_iter([true, false].iter())
             },
-            "{\"grappa\":\"10\",\"juice\":0,\"wine\":{\"Wine\":4}}"
+            "{\"juice\":0,\"wine\":{\"Wine\":4},\"grappa\":\"10\"}"
         );
         round_trip_jer!(
             Very,
@@ -283,7 +283,7 @@ mod tests {
                     nested: Some(false)
                 })
             },
-            "{\"a\":{\"nested\":false,\"very\":{}}}"
+            "{\"a\":{\"very\":{},\"nested\":false}}"
         );
     }
 }
