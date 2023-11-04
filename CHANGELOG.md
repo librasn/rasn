@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.6...rasn-v0.11.0) - 2023-10-28
+
+### Other
+- Shared error module ([#164](https://github.com/XAMPPRocky/rasn/pull/164))
+
+## [0.10.6](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.5...rasn-v0.10.6) - 2023-10-26
+
+### Other
+- Fix deprecated chrono functions ([#184](https://github.com/XAMPPRocky/rasn/pull/184))
+- Add CI check for formatted files and reformat source ([#181](https://github.com/XAMPPRocky/rasn/pull/181))
+
 ## [0.10.5](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.4...rasn-v0.10.5) - 2023-10-19
 
 ### Fixed

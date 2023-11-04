@@ -1,6 +1,7 @@
 use syn::Fields;
 
 use crate::{config::*, ext::GenericsExt};
+#[allow(clippy::too_many_lines)]
 
 pub fn derive_struct_impl(
     name: syn::Ident,
@@ -117,7 +118,7 @@ pub fn derive_struct_impl(
                 let set_field_impl = if config.extension_addition || config.extension_addition_group {
                     quote! {
                         if #ident.is_some() {
-                            return Err(rasn::de::Error::duplicate_field(stringify!(#ident)))
+                            return Err(rasn::de::Error::duplicate_field(stringify!(#ident), codec))
                         } else {
                             #ident = value.0;
                         }
@@ -125,7 +126,7 @@ pub fn derive_struct_impl(
                 } else {
                     quote! {
                         if #ident.replace(value.0).is_some() {
-                            return Err(rasn::de::Error::duplicate_field(stringify!(#ident)))
+                            return Err(rasn::de::Error::duplicate_field(stringify!(#ident), codec))
                         }
                     }
                 };
@@ -139,6 +140,7 @@ pub fn derive_struct_impl(
 
         quote! {
             #choice_def
+            let codec = decoder.codec();
             #(#field_type_defs)*
 
             decoder.decode_set::<#choice_name, _, _, _>(tag, |decoder, index, tag| {
@@ -146,7 +148,7 @@ pub fn derive_struct_impl(
 
                     Ok(match (index, tag) {
                         #(#field_match_arms)*
-                        _ => return Err(#crate_root::de::Error::custom("Unknown field provided.")),
+                        _ => return Err(#crate_root::de::Error::unknown_field(index, tag, codec)),
                     })
                 },
                 |fields| {
@@ -158,7 +160,7 @@ pub fn derive_struct_impl(
                         }
                     }
 
-                    #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field(stringify!(#required_field_names)))?;)*
+                    #(let #required_field_names = #required_field_names.ok_or_else(|| #crate_root::de::Error::missing_field(stringify!(#required_field_names), codec))?;)*
 
                     Ok(Self #set_init)
                 }

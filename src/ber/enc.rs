@@ -1,9 +1,8 @@
 //! # Encoding BER.
 
 mod config;
-mod error;
 
-use alloc::{collections::VecDeque, string::ToString, vec::Vec};
+use alloc::{borrow::ToOwned, collections::VecDeque, string::ToString, vec::Vec};
 use chrono::Timelike;
 
 use super::Identifier;
@@ -13,11 +12,11 @@ use crate::{
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
         Constraints, Enumerated, Tag,
     },
-    Encode,
+    Codec, Encode,
 };
 
+pub use crate::error::{BerEncodeErrorKind, EncodeError, EncodeErrorKind};
 pub use config::EncoderOptions;
-pub use error::Error;
 
 const START_OF_CONTENTS: u8 = 0x80;
 const END_OF_CONTENTS: &[u8] = &[0, 0];
@@ -38,6 +37,7 @@ enum ByteOrBytes {
 
 impl Encoder {
     /// Creates a new instance from the given `config`.
+    #[must_use]
     pub fn new(config: EncoderOptions) -> Self {
         Self {
             config,
@@ -46,9 +46,14 @@ impl Encoder {
             set_buffer: <_>::default(),
         }
     }
+    #[must_use]
+    pub fn codec(&self) -> crate::Codec {
+        self.config.current_codec()
+    }
 
     /// Creates a new instance from the given `config`, and uses SET encoding
     /// logic, ensuring that all messages are encoded in order by tag.
+    #[must_use]
     pub fn new_set(config: EncoderOptions) -> Self {
         Self {
             config,
@@ -188,14 +193,19 @@ impl Encoder {
         }
     }
 
-    fn encode_octet_string_(&mut self, tag: Tag, value: &[u8]) -> Result<(), Error> {
+    fn encode_octet_string_(&mut self, tag: Tag, value: &[u8]) -> Result<(), EncodeError> {
         self.encode_string(tag, Tag::OCTET_STRING, value)
     }
 
     /// "STRING" types in ASN.1 BER (OCTET STRING, UTF8 STRING) are either
     /// primitive encoded, or in certain variants like CER they are constructed
     /// encoded containing primitive encoded chunks.
-    fn encode_string(&mut self, tag: Tag, nested_tag: Tag, value: &[u8]) -> Result<(), Error> {
+    fn encode_string(
+        &mut self,
+        tag: Tag,
+        nested_tag: Tag,
+        value: &[u8],
+    ) -> Result<(), EncodeError> {
         let max_string_length = self.config.encoding_rules.max_string_length();
 
         if value.len() > max_string_length {
@@ -243,9 +253,9 @@ impl Encoder {
     }
     /// Converts an object identifier into a byte vector in BER format.
     /// Reusable function by other codecs.
-    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, error::Error> {
+    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, EncodeError> {
         if oid.len() < 2 {
-            return Err(error::Error::InvalidObjectIdentifier);
+            return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
         }
         let mut bytes = Vec::new();
 
@@ -253,7 +263,7 @@ impl Encoder {
         let second = oid[1];
 
         if first > MAX_OID_FIRST_OCTET {
-            return Err(error::Error::InvalidObjectIdentifier);
+            return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
         }
         self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
         for component in oid.iter().skip(2) {
@@ -297,13 +307,14 @@ impl Encoder {
 
 impl crate::Encoder for Encoder {
     type Ok = ();
-    type Error = error::Error;
+    type Error = EncodeError;
 
+    fn codec(&self) -> Codec {
+        Self::codec(self)
+    }
     fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
-            return Err(crate::enc::Error::custom(
-                "Cannot encode `ANY` types in `SET` fields.",
-            ));
+            return Err(BerEncodeErrorKind::AnyInSet.into());
         }
 
         self.output.extend_from_slice(&value.contents);
@@ -325,9 +336,10 @@ impl crate::Encoder for Encoder {
             let vec = value.to_bitvec();
             let bytes = vec.as_raw_slice();
             let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
-                crate::enc::Error::custom(alloc::format!(
-                    "failed to convert BIT STRING unused bytes to u8: {err}"
-                ))
+                EncodeError::from_kind(
+                    EncodeErrorKind::FailedBitStringUnusedBitsToU8 { err },
+                    self.codec(),
+                )
             })?;
             let mut encoded = Vec::with_capacity(bytes.len() + 1);
             encoded.push(unused_bits);

@@ -4,14 +4,16 @@ pub mod enc;
 /// Attempts to decode `T` from `input` using JER.
 /// # Errors
 /// Returns error specific to JER decoder if decoding is not possible.
-pub fn decode<'de, T: crate::Decode>(input: &'de str) -> Result<T, de::error::Error> {
+pub fn decode<'de, T: crate::Decode>(input: &'de str) -> Result<T, crate::error::DecodeError> {
     T::decode(&mut de::Decoder::new(input)?)
 }
 
 /// Attempts to encode `value` to JER.
 /// # Errors
 /// Returns error specific to JER encoder if encoding is not possible.
-pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::string::String, enc::error::Error> {
+pub fn encode<T: crate::Encode>(
+    value: &T,
+) -> Result<alloc::string::String, crate::error::EncodeError> {
     let mut encoder = enc::Encoder::new();
     value.encode(&mut encoder)?;
     Ok(encoder.to_json())

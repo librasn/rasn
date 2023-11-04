@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::error::strings::InvalidBmpString;
 use alloc::{boxed::Box, string::String, vec::Vec};
 
 /// A Basic Multilingual Plane (BMP) string, which is a subtype of [`UniversalString`]
@@ -39,11 +40,6 @@ impl StaticPermittedAlphabet for BmpString {
     }
 }
 
-#[derive(snafu::Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
-#[snafu(display("Invalid bmp character"))]
-pub struct InvalidBmpString;
-
 impl TryFrom<String> for BmpString {
     type Error = InvalidBmpString;
 
@@ -57,10 +53,12 @@ impl TryFrom<&'_ str> for BmpString {
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         let mut vec = Vec::with_capacity(value.len());
         for ch in value.chars() {
-            if !matches!(ch as u16, 0x0..=0xFFFF) {
-                return Err(InvalidBmpString);
-            } else {
+            if matches!(ch as u16, 0x0..=0xFFFF) {
                 vec.push(ch as u16);
+            } else {
+                return Err(InvalidBmpString {
+                    character: ch as u16,
+                });
             }
         }
 

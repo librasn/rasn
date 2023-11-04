@@ -1,13 +1,9 @@
-mod error;
-
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
 
 use bitvec::prelude::*;
-use snafu::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::{
-    enc::Error as _,
     types::{
         self,
         constraints::{self, Extensible, Size},
@@ -18,8 +14,7 @@ use crate::{
     Encode,
 };
 
-pub use error::Error;
-
+pub use crate::error::EncodeError as Error;
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -29,6 +24,7 @@ pub struct EncoderOptions {
 }
 
 impl EncoderOptions {
+    #[must_use]
     pub fn aligned() -> Self {
         Self {
             aligned: true,
@@ -36,6 +32,7 @@ impl EncoderOptions {
         }
     }
 
+    #[must_use]
     pub fn unaligned() -> Self {
         Self {
             aligned: false,
@@ -43,9 +40,18 @@ impl EncoderOptions {
         }
     }
 
+    #[must_use]
     fn without_set_encoding(mut self) -> Self {
         self.set_encoding = false;
         self
+    }
+    #[must_use]
+    fn current_codec(self) -> crate::Codec {
+        if self.aligned {
+            crate::Codec::Aper
+        } else {
+            crate::Codec::Uper
+        }
     }
 }
 
@@ -72,7 +78,9 @@ impl Encoder {
             parent_output_length: <_>::default(),
         }
     }
-
+    fn codec(&self) -> crate::Codec {
+        self.options.current_codec()
+    }
     fn new_set_encoder<C: crate::types::Constructed>(&self) -> Self {
         let mut options = self.options;
         options.set_encoding = true;
@@ -99,7 +107,7 @@ impl Encoder {
     pub fn output(self) -> Vec<u8> {
         let mut output = self.bitstring_output();
         Self::force_pad_to_alignment(&mut output);
-        super::to_vec(&output)
+        crate::bits::to_vec(&output)
     }
 
     pub fn bitstring_output(self) -> BitString {
@@ -175,7 +183,7 @@ impl Encoder {
             .unwrap_or_default()
     }
 
-    fn encode_known_multipler_string<S: StaticPermittedAlphabet>(
+    fn encode_known_multiplier_string<S: StaticPermittedAlphabet>(
         &mut self,
         tag: Tag,
         constraints: &Constraints,
@@ -195,7 +203,7 @@ impl Encoder {
         let is_large_string = if let Some(size) = constraints.size() {
             let width = match constraints.permitted_alphabet() {
                 Some(alphabet) => {
-                    self.character_width(super::log2(alphabet.constraint.len() as i128))
+                    self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
                 }
                 None => self.character_width(S::CHARACTER_WIDTH),
             };
@@ -225,12 +233,11 @@ impl Encoder {
         match constraints.permitted_alphabet() {
             Some(alphabet)
                 if S::CHARACTER_WIDTH
-                    > self.character_width(super::log2(alphabet.constraint.len() as i128)) =>
+                    > self.character_width(crate::num::log2(alphabet.constraint.len() as i128)) =>
             {
                 let alphabet = &alphabet.constraint;
-                let characters: &DynConstrainedCharacterString =
-                    &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
-                        .map_err(Error::custom)?;
+                let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
+                    .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
 
                 self.encode_length(
                     &mut buffer,
@@ -290,7 +297,7 @@ impl Encoder {
     }
 
     fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
-        !extension_fields.iter().all(|vec| vec.is_empty())
+        !extension_fields.iter().all(Vec::is_empty)
     }
 
     fn encode_constructed<C: crate::types::Constructed>(
@@ -396,7 +403,7 @@ impl Encoder {
         };
 
         if constraints.extensible.is_none() {
-            Error::check_length(length, &constraints.constraint)?;
+            Error::check_length(length, &constraints.constraint, self.codec())?;
         }
 
         let constraints = constraints.constraint;
@@ -414,8 +421,8 @@ impl Encoder {
                     let effective_length = constraints.effective_value(length).into_inner();
                     let range = (self.options.aligned && range > 256)
                         .then(|| {
-                            let range = super::log2(range as i128);
-                            super::range_from_bits(
+                            let range = crate::num::log2(range as i128);
+                            crate::bits::range_from_len(
                                 range
                                     .is_power_of_two()
                                     .then_some(range)
@@ -613,10 +620,15 @@ impl Encoder {
             either::Right(value) => value.to_signed_bytes_be(),
         };
 
-        let effective_value: i128 = value_range
-            .constraint
-            .effective_value(value.try_into().map_err(Error::custom)?)
-            .either_into();
+        let effective_value: i128 =
+            value_range
+                .constraint
+                .effective_value(value.try_into().map_err(
+                    |e: num_bigint::TryFromBigIntError<()>| {
+                        Error::integer_type_conversion_failed(e.to_string(), self.codec())
+                    },
+                )?)
+                .either_into();
 
         const K64: i128 = SIXTY_FOUR_K as i128;
         const OVER_K64: i128 = K64 + 1;
@@ -632,7 +644,8 @@ impl Encoder {
                     self.encode_non_negative_binary_integer(buffer, K64, &bytes);
                 }
                 (true, OVER_K64..) => {
-                    let range_len_in_bytes = num_integer::div_ceil(super::log2(range), 8) as i128;
+                    let range_len_in_bytes =
+                        num_integer::div_ceil(crate::num::log2(range), 8) as i128;
 
                     if effective_value == 0 {
                         self.encode_non_negative_binary_integer(
@@ -644,7 +657,7 @@ impl Encoder {
                         self.encode_non_negative_binary_integer(&mut *buffer, 255, &bytes);
                     } else {
                         let range_value_in_bytes =
-                            num_integer::div_ceil(super::log2(effective_value + 1), 8) as i128;
+                            num_integer::div_ceil(crate::num::log2(effective_value + 1), 8) as i128;
                         self.encode_non_negative_binary_integer(
                             buffer,
                             range_len_in_bytes,
@@ -653,7 +666,7 @@ impl Encoder {
                         self.pad_to_alignment(&mut *buffer);
                         self.encode_non_negative_binary_integer(
                             &mut *buffer,
-                            super::range_from_bits(range_value_in_bytes as u32 * 8),
+                            crate::bits::range_from_len(range_value_in_bytes as u32 * 8),
                             &bytes,
                         );
                     }
@@ -676,7 +689,7 @@ impl Encoder {
         bytes: &[u8],
     ) {
         use core::cmp::Ordering;
-        let total_bits = super::log2(range) as usize;
+        let total_bits = crate::num::log2(range) as usize;
         let bits = BitVec::<u8, Msb0>::from_slice(bytes);
         let bits = match total_bits.cmp(&bits.len()) {
             Ordering::Greater => {
@@ -700,6 +713,9 @@ impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = Error;
 
+    fn codec(&self) -> crate::Codec {
+        Self::codec(self)
+    }
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         self.encode_octet_string(tag, <_>::default(), &value.contents)
@@ -817,8 +833,7 @@ impl crate::Encoder for Encoder {
 
     fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32]) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        let der = crate::der::encode_scope(|encoder| encoder.encode_object_identifier(tag, oid))
-            .context(error::DerSnafu)?;
+        let der = crate::der::encode_scope(|encoder| encoder.encode_object_identifier(tag, oid))?;
         self.encode_octet_string(tag, <_>::default(), &der)
     }
 
@@ -842,7 +857,7 @@ impl crate::Encoder for Encoder {
         value: &types::VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_ia5_string(
@@ -852,7 +867,7 @@ impl crate::Encoder for Encoder {
         value: &types::Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_general_string(
@@ -872,7 +887,7 @@ impl crate::Encoder for Encoder {
         value: &types::PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_numeric_string(
@@ -882,7 +897,7 @@ impl crate::Encoder for Encoder {
         value: &types::NumericString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_teletex_string(
@@ -902,7 +917,7 @@ impl crate::Encoder for Encoder {
         value: &types::BmpString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_known_multipler_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_utf8_string(
@@ -921,11 +936,7 @@ impl crate::Encoder for Encoder {
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(
-            tag,
-            <_>::default(),
-            &crate::der::encode(value).context(error::DerSnafu)?,
-        )
+        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
     }
 
     fn encode_generalized_time(
@@ -934,11 +945,7 @@ impl crate::Encoder for Encoder {
         value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(
-            tag,
-            <_>::default(),
-            &crate::der::encode(value).context(error::DerSnafu)?,
-        )
+        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -1077,7 +1084,7 @@ impl crate::Encoder for Encoder {
             .iter()
             .enumerate()
             .find_map(|(i, &variant_tag)| (tag == variant_tag).then_some(i))
-            .ok_or_else(|| Error::custom("variant not found in choice"))?;
+            .ok_or_else(|| Error::variant_not_in_choice(self.codec()))?;
 
         let bounds = if is_root_extension {
             let variance = variants.len();

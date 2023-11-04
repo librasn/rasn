@@ -1,19 +1,10 @@
 //! # Decoding BER
 
-// TODO: Update chrono functions.
-#![allow(deprecated)]
-
 mod config;
-mod error;
 pub(super) mod parser;
-
-use alloc::{borrow::ToOwned, vec::Vec};
-
-use snafu::*;
 
 use super::identifier::Identifier;
 use crate::{
-    de::Error as _,
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
@@ -21,11 +12,14 @@ use crate::{
     },
     Decode,
 };
-use chrono::{DateTime, FixedOffset, NaiveDateTime, Utc};
+use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
+use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
 
-pub use self::{config::DecoderOptions, error::Error};
+pub use self::config::DecoderOptions;
 
-type Result<T, E = Error> = core::result::Result<T, E>;
+pub use crate::error::DecodeError;
+pub use crate::error::{BerDecodeErrorKind, CodecDecodeError, DecodeErrorKind, DerDecodeErrorKind};
+type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
 const EOC: &[u8] = &[0, 0];
 
@@ -37,7 +31,13 @@ pub struct Decoder<'input> {
 }
 
 impl<'input> Decoder<'input> {
+    /// Return the current codec `Codec` variant
+    #[must_use]
+    pub fn codec(&self) -> crate::Codec {
+        self.config.current_codec()
+    }
     /// Create a new [`Decoder`] from the given `input` and `config`.
+    #[must_use]
     pub fn new(input: &'input [u8], config: DecoderOptions) -> Self {
         Self {
             input,
@@ -47,12 +47,14 @@ impl<'input> Decoder<'input> {
     }
 
     /// Return a number of the decoded bytes by this decoder
+    #[must_use]
     pub fn decoded_len(&self) -> usize {
         self.initial_len - self.input.len()
     }
 
     fn parse_eoc(&mut self) -> Result<()> {
-        let (i, _) = nom::bytes::streaming::tag(EOC)(self.input).map_err(error::map_nom_err)?;
+        let (i, _) = nom::bytes::streaming::tag(EOC)(self.input)
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = i;
         Ok(())
     }
@@ -70,7 +72,7 @@ impl<'input> Decoder<'input> {
         self.input = input;
         match contents {
             Some(contents) => Ok((identifier, contents)),
-            None => error::IndefiniteLengthNotAllowedSnafu.fail(),
+            None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
         }
     }
 
@@ -88,10 +90,10 @@ impl<'input> Decoder<'input> {
     {
         let (identifier, contents) = self.parse_value(tag)?;
 
-        error::assert_tag(tag, identifier.tag)?;
+        BerDecodeErrorKind::assert_tag(tag, identifier.tag)?;
 
         if check_identifier && identifier.is_primitive() {
-            return Err(Error::custom("Invalid constructed identifier"));
+            return Err(BerDecodeErrorKind::InvalidConstructedIdentifier.into());
         }
 
         let (streaming, contents) = match contents {
@@ -107,9 +109,10 @@ impl<'input> Decoder<'input> {
             self.input = inner.input;
             self.parse_eoc()?;
         } else if !inner.input.is_empty() {
-            return Err(Error::UnexpectedExtraData {
-                length: inner.input.len(),
-            });
+            return Err(DecodeError::unexpected_extra_data(
+                inner.input.len(),
+                self.codec(),
+            ));
         }
 
         Ok(result)
@@ -117,14 +120,15 @@ impl<'input> Decoder<'input> {
     /// Decode an object identifier from a byte slice in BER format.
     /// Function is public to be used by other codecs.
     pub fn decode_object_identifier_from_bytes(
+        &self,
         data: &[u8],
-    ) -> Result<crate::types::ObjectIdentifier, Error> {
+    ) -> Result<crate::types::ObjectIdentifier, DecodeError> {
         use num_traits::ToPrimitive;
-        let (mut contents, root_octets) =
-            parser::parse_base128_number(data).map_err(error::map_nom_err)?;
+        let (mut contents, root_octets) = parser::parse_base128_number(data)
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         let the_number = root_octets
             .to_u32()
-            .context(error::IntegerOverflowSnafu { max_width: 32u32 })?;
+            .ok_or(DecodeError::integer_overflow(32u32, self.codec()))?;
         let first: u32;
         let second: u32;
         const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
@@ -138,21 +142,23 @@ impl<'input> Decoder<'input> {
         let mut buffer = alloc::vec![first, second];
 
         while !contents.is_empty() {
-            let (c, number) = parser::parse_base128_number(contents).map_err(error::map_nom_err)?;
+            let (c, number) = parser::parse_base128_number(contents)
+                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
             contents = c;
             buffer.push(
                 number
                     .to_u32()
-                    .context(error::IntegerOverflowSnafu { max_width: 32u32 })?,
+                    .ok_or(DecodeError::integer_overflow(32u32, self.codec()))?,
             );
         }
-        crate::types::ObjectIdentifier::new(buffer).context(error::InvalidObjectIdentifierSnafu)
+        crate::types::ObjectIdentifier::new(buffer)
+            .ok_or(BerDecodeErrorKind::InvalidObjectIdentifier.into())
     }
     /// Parse any GeneralizedTime string, allowing for any from ASN.1 definition
     /// TODO, move to type itself?
     pub fn parse_any_generalized_time_string(
         string: alloc::string::String,
-    ) -> Result<types::GeneralizedTime, Error> {
+    ) -> Result<types::GeneralizedTime, DecodeError> {
         // Reference https://obj-sys.com/asn1tutorial/node14.html
         // If data contains ., 3 decimal places of seconds are expected
         // If data contains explict Z, result is UTC
@@ -160,7 +166,7 @@ impl<'input> Decoder<'input> {
         // If neither Z nor + nor -, purely local time is implied
         let len = string.len();
         // Helper function to deal with fractions and without timezone
-        let parse_without_timezone = |string: &str| -> Result<NaiveDateTime, Error> {
+        let parse_without_timezone = |string: &str| -> Result<NaiveDateTime, DecodeError> {
             // Handle both decimal cases (dot . and comma , )
             let string: &str = &string.replace(",", ".");
             if string.contains('.') {
@@ -168,7 +174,7 @@ impl<'input> Decoder<'input> {
                 NaiveDateTime::parse_from_str(string, "%Y%m%d%H%.f")
                     .or_else(|_| NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%.f"))
                     .or_else(|_| NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S%.f"))
-                    .map_err(|_| Error::InvalidDate)
+                    .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()).into())
             } else {
                 let fmt_string = match string.len() {
                     8 => "%Y%m%d",
@@ -179,14 +185,14 @@ impl<'input> Decoder<'input> {
                 };
                 match fmt_string.len() {
                     l if l > 0 => NaiveDateTime::parse_from_str(string, fmt_string)
-                        .map_err(|_| Error::InvalidDate),
-                    _ => Err(Error::InvalidDate),
+                        .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()).into()),
+                    _ => Err(BerDecodeErrorKind::invalid_date(string.to_string()).into()),
                 }
             }
         };
         if string.ends_with('Z') {
             let naive = parse_without_timezone(&string[..len - 1])?;
-            return Ok(DateTime::<Utc>::from_utc(naive, Utc).into());
+            return Ok(naive.and_utc().into());
         }
         // Check for timezone offset
         if len > 5
@@ -200,7 +206,7 @@ impl<'input> Decoder<'input> {
                 Some('+') => 1,
                 Some('-') => -1,
                 _ => {
-                    return Err(Error::InvalidDate);
+                    return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
                 }
             };
             let offset_hours = string
@@ -209,66 +215,71 @@ impl<'input> Decoder<'input> {
                 .take(2)
                 .collect::<alloc::string::String>()
                 .parse::<i32>()
-                .map_err(|_| Error::InvalidDate)?;
+                .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
             let offset_minutes = string
                 .chars()
                 .skip(len - 2)
                 .take(2)
                 .collect::<alloc::string::String>()
                 .parse::<i32>()
-                .map_err(|_| Error::InvalidDate)?;
+                .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
             if offset_hours > 23 || offset_minutes > 59 {
-                return Err(Error::InvalidDate);
+                return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
             }
             let offset = FixedOffset::east_opt(sign * (offset_hours * 3600 + offset_minutes * 60))
-                .ok_or(Error::InvalidDate)?;
-            return Ok(DateTime::<FixedOffset>::from_local(naive, offset).into());
+                .ok_or(BerDecodeErrorKind::invalid_date(string.to_string()))?;
+            return Ok(TimeZone::from_local_datetime(&offset, &naive)
+                .single()
+                .ok_or::<DecodeError>(
+                    BerDecodeErrorKind::invalid_date(string.to_string()).into(),
+                )?);
         }
 
         // Parse without timezone details
         let naive = parse_without_timezone(&string)?;
-        Ok(DateTime::<Utc>::from_local(naive, Utc).into())
+        Ok(naive.and_utc().into())
     }
     /// Enforce CER/DER restrictions defined in Section 11.7, strictly raise error on non-compliant
     pub fn parse_canonical_generalized_time_string(
         string: alloc::string::String,
-    ) -> Result<types::GeneralizedTime, Error> {
+    ) -> Result<types::GeneralizedTime, DecodeError> {
         let len = string.len();
         // Helper function to deal with fractions of seconds and without timezone
-        let parse_without_timezone = |string: &str| -> core::result::Result<NaiveDateTime, Error> {
-            let len = string.len();
-            if string.contains('.') {
-                // https://github.com/chronotope/chrono/issues/238#issuecomment-378737786
-                NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S%.f")
-                    .map_err(|_| Error::InvalidDate)
-            } else if len == 14 {
-                NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S")
-                    .map_err(|_| Error::InvalidDate)
-            } else {
-                // CER/DER encoding rules don't allow for timezone offset +/
-                // Or missing seconds/minutes/hours
-                // Or comma , instead of dot .
-                // Or local time without timezone
-                Err(Error::InvalidDate)
-            }
-        };
-        return if string.ends_with('Z') {
+        let parse_without_timezone =
+            |string: &str| -> core::result::Result<NaiveDateTime, DecodeError> {
+                let len = string.len();
+                if string.contains('.') {
+                    // https://github.com/chronotope/chrono/issues/238#issuecomment-378737786
+                    NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S%.f")
+                        .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()).into())
+                } else if len == 14 {
+                    NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S")
+                        .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()).into())
+                } else {
+                    // CER/DER encoding rules don't allow for timezone offset +/
+                    // Or missing seconds/minutes/hours
+                    // Or comma , instead of dot .
+                    // Or local time without timezone
+                    Err(BerDecodeErrorKind::invalid_date(string.to_string()).into())
+                }
+            };
+        if string.ends_with('Z') {
             let naive = parse_without_timezone(&string[..len - 1])?;
-            Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+            Ok(naive.and_utc().into())
         } else {
-            Err(Error::InvalidDate)
-        };
+            Err(BerDecodeErrorKind::invalid_date(string.to_string()).into())
+        }
     }
     /// Parse any UTCTime string, can be any from ASN.1 definition
     /// TODO, move to type itself?
     pub fn parse_any_utc_time_string(
         string: alloc::string::String,
-    ) -> Result<types::UtcTime, Error> {
+    ) -> Result<types::UtcTime, DecodeError> {
         // When compared to GeneralizedTime, UTC time has no fractions.
         let len = string.len();
         // Largest string, e.g. "820102070000-0500".len() == 17
         if len > 17 {
-            return Err(Error::InvalidDate);
+            return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
         }
         let format = if string.contains('Z') {
             if len == 11 {
@@ -284,37 +295,38 @@ impl<'input> Decoder<'input> {
         match len {
             11 | 13 => {
                 let naive = NaiveDateTime::parse_from_str(&string, format)
-                    .map_err(|_| Error::InvalidDate)?;
-                Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+                    .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
+                Ok(naive.and_utc())
             }
             15 | 17 => Ok(DateTime::parse_from_str(&string, format)
-                .map_err(|_| Error::InvalidDate)?
+                .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?
                 .into()),
-            _ => Err(Error::InvalidDate),
+            _ => Err(BerDecodeErrorKind::invalid_date(string.to_string()).into()),
         }
     }
 
     /// Enforce CER/DER restrictions defined in Section 11.8, strictly raise error on non-compliant
-    pub fn parse_canonical_utc_time_string(
-        string: alloc::string::String,
-    ) -> Result<types::UtcTime, Error> {
+    pub fn parse_canonical_utc_time_string(string: &str) -> Result<types::UtcTime, DecodeError> {
         let len = string.len();
-        return if string.ends_with('Z') {
+        if string.ends_with('Z') {
             let naive = match len {
-                13 => NaiveDateTime::parse_from_str(&string, "%y%m%d%H%M%SZ")
-                    .map_err(|_| Error::InvalidDate)?,
-                _ => Err(Error::InvalidDate)?,
+                13 => NaiveDateTime::parse_from_str(string, "%y%m%d%H%M%SZ")
+                    .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?,
+                _ => Err(BerDecodeErrorKind::invalid_date(string.to_string()))?,
             };
-            Ok(DateTime::<Utc>::from_utc(naive, Utc).into())
+            Ok(naive.and_utc())
         } else {
-            Err(Error::InvalidDate)
-        };
+            Err(BerDecodeErrorKind::invalid_date(string.to_string()).into())
+        }
     }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
-    type Error = Error;
+    type Error = DecodeError;
 
+    fn codec(&self) -> crate::Codec {
+        Self::codec(self)
+    }
     fn decode_any(&mut self) -> Result<types::Any> {
         let (mut input, (identifier, contents)) =
             self::parser::parse_value(&self.config, self.input, None)?;
@@ -324,7 +336,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 &self.config,
                 self.input,
                 identifier.tag,
-                |input| Ok(alloc::vec::Vec::from(input)),
+                |input, _| Ok(alloc::vec::Vec::from(input)),
             )?;
             input = i;
         }
@@ -339,22 +351,30 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {
         let (_, contents) = self.parse_primitive_value(tag)?;
-        error::assert_length(1, contents.len())?;
+        DecodeError::assert_length(1, contents.len(), self.codec())?;
         Ok(match contents[0] {
             0 => false,
             0xFF => true,
             _ if self.config.encoding_rules.is_ber() => true,
-            _ => return Err(error::Error::InvalidBool),
+            _ => {
+                return Err(DecodeError::from_kind(
+                    DecodeErrorKind::InvalidBool { value: contents[0] },
+                    self.codec(),
+                ))
+            }
         })
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E> {
-        E::from_discriminant(
-            self.decode_integer(tag, <_>::default())?
-                .try_into()
-                .map_err(Error::custom)?,
-        )
-        .ok_or_else(|| Error::custom("no valid discriminant"))
+        let discriminant = self
+            .decode_integer(tag, <_>::default())?
+            .try_into()
+            .map_err(|e: num_bigint::TryFromBigIntError<types::Integer>| {
+                DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
+            })?;
+
+        E::from_discriminant(discriminant)
+            .ok_or_else(|| BerDecodeErrorKind::DiscriminantValueNotFound { discriminant }.into())
     }
 
     fn decode_integer(&mut self, tag: Tag, _: Constraints) -> Result<types::Integer> {
@@ -369,42 +389,39 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if identifier.is_primitive() {
             match contents {
                 Some(c) => Ok(c.to_vec()),
-                None => error::IndefiniteLengthNotAllowedSnafu.fail(),
+                None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
             }
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
-            error::ConstructedEncodingNotAllowedSnafu.fail()
+            Err(DerDecodeErrorKind::ConstructedEncodingNotAllowed.into())
         } else {
             let mut buffer = Vec::new();
 
-            match contents {
-                Some(mut contents) => {
-                    while !contents.is_empty() {
-                        let (c, mut vec) = self::parser::parse_encoded_value(
-                            &self.config,
-                            contents,
-                            Tag::OCTET_STRING,
-                            |input| Ok(alloc::vec::Vec::from(input)),
-                        )?;
-                        contents = c;
+            if let Some(mut contents) = contents {
+                while !contents.is_empty() {
+                    let (c, mut vec) = self::parser::parse_encoded_value(
+                        &self.config,
+                        contents,
+                        Tag::OCTET_STRING,
+                        |input, _| Ok(alloc::vec::Vec::from(input)),
+                    )?;
+                    contents = c;
 
-                        buffer.append(&mut vec);
-                    }
+                    buffer.append(&mut vec);
                 }
-                None => {
-                    while !self.input.starts_with(EOC) {
-                        let (c, mut vec) = self::parser::parse_encoded_value(
-                            &self.config,
-                            self.input,
-                            Tag::OCTET_STRING,
-                            |input| Ok(alloc::vec::Vec::from(input)),
-                        )?;
-                        self.input = c;
+            } else {
+                while !self.input.starts_with(EOC) {
+                    let (c, mut vec) = self::parser::parse_encoded_value(
+                        &self.config,
+                        self.input,
+                        Tag::OCTET_STRING,
+                        |input, _| Ok(alloc::vec::Vec::from(input)),
+                    )?;
+                    self.input = c;
 
-                        buffer.append(&mut vec);
-                    }
-
-                    self.parse_eoc()?;
+                    buffer.append(&mut vec);
                 }
+
+                self.parse_eoc()?;
             }
 
             Ok(buffer)
@@ -413,21 +430,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_null(&mut self, tag: Tag) -> Result<()> {
         let (_, contents) = self.parse_primitive_value(tag)?;
-        error::assert_length(0, contents.len())?;
+        DecodeError::assert_length(0, contents.len(), self.codec())?;
         Ok(())
     }
 
     fn decode_object_identifier(&mut self, tag: Tag) -> Result<crate::types::ObjectIdentifier> {
         let contents = self.parse_primitive_value(tag)?.1;
-        Self::decode_object_identifier_from_bytes(contents)
+        self.decode_object_identifier_from_bytes(contents)
     }
 
     fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {
         let (input, bs) =
-            self::parser::parse_encoded_value(&self.config, self.input, tag, |input| {
-                let unused_bits = if let Some(bits) = input.first().copied() {
-                    bits
-                } else {
+            self::parser::parse_encoded_value(&self.config, self.input, tag, |input, codec| {
+                let Some(unused_bits) = input.first().copied() else {
                     return Ok(types::BitString::new());
                 };
 
@@ -443,12 +458,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
                         let bit_length = string
                             .len()
                             .checked_sub(bits as usize)
-                            .ok_or(Error::InvalidBitString { bits })?;
+                            .ok_or(DecodeError::invalid_bit_string(unused_bits, codec))?;
                         string.truncate(bit_length);
 
                         Ok(string)
                     }
-                    _ => Err(Error::InvalidBitString { bits: unused_bits }),
+                    _ => Err(DecodeError::invalid_bit_string(unused_bits, codec)),
                 }
             })?;
 
@@ -461,8 +476,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::VisibleString, Self::Error> {
-        types::VisibleString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(Error::custom)
+        types::VisibleString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                types::Tag::VISIBLE_STRING,
+                e.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     fn decode_ia5_string(
@@ -470,8 +490,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::Ia5String> {
-        types::Ia5String::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(Error::custom)
+        types::Ia5String::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                types::Tag::IA5_STRING,
+                e.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     fn decode_printable_string(
@@ -479,8 +504,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::PrintableString> {
-        types::PrintableString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(Error::custom)
+        types::PrintableString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                types::Tag::PRINTABLE_STRING,
+                e.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     fn decode_numeric_string(
@@ -488,8 +518,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::NumericString> {
-        types::NumericString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(Error::custom)
+        types::NumericString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                types::Tag::NUMERIC_STRING,
+                e.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     fn decode_teletex_string(
@@ -497,8 +532,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::TeletexString> {
-        types::TeletexString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(Error::custom)
+        types::TeletexString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                types::Tag::TELETEX_STRING,
+                e.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     fn decode_bmp_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::BmpString> {
@@ -511,9 +551,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         constraints: Constraints,
     ) -> Result<types::Utf8String> {
         let vec = self.decode_octet_string(tag, constraints)?;
-        types::Utf8String::from_utf8(vec)
-            .ok()
-            .context(error::InvalidUtf8Snafu)
+        types::Utf8String::from_utf8(vec).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                types::Tag::UTF8_STRING,
+                e.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     fn decode_general_string(
@@ -521,7 +565,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::GeneralString> {
-        <_>::try_from(self.decode_octet_string(tag, constraints)?).map_err(Error::custom)
+        <types::GeneralString>::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                types::Tag::GENERAL_STRING,
+                e.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
@@ -539,7 +589,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if self.config.encoding_rules.is_ber() {
             Self::parse_any_utc_time_string(string)
         } else {
-            Self::parse_canonical_utc_time_string(string)
+            Self::parse_canonical_utc_time_string(&string)
         }
     }
 
@@ -644,8 +694,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
     where
         D: crate::types::DecodeChoice,
     {
-        let (_, identifier) =
-            parser::parse_identifier_octet(self.input).map_err(error::map_nom_err)?;
+        let (_, identifier) = parser::parse_identifier_octet(self.input)
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         D::from_tag(self, identifier.tag)
     }
 
@@ -692,7 +742,7 @@ mod tests {
     use super::*;
     use crate::types::*;
 
-    fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, self::Error> {
+    fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
         let mut decoder = self::Decoder::new(input, self::DecoderOptions::ber());
         match T::decode(&mut decoder) {
             Ok(result) => {

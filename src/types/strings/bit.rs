@@ -1,5 +1,5 @@
+use crate::error::DecodeError;
 use crate::prelude::*;
-
 ///  The `BIT STRING` type.
 pub type BitString = bitvec::vec::BitVec<u8, bitvec::order::Msb0>;
 ///  A fixed length `BIT STRING` type.
@@ -57,11 +57,15 @@ impl<const N: usize> Decode for FixedBitString<N> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder
-            .decode_bit_string(tag, constraints)?
-            .as_bitslice()
-            .try_into()
-            .map_err(crate::de::Error::custom)
+        let out = decoder.decode_bit_string(tag, constraints)?;
+        out.as_bitslice().try_into().map_err(|_| {
+            D::Error::from(DecodeError::fixed_string_conversion_failed(
+                Tag::BIT_STRING,
+                out.as_bitslice().len(),
+                N,
+                decoder.codec(),
+            ))
+        })
     }
 }
 

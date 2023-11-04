@@ -103,7 +103,12 @@ impl Decode for ExtUtcTime {
     ) -> Result<Self, D::Error> {
         let bytes = OctetString::decode_with_tag(decoder, tag)?;
         let len = bytes.len();
-        let error = || Err(rasn::de::Error::custom("Invalid `ExtUtcTime` encoding"));
+        let error = || {
+            Err(rasn::de::Error::custom(
+                "Invalid `ExtUtcTime` encoding",
+                decoder.codec(),
+            ))
+        };
 
         // YYMMDDHHMMZ || YYYYMMDDHHMMZ
         if len != 11 || len != 13 {

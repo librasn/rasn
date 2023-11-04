@@ -46,7 +46,10 @@ pub trait Encode: AsnType {
 /// A **data format** encode any ASN.1 data type.
 pub trait Encoder {
     type Ok;
-    type Error: Error;
+    type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
+
+    /// Returns codec variant of `Codec` that current encoder is encoding.
+    fn codec(&self) -> crate::Codec;
 
     /// Encode an unknown ASN.1 value.
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error>;
@@ -342,12 +345,13 @@ pub trait Encoder {
 
 /// A generic error that occurred while trying to encode ASN.1.
 pub trait Error: core::fmt::Display {
-    fn custom<D: core::fmt::Display>(msg: D) -> Self;
+    /// Creates a new general error using `msg` and current `codec` when encoding ASN.1.
+    fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self;
 }
 
 impl Error for core::convert::Infallible {
-    fn custom<D: core::fmt::Display>(msg: D) -> Self {
-        core::panic!("Infallible error! {}", msg)
+    fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self {
+        core::panic!("Infallible error! {}, from: {}", msg, codec)
     }
 }
 

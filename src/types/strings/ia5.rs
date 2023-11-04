@@ -1,24 +1,21 @@
 use super::*;
 
+use crate::error::strings::InvalidIso646Character;
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 
 /// An string which only contains ASCII characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ia5String(Vec<u8>);
 
-#[derive(snafu::Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
-#[snafu(display("Invalid ISO 646 bytes"))]
-pub struct InvalidIso646Bytes;
-
 impl Ia5String {
-    pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, InvalidIso646Bytes> {
-        if !bytes
-            .iter()
-            .all(|byte| Self::CHARACTER_SET.contains(&(*byte as u32)))
-        {
-            return Err(InvalidIso646Bytes);
-        }
+    pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, InvalidIso646Character> {
+        bytes.iter().try_for_each(|byte| {
+            if Self::CHARACTER_SET.contains(&(*byte as u32)) {
+                Ok(())
+            } else {
+                Err(InvalidIso646Character { character: *byte })
+            }
+        })?;
 
         Ok(Self(bytes.to_owned()))
     }
@@ -60,7 +57,7 @@ impl Decode for Ia5String {
 }
 
 impl TryFrom<alloc::string::String> for Ia5String {
-    type Error = InvalidIso646Bytes;
+    type Error = InvalidIso646Character;
 
     fn try_from(value: alloc::string::String) -> Result<Self, Self::Error> {
         Self::from_iso646_bytes(value.as_bytes())
@@ -68,7 +65,7 @@ impl TryFrom<alloc::string::String> for Ia5String {
 }
 
 impl TryFrom<&'_ str> for Ia5String {
-    type Error = InvalidIso646Bytes;
+    type Error = InvalidIso646Character;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::from_iso646_bytes(value.as_bytes())
@@ -76,7 +73,7 @@ impl TryFrom<&'_ str> for Ia5String {
 }
 
 impl TryFrom<alloc::vec::Vec<u8>> for Ia5String {
-    type Error = InvalidIso646Bytes;
+    type Error = InvalidIso646Character;
 
     fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
         Self::from_iso646_bytes(&value)
@@ -84,7 +81,7 @@ impl TryFrom<alloc::vec::Vec<u8>> for Ia5String {
 }
 
 impl TryFrom<&'_ [u8]> for Ia5String {
-    type Error = InvalidIso646Bytes;
+    type Error = InvalidIso646Character;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         Self::from_iso646_bytes(value)
@@ -92,7 +89,7 @@ impl TryFrom<&'_ [u8]> for Ia5String {
 }
 
 impl TryFrom<bytes::Bytes> for Ia5String {
-    type Error = InvalidIso646Bytes;
+    type Error = InvalidIso646Character;
 
     fn try_from(value: bytes::Bytes) -> Result<Self, Self::Error> {
         Self::try_from(&*value)

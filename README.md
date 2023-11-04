@@ -33,7 +33,7 @@ The encoder and decoder have been written in 100% safe Rust and fuzzed with [Ame
 - Distinguished Encoding Rules (DER)
 - Aligned Packed Encoding Rules (APER)
 - Unaligned Packed Encoding Rules (UPER)
-- JSON Encoding Rules (JSON) (cargo feature `"jer"`)
+- JSON Encoding Rules (JER)
 
 [bun]: https://aflplus.plus
 
