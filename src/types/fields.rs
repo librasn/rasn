@@ -71,38 +71,9 @@ pub struct Field {
     pub tag: Tag,
     pub tag_tree: TagTree,
     pub presence: FieldPresence,
-    #[cfg(feature = "jer")]
     pub name: &'static str,
 }
 
-#[cfg(not(feature = "jer"))]
-impl Field {
-    pub const fn new_required(tag: Tag, tag_tree: TagTree) -> Self {
-        Self {
-            tag,
-            tag_tree,
-            presence: FieldPresence::Required,
-        }
-    }
-
-    pub const fn new_optional(tag: Tag, tag_tree: TagTree) -> Self {
-        Self {
-            tag,
-            tag_tree,
-            presence: FieldPresence::Optional,
-        }
-    }
-
-    pub const fn new_default(tag: Tag, tag_tree: TagTree) -> Self {
-        Self {
-            tag,
-            tag_tree,
-            presence: FieldPresence::Default,
-        }
-    }
-}
-
-#[cfg(feature = "jer")]
 impl Field {
     pub const fn new_required(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
         Self {

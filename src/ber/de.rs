@@ -884,15 +884,6 @@ mod tests {
             ok: bool,
         }
 
-        #[cfg(not(feature = "jer"))]
-        impl types::Constructed for Foo {
-            const FIELDS: types::fields::Fields = types::fields::Fields::from_static(&[
-                types::fields::Field::new_required(Ia5String::TAG, Ia5String::TAG_TREE),
-                types::fields::Field::new_required(bool::TAG, bool::TAG_TREE),
-            ]);
-        }
-
-        #[cfg(feature = "jer")]
         impl types::Constructed for Foo {
             const FIELDS: types::fields::Fields = types::fields::Fields::from_static(&[
                 types::fields::Field::new_required(Ia5String::TAG, Ia5String::TAG_TREE, "name"),

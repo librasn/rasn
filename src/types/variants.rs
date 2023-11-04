@@ -20,7 +20,6 @@ impl Variants {
         Self::new(Cow::Borrowed(fields))
     }
 
-    #[cfg(feature = "jer")]
     pub fn from_slice(fields: &[TagTree]) -> Self {
         Self::flatten_tree(fields.iter())
     }

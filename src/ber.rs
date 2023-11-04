@@ -129,19 +129,6 @@ mod tests {
             const TAG: Tag = Tag::SET;
         }
 
-        #[cfg(not(feature = "jer"))]
-        impl crate::types::Constructed for Set {
-            const FIELDS: crate::types::fields::Fields =
-                crate::types::fields::Fields::from_static(&[
-                    crate::types::fields::Field::new_required(u32::TAG, u32::TAG_TREE),
-                    crate::types::fields::Field::new_required(
-                        Utf8String::TAG,
-                        Utf8String::TAG_TREE,
-                    ),
-                ]);
-        }
-
-        #[cfg(feature = "jer")]
         impl crate::types::Constructed for Set {
             const FIELDS: crate::types::fields::Fields =
                 crate::types::fields::Fields::from_static(&[
