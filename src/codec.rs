@@ -34,10 +34,12 @@ impl core::fmt::Display for Codec {
 
 impl Codec {
     /// Encodes a given value based on the value of `Codec`.
+    /// This method shall be used when using binary-based encoding rules.
     ///
     /// # Errors
-    /// - If the value fails to be encoded, returns `EncodeError` struct.
-    pub fn encode<T: Encode>(
+    /// - If the value fails to be encoded, or if trying to encode using
+    ///   text-based encoding rules, returns `EncodeError` struct.
+    pub fn encode_to_binary<T: Encode>(
         self,
         value: &T,
     ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
@@ -47,31 +49,78 @@ impl Codec {
             Self::Cer => crate::cer::encode(value),
             Self::Der => crate::der::encode(value),
             Self::Uper => crate::uper::encode(value),
-            Self::Jer => crate::jer::encode(value).map(|s| s.as_bytes().to_vec()),
+            Self::Jer => Err(crate::error::EncodeError::from_kind(
+                crate::error::EncodeErrorKind::Custom {
+                    msg: "JER is a text-based encoding. Call `Codec::encode_to_string` instead."
+                        .into(),
+                },
+                Codec::Jer,
+            )),
         }
     }
 
     /// Decodes `input` to `D` based on the value of `Codec`.
+    /// This method shall be used when using binary-based encoding rules.
     ///
     /// # Errors
-    /// - If `D` cannot be decoded from `input`, returns `DecodeError` struct.
-    pub fn decode<D: Decode>(&self, input: &[u8]) -> Result<D, crate::error::DecodeError> {
+    /// - If `D` cannot be decoded from `input`, or if trying to decode using
+    ///   text-based encoding rules, returns `DecodeError` struct.
+    pub fn decode_from_binary<D: Decode>(
+        &self,
+        input: &[u8],
+    ) -> Result<D, crate::error::DecodeError> {
         match self {
             Self::Aper => crate::aper::decode(input),
             Self::Ber => crate::ber::decode(input),
             Self::Cer => crate::cer::decode(input),
             Self::Der => crate::der::decode(input),
             Self::Uper => crate::uper::decode(input),
-            Self::Jer => crate::jer::decode(
-                &alloc::string::String::from_utf8(input.to_vec()).map_err(|_| {
-                    crate::error::DecodeError::from_kind(
-                        crate::error::DecodeErrorKind::Custom {
-                            msg: "Failed to parse binary UTF8 JSON String.".into(),
-                        },
-                        Codec::Jer,
-                    )
-                })?,
-            ),
+            Self::Jer => Err(crate::error::DecodeError::from_kind(
+                crate::error::DecodeErrorKind::Custom {
+                    msg: "JER is a text-based encoding. Call `Codec::decode_from_str` instead."
+                        .into(),
+                },
+                Codec::Jer,
+            )),
+        }
+    }
+
+    /// Encodes a given value based on the value of `Codec`.
+    /// This method shall be used when using text-based encoding rules.
+    ///
+    /// # Errors
+    /// - If the value fails to be encoded, or if trying to encode using
+    ///   binary-based encoding rules, returns `EncodeError` struct.
+    pub fn encode_to_string<T: Encode>(
+        self,
+        value: &T,
+    ) -> Result<alloc::string::String, crate::error::EncodeError> {
+        match self {
+            Self::Jer => crate::jer::encode(value),
+            codec => Err(crate::error::EncodeError::from_kind(
+                crate::error::EncodeErrorKind::Custom {
+                    msg: alloc::format!("{codec} is a binary-based encoding. Call `Codec::encode_to_binary` instead."),
+                },
+                codec,
+            )),
+        }
+    }
+
+    /// Decodes `input` to `D` based on the value of `Codec`.
+    /// This method shall be used when using text-based encoding rules.
+    ///
+    /// # Errors
+    /// - If `D` cannot be decoded from `input`, or if trying to decode using
+    ///   binary-based encoding rules, returns `DecodeError` struct.
+    pub fn decode_from_str<D: Decode>(&self, input: &str) -> Result<D, crate::error::DecodeError> {
+        match self {
+            Self::Jer => crate::jer::decode(input),
+            codec => Err(crate::error::DecodeError::from_kind(
+                crate::error::DecodeErrorKind::Custom {
+                    msg: alloc::format!("{codec} is a text-based encoding. Call `Codec::decode_from_binary` instead."),
+                },
+                codec.clone(),
+            )),
         }
     }
 }

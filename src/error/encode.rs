@@ -64,7 +64,7 @@ impl From<CodecEncodeError> for EncodeError {
 /// fn main() {
 ///
 ///     let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
-///     let encoded = Codec::Uper.encode(&constrained_str);
+///     let encoded = Codec::Uper.encode_to_binary(&constrained_str);
 ///     match encoded {
 ///         Ok(succ) => {
 ///             println!("Successful encoding!");
@@ -306,7 +306,7 @@ mod tests {
         let oid = ObjectIdentifier::new(vec![2, 5, 4, 3]);
         assert!(oid.is_some());
         // Higher level abstraction does not allow us to provide OID errors because we provide only valid types
-        let oid_encoded = crate::Codec::Ber.encode(&oid);
+        let oid_encoded = crate::Codec::Ber.encode_to_binary(&oid);
         assert!(oid_encoded.is_ok());
 
         let oid = vec![3, 5, 4, 3];
@@ -356,7 +356,7 @@ mod tests {
         struct MyConstrainedString(VisibleString);
 
         let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
-        let encoded = Codec::Uper.encode(&constrained_str);
+        let encoded = Codec::Uper.encode_to_binary(&constrained_str);
         match encoded {
             Ok(_) => {}
             Err(e) => {

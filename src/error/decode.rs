@@ -76,7 +76,7 @@ impl From<CodecDecodeError> for DecodeError {
 ///     let mut total = 2;
 ///
 ///     loop {
-///         let decoded = Codec::Uper.decode::<MyString>(&hello_data[0..hello_data.len().min(total)]);
+///         let decoded = Codec::Uper.decode_from_binary::<MyString>(&hello_data[0..hello_data.len().min(total)]);
 ///         match decoded {
 ///             Ok(succ) => {
 ///                 println!("Successful decoding!");
@@ -646,7 +646,7 @@ mod tests {
         }
         // Value 333 encoded for missing choice index 3
         let data = [192, 128, 83, 64];
-        let result = Codec::Uper.decode::<MyChoice>(&data);
+        let result = Codec::Uper.decode_from_binary::<MyChoice>(&data);
         match result {
             Ok(_) => {
                 panic!("Unexpected OK!");
