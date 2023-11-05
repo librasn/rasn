@@ -860,11 +860,6 @@ mod tests {
                 choice: TestChoice::Number1(()),
             })),
         );
-        round_trip!(
-            uper,
-            TopLevel,
-            test_value,
-            &[8,128]
-        );
+        round_trip!(uper, TopLevel, test_value, &[8, 128]);
     }
 }

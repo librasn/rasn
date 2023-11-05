@@ -9,7 +9,7 @@ use crate::prelude::*;
 /// ... can be represented using `rasn` as ...
 /// ```rust
 /// use rasn::prelude::*;
-/// 
+///
 /// #[derive(AsnType, Decode, Encode)]
 /// #[rasn(delegate)]
 /// struct TestTypeA(pub BitString);

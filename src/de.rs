@@ -248,7 +248,10 @@ pub trait Decoder: Sized {
         &mut self,
         default_fn: F,
     ) -> Result<D, Self::Error> {
-        self.decode_extension_addition_with_default_and_constraints(default_fn, Constraints::default())
+        self.decode_extension_addition_with_default_and_constraints(
+            default_fn,
+            Constraints::default(),
+        )
     }
 
     /// Decode a `DEFAULT` value with constraints in a `SEQUENCE`'s or `SET`'s extension

@@ -160,7 +160,7 @@ impl Tag {
             Self::Value { class, value, .. } => {
                 let cls = class.to_tokens(crate_root);
                 quote!(#crate_root::Tag::new(#cls, #value))
-            },
+            }
             Self::Delegate { ty } => quote!(<#ty as #crate_root::AsnType>::TAG),
         }
     }

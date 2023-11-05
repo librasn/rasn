@@ -55,11 +55,11 @@ pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
 /// ... can be represented using `rasn` as ...
 /// ```rust
 /// use rasn::prelude::*;
-/// 
+///
 /// #[derive(AsnType, Decode, Encode)]
 /// #[rasn(delegate)]
 /// struct TestTypeA(pub SequenceOf<bool>);
-/// 
+///
 /// // Constrained inner primitive types need to be wrapped in a helper newtype
 /// #[derive(AsnType, Decode, Encode)]
 /// #[rasn(delegate, value("1", extensible))]

@@ -987,12 +987,12 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        if let Some((_,true)) = self.field_bitfield.get(&tag) {
+        if let Some((_, true)) = self.field_bitfield.get(&tag) {
             value.encode(self)
         } else {
-        self.set_bit(tag, true)?;
-        value.encode_with_tag(self, tag)
-    }
+            self.set_bit(tag, true)?;
+            value.encode_with_tag(self, tag)
+        }
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
