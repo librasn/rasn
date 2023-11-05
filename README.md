@@ -237,7 +237,7 @@ type TestTypeA = TestTypeB;
 /// or
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(pub TestTypeB)
+struct TestTypeA(pub TestTypeB);
 ```
 
 </td>
@@ -256,7 +256,7 @@ Test-type-a ::= BOOLEAN
 ```rust
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(pub bool)
+struct TestTypeA(pub bool);
 ```
 
 </td>
@@ -275,7 +275,7 @@ Test-type-a ::= NULL
 ```rust
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(())
+struct TestTypeA(());
 ```
 
 </td>
@@ -295,12 +295,12 @@ Test-type-a ::= INTEGER
 // either
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(pub u8 /* or any other rust integer type */)
+struct TestTypeA(pub u8 /* or any other rust integer type */);
 
 // or
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(pub Integer)
+struct TestTypeA(pub Integer);
 ```
 
 </td>
@@ -320,12 +320,12 @@ Test-type-a ::= INTEGER (8)
 // either
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("8"))]
-struct TestTypeA(pub u8)
+struct TestTypeA(pub u8);
 
 // or
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("8"))]
-struct TestTypeA(pub Integer)
+struct TestTypeA(pub Integer);
 ```
 
 </td>
@@ -347,15 +347,15 @@ Test-type-c ::= INTEGER (42..MAX)
 /// of course a primitive rust integer would still work in these examples
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("-8..=360"))]
-struct TestTypeA(pub Integer)
+struct TestTypeA(pub Integer);
 
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("..=360"))]
-struct TestTypeB(pub Integer)
+struct TestTypeB(pub Integer);
 
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("42..="))]
-struct TestTypeC(pub Integer)
+struct TestTypeC(pub Integer);
 ```
 
 </td>
@@ -713,16 +713,16 @@ Test-type-b ::= SEQUENCE OF INTEGER(1,...)
 ```rust
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(pub SequenceOf<bool>)
+struct TestTypeA(pub SequenceOf<bool>);
 
 /// Constrained inner primitive types need to be wrapped in a helper newtype
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("1", extensible))]
-struct InnerTestTypeB(pub Integer)
+struct InnerTestTypeB(pub Integer);
 
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeB(pub SequenceOf<InnerTestTypeB>)
+struct TestTypeB(pub SequenceOf<InnerTestTypeB>);
 ```
 
 </td>
@@ -744,7 +744,7 @@ Test-type-a ::= UTF8String
 /// (and also for BIT STRING and OCTET STRING)
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(pub Utf8String)
+struct TestTypeA(pub Utf8String);
 ```
 
 </td>
@@ -763,7 +763,7 @@ Test-type-a ::= BIT STRING
 ```rust
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(pub BitString)
+struct TestTypeA(pub BitString);
 ```
 
 </td>
@@ -782,7 +782,7 @@ Test-type-a ::= OCTET STRING
 ```rust
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA(pub OctetString)
+struct TestTypeA(pub OctetString);
 ```
 
 </td>
@@ -803,11 +803,11 @@ Test-type-b ::= SEQUENCE (SIZE (1..8)) OF BOOLEAN
 /// The size constraint definition behaves similar to the value definition (see above)
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, size("42", extensible))]
-struct TestTypeA(pub Utf8String)
+struct TestTypeA(pub Utf8String);
 
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, size("1..=8"))]
-struct TestTypeB(pub SequenceOf<bool>)
+struct TestTypeB(pub SequenceOf<bool>);
 ```
 
 </td>
@@ -826,7 +826,7 @@ Test-type-a ::= UTF8String (FROM ("A".."Z"))
 ```rust
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, from("\u{0041}..\u{005A}"))]
-struct TestTypeA(pub Utf8String)
+struct TestTypeA(pub Utf8String);
 ```
 
 </td>
