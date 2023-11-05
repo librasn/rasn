@@ -1,6 +1,19 @@
 use crate::prelude::*;
 
 ///  The `BIT STRING` type.
+/// /// ## Usage
+/// ASN1 declaration such as ...
+/// ```asn
+/// Test-type-a ::= BIT STRING
+/// ```
+/// ... can be represented using `rasn` as ...
+/// ```rust
+/// use rasn::prelude::*;
+/// 
+/// #[derive(AsnType, Decode, Encode)]
+/// #[rasn(delegate)]
+/// struct TestTypeA(pub BitString);
+/// ```
 pub type BitString = bitvec::vec::BitVec<u8, bitvec::order::Msb0>;
 ///  A fixed length `BIT STRING` type.
 pub type FixedBitString<const N: usize> = bitvec::array::BitArray<[u8; N], bitvec::order::Msb0>;

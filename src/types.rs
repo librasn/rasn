@@ -46,6 +46,29 @@ pub type UtcTime = chrono::DateTime<chrono::Utc>;
 ///  The `GeneralizedTime` type.
 pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
 ///  The `SEQUENCE OF` type.
+/// ## Usage
+/// ASN1 declaration such as ...
+/// ```asn
+/// Test-type-a ::= SEQUENCE OF BOOLEAN
+/// Test-type-b ::= SEQUENCE OF INTEGER(1,...)
+/// ```
+/// ... can be represented using `rasn` as ...
+/// ```rust
+/// use rasn::prelude::*;
+/// 
+/// #[derive(AsnType, Decode, Encode)]
+/// #[rasn(delegate)]
+/// struct TestTypeA(pub SequenceOf<bool>);
+/// 
+/// // Constrained inner primitive types need to be wrapped in a helper newtype
+/// #[derive(AsnType, Decode, Encode)]
+/// #[rasn(delegate, value("1", extensible))]
+/// struct InnerTestTypeB(pub Integer);
+///  
+/// #[derive(AsnType, Decode, Encode)]
+/// #[rasn(delegate)]
+/// struct TestTypeB(pub SequenceOf<InnerTestTypeB>);
+/// ```
 pub type SequenceOf<T> = alloc::vec::Vec<T>;
 
 /// A trait representing any type that can represented in ASN.1.
