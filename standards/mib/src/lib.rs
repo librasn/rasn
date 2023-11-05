@@ -2,7 +2,7 @@
 #![no_std]
 
 extern crate alloc;
-
+use alloc::string::ToString;
 pub mod address_family_numbers;
 
 use alloc::{vec, vec::Vec};
@@ -233,7 +233,7 @@ pub mod interfaces {
     );
 
     impl core::convert::TryFrom<Opaque> for Entry {
-        type Error = rasn::ber::de::Error;
+        type Error = rasn::error::DecodeError;
 
         fn try_from(value: Opaque) -> Result<Self, Self::Error> {
             rasn::ber::decode(value.as_ref())
@@ -241,7 +241,7 @@ pub mod interfaces {
     }
 
     impl core::convert::TryFrom<Entry> for Opaque {
-        type Error = rasn::ber::enc::Error;
+        type Error = rasn::error::EncodeError;
 
         fn try_from(value: Entry) -> Result<Self, Self::Error> {
             value.to_opaque()
@@ -261,27 +261,27 @@ pub mod interfaces {
                 );
 
                 Ok(Self {
-                    index: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    descr: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    r#type: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    mtu: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    speed: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    phys_address: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    admin_status: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    oper_status: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    last_change: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    in_octets: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    in_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    in_n_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    in_discards: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    in_errors: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    in_unknown_protos: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    out_octets: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    out_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    out_n_ucast_pkts: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    out_discards: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    out_errors: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
-                    out_q_len: <_>::decode(decoder).map_err(rasn::de::Error::custom)?,
+                    index: <_>::decode(decoder)?,
+                    descr: <_>::decode(decoder)?,
+                    r#type: <_>::decode(decoder)?,
+                    mtu: <_>::decode(decoder)?,
+                    speed: <_>::decode(decoder)?,
+                    phys_address: <_>::decode(decoder)?,
+                    admin_status: <_>::decode(decoder)?,
+                    oper_status: <_>::decode(decoder)?,
+                    last_change: <_>::decode(decoder)?,
+                    in_octets: <_>::decode(decoder)?,
+                    in_ucast_pkts: <_>::decode(decoder)?,
+                    in_n_ucast_pkts: <_>::decode(decoder)?,
+                    in_discards: <_>::decode(decoder)?,
+                    in_errors: <_>::decode(decoder)?,
+                    in_unknown_protos: <_>::decode(decoder)?,
+                    out_octets: <_>::decode(decoder)?,
+                    out_ucast_pkts: <_>::decode(decoder)?,
+                    out_n_ucast_pkts: <_>::decode(decoder)?,
+                    out_discards: <_>::decode(decoder)?,
+                    out_errors: <_>::decode(decoder)?,
+                    out_q_len: <_>::decode(decoder)?,
                     specific: <_>::decode(decoder).unwrap_or_default(),
                 })
             })
@@ -296,7 +296,12 @@ pub mod interfaces {
             constraints: Constraints,
         ) -> Result<(), EN::Error> {
             self.to_opaque()
-                .map_err(rasn::enc::Error::custom)?
+                .map_err(|e| {
+                    rasn::error::EncodeError::opaque_conversion_failed(
+                        e.to_string(),
+                        encoder.codec(),
+                    )
+                })?
                 .encode_with_tag_and_constraints(encoder, tag, constraints)
         }
     }

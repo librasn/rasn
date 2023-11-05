@@ -35,12 +35,19 @@ pub fn derive_struct_impl(
             }
         } else {
             quote!(
-                <#ty as #crate_root::Encode>::encode_with_tag_and_constraints(
-                    &self.0,
-                    encoder,
-                    tag,
-                    <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints)
-                )
+                match tag {
+                    #crate_root::Tag::EOC => {
+                        self.0.encode(encoder)
+                    }
+                    _ => {
+                        <#ty as #crate_root::Encode>::encode_with_tag_and_constraints(
+                            &self.0,
+                            encoder,
+                            tag,
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints)
+                        )
+                    }
+                }
             )
         }
     } else {
@@ -112,7 +119,8 @@ pub fn map_to_inner_type(
 
             let init_fields = fields.iter().map(|field| {
                 let name = field.ident.as_ref().unwrap();
-                quote!(#name : &#name)
+                let name_prefixed = format_ident!("__rasn_field_{}", name);
+                quote!(#name : &#name_prefixed)
             });
 
             fn wrap(
@@ -145,11 +153,11 @@ pub fn map_to_inner_type(
         syn::Fields::Unit => (quote!(;), quote!()),
     };
 
+    let tag = tag.to_tokens(crate_root);
     let inner_impl = if is_explicit {
-        let tag = tag.to_tokens(crate_root);
         quote!(encoder.encode_explicit_prefix(#tag, &inner).map(drop))
     } else {
-        quote!(inner.encode(encoder))
+        quote!(inner.encode_with_tag(encoder, #tag))
     };
 
     quote! {
@@ -175,8 +183,11 @@ fn fields_as_vars(fields: &syn::Fields) -> impl Iterator<Item = proc_macro2::Tok
 
         let name = field
             .ident
-            .is_some()
-            .then(|| self_name.clone())
+            .as_ref()
+            .map(|ident| {
+                let prefixed = format_ident!("__rasn_field_{}", ident);
+                quote!(#prefixed)
+            })
             .unwrap_or_else(|| {
                 let ident = format_ident!("i{}", i);
                 quote!(#ident)

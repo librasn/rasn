@@ -75,9 +75,11 @@ impl<const N: usize> Decode for FixedOctetString<N> {
             .try_into()
             .map(Self)
             .map_err(|vec| {
-                crate::de::Error::custom(alloc::format!(
-                    "length mismatch, expected `{N}`, actual `{}`",
-                    vec.len()
+                D::Error::from(crate::error::DecodeError::fixed_string_conversion_failed(
+                    Tag::OCTET_STRING,
+                    vec.len(),
+                    N,
+                    decoder.codec(),
                 ))
             })
     }

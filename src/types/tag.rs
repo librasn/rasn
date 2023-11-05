@@ -1,6 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
 
 pub(crate) use self::consts::*;
+use alloc::string::ToString;
 
 /// The class of tag identifying its category.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
@@ -55,6 +56,20 @@ pub struct Tag {
     pub class: Class,
     /// The sub-class of the tag.
     pub value: u32,
+}
+
+/// Implement display for Tag; represents `class` as string and `value` as number.
+impl core::fmt::Display for Tag {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        f.write_str(match self.class {
+            Class::Universal => "Universal",
+            Class::Application => "Application",
+            Class::Context => "Context",
+            Class::Private => "Private",
+        })?;
+        f.write_str(" ")?;
+        f.write_str(&self.value.to_string())
+    }
 }
 
 macro_rules! consts {
@@ -162,7 +177,7 @@ impl Tag {
     }
 }
 
-/// The root or node in tree reprensenting all of potential tags in a ASN.1 type.
+/// The root or node in tree representing all of potential tags in a ASN.1 type.
 /// For most types this is only ever one level deep, except for CHOICE enums
 /// which will contain a set of nodes, that either point to a `Leaf` or another
 /// level of `Choice`.

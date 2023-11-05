@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::error::strings::InvalidPrintableString;
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 
 /// A string, which contains the characters defined in X.680 41.4 Section, Table 10.
@@ -40,16 +41,15 @@ impl PrintableString {
     /// Raises `InvalidPrintableString` if the byte array contains invalid characters,
     /// other than in `CHARACTER_SET`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidPrintableString> {
-        if bytes
-            .iter()
-            .copied()
-            .map(u32::from)
-            .all(|b| Self::CHARACTER_SET.contains(&b))
-        {
-            Ok(Self(bytes.to_owned()))
-        } else {
-            Err(InvalidPrintableString)
-        }
+        bytes.iter().copied().map(u32::from).try_for_each(|byte| {
+            if Self::CHARACTER_SET.contains(&byte) {
+                Ok(())
+            } else {
+                Err(InvalidPrintableString { character: byte })
+            }
+        })?;
+
+        Ok(Self(bytes.to_owned()))
     }
 
     #[must_use]
@@ -57,11 +57,6 @@ impl PrintableString {
         &self.0
     }
 }
-
-#[derive(snafu::Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
-#[snafu(display("Invalid printable string"))]
-pub struct InvalidPrintableString;
 
 impl TryFrom<String> for PrintableString {
     type Error = InvalidPrintableString;

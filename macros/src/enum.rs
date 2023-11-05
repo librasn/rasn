@@ -86,6 +86,8 @@ impl Enum {
             }
         });
 
+        let extensible = self.config.constraints.extensible;
+
         let enumerated_impl = self.config.enumerated.then(|| {
             let (variants, extended_variants): (Vec<_>, Vec<_>) = self.variants.iter()
                 .map(|variant| VariantConfig::new(variant, &self.generics, &self.config))
@@ -104,7 +106,7 @@ impl Enum {
 
             let variants = variants.iter().map(|config| config.variant.ident.clone());
             let extended_variant_idents = extended_variants.iter().map(|config| config.variant.ident.clone());
-            let extended_variants = (!extended_variants.is_empty())
+            let extended_variants = extensible
                 .then(|| quote!(Some(&[#(Self::#extended_variant_idents,)*])))
                 .unwrap_or(quote!(None));
             let extended_discriminants = (!extended_variants.is_empty())
@@ -244,12 +246,12 @@ impl Enum {
             let from_tag = quote! {
                 #(#decode_ops)*
 
-                Err(#crate_root::de::Error::no_valid_choice(#str_name))
+                Err(#crate_root::de::Error::no_valid_choice(#str_name, decoder.codec()))
             };
             quote! {
                 #[automatically_derived]
                 impl #impl_generics #crate_root::types::DecodeChoice for #name #ty_generics #where_clause {
-                    fn from_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> Result<Self, D::Error> {
+                    fn from_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
                         use #crate_root::de::Decode;
                         #from_tag
                     }
@@ -312,6 +314,11 @@ impl Enum {
                         let ident = f.ident.as_ref().unwrap();
                         quote!(#ident)
                     });
+                    let idents_prefixed = v.fields.iter().map(|f| {
+                        let ident = f.ident.as_ref().unwrap();
+                        let ident_prefixed = format_ident!("__rasn_field_{}", ident);
+                        quote!(#ident_prefixed)
+                    });
 
                     let tag_tokens = variant_tag.to_tokens(crate_root);
                     let encode_impl = crate::encode::map_to_inner_type(
@@ -323,7 +330,7 @@ impl Enum {
                         variant_config.has_explicit_tag(),
                     );
 
-                    quote!(#name::#ident { #(#idents),* } => { #encode_impl.map(|_| #tag_tokens) })
+                    quote!(#name::#ident { #(#idents: #idents_prefixed),* } => { #encode_impl.map(|_| #tag_tokens) })
                 }
                 syn::Fields::Unnamed(_) => {
                     if v.fields.iter().count() != 1 {

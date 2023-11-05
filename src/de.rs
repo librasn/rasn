@@ -1,8 +1,9 @@
 //! Generic ASN.1 decoding framework.
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, string::ToString, vec::Vec};
 use core::convert::TryInto;
 
+use crate::error::DecodeError;
 use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
 
 pub use nom::Needed;
@@ -47,7 +48,13 @@ pub trait Decode: Sized + AsnType {
 
 /// A **data format** decode any ASN.1 data type.
 pub trait Decoder: Sized {
-    type Error: Error;
+    // TODO, when associated type defaults are stabilized, use this instead?
+    // type Error = crate::error::DecodeError;
+    type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
+
+    /// Returns codec variant of `Codec` that current decoder is decoding.
+    #[must_use]
+    fn codec(&self) -> crate::Codec;
 
     /// Decode a unknown ASN.1 value identified by `tag` from the available input.
     fn decode_any(&mut self) -> Result<types::Any, Self::Error>;
@@ -236,6 +243,18 @@ pub trait Decoder: Sized {
             .unwrap_or_else(default_fn))
     }
 
+    /// Decode a `DEFAULT` value in a `SEQUENCE` or `SET` with `tag`, `constraints` and `default_fn`.
+    fn decode_default_with_tag_and_constraints<D: Decode, F: FnOnce() -> D>(
+        &mut self,
+        tag: Tag,
+        default_fn: F,
+        constraints: Constraints,
+    ) -> Result<D, Self::Error> {
+        Ok(self
+            .decode_optional_with_tag_and_constraints::<D>(tag, constraints)?
+            .unwrap_or_else(default_fn))
+    }
+
     fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -279,22 +298,37 @@ pub trait Decoder: Sized {
 }
 
 /// A generic error that can occur while decoding ASN.1.
+/// Caller needs always to pass a `crate::Codec` variant to `Error` when implementing the decoder
 pub trait Error: core::fmt::Display {
     /// Creates a new general error using `msg` when decoding ASN.1.
-    fn custom<D: core::fmt::Display>(msg: D) -> Self;
+    #[must_use]
+    fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self;
     /// Creates a new error about needing more data to finish parsing.
-    fn incomplete(needed: Needed) -> Self;
+    #[must_use]
+    fn incomplete(needed: Needed, codec: crate::Codec) -> Self;
     /// Creates a new error about exceeding the maximum allowed data for a type.
-    fn exceeds_max_length(length: num_bigint::BigUint) -> Self;
+    #[must_use]
+    fn exceeds_max_length(length: num_bigint::BigUint, codec: crate::Codec) -> Self;
     /// Creates a new error about a missing field.
-    fn missing_field(name: &'static str) -> Self;
+    #[must_use]
+    fn missing_field(name: &'static str, codec: crate::Codec) -> Self;
     /// Creates a new error about being unable to match any variant in a choice.
-    fn no_valid_choice(name: &'static str) -> Self;
+    #[must_use]
+    fn no_valid_choice(name: &'static str, codec: crate::Codec) -> Self;
     /// Creates a new error about being unable to decode a field in a compound
     /// type, such as a set or sequence.
-    fn field_error<D: core::fmt::Display>(name: &'static str, error: D) -> Self;
+    #[must_use]
+    fn field_error<D: core::fmt::Display>(
+        name: &'static str,
+        error: D,
+        codec: crate::Codec,
+    ) -> Self;
     /// Creates a new error about finding a duplicate field.
-    fn duplicate_field(name: &'static str) -> Self;
+    #[must_use]
+    fn duplicate_field(name: &'static str, codec: crate::Codec) -> Self;
+    /// Create a new error about unknown field.
+    #[must_use]
+    fn unknown_field(index: usize, tag: Tag, codec: crate::Codec) -> Self;
 }
 
 impl Decode for () {
@@ -352,7 +386,7 @@ macro_rules! impl_integers {
                         tag,
                         constraints,
                     )?
-                ).map_err(Error::custom)
+                ).map_err(|e: num_bigint::TryFromBigIntError<types::Integer>|D::Error::from(DecodeError::integer_type_conversion_failed(e.to_string(), decoder.codec())))
             }
         }
         )+
@@ -506,12 +540,11 @@ impl<T: Decode + Default, const N: usize> Decode for [T; N] {
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
         let sequence = decoder.decode_sequence_of(tag, constraints)?;
-
         sequence.try_into().map_err(|seq: Vec<_>| {
-            Error::custom(alloc::format!(
-                "Incorrect number of items provided. Expected {}, Actual {}.",
+            D::Error::from(DecodeError::incorrect_item_number_in_sequence(
                 N,
-                seq.len()
+                seq.len(),
+                decoder.codec(),
             ))
         })
     }

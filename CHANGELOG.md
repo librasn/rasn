@@ -6,6 +6,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.6...rasn-v0.11.0) - 2023-10-28
+
+### Other
+- Shared error module ([#164](https://github.com/XAMPPRocky/rasn/pull/164))
+
+## [0.10.6](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.5...rasn-v0.10.6) - 2023-10-26
+
+### Other
+- Fix deprecated chrono functions ([#184](https://github.com/XAMPPRocky/rasn/pull/184))
+- Add CI check for formatted files and reformat source ([#181](https://github.com/XAMPPRocky/rasn/pull/181))
+
+## [0.10.5](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.4...rasn-v0.10.5) - 2023-10-19
+
+### Fixed
+- *(per)* encoding extensible string types ([#179](https://github.com/XAMPPRocky/rasn/pull/179))
+
+## [0.10.4](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.3...rasn-v0.10.4) - 2023-10-16
+
+### Other
+- four uper issues ([#177](https://github.com/XAMPPRocky/rasn/pull/177))
+
+## [0.10.3](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.2...rasn-v0.10.3) - 2023-10-11
+
+### Other
+- Fixes [#146](https://github.com/XAMPPRocky/rasn/pull/146), VisibleString character set ([#147](https://github.com/XAMPPRocky/rasn/pull/147))
+- Fix/uper integer ([#174](https://github.com/XAMPPRocky/rasn/pull/174))
+
+## [0.10.2](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.1...rasn-v0.10.2) - 2023-10-10
+
+### Other
+- Fix/issue 165 ([#172](https://github.com/XAMPPRocky/rasn/pull/172))
+
+## [0.10.1](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.0...rasn-v0.10.1) - 2023-10-10
+
+### Fixed
+- *(de)* missing `decode_default_with_tag_and_constraints` ([#170](https://github.com/XAMPPRocky/rasn/pull/170))
+
+### Other
+- Fix nested choice when no struct/set present ([#169](https://github.com/XAMPPRocky/rasn/pull/169))
+- Update rust.yml
+
+## [0.10.0](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.5...rasn-v0.10.0) - 2023-10-03
+
+### Other
+- Gensym field names ([#166](https://github.com/XAMPPRocky/rasn/pull/166))
+- Delegate newtype EOC ([#163](https://github.com/XAMPPRocky/rasn/pull/163))
+- Fix Result scoping ([#162](https://github.com/XAMPPRocky/rasn/pull/162))
+- Fix/issue 141 ([#158](https://github.com/XAMPPRocky/rasn/pull/158))
+- Fix/infinite recursion ([#157](https://github.com/XAMPPRocky/rasn/pull/157))
+- Fix/constrained extension ([#156](https://github.com/XAMPPRocky/rasn/pull/156))
+- fmt
+- Add FixedBitString, use BitStr for encoding
+- use existing codec type
+- Split and improve UTCTime type ([#152](https://github.com/XAMPPRocky/rasn/pull/152))
+- split OID codec functionality to be usable by other codecs ([#144](https://github.com/XAMPPRocky/rasn/pull/144))
+- document Codec and methods
+- Add `Codec` enum, update `rasn_snmp::v3::Message`
+- Improves BER GeneralizedTime decoders, support for CER/DER strict mode ([#150](https://github.com/XAMPPRocky/rasn/pull/150))
+
 ## [0.9.5](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.9.4...rasn-v0.9.5) - 2023-08-24
 
 ### Other

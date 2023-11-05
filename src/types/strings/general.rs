@@ -1,5 +1,6 @@
 use super::*;
 
+use crate::error::strings::InvalidGeneralString;
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
 
 /// A "general" string containing the `C0` Controls plane, `SPACE`,
@@ -8,7 +9,7 @@ use alloc::{borrow::ToOwned, string::String, vec::Vec};
 pub struct GeneralString(Vec<u8>);
 
 impl GeneralString {
-    fn is_valid(bytes: &[u8]) -> bool {
+    fn is_valid(bytes: &[u8]) -> Result<(), InvalidGeneralString> {
         for byte in bytes {
             let is_in_set = matches!(
                 byte,
@@ -20,36 +21,24 @@ impl GeneralString {
             );
 
             if !is_in_set {
-                return false;
+                return Err(InvalidGeneralString { character: *byte });
             }
         }
-
-        true
+        Ok(())
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidGeneralString> {
-        if Self::is_valid(bytes) {
-            Ok(Self(bytes.to_owned()))
-        } else {
-            Err(InvalidGeneralString)
-        }
+        Self::is_valid(bytes)?;
+        Ok(Self(bytes.to_owned()))
     }
 }
-
-#[derive(snafu::Snafu, Debug)]
-#[snafu(visibility(pub(crate)))]
-#[snafu(display("Invalid general string character"))]
-pub struct InvalidGeneralString;
 
 impl TryFrom<Vec<u8>> for GeneralString {
     type Error = InvalidGeneralString;
 
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        if Self::is_valid(&value) {
-            Ok(Self(value))
-        } else {
-            Err(InvalidGeneralString)
-        }
+        Self::is_valid(&value)?;
+        Ok(Self(value))
     }
 }
 
@@ -57,11 +46,8 @@ impl TryFrom<String> for GeneralString {
     type Error = InvalidGeneralString;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        if Self::is_valid(value.as_bytes()) {
-            Ok(Self(value.into_bytes()))
-        } else {
-            Err(InvalidGeneralString)
-        }
+        Self::is_valid(value.as_bytes())?;
+        Ok(Self(value.into_bytes()))
     }
 }
 

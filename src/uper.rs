@@ -9,12 +9,14 @@ use crate::types::Constraints;
 pub use super::per::*;
 
 /// Attempts to decode `T` from `input` using UPER-BASIC.
-pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::per::de::Error> {
+pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeError> {
     crate::per::decode(de::DecoderOptions::unaligned(), input)
 }
 
 /// Attempts to encode `value` to UPER-CANONICAL.
-pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+pub fn encode<T: crate::Encode>(
+    value: &T,
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     crate::per::encode(enc::EncoderOptions::unaligned(), value)
 }
 
@@ -22,7 +24,7 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, crate:
 pub fn decode_with_constraints<T: crate::Decode>(
     constraints: Constraints,
     input: &[u8],
-) -> Result<T, crate::per::de::Error> {
+) -> Result<T, crate::error::DecodeError> {
     crate::per::decode_with_constraints(de::DecoderOptions::unaligned(), constraints, input)
 }
 
@@ -30,7 +32,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
 pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
-) -> Result<alloc::vec::Vec<u8>, crate::per::enc::Error> {
+) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     crate::per::encode_with_constraints(enc::EncoderOptions::unaligned(), constraints, value)
 }
 
@@ -40,7 +42,6 @@ mod tests {
         prelude::*,
         types::{constraints::*, *},
     };
-
     #[test]
     fn bool() {
         round_trip!(uper, bool, true, &[0x80]);
@@ -197,6 +198,65 @@ mod tests {
             ]),
             "hej".try_into().unwrap(),
             &[0x02, 0x39, 0x12]
+        );
+    }
+    #[test]
+    fn printable_string() {
+        round_trip_with_constraints!(
+            uper,
+            PrintableString,
+            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(16)).into())]),
+            PrintableString::from_bytes("0123456789abcdef".as_bytes()).unwrap(),
+            &[0x60, 0xc5, 0x93, 0x36, 0x8d, 0x5b, 0x37, 0x70, 0xe7, 0x0e, 0x2c, 0x79, 0x32, 0xe6]
+        );
+        round_trip_with_constraints!(
+            uper,
+            PrintableString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: 0.into(),
+                    end: 31.into()
+                })
+                .into()
+            )]),
+            "".try_into().unwrap(),
+            &[0x00]
+        );
+        round_trip_with_constraints!(
+            uper,
+            PrintableString,
+            Constraints::new(&[Constraint::Size(
+                Size::new(Bounded::Range {
+                    start: 0.into(),
+                    end: 31.into()
+                })
+                .into()
+            )]),
+            "2".try_into().unwrap(),
+            &[0x0b, 0x20]
+        );
+
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct PrintStruct {
+            a: bool,
+            #[rasn(size("36"))]
+            b: PrintableString,
+            c: bool,
+        }
+        round_trip!(
+            uper,
+            PrintStruct,
+            PrintStruct {
+                a: true,
+                b: "123123123123123123123123123123123123".try_into().unwrap(),
+                c: true
+            },
+            &[
+                0xb1, 0x64, 0xcd, 0x8b, 0x26, 0x6c, 0x59, 0x33, 0x62, 0xc9, 0x9b, 0x16, 0x4c, 0xd8,
+                0xb2, 0x66, 0xc5, 0x93, 0x36, 0x2c, 0x99, 0xb1, 0x64, 0xcd, 0x8b, 0x26, 0x6c, 0x59,
+                0x33, 0x62, 0xc9, 0x9c
+            ]
         );
     }
 
@@ -861,5 +921,60 @@ mod tests {
             })),
         );
         round_trip!(uper, TopLevel, test_value, &[8, 128]);
+    }
+    #[test]
+    fn deeply_nested_choice() {
+        use crate as rasn;
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum Choice {
+            Normal(Integer),
+            High(Integer),
+            Medium(Integer),
+        }
+        round_trip!(
+            uper,
+            Choice,
+            Choice::Medium(333.into()),
+            &[128, 128, 83, 64]
+        );
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum BoolChoice {
+            A(bool),
+            B(bool),
+            C(Choice),
+        }
+        round_trip!(
+            uper,
+            BoolChoice,
+            BoolChoice::C(Choice::Normal(333.into())),
+            &[128, 32, 20, 208]
+        );
+
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum TripleChoice {
+            A(bool),
+            B(BoolChoice),
+        }
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum FourthChoice {
+            A(TripleChoice),
+            B(bool),
+        }
+        round_trip!(
+            uper,
+            TripleChoice,
+            TripleChoice::B(BoolChoice::C(Choice::Normal(333.into()))),
+            &[192, 16, 10, 104]
+        );
+        round_trip!(
+            uper,
+            FourthChoice,
+            FourthChoice::A(TripleChoice::B(BoolChoice::C(Choice::Normal(333.into())))),
+            &[96, 8, 5, 52]
+        );
     }
 }

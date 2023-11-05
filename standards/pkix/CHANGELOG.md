@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.6](https://github.com/XAMPPRocky/rasn/compare/rasn-pkix-v0.10.5...rasn-pkix-v0.10.6) - 2023-10-26
+
+### Other
+- Add CI check for formatted files and reformat source ([#181](https://github.com/XAMPPRocky/rasn/pull/181))
+
+## [0.10.0](https://github.com/XAMPPRocky/rasn/compare/rasn-pkix-v0.9.5...rasn-pkix-v0.10.0) - 2023-10-03
+
+### Other
+- Fix/issue 141 ([#158](https://github.com/XAMPPRocky/rasn/pull/158))
+
 ## [0.9.0](https://github.com/XAMPPRocky/rasn/compare/rasn-pkix-v0.8.2...rasn-pkix-v0.9.0) - 2023-07-30
 
 ### Other
