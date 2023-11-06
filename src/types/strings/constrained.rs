@@ -169,7 +169,7 @@ pub(crate) fn try_from_permitted_alphabet<S: StaticPermittedAlphabet>(
             string.push_char(
                 *alphabet
                     .get(&index)
-                    .ok_or(PermittedAlphabetError::IndexNotFound { index })?,
+                    .ok_or_else(|| PermittedAlphabetError::IndexNotFound { index })?,
             );
         }
     } else {
