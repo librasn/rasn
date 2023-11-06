@@ -280,10 +280,7 @@ impl<'input> Decoder<'input> {
                 length
                     .load_be::<usize>()
                     .checked_add(size_constraint.minimum())
-                    .ok_or(DecodeError::exceeds_max_length(
-                        usize::MAX.into(),
-                        self.codec(),
-                    ))
+                    .ok_or_else(|| DecodeError::exceeds_max_length(usize::MAX.into(), self.codec()))
                     .and_then(|sum| (decode_fn)(input, sum))
             }
         } else {
@@ -331,10 +328,7 @@ impl<'input> Decoder<'input> {
                 length
                     .load_be::<usize>()
                     .checked_add(size_constraint.minimum())
-                    .ok_or(DecodeError::exceeds_max_length(
-                        usize::MAX.into(),
-                        self.codec(),
-                    ))
+                    .ok_or_else(|| DecodeError::exceeds_max_length(usize::MAX.into(), self.codec()))
                     .and_then(|sum| (decode_fn)(input, sum))
             }
         } else {
@@ -411,15 +405,13 @@ impl<'input> Decoder<'input> {
                     self.input = self.parse_padding(self.input)?;
                     let range = length
                         .checked_add(1)
-                        .ok_or(DecodeError::exceeds_max_length(
-                            u32::MAX.into(),
-                            self.codec(),
-                        ))?
+                        .ok_or_else(|| {
+                            DecodeError::exceeds_max_length(u32::MAX.into(), self.codec())
+                        })?
                         .checked_mul(8)
-                        .ok_or(DecodeError::exceeds_max_length(
-                            u32::MAX.into(),
-                            self.codec(),
-                        ))?;
+                        .ok_or_else(|| {
+                            DecodeError::exceeds_max_length(u32::MAX.into(), self.codec())
+                        })?;
                     self.parse_non_negative_binary_integer(crate::bits::range_from_len(range))?
                 }
                 (_, _) => self.parse_non_negative_binary_integer(range)?,
@@ -493,52 +485,46 @@ impl<'input> Decoder<'input> {
             .then(|| char_width.next_power_of_two())
             .unwrap_or(char_width);
 
-        let is_large_string =
-            if let Some(size) = constraints.size() {
-                match *size.constraint {
-                    Bounded::Range {
-                        start: Some(_),
-                        end: Some(_),
-                    } if size
-                        .constraint
-                        .range()
-                        .unwrap()
-                        .checked_mul(char_width)
-                        .ok_or(DecodeError::exceeds_max_length(
-                            usize::MAX.into(),
-                            self.codec(),
-                        ))?
-                        > 16 =>
-                    {
-                        true
-                    }
-                    Bounded::Single(max)
-                        if max.checked_mul(char_width).ok_or(
-                            DecodeError::exceeds_max_length(usize::MAX.into(), self.codec()),
-                        )? > 16 =>
-                    {
-                        self.input = self.parse_padding(self.input)?;
-                        true
-                    }
-                    Bounded::Range {
-                        start: None,
-                        end: Some(max),
-                    } if max
-                        .checked_mul(char_width)
-                        .ok_or(DecodeError::exceeds_max_length(
-                            usize::MAX.into(),
-                            self.codec(),
-                        ))?
-                        > 16 =>
-                    {
-                        self.input = self.parse_padding(self.input)?;
-                        true
-                    }
-                    _ => false,
+        let is_large_string = if let Some(size) = constraints.size() {
+            match *size.constraint {
+                Bounded::Range {
+                    start: Some(_),
+                    end: Some(_),
+                } if size
+                    .constraint
+                    .range()
+                    .unwrap()
+                    .checked_mul(char_width)
+                    .ok_or_else(|| {
+                        DecodeError::exceeds_max_length(usize::MAX.into(), self.codec())
+                    })?
+                    > 16 =>
+                {
+                    true
                 }
-            } else {
-                false
-            };
+                Bounded::Single(max)
+                    if max.checked_mul(char_width).ok_or_else(|| {
+                        DecodeError::exceeds_max_length(usize::MAX.into(), self.codec())
+                    })? > 16 =>
+                {
+                    self.input = self.parse_padding(self.input)?;
+                    true
+                }
+                Bounded::Range {
+                    start: None,
+                    end: Some(max),
+                } if max.checked_mul(char_width).ok_or_else(|| {
+                    DecodeError::exceeds_max_length(usize::MAX.into(), self.codec())
+                })? > 16 =>
+                {
+                    self.input = self.parse_padding(self.input)?;
+                    true
+                }
+                _ => false,
+            }
+        } else {
+            false
+        };
 
         let mut total_length = 0;
         let codec = self.codec();
