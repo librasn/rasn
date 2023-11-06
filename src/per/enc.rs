@@ -994,7 +994,7 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        if let Some((_, true)) = self.field_bitfield.get(&tag) 
+        if let Some((_, true)) = self.field_bitfield.get(&tag) {
             value.encode(self)
         } else if self.field_bitfield.get(&tag).is_none() {
             // There is no bitfield if none of the parent objects is struct/set
