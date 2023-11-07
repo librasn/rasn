@@ -25,7 +25,7 @@ impl Encoder {
     pub fn root_value(self) -> Result<JsonValue, EncodeError> {
         Ok(self
             .root_value
-            .ok_or(JerEncodeErrorKind::NoRootValueFound)?)
+            .ok_or_else(|| JerEncodeErrorKind::NoRootValueFound)?)
     }
 
     pub fn to_json(self) -> alloc::string::String {
@@ -37,7 +37,7 @@ impl Encoder {
             Some(id) => {
                 self.constructed_stack
                     .last_mut()
-                    .ok_or(JerEncodeErrorKind::JsonEncoder {
+                    .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
                         msg: "Internal stack mismatch!".into(),
                     })?
                     .insert(id.into(), value);
@@ -285,7 +285,7 @@ impl crate::Encoder for Encoder {
         let value_map = self
             .constructed_stack
             .pop()
-            .ok_or(JerEncodeErrorKind::JsonEncoder {
+            .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
                 msg: "Internal stack mismatch!".into(),
             })?;
         self.update_root_or_constructed(JsonValue::Object(value_map))
@@ -379,7 +379,7 @@ impl crate::Encoder for Encoder {
             let value_map =
                 self.constructed_stack
                     .pop()
-                    .ok_or(JerEncodeErrorKind::JsonEncoder {
+                    .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
                         msg: "Internal stack mismatch!".into(),
                     })?;
             self.update_root_or_constructed(JsonValue::Object(value_map))

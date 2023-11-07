@@ -12,7 +12,7 @@ macro_rules! decode_jer_value {
     ($decoder_fn:expr, $input:expr) => {
         $input
             .pop()
-            .ok_or(DecodeError::from(JerDecodeErrorKind::eoi()))
+            .ok_or_else(|| DecodeError::from(JerDecodeErrorKind::eoi()))
             .and_then($decoder_fn)
     };
 }
@@ -86,10 +86,10 @@ impl crate::Decoder for Decoder {
         D: Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
-        let mut last = self.stack.pop().ok_or(JerDecodeErrorKind::eoi())?;
+        let mut last = self.stack.pop().ok_or_else(|| JerDecodeErrorKind::eoi())?;
         let value_map = last
             .as_object_mut()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "object",
                 found: alloc::format!("unknown"),
             })?;
@@ -270,10 +270,10 @@ impl crate::Decoder for Decoder {
         D: Fn(&mut Self, usize, crate::Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        let mut last = self.stack.pop().ok_or(JerDecodeErrorKind::eoi())?;
+        let mut last = self.stack.pop().ok_or_else(|| JerDecodeErrorKind::eoi())?;
         let value_map = last
             .as_object_mut()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "object",
                 found: alloc::format!("unknown"),
             })?;
@@ -311,7 +311,7 @@ impl crate::Decoder for Decoder {
     }
 
     fn decode_optional<D: crate::Decode>(&mut self) -> Result<Option<D>, Self::Error> {
-        let last = self.stack.pop().ok_or(JerDecodeErrorKind::eoi())?;
+        let last = self.stack.pop().ok_or_else(|| JerDecodeErrorKind::eoi())?;
         match last {
             JsonValue::Null => Ok(None),
             v => {
@@ -378,7 +378,7 @@ impl Decoder {
     fn bit_string_from_value(value: JsonValue) -> Result<BitString, DecodeError> {
         Ok(value
             .as_str()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "bit string",
                 found: alloc::format!("{value}"),
             })?
@@ -394,7 +394,7 @@ impl Decoder {
     }
 
     fn boolean_from_value(value: JsonValue) -> Result<bool, DecodeError> {
-        Ok(value.as_bool().ok_or(JerDecodeErrorKind::TypeMismatch {
+        Ok(value.as_bool().ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
             needed: "boolean",
             found: alloc::format!("{value}"),
         })?)
@@ -403,7 +403,7 @@ impl Decoder {
     fn enumerated_from_value<E: Enumerated>(value: JsonValue) -> Result<E, DecodeError> {
         let discriminant = value
             .as_i64()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "enumerable index",
                 found: alloc::format!("{value}"),
             })?
@@ -412,7 +412,7 @@ impl Decoder {
         Ok(discriminant
             .map(|i| E::from_discriminant(i))
             .flatten()
-            .ok_or(JerDecodeErrorKind::InvalidEnumDiscriminant {
+            .ok_or_else(|| JerDecodeErrorKind::InvalidEnumDiscriminant {
                 discriminant: discriminant.unwrap_or(isize::MIN),
             })?)
     }
@@ -420,7 +420,7 @@ impl Decoder {
     fn integer_from_value(value: JsonValue) -> Result<Integer, DecodeError> {
         Ok(value
             .as_i64()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "number (supported range -2^63..2^63)",
                 found: alloc::format!("{value}"),
             })
@@ -431,7 +431,7 @@ impl Decoder {
         Ok(value
             .is_null()
             .then(|| ())
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "null",
                 found: alloc::format!("{value}"),
             })?)
@@ -440,7 +440,7 @@ impl Decoder {
     fn object_identifier_from_value(value: JsonValue) -> Result<ObjectIdentifier, DecodeError> {
         Ok(value
             .as_str()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "number array",
                 found: alloc::format!("{value}"),
             })?
@@ -455,7 +455,7 @@ impl Decoder {
             .collect::<Result<alloc::vec::Vec<u32>, _>>()
             .ok()
             .and_then(|arcs| Oid::new(&arcs).map(|oid| ObjectIdentifier::from(oid)))
-            .ok_or(JerDecodeErrorKind::InvalidOIDString { value })?)
+            .ok_or_else(|| JerDecodeErrorKind::InvalidOIDString { value })?)
     }
 
     fn sequence_of_from_value<D: Decode>(
@@ -464,7 +464,7 @@ impl Decoder {
     ) -> Result<SequenceOf<D>, DecodeError> {
         value
             .as_array()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "array",
                 found: alloc::format!("{value}"),
             })?
@@ -483,7 +483,7 @@ impl Decoder {
     ) -> Result<SetOf<D>, DecodeError> {
         value
             .as_array()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "array",
                 found: alloc::format!("{value}"),
             })?
@@ -499,7 +499,7 @@ impl Decoder {
     fn string_from_value(value: JsonValue) -> Result<alloc::string::String, DecodeError> {
         Ok(value
             .as_str()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "string",
                 found: alloc::format!("{value}"),
             })
@@ -512,7 +512,7 @@ impl Decoder {
     {
         let tag = value
             .as_object()
-            .ok_or(JerDecodeErrorKind::TypeMismatch {
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "object",
                 found: alloc::format!("{value}"),
             })?
@@ -540,7 +540,7 @@ impl Decoder {
     }
 
     fn octet_string_from_value(value: JsonValue) -> Result<alloc::vec::Vec<u8>, DecodeError> {
-        let octet_string = value.as_str().ok_or(JerDecodeErrorKind::TypeMismatch {
+        let octet_string = value.as_str().ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
             needed: "octet string",
             found: alloc::format!("{value}"),
         })?;
@@ -555,7 +555,7 @@ impl Decoder {
         crate::ber::de::Decoder::parse_any_utc_time_string(
             value
                 .as_str()
-                .ok_or(JerDecodeErrorKind::TypeMismatch {
+                .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                     needed: "time string",
                     found: alloc::format!("{value}"),
                 })?
@@ -569,7 +569,7 @@ impl Decoder {
         crate::ber::de::Decoder::parse_any_generalized_time_string(
             value
                 .as_str()
-                .ok_or(JerDecodeErrorKind::TypeMismatch {
+                .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                     needed: "time string",
                     found: alloc::format!("{value}"),
                 })?
