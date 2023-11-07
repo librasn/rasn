@@ -282,12 +282,12 @@ impl crate::Encoder for Encoder {
         }
         self.constructed_stack.push(Object::new());
         (encoder_scope)(self)?;
-        let value_map = self
-            .constructed_stack
-            .pop()
-            .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
-                msg: "Internal stack mismatch!".into(),
-            })?;
+        let value_map =
+            self.constructed_stack
+                .pop()
+                .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
+                    msg: "Internal stack mismatch!".into(),
+                })?;
         self.update_root_or_constructed(JsonValue::Object(value_map))
     }
 

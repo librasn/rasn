@@ -394,10 +394,12 @@ impl Decoder {
     }
 
     fn boolean_from_value(value: JsonValue) -> Result<bool, DecodeError> {
-        Ok(value.as_bool().ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
-            needed: "boolean",
-            found: alloc::format!("{value}"),
-        })?)
+        Ok(value
+            .as_bool()
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
+                needed: "boolean",
+                found: alloc::format!("{value}"),
+            })?)
     }
 
     fn enumerated_from_value<E: Enumerated>(value: JsonValue) -> Result<E, DecodeError> {
@@ -540,10 +542,12 @@ impl Decoder {
     }
 
     fn octet_string_from_value(value: JsonValue) -> Result<alloc::vec::Vec<u8>, DecodeError> {
-        let octet_string = value.as_str().ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
-            needed: "octet string",
-            found: alloc::format!("{value}"),
-        })?;
+        let octet_string = value
+            .as_str()
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
+                needed: "octet string",
+                found: alloc::format!("{value}"),
+            })?;
         Ok((0..octet_string.len())
             .step_by(2)
             .map(|i| u8::from_str_radix(&octet_string[i..=i + 1], 16))
