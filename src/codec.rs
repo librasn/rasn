@@ -37,8 +37,7 @@ impl Codec {
     /// This method shall be used when using binary-based encoding rules.
     ///
     /// # Errors
-    /// - If the value fails to be encoded, or if trying to encode using
-    ///   text-based encoding rules, returns `EncodeError` struct.
+    /// - If the value fails to be encoded returns `EncodeError` struct.
     pub fn encode_to_binary<T: Encode>(
         self,
         value: &T,
@@ -49,13 +48,7 @@ impl Codec {
             Self::Cer => crate::cer::encode(value),
             Self::Der => crate::der::encode(value),
             Self::Uper => crate::uper::encode(value),
-            Self::Jer => Err(crate::error::EncodeError::from_kind(
-                crate::error::EncodeErrorKind::Custom {
-                    msg: "JER is a text-based encoding. Call `Codec::encode_to_string` instead."
-                        .into(),
-                },
-                Codec::Jer,
-            )),
+            Self::Jer => crate::jer::encode(value).map(alloc::string::String::into_bytes),
         }
     }
 
@@ -63,8 +56,7 @@ impl Codec {
     /// This method shall be used when using binary-based encoding rules.
     ///
     /// # Errors
-    /// - If `D` cannot be decoded from `input`, or if trying to decode using
-    ///   text-based encoding rules, returns `DecodeError` struct.
+    /// - If `D` cannot be decoded from `input` returns `DecodeError` struct.
     pub fn decode_from_binary<D: Decode>(
         &self,
         input: &[u8],
@@ -75,13 +67,17 @@ impl Codec {
             Self::Cer => crate::cer::decode(input),
             Self::Der => crate::der::decode(input),
             Self::Uper => crate::uper::decode(input),
-            Self::Jer => Err(crate::error::DecodeError::from_kind(
-                crate::error::DecodeErrorKind::Custom {
-                    msg: "JER is a text-based encoding. Call `Codec::decode_from_str` instead."
-                        .into(),
+            Self::Jer => alloc::string::String::from_utf8(input.to_vec()).map_or_else(
+                |e| {
+                    Err(crate::error::DecodeError::from_kind(
+                        crate::error::DecodeErrorKind::Custom {
+                            msg: alloc::format!("Failed to decode JER from UTF8 bytes: {e:?}"),
+                        },
+                        self.clone(),
+                    ))
                 },
-                Codec::Jer,
-            )),
+                |s| crate::jer::decode(&s),
+            ),
         }
     }
 
