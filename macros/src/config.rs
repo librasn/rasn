@@ -1,4 +1,4 @@
-use std::ops::{Deref, Neg};
+use std::ops::Deref;
 
 use quote::ToTokens;
 use syn::{Lit, NestedMeta, Path, UnOp};
@@ -937,7 +937,7 @@ impl<'a> FieldConfig<'a> {
                 .unwrap_or_else(|| context.to_string())
         );
 
-        let or_else = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error, decoder.codec()))?);
+        let or_else = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error.into(), decoder.codec()))?);
         let default_fn = self.default.as_ref().map(|default_fn| match default_fn {
             Some(path) => quote!(#path),
             None => quote!(<#ty>::default),
@@ -946,7 +946,7 @@ impl<'a> FieldConfig<'a> {
         let tag = self.tag(context);
         let constraints = self.constraints.const_expr(crate_root);
         let handle_extension = if self.is_not_option_or_default_type() {
-            quote!(.ok_or_else(|| #crate_root::de::Error::field_error(#ident, "extension required but not present", decoder.codec()))?)
+            quote!(.ok_or_else(|| #crate_root::de::Error::field_error(#ident, crate::error::DecodeError::extension_present_but_not_required(#tag, decoder.codec()), decoder.codec()))?)
         } else if self.is_default_type() {
             quote!(.unwrap_or_else(#default_fn))
         } else {

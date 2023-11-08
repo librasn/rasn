@@ -318,11 +318,7 @@ pub trait Error: core::fmt::Display {
     /// Creates a new error about being unable to decode a field in a compound
     /// type, such as a set or sequence.
     #[must_use]
-    fn field_error<D: core::fmt::Display>(
-        name: &'static str,
-        error: D,
-        codec: crate::Codec,
-    ) -> Self;
+    fn field_error(name: &'static str, error: DecodeError, codec: crate::Codec) -> Self;
     /// Creates a new error about finding a duplicate field.
     #[must_use]
     fn duplicate_field(name: &'static str, codec: crate::Codec) -> Self;
