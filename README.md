@@ -232,19 +232,25 @@ Test-type-a ::= Test-type-b
 <td>
 
 ```rust
-# use rasn::prelude::*;
+// either
+use rasn::prelude::*;
+
+type TestTypeB = bool;
+
+type TestTypeA = TestTypeB;
+```
+```rust
+// or 
+use rasn::prelude::*;
 
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
 struct TestTypeB(pub bool);
 
-/// either
-type TestTypeA = TestTypeB;
-
 /// or
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA2(pub TestTypeB);
+struct TestTypeA(pub TestTypeB);
 ```
 
 </td>
@@ -261,12 +267,19 @@ Test-type-a ::= BOOLEAN
 <td>
 
 ```rust
-# use rasn::prelude::*;
+// either
+use rasn::prelude::*;
+
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
 struct TestTypeA(pub bool);
 ```
+```rust
+// or
+use rasn::prelude::*;
 
+type TestTypeA = bool;
+```
 </td>
 </tr>
 <tr>
@@ -281,10 +294,17 @@ Test-type-a ::= NULL
 <td>
 
 ```rust
-# use rasn::prelude::*;
+// either
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
 struct TestTypeA(());
+```
+```rust
+// or
+use rasn::prelude::*;
+
+type TestTypeA = ();
 ```
 
 </td>
@@ -301,16 +321,28 @@ Test-type-a ::= INTEGER
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 // either
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
 struct TestTypeA(pub u8 /* or any other rust integer type */);
-
+```
+```rust
 // or
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
-struct TestTypeA2(pub Integer);
+struct TestTypeA(pub Integer);
+```
+```rust
+// or
+use rasn::prelude::*;
+type TestTypeA = Integer;
+```
+```rust
+// or
+use rasn::prelude::*;
+type TestTypeA = u8; // or any other rust integer type
 ```
 
 </td>
@@ -327,16 +359,18 @@ Test-type-a ::= INTEGER (8)
 <td>
 
 ```rust
-# use rasn::prelude::*;
 // either
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("8"))]
 struct TestTypeA(pub u8);
-
+```
+```rust
 // or
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("8"))]
-struct TestTypeA2(pub Integer);
+struct TestTypeA(pub Integer);
 ```
 
 </td>
@@ -355,7 +389,7 @@ Test-type-c ::= INTEGER (42..MAX)
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// of course a primitive rust integer would still work in these examples
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("-8..=360"))]
@@ -384,7 +418,7 @@ Test-type-b ::= INTEGER (1..360,...)
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// of course a primitive rust integer would still work in these examples
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, value("42", extensible))]
@@ -409,7 +443,7 @@ Test-type-a ::= ENUMERATED { seed, grape, raisin }
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode, Copy, Clone, PartialEq, Debug)]
 #[rasn(enumerated, automatic_tags)] /// See below
 enum TestTypeA {
@@ -433,7 +467,7 @@ Test-type-a ::= ENUMERATED { seed, grape, ..., raisin }
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode, Copy, Clone, PartialEq, Debug)]
 #[rasn(enumerated, automatic_tags)] /// See below
 #[non_exhaustive]
@@ -463,7 +497,7 @@ END
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// The tagging encironment has to be declared for every rasn-annotated struct or enum
 /// There is no implicit extensibility
 #[derive(AsnType, Decode, Encode, Copy, Clone, PartialEq, Debug)]
@@ -501,7 +535,7 @@ END
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// The tagging encironment has to be declared for every rasn-annotated struct or enum
 /// There is no implicit extensibility
 #[derive(AsnType, Decode, Encode, Copy, Clone, PartialEq, Debug)]
@@ -545,7 +579,7 @@ END
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// The tagging encironment has to be declared for every rasn-annotated struct or enum
 /// There is no implicit extensibility
 #[derive(AsnType, Decode, Encode, Copy, Clone, PartialEq, Debug)]
@@ -590,7 +624,7 @@ Test-type-b ::= CHOICE {
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(choice, automatic_tags)]
 enum TestTypeA {
@@ -633,7 +667,7 @@ Test-type-a ::= SEQUENCE {
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(automatic_tags)]
 #[non_exhaustive]
@@ -667,7 +701,7 @@ Test-type-a ::= SET {
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// the SET declaration is basically identical to a SEQUENCE declaration, 
 /// except for the `set` annotation
 #[derive(AsnType, Decode, Encode)]
@@ -698,7 +732,7 @@ Test-type-a ::= SEQUENCE {
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// DEFAULTs are provided via linked helper functions
 #[derive(AsnType, Decode, Encode)]
 #[rasn(automatic_tags)]
@@ -734,7 +768,7 @@ Test-type-b ::= SEQUENCE OF INTEGER(1,...)
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
 struct TestTypeA(pub SequenceOf<bool>);
@@ -763,7 +797,7 @@ Test-type-a ::= UTF8String
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// the other charater types supported by rasn behave exactly the same:
 /// NumericString, VisibleString, Ia5String, TeletexString, GeneralString, BmpString, PrintableString
 /// (and also for BIT STRING and OCTET STRING)
@@ -786,7 +820,7 @@ Test-type-a ::= BIT STRING
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
 struct TestTypeA(pub BitString);
@@ -806,7 +840,7 @@ Test-type-a ::= OCTET STRING
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
 struct TestTypeA(pub OctetString);
@@ -827,7 +861,7 @@ Test-type-b ::= SEQUENCE (SIZE (1..8)) OF BOOLEAN
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 /// The size constraint definition behaves similar to the value definition (see above)
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, size("42", extensible))]
@@ -852,7 +886,7 @@ Test-type-a ::= UTF8String (FROM ("A".."Z"))
 <td>
 
 ```rust
-# use rasn::prelude::*;
+use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(delegate, from("\u{0041}..\u{005A}"))]
 struct TestTypeA(pub Utf8String);
