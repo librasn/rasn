@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.11.0...rasn-v0.11.1) - 2023-11-06
+
+### Other
+- Use `ok_or_else` instead of `ok_or` in Error handling for performance ([#195](https://github.com/XAMPPRocky/rasn/pull/195))
+- Move some generally useful functions from PER to utility module ([#190](https://github.com/XAMPPRocky/rasn/pull/190))
+
 ## [0.11.0](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.10.6...rasn-v0.11.0) - 2023-10-28
 
 ### Other

@@ -128,7 +128,7 @@ impl<'input> Decoder<'input> {
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         let the_number = root_octets
             .to_u32()
-            .ok_or(DecodeError::integer_overflow(32u32, self.codec()))?;
+            .ok_or_else(|| DecodeError::integer_overflow(32u32, self.codec()))?;
         let first: u32;
         let second: u32;
         const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
@@ -148,11 +148,11 @@ impl<'input> Decoder<'input> {
             buffer.push(
                 number
                     .to_u32()
-                    .ok_or(DecodeError::integer_overflow(32u32, self.codec()))?,
+                    .ok_or_else(|| DecodeError::integer_overflow(32u32, self.codec()))?,
             );
         }
         crate::types::ObjectIdentifier::new(buffer)
-            .ok_or(BerDecodeErrorKind::InvalidObjectIdentifier.into())
+            .ok_or_else(|| BerDecodeErrorKind::InvalidObjectIdentifier.into())
     }
     /// Parse any GeneralizedTime string, allowing for any from ASN.1 definition
     /// TODO, move to type itself?
@@ -227,12 +227,10 @@ impl<'input> Decoder<'input> {
                 return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
             }
             let offset = FixedOffset::east_opt(sign * (offset_hours * 3600 + offset_minutes * 60))
-                .ok_or(BerDecodeErrorKind::invalid_date(string.to_string()))?;
+                .ok_or_else(|| BerDecodeErrorKind::invalid_date(string.to_string()))?;
             return Ok(TimeZone::from_local_datetime(&offset, &naive)
                 .single()
-                .ok_or::<DecodeError>(
-                    BerDecodeErrorKind::invalid_date(string.to_string()).into(),
-                )?);
+                .ok_or_else(|| BerDecodeErrorKind::invalid_date(string.to_string()))?);
         }
 
         // Parse without timezone details
@@ -458,7 +456,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                         let bit_length = string
                             .len()
                             .checked_sub(bits as usize)
-                            .ok_or(DecodeError::invalid_bit_string(unused_bits, codec))?;
+                            .ok_or_else(|| DecodeError::invalid_bit_string(unused_bits, codec))?;
                         string.truncate(bit_length);
 
                         Ok(string)
