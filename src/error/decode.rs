@@ -124,15 +124,13 @@ impl From<CodecDecodeError> for DecodeError {
 pub struct DecodeError {
     pub kind: Box<DecodeErrorKind>,
     pub codec: Codec,
-    pub backtrace: Option<Backtrace>,
+    pub backtrace: Backtrace,
 }
 impl core::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Error Kind: {}", self.kind)?;
         writeln!(f, "Codec: {}", self.kind)?;
-        if let Some(ref bt) = self.backtrace {
-            write!(f, "\nBacktrace:\n{bt}")?;
-        }
+        write!(f, "\nBacktrace:\n{}", self.backtrace)?;
         Ok(())
     }
 }
@@ -205,11 +203,7 @@ impl DecodeError {
     }
     #[must_use]
     pub fn parser_fail(msg: alloc::string::String, codec: Codec) -> Self {
-        DecodeError {
-            kind: Box::new(DecodeErrorKind::Parser { msg }),
-            codec,
-            backtrace: None,
-        }
+        DecodeError::from_kind(DecodeErrorKind::Parser { msg }, codec)
     }
 
     #[must_use]
@@ -287,7 +281,7 @@ impl DecodeError {
         Self {
             kind: Box::new(kind),
             codec,
-            backtrace: Some(Backtrace::generate()),
+            backtrace: Backtrace::generate(),
         }
     }
     #[must_use]
@@ -302,7 +296,7 @@ impl DecodeError {
         Self {
             kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
             codec,
-            backtrace: Some(Backtrace::generate()),
+            backtrace: Backtrace::generate(),
         }
     }
 }
@@ -519,13 +513,7 @@ impl BerDecodeErrorKind {
         if expected == actual {
             Ok(())
         } else {
-            Err(DecodeError {
-                kind: Box::new(DecodeErrorKind::CodecSpecific {
-                    inner: CodecDecodeError::Ber(Self::MismatchedTag { expected, actual }),
-                }),
-                codec: Codec::Ber,
-                backtrace: None,
-            })
+            Err(BerDecodeErrorKind::MismatchedTag { expected, actual }.into())
         }
     }
 }
@@ -569,11 +557,7 @@ impl crate::de::Error for DecodeError {
         )
     }
     fn incomplete(needed: nom::Needed, codec: Codec) -> Self {
-        DecodeError {
-            kind: Box::new(DecodeErrorKind::Incomplete { needed }),
-            codec,
-            backtrace: None,
-        }
+        Self::from_kind(DecodeErrorKind::Incomplete { needed }, codec)
     }
 
     fn exceeds_max_length(length: num_bigint::BigUint, codec: Codec) -> Self {
