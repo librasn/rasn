@@ -164,11 +164,17 @@ impl DecodeError {
         expected: alloc::string::String,
         codec: Codec,
     ) -> Self {
-        Self::from_kind(Kind::SizeConstraintNotSatisfied { size, expected }, codec)
+        Self::from_kind(
+            DecodeErrorKind::SizeConstraintNotSatisfied { size, expected },
+            codec,
+        )
     }
     #[must_use]
     pub fn discriminant_value_not_found(discriminant: isize, codec: Codec) -> Self {
-        Self::from_kind(Kind::DiscriminantValueNotFound { discriminant }, codec)
+        Self::from_kind(
+            DecodeErrorKind::DiscriminantValueNotFound { discriminant },
+            codec,
+        )
     }
     #[must_use]
     pub fn range_exceeds_platform_width(needed: u32, present: u32, codec: Codec) -> Self {
@@ -263,7 +269,7 @@ impl DecodeError {
     }
     #[must_use]
     pub fn length_exceeds_platform_width(msg: alloc::string::String, codec: Codec) -> Self {
-        Self::from_kind(Kind::LengthExceedsPlatformWidth { msg }, codec)
+        Self::from_kind(DecodeErrorKind::LengthExceedsPlatformWidth { msg }, codec)
     }
 
     #[must_use]

@@ -126,7 +126,7 @@ impl Encoder {
     pub fn output(self) -> Vec<u8> {
         // TODO, move from per to utility module?
         let output = self.bitstring_output();
-        crate::per::to_vec(&output)
+        crate::bits::to_vec(&output)
     }
     #[must_use]
     pub fn bitstring_output(self) -> BitString {
