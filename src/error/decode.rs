@@ -1,5 +1,5 @@
 use super::strings::PermittedAlphabetError;
-use alloc::string::ToString;
+use alloc::{boxed::Box, string::ToString};
 
 use jzon::JsonValue;
 use snafu::{Backtrace, GenerateImplicitData, Snafu};
@@ -84,8 +84,8 @@ impl From<CodecDecodeError> for DecodeError {
 ///                 break;
 ///             }
 ///             Err(e) => {
-///                 // e is DecodeError
-///                 match e.kind {
+///                 // e is DecodeError, kind is boxed
+///                 match *e.kind {
 ///                     DecodeErrorKind::Incomplete { needed } => {
 ///                         println!("Codec error source: {}", e.codec);
 ///                         println!("Error kind: {}", e.kind);
@@ -97,15 +97,16 @@ impl From<CodecDecodeError> for DecodeError {
 ///                             Needed::Size(n) => {
 ///                                 let missing_bytes = n.get() / 7;
 ///                                 missing_bytes
+///                                
 ///                             }
 ///                             _ => {
-///                                 println!("Backtrace:\n{}", e.backtrace);
+///                                 println!("Backtrace:\n{:?}", e.backtrace);
 ///                                 panic!("Unexpected error! {e:?}");
 ///                             }
 ///                         }
 ///                     }
 ///                     k => {
-///                         println!("Backtrace:\n{}", e.backtrace);
+///                         println!("Backtrace:\n{:?}", e.backtrace);
 ///                         panic!("Unexpected error! {k:?}");
 ///                     }
 ///                 }
@@ -121,24 +122,36 @@ impl From<CodecDecodeError> for DecodeError {
 /// Successful decoding!
 /// Decoded string: Hello, world!
 /// ```
-#[derive(Snafu, Debug)]
-#[snafu(visibility(pub))]
-#[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
+#[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct DecodeError {
-    pub kind: Kind,
+    pub kind: Box<DecodeErrorKind>,
     pub codec: Codec,
     pub backtrace: Backtrace,
+}
+impl core::fmt::Display for DecodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "Error Kind: {}", self.kind)?;
+        writeln!(f, "Codec: {}", self.kind)?;
+        write!(f, "\nBacktrace:\n{}", self.backtrace)?;
+        Ok(())
+    }
 }
 
 impl DecodeError {
     #[must_use]
     pub fn alphabet_constraint_not_satisfied(reason: PermittedAlphabetError, codec: Codec) -> Self {
-        Self::from_kind(Kind::AlphabetConstraintNotSatisfied { reason }, codec)
+        Self::from_kind(
+            DecodeErrorKind::AlphabetConstraintNotSatisfied { reason },
+            codec,
+        )
     }
     #[must_use]
     pub fn range_exceeds_platform_width(needed: u32, present: u32, codec: Codec) -> Self {
-        Self::from_kind(Kind::RangeExceedsPlatformWidth { needed, present }, codec)
+        Self::from_kind(
+            DecodeErrorKind::RangeExceedsPlatformWidth { needed, present },
+            codec,
+        )
     }
     #[must_use]
     pub fn fixed_string_conversion_failed(
@@ -148,7 +161,7 @@ impl DecodeError {
         codec: Codec,
     ) -> Self {
         Self::from_kind(
-            Kind::FixedStringConversionFailed {
+            DecodeErrorKind::FixedStringConversionFailed {
                 tag,
                 actual,
                 expected,
@@ -159,21 +172,21 @@ impl DecodeError {
     #[must_use]
     pub fn incorrect_item_number_in_sequence(expected: usize, actual: usize, codec: Codec) -> Self {
         Self::from_kind(
-            Kind::IncorrectItemNumberInSequence { expected, actual },
+            DecodeErrorKind::IncorrectItemNumberInSequence { expected, actual },
             codec,
         )
     }
     #[must_use]
     pub fn integer_overflow(max_width: u32, codec: Codec) -> Self {
-        Self::from_kind(Kind::IntegerOverflow { max_width }, codec)
+        Self::from_kind(DecodeErrorKind::IntegerOverflow { max_width }, codec)
     }
     #[must_use]
     pub fn integer_type_conversion_failed(msg: alloc::string::String, codec: Codec) -> Self {
-        Self::from_kind(Kind::IntegerTypeConversionFailed { msg }, codec)
+        Self::from_kind(DecodeErrorKind::IntegerTypeConversionFailed { msg }, codec)
     }
     #[must_use]
     pub fn invalid_bit_string(bits: u8, codec: Codec) -> Self {
-        Self::from_kind(Kind::InvalidBitString { bits }, codec)
+        Self::from_kind(DecodeErrorKind::InvalidBitString { bits }, codec)
     }
     #[must_use]
     pub fn missing_tag_class_or_value_in_sequence_or_set(
@@ -182,28 +195,35 @@ impl DecodeError {
         codec: Codec,
     ) -> Self {
         Self::from_kind(
-            Kind::MissingTagClassOrValueInSequenceOrSet { class, value },
+            DecodeErrorKind::MissingTagClassOrValueInSequenceOrSet { class, value },
             codec,
         )
     }
 
     #[must_use]
     pub fn type_not_extensible(codec: Codec) -> Self {
-        Self::from_kind(Kind::TypeNotExtensible, codec)
+        Self::from_kind(DecodeErrorKind::TypeNotExtensible, codec)
     }
     #[must_use]
     pub fn parser_fail(msg: alloc::string::String, codec: Codec) -> Self {
-        Self::from_kind(Kind::Parser { msg }, codec)
+        DecodeError::from_kind(DecodeErrorKind::Parser { msg }, codec)
     }
 
     #[must_use]
     pub fn required_extension_not_present(tag: crate::types::Tag, codec: Codec) -> Self {
-        Self::from_kind(Kind::RequiredExtensionNotPresent { tag }, codec)
+        Self::from_kind(DecodeErrorKind::RequiredExtensionNotPresent { tag }, codec)
+    }
+    #[must_use]
+    pub fn extension_present_but_not_required(tag: crate::types::Tag, codec: Codec) -> Self {
+        Self::from_kind(
+            DecodeErrorKind::ExtensionPresentButNotRequired { tag },
+            codec,
+        )
     }
     #[must_use]
     pub fn enumeration_index_not_found(index: usize, extended_list: bool, codec: Codec) -> Self {
         Self::from_kind(
-            Kind::EnumerationIndexNotFound {
+            DecodeErrorKind::EnumerationIndexNotFound {
                 index,
                 extended_list,
             },
@@ -213,22 +233,25 @@ impl DecodeError {
     #[must_use]
     pub fn choice_index_exceeds_platform_width(needed: u32, present: u64, codec: Codec) -> Self {
         Self::from_kind(
-            Kind::ChoiceIndexExceedsPlatformWidth { needed, present },
+            DecodeErrorKind::ChoiceIndexExceedsPlatformWidth { needed, present },
             codec,
         )
     }
 
     #[must_use]
     pub fn choice_index_not_found(index: usize, variants: Variants, codec: Codec) -> Self {
-        Self::from_kind(Kind::ChoiceIndexNotFound { index, variants }, codec)
+        Self::from_kind(
+            DecodeErrorKind::ChoiceIndexNotFound { index, variants },
+            codec,
+        )
     }
     #[must_use]
     pub fn string_conversion_failed(tag: Tag, msg: alloc::string::String, codec: Codec) -> Self {
-        Self::from_kind(Kind::StringConversionFailed { tag, msg }, codec)
+        Self::from_kind(DecodeErrorKind::StringConversionFailed { tag, msg }, codec)
     }
     #[must_use]
     pub fn unexpected_extra_data(length: usize, codec: Codec) -> Self {
-        Self::from_kind(Kind::UnexpectedExtraData { length }, codec)
+        Self::from_kind(DecodeErrorKind::UnexpectedExtraData { length }, codec)
     }
 
     pub fn assert_length(
@@ -240,7 +263,7 @@ impl DecodeError {
             Ok(())
         } else {
             Err(DecodeError::from_kind(
-                Kind::MismatchedLength { expected, actual },
+                DecodeErrorKind::MismatchedLength { expected, actual },
                 codec,
             ))
         }
@@ -257,9 +280,9 @@ impl DecodeError {
         DecodeError::parser_fail(msg, codec)
     }
     #[must_use]
-    pub fn from_kind(kind: Kind, codec: Codec) -> Self {
+    pub fn from_kind(kind: DecodeErrorKind, codec: Codec) -> Self {
         Self {
-            kind,
+            kind: Box::new(kind),
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -275,7 +298,7 @@ impl DecodeError {
             CodecDecodeError::Jer(_) => crate::Codec::Jer,
         };
         Self {
-            kind: Kind::CodecSpecific { inner },
+            kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -287,7 +310,7 @@ impl DecodeError {
 #[snafu(visibility(pub))]
 #[derive(Debug)]
 #[non_exhaustive]
-pub enum Kind {
+pub enum DecodeErrorKind {
     #[snafu(display("Alphabet constraint not satisfied {}", reason))]
     AlphabetConstraintNotSatisfied { reason: PermittedAlphabetError },
     #[snafu(display("Wrapped codec-specific decode error"))]
@@ -333,11 +356,11 @@ pub enum Kind {
         /// The maximum length.
         length: num_bigint::BigUint,
     },
-    #[snafu(display("Error when decoding field `{}`: {}", name, msg))]
+    #[snafu(display("Error when decoding field `{}`: {}", name, nested))]
     FieldError {
         /// The field's name.
         name: &'static str,
-        msg: alloc::string::String,
+        nested: Box<DecodeError>,
     },
     /// Input is provided as BIT slice for nom in UPER/APER.
     /// On BER/CER/DER it is as BYTE slice.
@@ -406,6 +429,8 @@ pub enum Kind {
     },
     #[snafu(display("Extension with class `{}` and tag `{}` required, but not present", tag.class, tag.value))]
     RequiredExtensionNotPresent { tag: crate::types::Tag },
+    #[snafu(display("Extension {} present but but not required", tag.class))]
+    ExtensionPresentButNotRequired { tag: crate::types::Tag },
     #[snafu(display("Error in Parser: {}", msg))]
     Parser {
         /// The error's message.
@@ -492,7 +517,7 @@ impl BerDecodeErrorKind {
         if expected == actual {
             Ok(())
         } else {
-            Err(Self::MismatchedTag { expected, actual }.into())
+            Err(BerDecodeErrorKind::MismatchedTag { expected, actual }.into())
         }
     }
 }
@@ -561,44 +586,43 @@ pub enum AperDecodeErrorKind {}
 impl crate::de::Error for DecodeError {
     fn custom<D: core::fmt::Display>(msg: D, codec: Codec) -> Self {
         Self::from_kind(
-            Kind::Custom {
+            DecodeErrorKind::Custom {
                 msg: msg.to_string(),
             },
             codec,
         )
     }
-
     fn incomplete(needed: nom::Needed, codec: Codec) -> Self {
-        Self::from_kind(Kind::Incomplete { needed }, codec)
+        Self::from_kind(DecodeErrorKind::Incomplete { needed }, codec)
     }
 
     fn exceeds_max_length(length: num_bigint::BigUint, codec: Codec) -> Self {
-        Self::from_kind(Kind::ExceedsMaxLength { length }, codec)
+        Self::from_kind(DecodeErrorKind::ExceedsMaxLength { length }, codec)
     }
 
     fn missing_field(name: &'static str, codec: Codec) -> Self {
-        Self::from_kind(Kind::MissingField { name }, codec)
+        Self::from_kind(DecodeErrorKind::MissingField { name }, codec)
     }
 
     fn no_valid_choice(name: &'static str, codec: Codec) -> Self {
-        Self::from_kind(Kind::NoValidChoice { name }, codec)
+        Self::from_kind(DecodeErrorKind::NoValidChoice { name }, codec)
     }
 
-    fn field_error<D: core::fmt::Display>(name: &'static str, error: D, codec: Codec) -> Self {
+    fn field_error(name: &'static str, nested: DecodeError, codec: Codec) -> Self {
         Self::from_kind(
-            Kind::FieldError {
+            DecodeErrorKind::FieldError {
                 name,
-                msg: error.to_string(),
+                nested: Box::new(nested),
             },
             codec,
         )
     }
 
     fn duplicate_field(name: &'static str, codec: Codec) -> Self {
-        Self::from_kind(Kind::DuplicateField { name }, codec)
+        Self::from_kind(DecodeErrorKind::DuplicateField { name }, codec)
     }
     fn unknown_field(index: usize, tag: Tag, codec: Codec) -> Self {
-        Self::from_kind(Kind::UnknownField { index, tag }, codec)
+        Self::from_kind(DecodeErrorKind::UnknownField { index, tag }, codec)
     }
 }
 #[cfg(test)]
@@ -613,23 +637,22 @@ mod tests {
         ];
         let result = crate::ber::decode::<UtcTime>(&data);
         match result {
-            Err(DecodeError {
-                kind:
-                    DecodeErrorKind::CodecSpecific {
-                        inner:
-                            crate::error::CodecDecodeError::Ber(
-                                crate::error::BerDecodeErrorKind::InvalidDate { msg },
-                            ),
-                        ..
-                    },
-                ..
-            }) => {
-                assert_eq!(msg, "230122130000-050Z");
+            Err(DecodeError { kind, .. }) => {
+                if let DecodeErrorKind::CodecSpecific {
+                    inner:
+                        crate::error::CodecDecodeError::Ber(
+                            crate::error::BerDecodeErrorKind::InvalidDate { msg },
+                        ),
+                    ..
+                } = *kind
+                {
+                    assert_eq!(msg, "230122130000-050Z");
+                } else {
+                    // Handle other kinds of errors
+                    panic!("Unexpected error kind: {kind}");
+                }
             }
             Ok(_) => panic!("Expected error"),
-            _ => {
-                panic!("Unexpected error")
-            }
         }
     }
     #[test]
@@ -651,14 +674,13 @@ mod tests {
             Ok(_) => {
                 panic!("Unexpected OK!");
             }
-            Err(DecodeError {
-                kind: DecodeErrorKind::ChoiceIndexNotFound { index, .. },
-                ..
-            }) => {
-                assert_eq!(index, 3);
-            }
-            Err(e) => {
-                panic!("Unexpected error kind: {e}");
+            Err(DecodeError { kind, .. }) => {
+                if let DecodeErrorKind::ChoiceIndexNotFound { index, .. } = *kind {
+                    assert_eq!(index, 3);
+                } else {
+                    // Handle other kinds of errors
+                    panic!("Unexpected error kind: {kind}");
+                }
             }
         }
     }
