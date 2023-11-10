@@ -1032,4 +1032,106 @@ mod tests {
             &[0x01, 0x07, 0x01, 0x06, 0x01, 0x05]
         );
     }
+    #[test]
+    fn test_sequence_with_nested_opt() {
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence1 {
+            a: Integer,
+            b: Option<Integer>,
+        }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence2 {
+            a: Integer,
+            b: Option<Sequence1>,
+        }
+        round_trip!(
+            coer,
+            Sequence2,
+            Sequence2 {
+                a: 1.into(),
+                b: Some(Sequence1 {
+                    a: 2.into(),
+                    b: Some(3.into())
+                })
+            },
+            &[0x80, 0x01, 0x01, 0x80, 0x01, 0x02, 0x01, 0x03]
+        );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence3 {
+            a: Integer,
+            b: Sequence2,
+        }
+        round_trip!(
+            coer,
+            Sequence3,
+            Sequence3 {
+                a: 1.into(),
+                b: Sequence2 {
+                    a: 2.into(),
+                    b: Some(Sequence1 {
+                        a: 3.into(),
+                        b: Some(4.into())
+                    })
+                }
+            },
+            &[0x01, 0x01, 0x80, 0x01, 0x02, 0x80, 0x01, 0x03, 0x01, 0x04]
+        );
+    }
+    #[test]
+    fn test_boxed_sequence() {
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence1 {
+            a: Integer,
+            b: Option<Integer>,
+        }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence2 {
+            a: Integer,
+            b: Box<Sequence1>,
+        }
+        round_trip!(
+            coer,
+            Sequence2,
+            Sequence2 {
+                a: 1.into(),
+                b: Box::new(Sequence1 {
+                    a: 2.into(),
+                    b: Some(3.into())
+                })
+            },
+            &[0x01, 0x01, 0x80, 0x01, 0x02, 0x01, 0x03]
+        );
+    }
+    #[test]
+    fn test_nested_boxed_sequence() {
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        enum Choice1 {
+            A(bool),
+            B(Box<Sequence1>),
+        }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence1 {
+            a: Option<Integer>,
+            b: Choice1,
+        }
+        round_trip!(
+            coer,
+            Sequence1,
+            Sequence1 {
+                a: Some(1.into()),
+                b: Choice1::B(Box::new(Sequence1 {
+                    a: Some(2.into()),
+                    b: Choice1::A(true)
+                }))
+            },
+            &[0x80, 0x01, 0x01, 0x81, 0x80, 0x01, 0x02, 0x80, 0xff]
+        );
+    }
 }
