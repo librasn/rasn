@@ -492,6 +492,7 @@ impl Encoder {
         tag: Tag,
         mut encoder: Self,
     ) -> Result<(), EncodeError> {
+        self.set_bit(tag, true);
         let mut buffer = BitString::default();
         // ### PREAMBLE ###
         // Section 16.2.2
