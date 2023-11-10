@@ -400,6 +400,28 @@ impl<'input> Decoder<'input> {
 
         Ok(true)
     }
+    /// Parse preamble, returns field bitmap and if extensible is present
+    fn parse_preamble<D>(&mut self) -> Result<(InputSlice, bool), DecodeError>
+    where
+        D: Constructed,
+    {
+        let is_extensible = D::EXTENDED_FIELDS.is_some();
+        let extensible_present = if is_extensible {
+            self.parse_one_bit()?
+        } else {
+            false
+        };
+        let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
+        let preamble_length = if is_extensible {
+            1usize + bitmap.len()
+        } else {
+            bitmap.len()
+        };
+        self.drop_bits((8 - preamble_length % 8) % 8)?;
+
+        debug_assert_eq!(self.input.len() % 8, 0);
+        Ok((bitmap, extensible_present))
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -487,36 +509,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
         // ### PREAMBLE ###
-        let is_extensible = D::EXTENDED_FIELDS.is_some();
-        let extensible_present = if is_extensible {
-            self.parse_one_bit()?
-        } else {
-            false
-        };
-        let num_opt_default_fields = D::FIELDS.number_of_optional_and_default_fields();
-        let mut bitmap: InputSlice = InputSlice::from(bitvec::slice::BitSlice::from_slice(&[]));
-        if num_opt_default_fields > 0 {
-            bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
-            let preamble_length = if is_extensible {
-                1usize + bitmap.len()
-            } else {
-                bitmap.len()
-            };
-            self.drop_bits(8 - preamble_length % 8)?;
-        } else if is_extensible {
-            // Rest of the preamble are unused bits
-            self.drop_bits(7usize)?;
-        }
-        debug_assert_eq!(self.input.len() % 8, 0);
+        let (bitmap, extensible_present) = self.parse_preamble::<D>()?;
+        // ### ENDS
+        let fields = D::FIELDS
+            .optional_and_default_fields()
+            .zip(bitmap.into_iter().map(|b| *b))
+            .collect();
 
         let value = {
             let mut sequence_decoder = Self::new(self.input.0, self.options);
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
             sequence_decoder.extensions_present = extensible_present.then_some(None);
-            sequence_decoder.fields = D::FIELDS
-                .optional_and_default_fields()
-                .zip(bitmap.into_iter().map(|b| *b))
-                .collect();
+            sequence_decoder.fields = fields;
             let value = (decode_fn)(&mut sequence_decoder)?;
 
             self.input = sequence_decoder.input;
@@ -700,54 +704,26 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        // TODO make generic preamble for sequence/set
-        // let is_extensible = SET::EXTENDED_FIELDS
-        //     .is_some()
-        //     .then(|| self.parse_one_bit())
-        //     .transpose()?
-        //     .unwrap_or_default();
-        //
-        // let bitmap = self.parse_optional_and_default_field_bitmap(&SET::FIELDS)?;
-        // let field_map = SET::FIELDS
-        //     .optional_and_default_fields()
-        //     .zip(bitmap.into_iter().map(|b| *b))
-        //     .collect::<alloc::collections::BTreeMap<_, _>>();
-        // ### PREAMBLE ###
+        let (bitmap, extensible_present) = self.parse_preamble::<SET>()?;
+
         let is_extensible = SET::EXTENDED_FIELDS.is_some();
-        let extensible_present = if is_extensible {
-            self.parse_one_bit()?
-        } else {
-            false
-        };
-        let num_opt_default_fields = SET::FIELDS.number_of_optional_and_default_fields();
-        let mut bitmap: InputSlice = InputSlice::from(bitvec::slice::BitSlice::from_slice(&[]));
-        if num_opt_default_fields > 0 {
-            bitmap = self.parse_optional_and_default_field_bitmap(&SET::FIELDS)?;
-            let preamble_length = if is_extensible {
-                1usize + bitmap.len()
-            } else {
-                bitmap.len()
-            };
-            self.drop_bits(8 - preamble_length % 8)?;
-        } else if is_extensible {
-            // Rest of the preamble are unused bits
-            self.drop_bits(7usize)?;
-        }
-        debug_assert_eq!(self.input.len() % 8, 0);
+
         let field_map = SET::FIELDS
             .optional_and_default_fields()
             .zip(bitmap.into_iter().map(|b| *b))
             .collect::<alloc::collections::BTreeMap<_, _>>();
+
+        let decoder_fields = SET::FIELDS
+            .optional_and_default_fields()
+            .zip(bitmap.into_iter().map(|b| *b))
+            .collect();
 
         let fields = {
             let mut fields = Vec::new();
             let mut set_decoder = Self::new(self.input.0, self.options);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
             set_decoder.extensions_present = is_extensible.then_some(None);
-            set_decoder.fields = SET::FIELDS
-                .optional_and_default_fields()
-                .zip(bitmap.into_iter().map(|b| *b))
-                .collect();
+            set_decoder.fields = decoder_fields;
 
             let mut field_indices = SET::FIELDS.iter().enumerate().collect::<Vec<_>>();
             field_indices.sort_by(|(_, a), (_, b)| {
@@ -761,7 +737,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
                     Some(false) => {}
                 }
             }
-
             for (indice, field) in SET::EXTENDED_FIELDS
                 .iter()
                 .flat_map(Fields::iter)
