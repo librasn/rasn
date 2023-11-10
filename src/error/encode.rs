@@ -1,7 +1,7 @@
 use crate::types::constraints::{Bounded, Size};
 use snafu::{Backtrace, GenerateImplicitData, Snafu};
 
-use alloc::string::ToString;
+use alloc::{boxed::Box, string::ToString};
 
 /// Variants for every codec-specific `EncodeError` kind.
 #[derive(Debug)]
@@ -69,8 +69,8 @@ impl From<CodecEncodeError> for EncodeError {
 ///             dbg!(succ);
 ///         }
 ///         Err(e) => {
-///             // e is EncodeError
-///             match e.kind {
+///             // e is EncodeError, Kind is boxed
+///             match *e.kind {
 ///                 EncodeErrorKind::AlphabetConstraintNotSatisfied {
 ///                     reason: PermittedAlphabetError::CharacterNotFound {character },
 ///                 } => {
@@ -94,14 +94,21 @@ impl From<CodecEncodeError> for EncodeError {
 /// }
 /// ```
 ///
-#[derive(Snafu, Debug)]
-#[snafu(visibility(pub))]
-#[snafu(display("Error Kind: {}\nBacktrace:\n{}", kind, backtrace))]
+#[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct EncodeError {
-    pub kind: EncodeErrorKind,
+    pub kind: Box<EncodeErrorKind>,
     pub codec: crate::Codec,
     pub backtrace: Backtrace,
+}
+impl core::fmt::Display for EncodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        writeln!(f, "Error Kind: {}", self.kind)?;
+        writeln!(f, "Codec: {}", self.kind)?;
+        write!(f, "\nBacktrace:\n{}", self.backtrace)?;
+
+        Ok(())
+    }
 }
 impl EncodeError {
     #[must_use]
@@ -110,17 +117,17 @@ impl EncodeError {
         codec: crate::Codec,
     ) -> Self {
         Self {
-            kind: EncodeErrorKind::AlphabetConstraintNotSatisfied { reason },
+            kind: Box::new(EncodeErrorKind::AlphabetConstraintNotSatisfied { reason }),
             codec,
             backtrace: Backtrace::generate(),
         }
     }
     pub fn check_length(length: usize, expected: &Size, codec: crate::Codec) -> Result<(), Self> {
         expected.contains_or_else(&length, || Self {
-            kind: EncodeErrorKind::InvalidLength {
+            kind: Box::new(EncodeErrorKind::InvalidLength {
                 length,
                 expected: (**expected),
-            },
+            }),
             codec,
             backtrace: Backtrace::generate(),
         })
@@ -128,32 +135,20 @@ impl EncodeError {
     /// An error for failed conversion from `BitInt` or `BigUint` to primitive integer types
     #[must_use]
     pub fn integer_type_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
-        Self {
-            kind: EncodeErrorKind::IntegerTypeConversionFailed { msg },
-            codec,
-            backtrace: Backtrace::generate(),
-        }
+        Self::from_kind(EncodeErrorKind::IntegerTypeConversionFailed { msg }, codec)
     }
     #[must_use]
     pub fn opaque_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
-        Self {
-            kind: EncodeErrorKind::OpaqueConversionFailed { msg },
-            codec,
-            backtrace: Backtrace::generate(),
-        }
+        Self::from_kind(EncodeErrorKind::OpaqueConversionFailed { msg }, codec)
     }
     #[must_use]
     pub fn variant_not_in_choice(codec: crate::Codec) -> Self {
-        Self {
-            kind: EncodeErrorKind::VariantNotInChoice,
-            codec,
-            backtrace: Backtrace::generate(),
-        }
+        Self::from_kind(EncodeErrorKind::VariantNotInChoice, codec)
     }
     #[must_use]
     pub fn from_kind(kind: EncodeErrorKind, codec: crate::Codec) -> Self {
         Self {
-            kind,
+            kind: Box::new(kind),
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -168,7 +163,7 @@ impl EncodeError {
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
         };
         Self {
-            kind: EncodeErrorKind::CodecSpecific { inner },
+            kind: Box::new(EncodeErrorKind::CodecSpecific { inner }),
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -253,9 +248,9 @@ pub enum AperEncodeErrorKind {}
 impl crate::enc::Error for EncodeError {
     fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self {
         Self {
-            kind: EncodeErrorKind::Custom {
+            kind: Box::new(EncodeErrorKind::Custom {
                 msg: msg.to_string(),
-            },
+            }),
             codec,
             backtrace: Backtrace::generate(),
         }
@@ -284,17 +279,15 @@ mod tests {
         let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &oid);
         assert!(result.is_err());
         match result {
-            Err(EncodeError {
-                kind:
-                    EncodeErrorKind::CodecSpecific {
-                        inner:
-                            CodecEncodeError::Ber(BerEncodeErrorKind::InvalidObjectIdentifier {
-                                ..
-                            }),
-                    },
-                ..
-            }) => {}
-            _ => panic!("Expected invalid object identifier error of specific type!"),
+            Err(e) => match *e.kind {
+                EncodeErrorKind::CodecSpecific {
+                    inner: CodecEncodeError::Ber(BerEncodeErrorKind::InvalidObjectIdentifier { .. }),
+                } => {}
+                _ => {
+                    panic!("Expected invalid object identifier error of specific type!");
+                }
+            },
+            _ => panic!("Unexpected OK!"),
         }
         // Debug output should look something like this:
         // dbg!(result.err());
@@ -330,7 +323,7 @@ mod tests {
             Ok(_) => {}
             Err(e) => {
                 // EncodeError
-                match e.kind {
+                match *e.kind {
                     EncodeErrorKind::AlphabetConstraintNotSatisfied {
                         reason: PermittedAlphabetError::CharacterNotFound { .. },
                     } => {}
