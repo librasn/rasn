@@ -226,21 +226,24 @@ impl<'input> Decoder<'input> {
         signed: bool,
         length: Option<usize>,
     ) -> Result<Integer, DecodeError> {
-        if let Some(length) = length {
-            let data = self.extract_data_by_length(length)?;
-            if signed {
-                Ok(Integer::from_signed_bytes_be(data.as_bytes()))
-            } else {
-                Ok(Integer::from_bytes_be(Sign::Plus, data.as_bytes()))
+        let final_length = match length {
+            Some(l) => l,
+            None => self.decode_length()?,
+        };
+
+        let coer = self.options.encoding_rules.is_coer();
+        let data = self.extract_data_by_length(final_length)?;
+        // Constrained data can correctly include leading zeros, unconstrained not
+        if coer && !signed && data.leading_zeros() > 8 && length.is_some() {
+            return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                msg: "Leading zeros are not allowed on unsigned Integer value in COER.".to_string(),
             }
+            .into());
+        }
+        if signed {
+            Ok(Integer::from_signed_bytes_be(data.as_bytes()))
         } else {
-            let length = self.decode_length()?;
-            let data = self.extract_data_by_length(length)?;
-            if signed {
-                Ok(Integer::from_signed_bytes_be(data.as_bytes()))
-            } else {
-                Ok(Integer::from_bytes_be(Sign::Plus, data.as_bytes()))
-            }
+            Ok(Integer::from_bytes_be(Sign::Plus, data.as_bytes()))
         }
     }
     fn decode_integer_with_constraints(
@@ -515,6 +518,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
         // ### PREAMBLE ###
+        // TODO check if decoded value is same as default, error for COER
         let (bitmap, extensible_present) = self.parse_preamble::<D>()?;
         // ### ENDS
         let fields = D::FIELDS
