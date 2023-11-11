@@ -433,4 +433,30 @@ mod tests {
             &[0x01]
         );
     }
+    #[test]
+    fn issue_192() {
+        // https://github.com/XAMPPRocky/rasn/issues/192
+        use crate as rasn;
+
+        use rasn::AsnType;
+
+        #[derive(rasn::AsnType, rasn::Encode, rasn::Decode, Debug, Clone, PartialEq, Eq)]
+        #[rasn(automatic_tags, option_type(Option))]
+        #[non_exhaustive]
+        pub struct Updates {
+            pub updates: Vec<u8>,
+        }
+
+        #[derive(rasn::AsnType, rasn::Encode, rasn::Decode, Debug, Clone, PartialEq, Eq)]
+        #[rasn(automatic_tags, option_type(Option))]
+        #[rasn(choice)]
+        #[non_exhaustive]
+        pub enum Message {
+            Updates(Updates),
+        }
+
+        let msg = Message::Updates(Updates { updates: vec![1] });
+
+        round_trip!(aper, Message, msg, &[0, 1, 1]);
+    }
 }

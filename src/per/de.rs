@@ -256,6 +256,9 @@ impl<'input> Decoder<'input> {
             if range == 0 {
                 Ok(input)
             } else if range == 1 {
+                if self.options.aligned {
+                    input = self.parse_padding(input)?;
+                }
                 (decode_fn)(input, size_constraint.minimum())
             } else {
                 let range = if self.options.aligned && range > 256 {
