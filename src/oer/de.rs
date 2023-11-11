@@ -3,7 +3,7 @@
 // the structure of the encoding. In particular, the end of the encoding cannot be determined from
 // the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
 use super::enc::EncodingRules;
-use crate::oer::helpers;
+use crate::oer::ranges;
 use crate::prelude::{
     Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, GeneralString,
     GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier, PrintableString, SetOf,
@@ -243,7 +243,7 @@ impl<'input> Decoder<'input> {
     ) -> Result<Integer, DecodeError> {
         // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
-            helpers::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
+            ranges::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
                 self.decode_integer_from_bytes(sign, octets.map(usize::from))
             })
         } else {

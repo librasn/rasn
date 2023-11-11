@@ -1,9 +1,4 @@
-use crate::types::{
-    constraints::{Bounded, Extensible, Value},
-    Integer,
-};
-use bitvec::prelude::{BitVec, Msb0};
-use num_traits::{Signed, Zero};
+use crate::types::constraints::{Bounded, Extensible, Value};
 
 /// ITU-T X.696 (02/2021) 10.0
 ///
@@ -82,18 +77,5 @@ pub fn determine_integer_size_and_sign<T, U, E>(
         | Bounded::None => transform_fn(data, true, None),
         // TODO - check if this is correct way instead of not encoding at all, or true/false
         Bounded::Single(value) => transform_fn(data, value < 0, octet_size_by_range(value)),
-    }
-}
-pub fn integer_to_bitvec_bytes(value: &Integer, signed: bool) -> Option<BitVec<u8, Msb0>> {
-    if signed {
-        Some(BitVec::<u8, Msb0>::from_slice(
-            &(value.to_signed_bytes_be()),
-        ))
-    } else if !signed && (value.is_positive() || value.is_zero()) {
-        Some(BitVec::<u8, Msb0>::from_slice(
-            &(value.to_biguint().unwrap().to_bytes_be()),
-        ))
-    } else {
-        None
     }
 }

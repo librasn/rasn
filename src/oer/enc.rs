@@ -1,6 +1,6 @@
 use alloc::{string::ToString, vec::Vec};
 
-use crate::oer::helpers;
+use crate::oer::ranges;
 use crate::prelude::{
     Any, BitStr, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime,
     Ia5String, NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
@@ -218,8 +218,8 @@ impl Encoder {
         // On some cases we want to present length also as signed integer
         // E.g. length of a enumerated value
         //  ITU-T X.696 (02/2021) 11.4 ???? Seems like it is not needed
-        let bytes =
-            helpers::integer_to_bitvec_bytes(&Integer::from(length), signed).ok_or_else(|| {
+        let bytes = crate::bits::integer_to_bitvec_bytes(&Integer::from(length), signed)
+            .ok_or_else(|| {
                 EncodeError::integer_type_conversion_failed(
                     "Negative integer value has been provided to be converted into unsigned bytes"
                         .to_string(),
@@ -269,7 +269,7 @@ impl Encoder {
         signed: bool,
         long_form_short_length: bool,
     ) -> Result<BitString, EncodeError> {
-        helpers::integer_to_bitvec_bytes(value_to_enc, signed).ok_or_else(|| {
+        crate::bits::integer_to_bitvec_bytes(value_to_enc, signed).ok_or_else(|| {
             EncodeError::integer_type_conversion_failed(
                 "Negative integer value has been provided to be converted into unsigned bytes"
                     .to_string(),
@@ -304,7 +304,7 @@ impl Encoder {
                     self.codec(),
                 ));
             }
-            helpers::determine_integer_size_and_sign(
+            ranges::determine_integer_size_and_sign(
                 &value,
                 value_to_enc,
                 |value_to_enc, sign, octets| -> Result<(), EncodeError> {

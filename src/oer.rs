@@ -1,6 +1,6 @@
 pub mod de;
 pub mod enc;
-mod helpers;
+mod ranges;
 
 pub use self::{de::Decoder, enc::Encoder};
 use crate::error::{DecodeError, EncodeError};
