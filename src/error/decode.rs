@@ -658,11 +658,7 @@ pub enum OerDecodeErrorKind {
         "Tag not found from the variants of the platform when decoding Choice. Tag: {value}, extensible status: {is_extensible}"
     ))]
     InvalidTagVariantOnChoice { value: Tag, is_extensible: bool },
-    #[snafu(display("Invalid BitString: {msg}"))]
-    InvalidOerBitString {
-        /// The amount of invalid bits.
-        msg: alloc::string::String,
-    },
+
     InvalidExtensionHeader {
         /// The amount of invalid bits.
         msg: alloc::string::String,
@@ -682,10 +678,7 @@ impl OerDecodeErrorKind {
         })
         .into()
     }
-    #[must_use]
-    pub fn invalid_bit_string(msg: alloc::string::String) -> DecodeError {
-        CodecDecodeError::Oer(Self::InvalidOerBitString { msg }).into()
-    }
+
     #[must_use]
     pub fn invalid_extension_header(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidExtensionHeader { msg }).into()
@@ -698,6 +691,17 @@ impl OerDecodeErrorKind {
 pub enum CoerDecodeErrorKind {
     #[snafu(display("Invalid Canonical Octet Encoding, not encoded as the smallest possible number of octets: {msg}"))]
     NotValidCanonicalEncoding { msg: alloc::string::String },
+    #[snafu(display("Invalid BitString: {msg}"))]
+    InvalidCoerBitString {
+        /// The amount of invalid bits.
+        msg: alloc::string::String,
+    },
+}
+impl CoerDecodeErrorKind {
+    #[must_use]
+    pub fn invalid_bit_string(msg: alloc::string::String) -> DecodeError {
+        CodecDecodeError::Coer(Self::InvalidCoerBitString { msg }).into()
+    }
 }
 
 impl crate::de::Error for DecodeError {

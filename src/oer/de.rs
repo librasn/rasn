@@ -181,6 +181,12 @@ impl<'input> Decoder<'input> {
                             self.codec(),
                         ));
                     }
+                    if self.options.encoding_rules.is_coer() && input.leading_zeros() > 8 {
+                        return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                            msg: "Length value should not have leading zeroes in COER".to_string(),
+                        }
+                        .into());
+                    }
                     let length = data.load_be::<usize>();
                     if length < 128 && self.options.encoding_rules.is_coer() {
                         return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
@@ -209,7 +215,7 @@ impl<'input> Decoder<'input> {
                 self.codec(),
             ));
         }
-        let (input, data) = nom::bytes::streaming::take(length.to_usize().unwrap() * 8)(self.input)
+        let (input, data) = nom::bytes::streaming::take(length * 8)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
 
         self.input = input;
@@ -276,9 +282,9 @@ impl<'input> Decoder<'input> {
         }
         let length = self.decode_length()?;
         let num_unused_bits = self.parse_one_byte()?;
-        if num_unused_bits > 7 {
-            return Err(OerDecodeErrorKind::invalid_bit_string(
-                "Marked number of unused bits should be less than 8 when decoding BitString"
+        if num_unused_bits > 7 && self.options.encoding_rules.is_coer() {
+            return Err(CoerDecodeErrorKind::invalid_bit_string(
+                "Marked number of unused bits should be less than 8 when decoding BitString in Coer"
                     .to_string(),
             ));
         }
@@ -537,13 +543,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
     ) -> Result<Vec<D>, Self::Error> {
         let mut sequence_of = Vec::new();
         let length_of_quantity = self.decode_length()?;
-        let length = self
-            .extract_data_by_length(length_of_quantity)?
-            .load_be::<usize>();
+        let coer = self.options.encoding_rules.is_coer();
+        let length_bits = self.extract_data_by_length(length_of_quantity)?;
+        if coer && length_bits.leading_zeros() > 8 {
+            return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                msg: "Quantity value in 'sequence/set of' should not have leading zeroes in COER"
+                    .to_string(),
+            }
+            .into());
+        }
 
+        let length = length_bits.load_be::<usize>();
         let mut start = 1;
+        let mut decoder = Self::new(self.input.0, self.options);
         while start <= length {
-            let mut decoder = Self::new(self.input.0, self.options);
             let value = D::decode(&mut decoder)?;
             self.input = decoder.input;
             sequence_of.push(value);
