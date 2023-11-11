@@ -124,7 +124,6 @@ impl Encoder {
 
     #[must_use]
     pub fn output(self) -> Vec<u8> {
-        // TODO, move from per to utility module?
         let output = self.bitstring_output();
         crate::bits::to_vec(&output)
     }
@@ -299,7 +298,7 @@ impl Encoder {
         if let Some(value) = constraints.value() {
             if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
                 return Err(EncodeError::value_constraint_not_satisfied(
-                    value_to_enc.to_owned(),
+                    value_to_enc.clone(),
                     &value.constraint.0,
                     self.codec(),
                 ));
@@ -616,11 +615,10 @@ impl crate::Encoder for Encoder {
         if !self.check_fixed_size_constraint(value, value.len(), &constraints, fixed_size_encode)? {
             // With length determinant
             let missing_bits: usize = (8 - value.len() % 8) % 8;
-            if missing_bits < 8 {}
             let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
             let mut bit_string = BitVec::<u8, Msb0>::new();
             // missing bits never > 8
-            bit_string.extend(missing_bits.to_u8().unwrap().to_be_bytes());
+            bit_string.extend(missing_bits.to_u8().unwrap_or(0).to_be_bytes());
             bit_string.extend(value);
             bit_string.extend(trailing);
             self.encode_length(&mut buffer, bit_string.len(), false, false)?;
@@ -637,9 +635,8 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         // 11.5 The presence of an extension marker in the definition of an enumerated type does not affect the encoding of
         // the values of the enumerated type.
-        // TODO max size for enumerated value is currently only isize MIN/MAX
+        // max size for enumerated value is currently only isize MIN/MAX
         // Spec allows between –2^1015 and 2^1015 – 1
-        // TODO negative discriminant values are not currently possibly
         self.set_bit(tag, true);
         let number = value.discriminant();
         let mut buffer = BitString::default();
@@ -720,7 +717,6 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: &GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
-        // TODO check additional conditions from teletex fn
         // Seems like it can be encoded as it is...
         self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, value)
@@ -785,7 +781,6 @@ impl crate::Encoder for Encoder {
         // X.690 8.23.5
         // TODO the octets specified in ISO/IEC 2022 for encodings in an 8-bit environment, using
         // the escape sequence and character codings registered in accordance with ISO/IEC 2375.
-        // Are there some escape sequences that we should add?
         self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, value)
     }
