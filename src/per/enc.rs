@@ -1065,6 +1065,7 @@ impl crate::Encoder for Encoder {
     fn encode_choice<E: Encode + crate::types::Choice>(
         &mut self,
         constraints: Constraints,
+        _: &str,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::new();

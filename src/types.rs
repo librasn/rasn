@@ -77,6 +77,8 @@ pub trait Choice: Sized {
     const VARIANTS: &'static [TagTree];
     /// Variants contained in the list of extensions.
     const EXTENDED_VARIANTS: &'static [TagTree] = &[];
+    /// Variant identifiers for text-based encoding rules
+    const IDENTIFIERS: &'static [&'static str];
 }
 
 /// A `CHOICE` value.

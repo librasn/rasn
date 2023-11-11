@@ -1118,6 +1118,13 @@ impl<'a> FieldConfig<'a> {
         let crate_root = &self.container_config.crate_root;
         let tag = self.tag(context);
         let tag_tree = self.tag_tree(context);
+        let name = self
+            .field
+            .ident
+            .as_ref()
+            .map_or(syn::LitStr::new("", proc_macro2::Span::call_site()), |id| {
+                syn::LitStr::new(&id.to_string(), proc_macro2::Span::call_site())
+            });
 
         let constructor = quote::format_ident!(
             "{}",
@@ -1128,7 +1135,7 @@ impl<'a> FieldConfig<'a> {
             }
         );
 
-        quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree) })
+        quote!({ #crate_root::types::fields::Field::#constructor(#tag, #tag_tree, #name) })
     }
 
     pub fn field_type(&self) -> FieldType {

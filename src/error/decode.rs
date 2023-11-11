@@ -1,6 +1,7 @@
 use super::strings::PermittedAlphabetError;
 use alloc::{boxed::Box, string::ToString};
 
+use jzon::JsonValue;
 use snafu::{Backtrace, GenerateImplicitData, Snafu};
 
 use crate::de::Error;
@@ -17,6 +18,7 @@ pub enum CodecDecodeError {
     Der(DerDecodeErrorKind),
     Uper(UperDecodeErrorKind),
     Aper(AperDecodeErrorKind),
+    Jer(JerDecodeErrorKind),
 }
 
 macro_rules! impl_from {
@@ -35,6 +37,7 @@ impl_from!(Cer, CerDecodeErrorKind);
 impl_from!(Der, DerDecodeErrorKind);
 impl_from!(Uper, UperDecodeErrorKind);
 impl_from!(Aper, AperDecodeErrorKind);
+impl_from!(Jer, JerDecodeErrorKind);
 
 impl From<CodecDecodeError> for DecodeError {
     fn from(error: CodecDecodeError) -> Self {
@@ -73,7 +76,7 @@ impl From<CodecDecodeError> for DecodeError {
 ///     let mut total = 2;
 ///
 ///     loop {
-///         let decoded = Codec::Uper.decode::<MyString>(&hello_data[0..hello_data.len().min(total)]);
+///         let decoded = Codec::Uper.decode_from_binary::<MyString>(&hello_data[0..hello_data.len().min(total)]);
 ///         match decoded {
 ///             Ok(succ) => {
 ///                 println!("Successful decoding!");
@@ -292,6 +295,7 @@ impl DecodeError {
             CodecDecodeError::Der(_) => crate::Codec::Der,
             CodecDecodeError::Uper(_) => crate::Codec::Uper,
             CodecDecodeError::Aper(_) => crate::Codec::Aper,
+            CodecDecodeError::Jer(_) => crate::Codec::Jer,
         };
         Self {
             kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
@@ -533,6 +537,38 @@ pub enum DerDecodeErrorKind {
     ConstructedEncodingNotAllowed,
 }
 
+/// An error that occurred when decoding JER.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum JerDecodeErrorKind {
+    #[snafu(display("Unexpected end of input while decoding JER JSON."))]
+    EndOfInput {},
+    #[snafu(display(
+        "Found mismatching JSON value. Expected type {}. Found value {}.",
+        needed,
+        found
+    ))]
+    TypeMismatch {
+        needed: &'static str,
+        found: alloc::string::String,
+    },
+    #[snafu(display("Found invalid character {invalid} in bit string."))]
+    InvalidJerBitstring { invalid: char },
+    #[snafu(display("Found invalid character in octet string."))]
+    InvalidJerOctetString {},
+    #[snafu(display("Failed to construct OID from value {value}",))]
+    InvalidOIDString { value: JsonValue },
+    #[snafu(display("Found invalid enumerated discriminant {discriminant}",))]
+    InvalidEnumDiscriminant { discriminant: isize },
+}
+
+impl JerDecodeErrorKind {
+    pub fn eoi() -> CodecDecodeError {
+        CodecDecodeError::Jer(JerDecodeErrorKind::EndOfInput {})
+    }
+}
+
 // TODO check if there codec-specific errors here
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for UPER.
 #[derive(Snafu, Debug)]
@@ -633,7 +669,7 @@ mod tests {
         }
         // Value 333 encoded for missing choice index 3
         let data = [192, 128, 83, 64];
-        let result = Codec::Uper.decode::<MyChoice>(&data);
+        let result = Codec::Uper.decode_from_binary::<MyChoice>(&data);
         match result {
             Ok(_) => {
                 panic!("Unexpected OK!");

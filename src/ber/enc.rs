@@ -357,6 +357,7 @@ impl crate::Encoder for Encoder {
     fn encode_choice<E: Encode>(
         &mut self,
         _: Constraints,
+        _i: &str,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         (encode_fn)(self).map(drop)
@@ -771,9 +772,9 @@ mod tests {
         impl crate::types::Constructed for Set {
             const FIELDS: crate::types::fields::Fields =
                 crate::types::fields::Fields::from_static(&[
-                    crate::types::fields::Field::new_required(C0::TAG, C0::TAG_TREE),
-                    crate::types::fields::Field::new_required(C1::TAG, C1::TAG_TREE),
-                    crate::types::fields::Field::new_required(C2::TAG, C2::TAG_TREE),
+                    crate::types::fields::Field::new_required(C0::TAG, C0::TAG_TREE, "field1"),
+                    crate::types::fields::Field::new_required(C1::TAG, C1::TAG_TREE, "field2"),
+                    crate::types::fields::Field::new_required(C2::TAG, C2::TAG_TREE, "field3"),
                 ]);
         }
 

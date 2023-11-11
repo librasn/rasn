@@ -33,6 +33,7 @@ The encoder and decoder have been written in 100% safe Rust and fuzzed with [Ame
 - Distinguished Encoding Rules (DER)
 - Aligned Packed Encoding Rules (APER)
 - Unaligned Packed Encoding Rules (UPER)
+- JSON Encoding Rules (JER)
 
 [bun]: https://aflplus.plus
 
@@ -97,8 +98,8 @@ Next is the `Decode` and `Encode` traits. These are mirrors of each other and bo
 # impl AsnType for Person { const TAG: Tag = Tag::SEQUENCE; }
 # impl Constructed for Person {
 #     const FIELDS: Fields = Fields::from_static(&[
-#          Field::new_required(Utf8String::TAG, Utf8String::TAG_TREE),
-#          Field::new_required(Integer::TAG, Integer::TAG_TREE),
+#          Field::new_required(Utf8String::TAG, Utf8String::TAG_TREE, "age"),
+#          Field::new_required(Integer::TAG, Integer::TAG_TREE, "name"),
 #     ]);
 # }
 use rasn::{prelude::*, types::{Integer, Utf8String}};

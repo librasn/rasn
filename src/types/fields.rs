@@ -71,33 +71,39 @@ pub struct Field {
     pub tag: Tag,
     pub tag_tree: TagTree,
     pub presence: FieldPresence,
+    pub name: &'static str,
 }
 
 impl Field {
-    pub const fn new_required(tag: Tag, tag_tree: TagTree) -> Self {
+    pub const fn new_required(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
         Self {
             tag,
             tag_tree,
             presence: FieldPresence::Required,
+            name,
         }
     }
 
-    pub const fn new_optional(tag: Tag, tag_tree: TagTree) -> Self {
+    pub const fn new_optional(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
         Self {
             tag,
             tag_tree,
             presence: FieldPresence::Optional,
+            name,
         }
     }
 
-    pub const fn new_default(tag: Tag, tag_tree: TagTree) -> Self {
+    pub const fn new_default(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
         Self {
             tag,
             tag_tree,
             presence: FieldPresence::Default,
+            name,
         }
     }
+}
 
+impl Field {
     pub const fn is_optional_or_default(&self) -> bool {
         self.presence.is_optional_or_default()
     }

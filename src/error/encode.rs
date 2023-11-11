@@ -12,6 +12,7 @@ pub enum CodecEncodeError {
     Der(DerEncodeErrorKind),
     Uper(UperEncodeErrorKind),
     Aper(AperEncodeErrorKind),
+    Jer(JerEncodeErrorKind),
 }
 macro_rules! impl_from {
     ($variant:ident, $error_kind:ty) => {
@@ -29,6 +30,7 @@ impl_from!(Cer, CerEncodeErrorKind);
 impl_from!(Der, DerEncodeErrorKind);
 impl_from!(Uper, UperEncodeErrorKind);
 impl_from!(Aper, AperEncodeErrorKind);
+impl_from!(Jer, JerEncodeErrorKind);
 
 impl From<CodecEncodeError> for EncodeError {
     fn from(error: CodecEncodeError) -> Self {
@@ -62,7 +64,7 @@ impl From<CodecEncodeError> for EncodeError {
 /// fn main() {
 ///
 ///     let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
-///     let encoded = Codec::Uper.encode(&constrained_str);
+///     let encoded = Codec::Uper.encode_to_binary(&constrained_str);
 ///     match encoded {
 ///         Ok(succ) => {
 ///             println!("Successful encoding!");
@@ -161,6 +163,7 @@ impl EncodeError {
             CodecEncodeError::Der(_) => crate::Codec::Der,
             CodecEncodeError::Uper(_) => crate::Codec::Uper,
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
+            CodecEncodeError::Jer(_) => crate::Codec::Jer,
         };
         Self {
             kind: Box::new(EncodeErrorKind::CodecSpecific { inner }),
@@ -237,6 +240,34 @@ pub enum DerEncodeErrorKind {}
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
+pub enum JerEncodeErrorKind {
+    /// Upstream `serde` error
+    JsonEncodingError { upstream: alloc::string::String },
+    /// Error to be thrown when the JER encoder contains no encoded root value
+    #[snafu(display("No encoded JSON root value found!"))]
+    NoRootValueFound,
+    /// Internal JSON encoder error
+    #[snafu(display("Error in JSON encoder: {}", msg))]
+    JsonEncoder {
+        /// The error's message.
+        msg: alloc::string::String,
+    },
+    #[snafu(display("Exceeds supported integer range -2^63..2^63 ({:?}).", value))]
+    ExceedsSupportedIntSize {
+        /// value failed to encode
+        value: num_bigint::BigInt,
+    },
+    #[snafu(display("Invalid character: {:?}", error))]
+    InvalidCharacter {
+        /// value failed to encode
+        error: alloc::string::FromUtf8Error,
+    },
+}
+
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for UPER.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
 pub enum UperEncodeErrorKind {}
 
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for APER.
@@ -270,7 +301,7 @@ mod tests {
         let oid = ObjectIdentifier::new(vec![2, 5, 4, 3]);
         assert!(oid.is_some());
         // Higher level abstraction does not allow us to provide OID errors because we provide only valid types
-        let oid_encoded = crate::Codec::Ber.encode(&oid);
+        let oid_encoded = crate::Codec::Ber.encode_to_binary(&oid);
         assert!(oid_encoded.is_ok());
 
         let oid = vec![3, 5, 4, 3];
@@ -318,7 +349,7 @@ mod tests {
         struct MyConstrainedString(VisibleString);
 
         let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
-        let encoded = Codec::Uper.encode(&constrained_str);
+        let encoded = Codec::Uper.encode_to_binary(&constrained_str);
         match encoded {
             Ok(_) => {}
             Err(e) => {

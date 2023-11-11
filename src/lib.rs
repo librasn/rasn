@@ -48,6 +48,7 @@ mod bits;
 pub mod cer;
 pub mod der;
 pub mod error;
+pub mod jer;
 mod num;
 pub mod uper;
 
