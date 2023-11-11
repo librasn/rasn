@@ -327,16 +327,15 @@ mod tests {
         round_trip!(coer, Enum3, Enum3::Blue, &[0x06]);
         round_trip!(coer, Enum3, Enum3::Green, &[0x07]);
 
-        // TODO negative values are not supported at the moment...
         #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq)]
         #[rasn(enumerated, crate_root = "crate")]
         #[allow(clippy::items_after_statements)]
         enum Enum4 {
             Yes = 1000,
-            No = (-1000),
+            No = -1000,
         }
         round_trip!(coer, Enum4, Enum4::Yes, &[0x82, 0x03, 0xe8]);
-        // round_trip!(coer, Enum4, Enum4::No, &[0x82, 0xfc, 0x18]);
+        round_trip!(coer, Enum4, Enum4::No, &[0x82, 0xfc, 0x18]);
     }
     #[test]
     fn test_bit_string() {
