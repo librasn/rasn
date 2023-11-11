@@ -62,7 +62,6 @@ pub struct Encoder {
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
     field_bitfield: alloc::collections::BTreeMap<Tag, (FieldPresence, bool)>,
     extension_fields: Vec<Vec<u8>>,
-    /// Whether the current sequence/set has extensions present to be encoded.
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
 }
@@ -86,20 +85,19 @@ impl Encoder {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
-        dbg!(C::FIELDS.canonised());
         encoder.field_bitfield = C::FIELDS
             .canonised()
             .iter()
             .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
             .collect();
-        dbg!(&encoder.field_bitfield);
-        dbg!(C::EXTENDED_FIELDS);
+        encoder.is_extension_sequence = C::EXTENDED_FIELDS.is_some();
         encoder.parent_output_length = Some(self.output_length());
         encoder
     }
 
     fn new_sequence_encoder<C: crate::types::Constructed>(&self) -> Self {
         let mut encoder = Self::new(self.options.without_set_encoding());
+        encoder.is_extension_sequence = C::EXTENDED_FIELDS.is_some();
         encoder.field_bitfield = C::FIELDS
             .iter()
             .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
@@ -129,7 +127,6 @@ impl Encoder {
     fn output_length(&self) -> usize {
         let mut output_length = self.output.len();
         output_length += self.is_extension_sequence as usize;
-        let _ = dbg!(self.field_bitfield.values());
         output_length += self
             .field_bitfield
             .values()
@@ -144,7 +141,6 @@ impl Encoder {
                 .values()
                 .map(|output| output.len())
                 .sum::<usize>();
-            let _ = dbg!(self.set_output.values());
         }
 
         output_length
@@ -318,8 +314,6 @@ impl Encoder {
         if C::EXTENDED_FIELDS.is_some() {
             buffer.push(Self::encoded_extension_addition(&encoder.extension_fields));
         }
-        dbg!(&buffer);
-        dbg!(&encoder.output);
 
         for bit in encoder
             .field_bitfield
@@ -444,16 +438,11 @@ impl Encoder {
                         range,
                         &(effective_length as u32).to_be_bytes(),
                     );
-
                     if is_large_string {
                         self.pad_to_alignment(buffer);
                     }
-                    dbg!(&buffer);
-                    dbg!(&self.parent_output_length);
-                    dbg!(&self.output);
 
                     buffer.extend((encode_fn)(0..length)?);
-                    dbg!(&buffer);
                     Ok(())
                 } else {
                     self.encode_unconstrained_length(buffer, length, None, encode_fn)
@@ -977,11 +966,17 @@ impl crate::Encoder for Encoder {
                     && size_constraint.constraint.contains(&values.len())
             })
         });
+        let extension_bits = buffer.clone();
 
         self.encode_length(&mut buffer, values.len(), constraints.size(), |range| {
             let mut buffer = BitString::default();
+            let mut first_round = true;
             for value in &values[range] {
                 let mut encoder = Self::new(options);
+                if first_round {
+                    encoder.parent_output_length = Some(extension_bits.len());
+                    first_round = false;
+                }
                 E::encode(value, &mut encoder)?;
                 buffer.extend(encoder.bitstring_output());
             }
@@ -1059,7 +1054,6 @@ impl crate::Encoder for Encoder {
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut encoder = self.new_sequence_encoder::<C>();
-        dbg!(encoder.parent_output_length);
         (encoder_scope)(&mut encoder)?;
         self.encode_constructed::<C>(tag, encoder)
     }
@@ -1070,7 +1064,6 @@ impl crate::Encoder for Encoder {
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut set = self.new_set_encoder::<C>();
-        dbg!(set.parent_output_length);
 
         (encoder_scope)(&mut set)?;
 
@@ -1085,6 +1078,11 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::new();
         let mut choice_encoder = Self::new(self.options.without_set_encoding());
+        // Extensibility must be noted for byte alignment
+        if E::CONSTRAINTS.extensible() && self.options.aligned {
+            choice_encoder.parent_output_length = Some(1);
+        }
+
         let tag = (encode_fn)(&mut choice_encoder)?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
 
