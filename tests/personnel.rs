@@ -212,7 +212,7 @@ pub struct ExtensiblePersonnelRecord {
     #[rasn(tag(explicit(2)))]
     pub name_of_spouse: ExtensibleName,
     #[rasn(tag(3), default, size(2, extensible))]
-    pub children: Vec<ExtensibleChildInformation>,
+    pub children: Option<Vec<ExtensibleChildInformation>>,
 }
 
 impl Default for ExtensiblePersonnelRecord {
@@ -223,10 +223,10 @@ impl Default for ExtensiblePersonnelRecord {
             number: ExtensibleEmployeeNumber(51.into()),
             date_of_hire: ExtensibleDate(VisibleString::try_from("19710917").unwrap()),
             name_of_spouse: Name::mary().into(),
-            children: vec![
+            children: Some(vec![
                 ChildInformation::ralph().into(),
                 ExtensibleChildInformation::susan(),
-            ],
+            ]),
         }
     }
 }

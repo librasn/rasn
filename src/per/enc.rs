@@ -62,6 +62,7 @@ pub struct Encoder {
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
     field_bitfield: alloc::collections::BTreeMap<Tag, (FieldPresence, bool)>,
     extension_fields: Vec<Vec<u8>>,
+    /// Whether the current sequence/set has extensions present to be encoded.
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
 }
@@ -85,11 +86,14 @@ impl Encoder {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
+        dbg!(C::FIELDS.canonised());
         encoder.field_bitfield = C::FIELDS
             .canonised()
             .iter()
             .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
             .collect();
+        dbg!(&encoder.field_bitfield);
+        dbg!(C::EXTENDED_FIELDS);
         encoder.parent_output_length = Some(self.output_length());
         encoder
     }
@@ -125,11 +129,13 @@ impl Encoder {
     fn output_length(&self) -> usize {
         let mut output_length = self.output.len();
         output_length += self.is_extension_sequence as usize;
+        let _ = dbg!(self.field_bitfield.values());
         output_length += self
             .field_bitfield
             .values()
             .filter(|(presence, _)| presence.is_optional_or_default())
             .count();
+
         output_length += self.parent_output_length.unwrap_or_default();
 
         if self.options.set_encoding {
@@ -138,6 +144,7 @@ impl Encoder {
                 .values()
                 .map(|output| output.len())
                 .sum::<usize>();
+            let _ = dbg!(self.set_output.values());
         }
 
         output_length
@@ -1052,6 +1059,7 @@ impl crate::Encoder for Encoder {
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut encoder = self.new_sequence_encoder::<C>();
+        dbg!(encoder.parent_output_length);
         (encoder_scope)(&mut encoder)?;
         self.encode_constructed::<C>(tag, encoder)
     }
@@ -1062,6 +1070,7 @@ impl crate::Encoder for Encoder {
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut set = self.new_set_encoder::<C>();
+        dbg!(set.parent_output_length);
 
         (encoder_scope)(&mut set)?;
 
