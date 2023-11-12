@@ -368,8 +368,9 @@ impl crate::Encoder for Encoder {
         identifier: &'static str,
         encode_fn: impl FnOnce(&mut Self) -> Result<crate::Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
-        let variants =
-            variants::Variants::from_slice(&[E::VARIANTS, E::EXTENDED_VARIANTS].concat());
+        let variants = variants::Variants::from_slice(
+            &[E::VARIANTS, E::EXTENDED_VARIANTS.unwrap_or(&[])].concat(),
+        );
         if variants.is_empty() {
             self.update_root_or_constructed(JsonValue::Object(Object::new()))
         } else {

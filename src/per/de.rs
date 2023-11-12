@@ -957,7 +957,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     {
         let is_extensible = self.parse_extensible_bit(&constraints)?;
         let variants = crate::types::variants::Variants::from_static(if is_extensible {
-            D::EXTENDED_VARIANTS
+            D::EXTENDED_VARIANTS.unwrap_or(&[])
         } else {
             D::VARIANTS
         });
