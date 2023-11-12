@@ -76,7 +76,7 @@ pub trait Choice: Sized {
     /// Variants contained in the "root component list".
     const VARIANTS: &'static [TagTree];
     /// Variants contained in the list of extensions.
-    const EXTENDED_VARIANTS: &'static [TagTree] = &[];
+    const EXTENDED_VARIANTS: Option<&'static [TagTree]> = None;
     /// Variant identifiers for text-based encoding rules
     const IDENTIFIERS: &'static [&'static str];
 }

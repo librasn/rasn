@@ -1079,7 +1079,7 @@ impl crate::Encoder for Encoder {
         let mut buffer = BitString::new();
         let mut choice_encoder = Self::new(self.options.without_set_encoding());
         // Extensibility must be noted for byte alignment
-        if E::CONSTRAINTS.extensible() && self.options.aligned {
+        if E::EXTENDED_VARIANTS.is_some() && self.options.aligned {
             choice_encoder.parent_output_length = Some(1);
         }
 
@@ -1090,7 +1090,7 @@ impl crate::Encoder for Encoder {
         let variants = crate::types::variants::Variants::from_static(if is_root_extension {
             E::VARIANTS
         } else {
-            E::EXTENDED_VARIANTS
+            E::EXTENDED_VARIANTS.unwrap_or(&[])
         });
 
         let index = variants

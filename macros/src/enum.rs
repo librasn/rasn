@@ -11,23 +11,22 @@ pub struct Enum {
 }
 
 impl Enum {
+    #[allow(clippy::too_many_lines)]
     pub fn impl_asntype(&self) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
 
-        let tag = self
-            .config
-            .tag
-            .as_ref()
-            .map(|t| t.to_tokens(crate_root))
-            .unwrap_or_else(|| {
+        let tag = self.config.tag.as_ref().map_or_else(
+            || {
                 self.config
                     .enumerated
                     .then(|| quote!(#crate_root::Tag::ENUMERATED))
                     .unwrap_or(quote!(#crate_root::Tag::EOC))
-            });
+            },
+            |t| t.to_tokens(crate_root),
+        );
 
         let error_message = format!(
-            "{}'s variants is not unique, ensure that your variants's tags are correct.",
+            "{}'s variants is not unique, ensure that your variants' tags are correct.",
             self.name
         );
 
@@ -66,9 +65,10 @@ impl Enum {
             .partition_map(|(i, variant)| {
                 let config = VariantConfig::new(variant, &self.generics, &self.config);
                 let tag_tree = config.tag_tree(i);
-                match config.extension_addition {
-                    false => either::Left(tag_tree),
-                    true => either::Right(tag_tree),
+                if config.extension_addition {
+                    either::Right(tag_tree)
+                } else {
+                    either::Left(tag_tree)
                 }
             });
 
@@ -79,22 +79,22 @@ impl Enum {
             .collect_vec();
 
         let constraints_def = self.config.constraints.const_static_def(crate_root);
+        let extensible = self.config.constraints.extensible;
+        let extended_const_variants = extensible
+            .then(|| quote!(Some(&[#(#extended_variants),*])))
+            .unwrap_or(quote!(None));
 
         let choice_impl = self.config.choice.then(|| quote! {
             impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
                 const VARIANTS: &'static [#crate_root::types::TagTree] = &[
                     #(#base_variants),*
                 ];
-                const EXTENDED_VARIANTS: &'static [#crate_root::types::TagTree] = &[
-                    #(#extended_variants),*
-                ];
+                const EXTENDED_VARIANTS: Option<&'static [#crate_root::types::TagTree]> = #extended_const_variants;
                 const IDENTIFIERS: &'static [&'static str] = &[
                     #(#identifiers),*
                 ];
             }
         });
-
-        let extensible = self.config.constraints.extensible;
 
         let enumerated_impl = self.config.enumerated.then(|| {
             let (variants, extended_variants): (Vec<_>, Vec<_>) = self.variants.iter()
@@ -308,6 +308,7 @@ impl Enum {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn encode_choice(&self, generics: &syn::Generics) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
 
@@ -355,9 +356,7 @@ impl Enum {
                     quote!(#name::#ident { #(#idents: #idents_prefixed),* } => { #encode_impl.map(|_| #tag_tokens) })
                 }
                 syn::Fields::Unnamed(_) => {
-                    if v.fields.iter().count() != 1 {
-                        panic!("Tuple variants must contain only a single element.");
-                    }
+                    assert_eq!(v.fields.iter().count(), 1, "Tuple variants must contain only a single element.");
                     let constraints = variant_config
                         .constraints
                         .const_expr(&self.config.crate_root);
@@ -447,10 +446,8 @@ impl Enum {
                 let ident = &variant.ident;
                 let (def_fields, init_fields) = variant.fields.iter().enumerate().map(|(i, field)| {
                     let index = syn::Index::from(i);
-                    let ident = field.ident.as_ref().map(|ident| quote!(#ident))
-                        .unwrap_or_else(|| format_ident!("i{}", index).into_token_stream());
-                    let name = field.ident.as_ref().map(|ident| quote!(#ident))
-                        .unwrap_or_else(|| index.into_token_stream());
+                    let ident = field.ident.as_ref().map_or_else(|| format_ident!("i{}", index).into_token_stream(), |ident| quote!(#ident));
+                    let name = field.ident.as_ref().map_or_else(|| index.into_token_stream(), |ident| quote!(#ident));
 
                     (quote!(#name : ref #ident), quote!(#name : #ident))
                 }).unzip::<_, _, Vec<proc_macro2::TokenStream>, Vec<proc_macro2::TokenStream>>();

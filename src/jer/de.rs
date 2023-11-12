@@ -528,8 +528,10 @@ impl Decoder {
                     .map(|(i, _)| (i, v))
             })
             .map_or(Tag::EOC, |(i, v)| {
-                match variants::Variants::from_slice(&[D::VARIANTS, D::EXTENDED_VARIANTS].concat())
-                    .get(i)
+                match variants::Variants::from_slice(
+                    &[D::VARIANTS, D::EXTENDED_VARIANTS.unwrap_or(&[])].concat(),
+                )
+                .get(i)
                 {
                     Some(t) => {
                         self.stack.push(v.clone());
