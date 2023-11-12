@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0](https://github.com/XAMPPRocky/rasn/compare/rasn-derive-v0.11.1...rasn-derive-v0.12.0) - 2023-11-12
+
+### Fixed
+- *(macros)* handle negative discriminants
+
+### Other
+- Add `Option<T::EXTENDED_VARIANTS>` for Choice, clippy cleanup for relevant macros ([#200](https://github.com/XAMPPRocky/rasn/pull/200))
+- Feature/jer ([#187](https://github.com/XAMPPRocky/rasn/pull/187))
+- Field_error improved, Boxed error `kind`, explicit naming also for `DecodeErrorKind` ([#197](https://github.com/XAMPPRocky/rasn/pull/197))
+- run cargo fmt
+
 ## [0.11.0](https://github.com/XAMPPRocky/rasn/compare/rasn-derive-v0.10.6...rasn-derive-v0.11.0) - 2023-10-28
 
 ### Other
