@@ -91,3 +91,65 @@ pub fn integer_to_bitvec_bytes(
         None
     }
 }
+pub fn integer_to_bytes(value: &crate::prelude::Integer, signed: bool) -> Option<Vec<u8>> {
+    if signed {
+        Some(value.to_signed_bytes_be())
+    } else if !signed && (value.is_positive() || value.is_zero()) {
+        Some(value.to_biguint().unwrap().to_bytes_be())
+    } else {
+        None
+    }
+}
+
+// Structure to handle array of zeros or ones
+// BitVec is too much for OER
+pub struct BitOperator {
+    pub slice: Vec<bool>,
+}
+
+impl BitOperator {
+    pub fn new(slice: Vec<bool>) -> Self {
+        Self { slice }
+    }
+    pub fn push(&mut self, value: bool) {
+        if value {
+            self.slice.push(true);
+        } else {
+            self.slice.push(false);
+        }
+    }
+    pub fn extend(&mut self, value: &[bool]) {
+        for v in value {
+            self.push(*v);
+        }
+    }
+    pub fn len(&self) -> usize {
+        self.slice.len()
+    }
+    fn pad_to_byte(&mut self) {
+        let len = self.slice.len();
+        if len % 8 != 0 {
+            let missing_bits = 8 - len % 8;
+            for _ in 0..missing_bits {
+                self.push(false);
+            }
+        }
+    }
+    pub fn as_vec(&mut self) -> Vec<u8> {
+        self.pad_to_byte();
+        self.slice
+            .chunks(8)
+            .map(|chunk| chunk.iter().fold(0, |acc, &bit| (acc << 1) | bit as u8))
+            .collect()
+    }
+}
+impl Default for BitOperator {
+    fn default() -> Self {
+        Self { slice: Vec::new() }
+    }
+}
+impl AsRef<[bool]> for BitOperator {
+    fn as_ref(&self) -> &[bool] {
+        &self.slice.as_ref()
+    }
+}
