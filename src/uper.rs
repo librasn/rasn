@@ -977,4 +977,34 @@ mod tests {
             &[96, 8, 5, 52]
         );
     }
+    #[test]
+    fn test_object_identifier() {
+        round_trip!(
+            uper,
+            ObjectIdentifier,
+            ObjectIdentifier::new(vec![1, 2]).unwrap(),
+            &[0x01u8, 0x2a]
+        );
+        round_trip!(
+            uper,
+            ObjectIdentifier,
+            ObjectIdentifier::new(vec![1, 2, 3321]).unwrap(),
+            &[0x03u8, 0x2a, 0x99, 0x79]
+        );
+        #[derive(AsnType, Debug, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct B {
+            a: bool,
+            b: ObjectIdentifier,
+        }
+        round_trip!(
+            uper,
+            B,
+            B {
+                a: true,
+                b: ObjectIdentifier::new(vec![1, 2]).unwrap()
+            },
+            &[0x80, 0x95, 0x00]
+        );
+    }
 }

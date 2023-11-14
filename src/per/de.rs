@@ -678,7 +678,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_object_identifier(&mut self, _: Tag) -> Result<crate::types::ObjectIdentifier> {
         let octets = self.decode_octets()?.into_vec();
-        crate::ber::decode(&octets)
+        let decoder = crate::ber::de::Decoder::new(&octets, crate::ber::de::DecoderOptions::ber());
+        decoder.decode_object_identifier_from_bytes(&octets)
     }
 
     fn decode_bit_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::BitString> {
