@@ -780,7 +780,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let is_extensible = constraints.extensible();
         let tag: Tag = self.parse_tag()?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, D::VARIANTS);
-        let is_extended_extension = crate::TagTree::tag_contains(&tag, D::EXTENDED_VARIANTS);
+        let is_extended_extension =
+            crate::TagTree::tag_contains(&tag, D::EXTENDED_VARIANTS.unwrap_or(&[]));
         if is_root_extension {
             D::from_tag(self, tag)
         } else if is_extensible && is_extended_extension {

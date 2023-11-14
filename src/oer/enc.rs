@@ -920,6 +920,8 @@ impl crate::Encoder for Encoder {
     fn encode_choice<E: Encode + Choice>(
         &mut self,
         constraints: Constraints,
+        _tag: Tag,
+        _ident: &'static str,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         let mut choice_encoder = Self::new(self.options.without_set_encoding());
