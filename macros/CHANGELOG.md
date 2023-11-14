@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1](https://github.com/XAMPPRocky/rasn/compare/rasn-derive-v0.12.0...rasn-derive-v0.12.1) - 2023-11-14
+
+### Other
+- Fix PER ObjectIdentifier, Alignment for Choice index encoding ([#202](https://github.com/XAMPPRocky/rasn/pull/202))
+
 ## [0.12.0](https://github.com/XAMPPRocky/rasn/compare/rasn-derive-v0.11.1...rasn-derive-v0.12.0) - 2023-11-12
 
 ### Fixed
