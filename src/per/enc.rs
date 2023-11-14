@@ -835,7 +835,8 @@ impl crate::Encoder for Encoder {
 
     fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32]) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        let der = crate::der::encode_scope(|encoder| encoder.encode_object_identifier(tag, oid))?;
+        let mut encoder = crate::der::enc::Encoder::new(crate::der::enc::EncoderOptions::der());
+        let der = encoder.object_identifier_as_bytes(oid)?;
         self.encode_octet_string(tag, <_>::default(), &der)
     }
 
@@ -1073,19 +1074,13 @@ impl crate::Encoder for Encoder {
     fn encode_choice<E: Encode + crate::types::Choice>(
         &mut self,
         constraints: Constraints,
+        tag: Tag,
         _: &str,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::new();
-        let mut choice_encoder = Self::new(self.options.without_set_encoding());
-        // Extensibility must be noted for byte alignment
-        if E::EXTENDED_VARIANTS.is_some() && self.options.aligned {
-            choice_encoder.parent_output_length = Some(1);
-        }
 
-        let tag = (encode_fn)(&mut choice_encoder)?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
-
         self.encode_extensible_bit(&constraints, &mut buffer, || is_root_extension);
         let variants = crate::types::variants::Variants::from_static(if is_root_extension {
             E::VARIANTS
@@ -1102,15 +1097,30 @@ impl crate::Encoder for Encoder {
         let bounds = if is_root_extension {
             let variance = variants.len();
             debug_assert!(variance > 0);
-
-            if variance != 1 {
-                Some(Some(variance))
-            } else {
+            if variance == 1 {
                 None
+            } else {
+                Some(Some(variance))
             }
         } else {
             Some(None)
         };
+
+        let mut choice_encoder = Self::new(self.options.without_set_encoding());
+        // Extensibility and index encoding size must be noted for byte alignment
+        let mut choice_bits_len = 0;
+        if E::EXTENDED_VARIANTS.is_some() && self.options.aligned {
+            choice_bits_len += 1;
+        }
+        choice_bits_len += if let Some(Some(variance)) = bounds {
+            crate::num::log2(variance as i128) as usize
+        } else {
+            0
+        };
+
+        choice_encoder.parent_output_length = Some(choice_bits_len);
+        let _tag = (encode_fn)(&mut choice_encoder)?;
+
         match (index, bounds) {
             (index, Some(Some(variance))) => {
                 // https://github.com/XAMPPRocky/rasn/issues/168

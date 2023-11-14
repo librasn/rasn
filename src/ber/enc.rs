@@ -357,6 +357,7 @@ impl crate::Encoder for Encoder {
     fn encode_choice<E: Encode>(
         &mut self,
         _: Constraints,
+        _t: Tag,
         _i: &str,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {

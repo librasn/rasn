@@ -324,6 +324,19 @@ impl Enum {
                 syn::Fields::Unit => quote!(#name::#ident => #identifier),
             }
         });
+        let tags = self.variants.iter().enumerate().map(|(i, v)| {
+            let ident = &v.ident;
+            let name = &self.name;
+            let variant_config = VariantConfig::new(v, generics, &self.config);
+            let variant_tag = variant_config.tag(i);
+            let tag_tokens = variant_tag.to_tokens(crate_root);
+
+            match &v.fields {
+                syn::Fields::Named(_) => quote!(#name::#ident { .. } => #tag_tokens),
+                syn::Fields::Unnamed(_) => quote!(#name::#ident (_) => #tag_tokens),
+                syn::Fields::Unit => quote!(#name::#ident => #tag_tokens),
+            }
+        });
 
         let variants = self.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
@@ -397,6 +410,9 @@ impl Enum {
         let encode_variants = quote! {
             encoder.encode_choice::<Self>(
                 Self::CONSTRAINTS,
+                match self {
+                    #(#tags),*
+                },
                 match self {
                     #(#identifiers),*
                 },

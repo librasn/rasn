@@ -288,6 +288,7 @@ mod tests {
             &[0x90, 0x27, 0x10, 0x80]
         );
     }
+
     #[test]
     fn visible_string() {
         // B ::= VisibleString (SIZE (5))
@@ -433,6 +434,7 @@ mod tests {
             &[0x01]
         );
     }
+
     #[test]
     fn issue_192() {
         // https://github.com/XAMPPRocky/rasn/issues/192
@@ -458,5 +460,36 @@ mod tests {
         let msg = Message::Updates(Updates { updates: vec![1] });
 
         round_trip!(aper, Message, msg, &[0, 1, 1]);
+    }
+
+    #[test]
+    fn issue_201() {
+        use crate as rasn;
+        use crate::prelude::*;
+
+        const T124_IDENTIFIER_KEY: &Oid = Oid::const_new(&[0, 0, 20, 124, 0, 1]);
+        #[derive(Debug, AsnType, Encode, rasn::Decode)]
+        #[rasn(choice, automatic_tags)]
+        enum Key {
+            #[rasn(tag(explicit(5)))]
+            Object(ObjectIdentifier),
+            H221NonStandard(OctetString),
+        }
+
+        #[derive(Debug, AsnType, rasn::Encode, rasn::Decode)]
+        #[rasn(automatic_tags)]
+        struct ConnectData {
+            t124_identifier_key: Key,
+            connect_pdu: OctetString,
+        }
+
+        let connect_pdu: OctetString = vec![0u8, 1u8, 2u8, 3u8].into();
+        let connect_data = ConnectData {
+            t124_identifier_key: Key::Object(T124_IDENTIFIER_KEY.into()),
+            connect_pdu,
+        };
+
+        let encoded = rasn::aper::encode(&connect_data).expect("failed to encode");
+        let _: ConnectData = rasn::aper::decode(&encoded).expect("failed to decode");
     }
 }
