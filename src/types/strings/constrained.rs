@@ -9,7 +9,7 @@ use crate::types;
 
 pub(crate) trait StaticPermittedAlphabet: Sized + Default {
     /// Describes whether the index of a character in the `CHARACTER_SET`
-    /// coincides with the value of the respective character in UTF8 used 
+    /// coincides with the value of the respective character in UTF8 used
     /// by rust to represent Strings. This is relevant when using the PER
     /// codec family.
     const CHAR_INDEX_EQUALS_UTF8_VALUE: bool;
