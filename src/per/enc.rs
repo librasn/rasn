@@ -233,14 +233,33 @@ impl Encoder {
             false
         };
 
-        match constraints.permitted_alphabet() {
-            Some(alphabet)
-                if S::CHARACTER_WIDTH
-                    > self.character_width(crate::num::log2(alphabet.constraint.len() as i128)) =>
-            {
+        match (
+            constraints.permitted_alphabet(),
+            S::CHAR_INDEX_EQUALS_UTF8_VALUE,
+            constraints.permitted_alphabet().map(|alphabet| {
+                S::CHARACTER_WIDTH
+                    > self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
+            }),
+        ) {
+            (Some(alphabet), _, Some(true)) | (Some(alphabet), false, _) => {
                 let alphabet = &alphabet.constraint;
                 let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
                     .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
+
+                self.encode_length(
+                    &mut buffer,
+                    value.len(),
+                    is_extended_value
+                        .then(|| -> Extensible<Size> { <_>::default() })
+                        .as_ref()
+                        .or(constraints.size()),
+                    |range| Ok(characters[range].to_bitvec()),
+                )?;
+            }
+            (None, false, _) => {
+                let characters =
+                    &DynConstrainedCharacterString::from_bits(value.chars(), S::CHARACTER_SET)
+                        .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
 
                 self.encode_length(
                     &mut buffer,
