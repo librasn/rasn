@@ -40,6 +40,7 @@ impl VisibleString {
 }
 
 impl StaticPermittedAlphabet for VisibleString {
+    const CHAR_INDEX_EQUALS_UTF8_VALUE: bool = true;
     /// Includes Space (0x20) and all graphically visible characters (0x21-0x7E).
     const CHARACTER_SET: &'static [u32] = &[
         0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E,

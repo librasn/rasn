@@ -85,6 +85,7 @@ impl Decode for NumericString {
 }
 
 impl StaticPermittedAlphabet for NumericString {
+    const CHAR_INDEX_EQUALS_UTF8_VALUE: bool = false;
     const CHARACTER_SET: &'static [u32] = &bytes_to_chars([
         b' ', b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9',
     ]);
