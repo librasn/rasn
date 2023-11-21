@@ -8,11 +8,6 @@ use once_cell::race::OnceBox;
 use crate::types;
 
 pub(crate) trait StaticPermittedAlphabet: Sized + Default {
-    /// Describes whether the index of a character in the `CHARACTER_SET`
-    /// coincides with the value of the respective character in UTF8 used
-    /// by rust to represent Strings. This is relevant when using the PER
-    /// codec family.
-    const CHAR_INDEX_EQUALS_UTF8_VALUE: bool;
     const CHARACTER_SET: &'static [u32];
     const CHARACTER_WIDTH: u32 = crate::num::log2(Self::CHARACTER_SET.len() as i128);
 

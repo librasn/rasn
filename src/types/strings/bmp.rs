@@ -16,7 +16,6 @@ impl BmpString {
 }
 
 impl StaticPermittedAlphabet for BmpString {
-    const CHAR_INDEX_EQUALS_UTF8_VALUE: bool = true;
     const CHARACTER_SET: &'static [u32] = &{
         let mut array = [0u32; 0xFFFE];
         let mut i = 0;

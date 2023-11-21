@@ -11,7 +11,6 @@ use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 pub struct PrintableString(Vec<u8>);
 
 impl StaticPermittedAlphabet for PrintableString {
-    const CHAR_INDEX_EQUALS_UTF8_VALUE: bool = false;
     /// `PrintableString` contains only "printable" characters.
     /// Latin letters, digits, (space) '()+,-./:=?
     const CHARACTER_SET: &'static [u32] = &bytes_to_chars([

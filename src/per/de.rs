@@ -9,7 +9,7 @@ use crate::{
         self,
         constraints::{self, Extensible},
         fields::{Field, Fields},
-        strings::StaticPermittedAlphabet,
+        strings::{should_be_indexed, StaticPermittedAlphabet},
         Constraints, Enumerated, Tag,
     },
     Decode,
@@ -548,7 +548,7 @@ impl<'input> Decoder<'input> {
 
         match (
             constraints.permitted_alphabet(),
-            ALPHABET::CHAR_INDEX_EQUALS_UTF8_VALUE,
+            should_be_indexed(ALPHABET::CHARACTER_WIDTH, ALPHABET::CHARACTER_SET),
             constraints.permitted_alphabet().map(|alphabet| {
                 ALPHABET::CHARACTER_WIDTH
                     > self
@@ -565,7 +565,7 @@ impl<'input> Decoder<'input> {
                         .unwrap_or(crate::num::log2(alphabet.constraint.len() as i128))
             }),
         ) {
-            (Some(alphabet), false, _) | (Some(alphabet), _, Some(true)) => {
+            (Some(alphabet), true, _) | (Some(alphabet), _, Some(true)) => {
                 if alphabet.constraint.len() == 1 {
                     let mut string = ALPHABET::default();
                     for _ in 0..total_length {
@@ -585,9 +585,9 @@ impl<'input> Decoder<'input> {
                     })
                 }
             }
-            (None, false, _) => ALPHABET::try_from_permitted_alphabet(&bit_string, None)
+            (None, true, _) => ALPHABET::try_from_permitted_alphabet(&bit_string, None)
                 .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec())),
-            (None, true, _) if !self.options.aligned => {
+            (None, false, _) if !self.options.aligned => {
                 ALPHABET::try_from_permitted_alphabet(&bit_string, None)
                     .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec()))
             }

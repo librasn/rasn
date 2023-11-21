@@ -8,7 +8,9 @@ use crate::{
         self,
         constraints::{self, Extensible, Size},
         fields::FieldPresence,
-        strings::{BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet},
+        strings::{
+            should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
+        },
         BitString, Constraints, Enumerated, Tag,
     },
     Encode,
@@ -235,13 +237,13 @@ impl Encoder {
 
         match (
             constraints.permitted_alphabet(),
-            S::CHAR_INDEX_EQUALS_UTF8_VALUE,
+            should_be_indexed(S::CHARACTER_WIDTH, S::CHARACTER_SET),
             constraints.permitted_alphabet().map(|alphabet| {
                 S::CHARACTER_WIDTH
                     > self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
             }),
         ) {
-            (Some(alphabet), _, Some(true)) | (Some(alphabet), false, _) => {
+            (Some(alphabet), _, Some(true)) | (Some(alphabet), true, _) => {
                 let alphabet = &alphabet.constraint;
                 let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
                     .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
@@ -256,7 +258,7 @@ impl Encoder {
                     |range| Ok(characters[range].to_bitvec()),
                 )?;
             }
-            (None, false, _) => {
+            (None, true, _) => {
                 let characters =
                     &DynConstrainedCharacterString::from_bits(value.chars(), S::CHARACTER_SET)
                         .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
