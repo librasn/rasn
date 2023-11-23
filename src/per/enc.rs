@@ -8,7 +8,9 @@ use crate::{
         self,
         constraints::{self, Extensible, Size},
         fields::FieldPresence,
-        strings::{BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet},
+        strings::{
+            should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
+        },
         BitString, Constraints, Enumerated, Tag,
     },
     Encode,
@@ -233,14 +235,33 @@ impl Encoder {
             false
         };
 
-        match constraints.permitted_alphabet() {
-            Some(alphabet)
-                if S::CHARACTER_WIDTH
-                    > self.character_width(crate::num::log2(alphabet.constraint.len() as i128)) =>
-            {
+        match (
+            constraints.permitted_alphabet(),
+            should_be_indexed(S::CHARACTER_WIDTH, S::CHARACTER_SET),
+            constraints.permitted_alphabet().map(|alphabet| {
+                S::CHARACTER_WIDTH
+                    > self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
+            }),
+        ) {
+            (Some(alphabet), _, Some(true)) | (Some(alphabet), true, _) => {
                 let alphabet = &alphabet.constraint;
                 let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
                     .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
+
+                self.encode_length(
+                    &mut buffer,
+                    value.len(),
+                    is_extended_value
+                        .then(|| -> Extensible<Size> { <_>::default() })
+                        .as_ref()
+                        .or(constraints.size()),
+                    |range| Ok(characters[range].to_bitvec()),
+                )?;
+            }
+            (None, true, _) => {
+                let characters =
+                    &DynConstrainedCharacterString::from_bits(value.chars(), S::CHARACTER_SET)
+                        .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
 
                 self.encode_length(
                     &mut buffer,

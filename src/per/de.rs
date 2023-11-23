@@ -9,7 +9,7 @@ use crate::{
         self,
         constraints::{self, Extensible},
         fields::{Field, Fields},
-        strings::StaticPermittedAlphabet,
+        strings::{should_be_indexed, StaticPermittedAlphabet},
         Constraints, Enumerated, Tag,
     },
     Decode,
@@ -546,9 +546,11 @@ impl<'input> Decoder<'input> {
             Ok(input)
         })?;
 
-        match constraints.permitted_alphabet() {
-            Some(alphabet)
-                if ALPHABET::CHARACTER_WIDTH
+        match (
+            constraints.permitted_alphabet(),
+            should_be_indexed(ALPHABET::CHARACTER_WIDTH, ALPHABET::CHARACTER_SET),
+            constraints.permitted_alphabet().map(|alphabet| {
+                ALPHABET::CHARACTER_WIDTH
                     > self
                         .options
                         .aligned
@@ -560,8 +562,10 @@ impl<'input> Decoder<'input> {
                                 .then_some(alphabet_width)
                                 .unwrap_or_else(|| alphabet_width.next_power_of_two())
                         })
-                        .unwrap_or(crate::num::log2(alphabet.constraint.len() as i128)) =>
-            {
+                        .unwrap_or(crate::num::log2(alphabet.constraint.len() as i128))
+            }),
+        ) {
+            (Some(alphabet), true, _) | (Some(alphabet), _, Some(true)) => {
                 if alphabet.constraint.len() == 1 {
                     let mut string = ALPHABET::default();
                     for _ in 0..total_length {
@@ -581,7 +585,9 @@ impl<'input> Decoder<'input> {
                     })
                 }
             }
-            None if !self.options.aligned => {
+            (None, true, _) => ALPHABET::try_from_permitted_alphabet(&bit_string, None)
+                .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec())),
+            (None, false, _) if !self.options.aligned => {
                 ALPHABET::try_from_permitted_alphabet(&bit_string, None)
                     .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec()))
             }

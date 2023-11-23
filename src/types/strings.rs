@@ -24,7 +24,9 @@ pub use {
     visible::VisibleString,
 };
 
-pub(crate) use constrained::{DynConstrainedCharacterString, StaticPermittedAlphabet};
+pub(crate) use constrained::{
+    should_be_indexed, DynConstrainedCharacterString, StaticPermittedAlphabet,
+};
 
 const fn bytes_to_chars<const N: usize>(input: [u8; N]) -> [u32; N] {
     let mut chars: [u32; N] = [0; N];
