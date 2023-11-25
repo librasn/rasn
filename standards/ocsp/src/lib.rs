@@ -142,7 +142,7 @@ pub struct BasicOcspResponse {
 /// The body of [BasicOcspResponse].
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ResponseData {
-    #[rasn(tag(explicit(0), default))]
+    #[rasn(tag(explicit(0)), default)]
     pub version: Version,
     pub responder_id: ResponderId,
     pub produced_at: GeneralizedTime,
