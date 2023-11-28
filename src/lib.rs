@@ -44,6 +44,32 @@ macro_rules! encode_error {
         }
     }};
 }
+#[cfg(test)]
+macro_rules! decode_error {
+    ($codec:ident, $typ:ty, $value:expr) => {{
+        match crate::$codec::decode::<$typ>($value) {
+            Ok(_) => {
+                panic!("Unexpected decoding success!");
+            }
+            Err(_) => {
+                // Expected an encoding error, so we're good!
+            }
+        }
+    }};
+}
+#[cfg(test)]
+macro_rules! decode_ok {
+    ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
+        match crate::$codec::decode::<$typ>($value) {
+            Ok(result) => {
+                pretty_assertions::assert_eq!(result, $expected);
+            }
+            Err(_) => {
+                panic!("Unexpected decoding failure!");
+            }
+        }
+    }};
+}
 
 #[cfg(test)]
 macro_rules! round_trip_with_constraints {
