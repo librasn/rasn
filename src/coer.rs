@@ -1,32 +1,56 @@
+//! COER is a binary encoding rule that is a subset of OER.
+//! Encodes and decodes as COER in this stricter variant.
 pub use super::oer::*;
 use crate::error::{DecodeError, EncodeError};
 use crate::types::Constraints;
 
 /// Attempts to decode `T` from `input` using OER.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid COER encoding specific to the expected type.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
-    crate::oer::decode(input)
+    T::decode(&mut Decoder::new(
+        crate::types::BitStr::from_slice(input),
+        de::DecoderOptions::coer(),
+    ))
 }
 /// Attempts to encode `value` of type `T` to COER.
+///
+/// # Errors
+/// Returns `EncodeError` if `value` cannot be encoded as COER, usually meaning that constraints
+/// are not met.
 pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    crate::oer::encode(value)
+    let mut enc = Encoder::new(enc::EncoderOptions::coer());
+    value.encode(&mut enc)?;
+    Ok(enc.output())
 }
 /// Attempts to decode `T` from `input` using OER with constraints.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid COER, while passing setting constraints.
 pub fn decode_with_constraints<T: crate::Decode>(
     constraints: Constraints,
     input: &[u8],
 ) -> Result<T, DecodeError> {
-    crate::oer::decode_with_constraints(
-        // crate::oer::de::DecoderOptions::default(),
+    T::decode_with_constraints(
+        &mut Decoder::new(
+            crate::types::BitStr::from_slice(input),
+            de::DecoderOptions::coer(),
+        ),
         constraints,
-        input,
     )
 }
-/// Attempts to encode `value` to COER with constraints.
+/// Attempts to encode `value` of type `T` into COER with constraints.
+///
+/// # Errors
+/// Returns `EncodeError` if `value` cannot be encoded as COER, while setting specific constraints.
 pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    crate::oer::encode_with_constraints(constraints, value)
+    let mut enc = Encoder::new(enc::EncoderOptions::coer());
+    value.encode_with_constraints(&mut enc, constraints)?;
+    Ok(enc.output())
 }
 
 #[cfg(test)]
@@ -689,7 +713,7 @@ mod tests {
         round_trip!(
             coer,
             Utf8String,
-            "2".repeat(128).try_into().unwrap(),
+            "2".repeat(128),
             &[0x81, 0x80]
                 .iter()
                 .chain("2".repeat(128).as_bytes().iter())
