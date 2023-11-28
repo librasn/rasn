@@ -63,3 +63,46 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
     value.encode_with_constraints(&mut enc, constraints)?;
     Ok(enc.output())
 }
+
+#[cfg(test)]
+mod tests {
+    // Test differences of OER and COER.
+    // On some cases, COER is more strict than OER.
+    use crate as rasn;
+    use crate::prelude::*;
+
+    #[test]
+    fn test_bool() {
+        for value in 0x01..=0xFEu8 {
+            let bytes = [value];
+            // Coer fails for other values than 0x00 and 0xFF.
+            decode_error!(coer, bool, &bytes);
+            decode_ok!(oer, bool, &bytes, true);
+        }
+    }
+    #[test]
+    fn test_length_determinant() {
+        // short with leading zeros
+        decode_error!(coer, Integer, &[0x00, 0x00, 0x00, 0x01, 0x01]);
+        decode_ok!(oer, Integer, &[0x00, 0x00, 0x00, 0x01, 0x01], 1.into());
+        // Long form when not needed
+        decode_error!(coer, Integer, &[0b1000_0001, 0x01, 0x01]);
+        decode_ok!(oer, Integer, &[0b1000_0001, 0x01, 0x01], 1.into());
+    }
+    #[test]
+    fn test_enumerated() {
+        // short with leading zeros
+        #[derive(AsnType, Decode, Encode, Debug, Clone, Copy, PartialEq)]
+        #[rasn(enumerated)]
+        enum Test {
+            A = 1,
+            B = 2,
+        }
+        // Leading zeroes
+        decode_error!(coer, Test, &[0x00, 0x00, 0x00, 0x01, 0x01]);
+        decode_ok!(oer, Test, &[0x00, 0x00, 0x00, 0x01, 0x01], Test::A);
+        // Long form when not needed
+        decode_error!(coer, Test, &[0b1000_0001, 0x01, 0x01]);
+        decode_ok!(oer, Test, &[0b1000_0001, 0x01, 0x01], Test::A);
+    }
+}

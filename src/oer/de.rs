@@ -135,19 +135,16 @@ impl<'input> Decoder<'input> {
             Ok(Tag::new(class, u32::from(tag_number)))
         }
     }
-    /// There is a short form and long form for length determinant in OER encoding.
-    /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
-    /// Max length for data type could be 2^1016 - 1 octets, however on this implementation it is limited to `usize::MAX`
-    fn decode_length(&mut self) -> Result<usize, DecodeError> {
+    fn parse_leading_zeros(&mut self) -> Result<u8, DecodeError> {
         // In OER decoding, there might be cases when there are multiple zero octets as padding
         // or the length is encoded in more than one octet.
         let mut leading_zeroes = 0usize;
         let mut only_zeros = true;
-        let mut possible_length: u8 = 0;
+        let mut possible_value: u8 = 0;
         // Parse leading zeros but also note if there are only zeros
         while let Ok(data) = self.parse_one_byte() {
             if data != 0 {
-                possible_length = data;
+                possible_value = data;
                 only_zeros = false;
                 break;
             }
@@ -155,14 +152,21 @@ impl<'input> Decoder<'input> {
         }
         if self.options.encoding_rules.is_coer() && leading_zeroes > 1 {
             return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
-                msg: "Leading zeros are not allowed in COER on length determinant.".to_string(),
+                msg: "Leading zeros are not allowed in COER on length determinant or Enumerated index value.".to_string(),
             }
-            .into());
+                .into());
         }
         if only_zeros {
             // Only zeros, length is zero
             return Ok(0);
         }
+        Ok(possible_value)
+    }
+    /// There is a short form and long form for length determinant in OER encoding.
+    /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
+    /// Max length for data type could be 2^1016 - 1 octets, however on this implementation it is limited to `usize::MAX`
+    fn decode_length(&mut self) -> Result<usize, DecodeError> {
+        let possible_length = self.parse_leading_zeros()?;
         if possible_length < 128 {
             Ok(usize::from(possible_length))
         } else {
@@ -469,7 +473,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error> {
-        let byte = self.parse_one_byte()?;
+        let byte = self.parse_leading_zeros()?;
         if byte < 128 {
             // Short form, use value directly as unsigned integer
             E::from_discriminant(isize::from(byte))
