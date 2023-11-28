@@ -141,7 +141,8 @@ impl<'input> Decoder<'input> {
     fn decode_length(&mut self) -> Result<usize, DecodeError> {
         // In OER decoding, there might be cases when there are multiple zero octets as padding
         // or the length is encoded in more than one octet.
-        let mut only_zeros: bool = false;
+        let mut leading_zeroes = 0usize;
+        let mut only_zeros = true;
         let mut possible_length: u8 = 0;
         // Parse leading zeros but also note if there are only zeros
         while let Ok(data) = self.parse_one_byte() {
@@ -150,13 +151,13 @@ impl<'input> Decoder<'input> {
                 only_zeros = false;
                 break;
             }
-            if self.options.encoding_rules.is_coer() {
-                return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
-                    msg: "Leading zeros are not allowed in COER on length determinant.".to_string(),
-                }
-                .into());
+            leading_zeroes += 1;
+        }
+        if self.options.encoding_rules.is_coer() && leading_zeroes > 1 {
+            return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                msg: "Leading zeros are not allowed in COER on length determinant.".to_string(),
             }
-            only_zeros = true;
+            .into());
         }
         if only_zeros {
             // Only zeros, length is zero
@@ -233,8 +234,8 @@ impl<'input> Decoder<'input> {
 
         let coer = self.options.encoding_rules.is_coer();
         let data = self.extract_data_by_length(final_length)?;
-        // Constrained data can correctly include leading zeros, unconstrained not
-        if coer && !signed && data.leading_zeros() > 8 && length.is_some() {
+        // // Constrained data can correctly include leading zeros, unconstrained not
+        if coer && !signed && data.leading_zeros() > 8 && length.is_none() {
             return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
                 msg: "Leading zeros are not allowed on unsigned Integer value in COER.".to_string(),
             }
@@ -856,10 +857,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
             return Ok(None);
         }
 
-        // Values of the extensions are only left
-        let bytes = self.input;
-        let mut decoder = Decoder::new(&bytes, self.options);
-
+        // Values of the extensions are only left, encoded as Open type
+        // TODO vec without conversion to bitslice
+        let bytes = self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
+        let mut decoder = Decoder::new(bitvec::slice::BitSlice::from_slice(&bytes), self.options);
         D::decode_with_constraints(&mut decoder, constraints).map(Some)
     }
 
@@ -879,10 +880,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
             return Ok(None);
         }
 
-        // Values of the extensions are only left
-        let bytes = self.input;
-        let mut decoder = Decoder::new(&bytes, self.options);
-
+        // Values of the extensions are only left, inner type encoded as Open type
+        // TODO vec without conversion to bitslice
+        let bytes = self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
+        let mut decoder = Decoder::new(bitvec::slice::BitSlice::from_slice(&bytes), self.options);
         D::decode(&mut decoder).map(Some)
     }
 }
