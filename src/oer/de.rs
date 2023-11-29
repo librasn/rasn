@@ -135,7 +135,7 @@ impl<'input> Decoder<'input> {
             Ok(Tag::new(class, u32::from(tag_number)))
         }
     }
-    fn parse_leading_zeros(&mut self) -> Result<u8, DecodeError> {
+    fn parse_byte_and_leading_zeros(&mut self) -> Result<u8, DecodeError> {
         // In OER decoding, there might be cases when there are multiple zero octets as padding
         // or the length is encoded in more than one octet.
         let mut leading_zeroes = 0usize;
@@ -166,7 +166,7 @@ impl<'input> Decoder<'input> {
     /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
     /// Max length for data type could be 2^1016 - 1 octets, however on this implementation it is limited to `usize::MAX`
     fn decode_length(&mut self) -> Result<usize, DecodeError> {
-        let possible_length = self.parse_leading_zeros()?;
+        let possible_length = self.parse_byte_and_leading_zeros()?;
         if possible_length < 128 {
             Ok(usize::from(possible_length))
         } else {
@@ -473,7 +473,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error> {
-        let byte = self.parse_leading_zeros()?;
+        let byte = self.parse_byte_and_leading_zeros()?;
         if byte < 128 {
             // Short form, use value directly as unsigned integer
             E::from_discriminant(isize::from(byte))

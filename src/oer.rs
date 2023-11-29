@@ -67,7 +67,7 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 #[cfg(test)]
 mod tests {
     // Test differences of OER and COER.
-    // On some cases, COER is more strict than OER.
+    // On some cases, COER is more stricter than OER.
     use crate as rasn;
     use crate::prelude::*;
 
