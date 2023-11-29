@@ -369,6 +369,7 @@ mod tests {
             BitString::from_slice(&[0x01]),
             &[0x02, 0x00, 0x01]
         );
+        round_trip!(coer, BitString, BitString::from_slice(&[]), &[0x01, 0x00]);
         let mut bv = bitvec![u8, Msb0;];
         bv.extend_from_raw_slice(&[0xff]);
         bv.push(false);

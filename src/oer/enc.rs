@@ -601,22 +601,55 @@ impl crate::Encoder for Encoder {
         self.set_bit(tag, true);
         let mut buffer = BitString::default();
 
-        let fixed_size_encode = |value: &BitStr| {
-            let missing_bits: usize = 8 - value.len() % 8;
-            let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
-            if missing_bits > 0 {
-                buffer.extend(value);
-                buffer.extend(trailing);
-            } else {
-                buffer.extend(value);
+        if let Some(size) = constraints.size() {
+            // Constraints apply only if the lower and upper bounds
+            // of the effective size constraint are identical (13.1)
+            if size.constraint.is_fixed() && size.extensible.is_none() {
+                //  Series of octets will be empty, allowed as 13.2.3,
+                // but this seems impossible to implement for decoder so not supported
+                // Can't say if this is an error in standard or not when not handling NamedBitList
+                // if value.is_empty() {
+                // } else
+                if size.constraint.contains(&value.len()) {
+                    let missing_bits: usize = (8 - value.len() % 8) % 8;
+                    let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
+                    if missing_bits > 0 {
+                        buffer.extend(value);
+                        buffer.extend(trailing);
+                    } else {
+                        buffer.extend(value);
+                    }
+                } else {
+                    return Err(EncodeError::size_constraint_not_satisfied(
+                        value.len(),
+                        &size.constraint,
+                        self.codec(),
+                    ));
+                }
+                self.extend(tag, buffer)?;
+                return Ok(());
             }
-            Ok(())
-        };
-        if !self.check_fixed_size_constraint(value, value.len(), &constraints, fixed_size_encode)? {
+        }
+
+        let mut bit_string = BitVec::<u8, Msb0>::new();
+        // If the BitString is empty, length is one and initial octet is zero
+        if value.is_empty() {
+            self.encode_length(&mut buffer, u8::BITS as usize, false, false)?;
+            buffer.extend(BitVec::<u8, Msb0>::from_slice(&[0x00u8]));
+        } else {
+            // TODO 22.7 X.680, NamedBitString and COER
+            // if self.options.encoding_rules.is_coer()
+            //     && value.trailing_zeros() > 7
+            // {
+            //     if value.first_one().is_some() {
+            //         // In COER, we strip trailing zeros if they take full octets
+            //         let trimmed_value = &value[..(value.len() - value.trailing_zeros() - 1)];
+            //     }
+            //     else {  }
+            // }
             // With length determinant
             let missing_bits: usize = (8 - value.len() % 8) % 8;
             let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
-            let mut bit_string = BitVec::<u8, Msb0>::new();
             // missing bits never > 8
             bit_string.extend(missing_bits.to_u8().unwrap_or(0).to_be_bytes());
             bit_string.extend(value);
@@ -624,6 +657,7 @@ impl crate::Encoder for Encoder {
             self.encode_length(&mut buffer, bit_string.len(), false, false)?;
             buffer.extend(bit_string);
         }
+
         self.extend(tag, buffer)?;
         Ok(())
     }
