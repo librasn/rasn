@@ -301,7 +301,7 @@ impl Encoder {
                     let bytes: Vec<u8>;
                     if let Some(octets) = octets {
                         bytes = self.encode_constrained_integer_with_padding(
-                            i128::from(octets),
+                            usize::from(octets),
                             value_to_enc,
                             sign,
                         )?;
@@ -332,7 +332,7 @@ impl Encoder {
     /// This means that the zero padding is possible even with COER encoding.
     fn encode_constrained_integer_with_padding(
         &mut self,
-        octets: i128,
+        octets: usize,
         value: &Integer,
         signed: bool,
     ) -> Result<Vec<u8>, EncodeError> {
@@ -345,36 +345,31 @@ impl Encoder {
         } else {
             value.to_biguint().unwrap().to_bytes_be()
         };
-        // TODO remove bitvec dependency
-        let bits = BitVec::<u8, Msb0>::from_slice(&bytes);
-        // octets * 8 never > 64, safe conversion and multiplication
-        #[allow(clippy::cast_sign_loss)]
-        let octets_as_bits: usize = octets as usize * 8;
-        let bits = match octets_as_bits.cmp(&bits.len()) {
+        let mut buffer: Vec<u8> = Vec::new();
+
+        match octets.cmp(&bytes.len()) {
             Ordering::Greater => {
-                let mut padding: BitVec<u8, Msb0>;
                 if signed && value.is_negative() {
                     // 2's complement
-                    padding = BitString::repeat(true, octets_as_bits - bits.len());
+                    buffer.extend(core::iter::repeat(0xff).take(octets - bytes.len()));
                 } else {
-                    padding = BitString::repeat(false, octets_as_bits - bits.len());
+                    buffer.extend(core::iter::repeat(0x00).take(octets - bytes.len()));
                 }
-                padding.extend(bits);
-                padding
             }
             Ordering::Less => {
                 return Err(EncodeError::from_kind(
                     EncodeErrorKind::MoreBytesThanExpected {
-                        value: bits.len(),
-                        expected: octets_as_bits,
+                        value: bytes.len(),
+                        expected: octets,
                     },
                     self.codec(),
                 ));
             }
-            Ordering::Equal => bits,
+            // As is
+            Ordering::Equal => {}
         };
-        // self.output.extend(bits);
-        Ok(crate::bits::to_vec(&bits))
+        buffer.extend(bytes);
+        Ok(buffer)
     }
     fn check_fixed_size_constraint<T>(
         &self,
@@ -621,11 +616,10 @@ impl crate::Encoder for Encoder {
             }
         }
 
-        let mut bit_string = BitVec::<u8, Msb0>::new();
         // If the BitString is empty, length is one and initial octet is zero
         if value.is_empty() {
             self.encode_length(&mut buffer, 1, false, false)?;
-            buffer.extend(BitVec::<u8, Msb0>::from_slice(&[0x00u8]));
+            buffer.extend(&[0x00u8]);
         } else {
             // TODO 22.7 X.680, NamedBitString and COER
             // if self.options.encoding_rules.is_coer()
