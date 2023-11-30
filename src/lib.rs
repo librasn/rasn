@@ -19,7 +19,7 @@ macro_rules! round_trip {
                 actual_encoding
             }
             Err(error) => {
-                panic!("Unexpected encoding error: {}", error);
+                panic!("Unexpected encoding error: {:?}", error);
             }
         };
         let decoded_value: $typ = crate::$codec::decode(&actual_encoding).unwrap();
