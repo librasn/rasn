@@ -139,11 +139,15 @@ impl Encoder {
         self.field_bitfield.entry(tag).and_modify(|(_, b)| *b = bit);
     }
     fn extend(&mut self, tag: Tag, bytes: Vec<u8>) -> Result<(), EncodeError> {
-        // TODO bound check
-        if self.options.set_encoding {
-            self.set_output.insert(tag, bytes.into());
-        } else {
-            self.output.extend(bytes);
+        match self.output.len().checked_add(bytes.len()) {
+            Some(len) => {
+                if self.options.set_encoding {
+                    self.set_output.insert(tag, bytes);
+                } else {
+                    self.output.extend(bytes);
+                }
+            }
+            _ => Err(EncodeError::length_exceeds_platform_size(self.codec()))?,
         }
         Ok(())
     }
