@@ -1,9 +1,5 @@
 #![doc = include_str!("../README.md")]
-// #![cfg_attr(not(test), no_std)]
-// Temporally disable some warnings, as a result of work in progress, to reduce noise.
-#![allow(clippy::redundant_clone)]
-#![allow(dead_code)]
-#![allow(unused_variables)]
+#![cfg_attr(not(test), no_std)]
 
 extern crate alloc;
 

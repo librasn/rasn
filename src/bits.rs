@@ -75,6 +75,7 @@ pub(crate) fn to_left_padded_vec(
         vec
     }
 }
+#[allow(dead_code)]
 pub fn integer_to_bitvec_bytes(
     value: &crate::prelude::Integer,
     signed: bool,
