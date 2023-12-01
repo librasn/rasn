@@ -24,7 +24,9 @@ use num_integer::div_ceil;
 use num_traits::ToPrimitive;
 
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
+#[allow(unused)]
 const MAX_LENGTH: [u8; 127] = [0xff; 127];
+#[allow(unused)]
 const MAX_LENGTH_LENGTH: usize = MAX_LENGTH.len();
 use crate::error::{CoerDecodeErrorKind, DecodeError, DecodeErrorKind, OerDecodeErrorKind};
 
@@ -472,7 +474,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error> {
+    fn decode_enumerated<E: Enumerated>(&mut self, _: Tag) -> Result<E, Self::Error> {
         let byte = self.parse_byte_and_leading_zeros()?;
         if byte < 128 {
             // Short form, use value directly as unsigned integer
@@ -547,8 +549,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_sequence_of<D: Decode>(
         &mut self,
-        tag: Tag,
-        constraints: Constraints,
+        _: Tag,
+        _: Constraints,
     ) -> Result<Vec<D>, Self::Error> {
         let mut sequence_of = Vec::new();
         let length_of_quantity = self.decode_length()?;
@@ -646,7 +648,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_ia5_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<Ia5String, Self::Error> {
         self.parse_known_multiplier_string(&constraints)
@@ -692,7 +694,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<UtcTime, Self::Error> {
         let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
-            .map_err(|e| {
+            .map_err(|_| {
                 DecodeError::string_conversion_failed(
                     Tag::UTF8_STRING,
                     "UTCTime should be UTF8 encoded.".to_string(),
@@ -716,7 +718,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_set<FIELDS, SET, D, F>(
         &mut self,
-        tag: Tag,
+        _: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
@@ -727,8 +729,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
         let (bitmap, extensible_present) = self.parse_preamble::<SET>()?;
-
-        let is_extensible = SET::EXTENDED_FIELDS.is_some();
 
         let field_map = SET::FIELDS
             .optional_and_default_fields()
@@ -744,7 +744,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             let mut fields = Vec::new();
             let mut set_decoder = Self::new(self.input.0, self.options);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
-            set_decoder.extensions_present = is_extensible.then_some(None);
+            set_decoder.extensions_present = extensible_present.then_some(None);
             set_decoder.fields = decoder_fields;
 
             let mut field_indices = SET::FIELDS.iter().enumerate().collect::<Vec<_>>();
