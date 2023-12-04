@@ -216,7 +216,7 @@ impl<'input> Decoder<'input> {
         if length == 0 {
             return Ok(InputSlice::from(bitvec::slice::BitSlice::from_slice(&[])));
         }
-        if &length * 8usize > bitvec::slice::BitSlice::<usize>::MAX_BITS {
+        if length > bitvec::slice::BitSlice::<usize>::MAX_BITS {
             return Err(DecodeError::length_exceeds_platform_width(
                 "Length is larger than BitSlice can hold data on this platform.".to_string(),
                 self.codec(),
