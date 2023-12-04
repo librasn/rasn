@@ -17,8 +17,6 @@ use crate::{Encode, Tag};
 /// Basic-OER is not supported and it might be that never will.
 use crate::error::{CoerEncodeErrorKind, EncodeError, EncodeErrorKind};
 
-// pub type Result<T, E = EncodeError> = core::result::Result<T, E>;
-
 pub const ITU_T_X696_OER_EDITION: f32 = 3.0;
 
 /// Options for configuring the [`Encoder`][super::Encoder].
@@ -305,7 +303,7 @@ impl Encoder {
         constraints: &Constraints,
         value_to_enc: &Integer,
     ) -> Result<(), EncodeError> {
-        let mut buffer = alloc::vec::Vec::new();
+        let mut buffer = Vec::new();
 
         if let Some(value) = constraints.value() {
             if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
@@ -430,7 +428,7 @@ impl Encoder {
         }
         output_length
     }
-    fn new_set_encoder<C: crate::types::Constructed>(&self) -> Self {
+    fn new_set_encoder<C: Constructed>(&self) -> Self {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
@@ -443,7 +441,7 @@ impl Encoder {
         encoder
     }
 
-    fn new_sequence_encoder<C: crate::types::Constructed>(&self) -> Self {
+    fn new_sequence_encoder<C: Constructed>(&self) -> Self {
         let mut encoder = Self::new(self.options.without_set_encoding());
         encoder.field_bitfield = C::FIELDS
             .iter()
@@ -453,9 +451,9 @@ impl Encoder {
         encoder
     }
     fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
-        !extension_fields.iter().all(alloc::vec::Vec::is_empty)
+        !extension_fields.iter().all(Vec::is_empty)
     }
-    fn encode_constructed<C: crate::types::Constructed>(
+    fn encode_constructed<C: Constructed>(
         &mut self,
         tag: Tag,
         mut encoder: Self,
@@ -503,7 +501,6 @@ impl Encoder {
         // Section 16.4 ### Extension addition presence bitmap ###
         let bitfield_length = extension_fields.len();
         let mut extension_bitmap_buffer = BitString::new();
-        // TODO overflow check
         #[allow(clippy::cast_possible_truncation)]
         let missing_bits: u8 = if bitfield_length > 0 {
             (8u8 - (bitfield_length % 8) as u8) % 8
@@ -833,7 +830,7 @@ impl crate::Encoder for Encoder {
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
     {
         let mut encoder = self.new_sequence_encoder::<C>();
-        (encoder_scope)(&mut encoder)?;
+        encoder_scope(&mut encoder)?;
         self.encode_constructed::<C>(tag, encoder)
     }
 
@@ -863,7 +860,7 @@ impl crate::Encoder for Encoder {
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
     {
         let mut set = self.new_set_encoder::<C>();
-        (encoder_scope)(&mut set)?;
+        encoder_scope(&mut set)?;
         self.encode_constructed::<C>(tag, set)
     }
 
@@ -909,7 +906,7 @@ impl crate::Encoder for Encoder {
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         let mut choice_encoder = Self::new(self.options.without_set_encoding());
-        let tag = (encode_fn)(&mut choice_encoder)?;
+        let tag = encode_fn(&mut choice_encoder)?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
         let tag_bytes: Vec<u8> = Self::encode_tag(tag);
         let mut buffer = Vec::new();
@@ -948,7 +945,7 @@ impl crate::Encoder for Encoder {
         value: Option<&E>,
     ) -> Result<Self::Ok, Self::Error>
     where
-        E: Encode + crate::types::Constructed,
+        E: Encode + Constructed,
     {
         let Some(value) = value else {
             self.set_bit(E::TAG, false);

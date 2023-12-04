@@ -79,6 +79,7 @@ mod tests {
         // short with leading zeros
         decode_error!(coer, Integer, &[0x00, 0x00, 0x00, 0x01, 0x01]);
         decode_ok!(oer, Integer, &[0x00, 0x00, 0x00, 0x01, 0x01], 1.into());
+        decode_error!(coer, Integer, &[0x00, 0x00, 0x00, 0x01, 0x01]);
         // Long form when not needed
         decode_error!(coer, Integer, &[0b1000_0001, 0x01, 0x01]);
         decode_ok!(oer, Integer, &[0b1000_0001, 0x01, 0x01], 1.into());

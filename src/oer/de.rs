@@ -538,7 +538,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
             sequence_decoder.extensions_present = extensible_present.then_some(None);
             sequence_decoder.fields = fields;
-            let value = (decode_fn)(&mut sequence_decoder)?;
+            let value = decode_fn(&mut sequence_decoder)?;
 
             self.input = sequence_decoder.input;
             value
@@ -754,7 +754,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             for (indice, field) in field_indices {
                 match field_map.get(&field).copied() {
                     Some(true) | None => {
-                        fields.push((decode_fn)(&mut set_decoder, indice, field.tag)?);
+                        fields.push(decode_fn(&mut set_decoder, indice, field.tag)?);
                     }
                     Some(false) => {}
                 }
@@ -764,7 +764,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 .flat_map(Fields::iter)
                 .enumerate()
             {
-                fields.push((decode_fn)(
+                fields.push(decode_fn(
                     &mut set_decoder,
                     indice + SET::FIELDS.len(),
                     field.tag,
@@ -775,7 +775,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             fields
         };
 
-        (field_fn)(fields)
+        field_fn(fields)
     }
 
     fn decode_choice<D>(&mut self, constraints: Constraints) -> Result<D, Self::Error>
