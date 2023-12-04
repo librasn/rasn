@@ -461,6 +461,9 @@ pub enum DecodeErrorKind {
         value
     ))]
     InvalidBool { value: u8 },
+    // Length of Length zero
+    #[snafu(display("Length of Length cannot be zero"))]
+    ZeroLengthOfLength,
     /// The length does not match what was expected.
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
     MismatchedLength {
