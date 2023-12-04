@@ -298,6 +298,9 @@ impl<'input> Decoder<'input> {
             }
         }
         let length = self.decode_length()?;
+        if length == 0 {
+            return Ok(BitString::new());
+        }
         let num_unused_bits = self.parse_one_byte()?;
         if num_unused_bits > 7 && self.options.encoding_rules.is_coer() {
             return Err(CoerDecodeErrorKind::invalid_bit_string(
