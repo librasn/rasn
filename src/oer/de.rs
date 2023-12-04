@@ -174,6 +174,13 @@ impl<'input> Decoder<'input> {
         } else {
             // We have the length of the length, mask and extract only 7 bis
             let length = possible_length & 0x7fu8;
+            // Length of length cannot be zero
+            if length == 0 {
+                return Err(DecodeError::from_kind(
+                    DecodeErrorKind::ZeroLengthOfLength,
+                    self.codec(),
+                ));
+            }
             // Should not overflow, max size 8 x 127 = 1016 < u16::MAX
             let result: Result<(InputSlice, InputSlice), DecodeError> =
                 nom::bytes::streaming::take(length.as_u16() * 8)(self.input)
