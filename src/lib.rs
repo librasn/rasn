@@ -48,7 +48,7 @@ macro_rules! decode_error {
                 panic!("Unexpected decoding success!");
             }
             Err(_) => {
-                // Expected an encoding error, so we're good!
+                // Expected a deoding error, so we're good!
             }
         }
     }};
