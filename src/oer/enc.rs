@@ -504,8 +504,9 @@ impl Encoder {
         let bitfield_length = extension_fields.len();
         let mut extension_bitmap_buffer = BitString::new();
         // TODO overflow check
+        #[allow(clippy::cast_possible_truncation)]
         let missing_bits: u8 = if bitfield_length > 0 {
-            8u8 - (bitfield_length % 8usize) as u8
+            (8u8 - (bitfield_length % 8) as u8) % 8
         } else {
             0
         };
@@ -842,7 +843,7 @@ impl crate::Encoder for Encoder {
         value: &[E],
         _: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
-        // TODO, it seems that constraints here are not C/OER visible? No mention in standard...
+        // It seems that constraints here are not C/OER visible? No mention in standard...
         self.set_bit(tag, true);
         let mut buffer = Vec::new();
         let value_len_bytes = self.encode_unconstrained_integer(&value.len().into(), false)?;
