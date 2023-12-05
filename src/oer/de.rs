@@ -267,7 +267,16 @@ impl<'input> Decoder<'input> {
         // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
             ranges::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
-                self.decode_integer_from_bytes(sign, octets.map(usize::from))
+                let integer = self.decode_integer_from_bytes(sign, octets.map(usize::from))?;
+                if value.constraint.bigint_contains(&integer) {
+                    Ok(integer)
+                } else {
+                    Err(DecodeError::value_constraint_not_satisfied(
+                        integer,
+                        value.constraint.0,
+                        self.codec(),
+                    ))
+                }
             })
         } else {
             // No constraints

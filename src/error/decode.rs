@@ -170,6 +170,17 @@ impl DecodeError {
         )
     }
     #[must_use]
+    pub fn value_constraint_not_satisfied(
+        value: Integer,
+        expected: Bounded<i128>,
+        codec: Codec,
+    ) -> Self {
+        Self::from_kind(
+            DecodeErrorKind::ValueConstraintNotSatisfied { value, expected },
+            codec,
+        )
+    }
+    #[must_use]
     pub fn discriminant_value_not_found(discriminant: isize, codec: Codec) -> Self {
         Self::from_kind(
             DecodeErrorKind::DiscriminantValueNotFound { discriminant },
