@@ -2,7 +2,9 @@ use super::strings::PermittedAlphabetError;
 use alloc::{boxed::Box, string::ToString};
 
 use jzon::JsonValue;
-use snafu::{Backtrace, GenerateImplicitData, Snafu};
+use snafu::Snafu;
+#[cfg(feature = "backtraces")]
+use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::de::Error;
 use crate::types::variants::Variants;
@@ -68,6 +70,7 @@ impl From<CodecDecodeError> for DecodeError {
 ///
 /// fn main() {
 ///     // Hello, World! in decimal bytes with trailing zeros
+///     // Below sample requires that `backtraces` feature is enabled
 ///     let hello_data = vec![
 ///         13, 145, 151, 102, 205, 235, 16, 119, 223, 203, 102, 68, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ///         0,
@@ -100,12 +103,14 @@ impl From<CodecDecodeError> for DecodeError {
 ///                                
 ///                             }
 ///                             _ => {
+///                                 #[cfg(feature = "backtraces")]
 ///                                 println!("Backtrace:\n{:?}", e.backtrace);
 ///                                 panic!("Unexpected error! {e:?}");
 ///                             }
 ///                         }
 ///                     }
 ///                     k => {
+///                         #[cfg(feature = "backtraces")]
 ///                         println!("Backtrace:\n{:?}", e.backtrace);
 ///                         panic!("Unexpected error! {k:?}");
 ///                     }
@@ -127,12 +132,14 @@ impl From<CodecDecodeError> for DecodeError {
 pub struct DecodeError {
     pub kind: Box<DecodeErrorKind>,
     pub codec: Codec,
+    #[cfg(feature = "backtraces")]
     pub backtrace: Backtrace,
 }
 impl core::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Error Kind: {}", self.kind)?;
         writeln!(f, "Codec: {}", self.kind)?;
+        #[cfg(feature = "backtraces")]
         write!(f, "\nBacktrace:\n{}", self.backtrace)?;
         Ok(())
     }
@@ -284,6 +291,7 @@ impl DecodeError {
         Self {
             kind: Box::new(kind),
             codec,
+            #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         }
     }
@@ -300,6 +308,7 @@ impl DecodeError {
         Self {
             kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
             codec,
+            #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         }
     }

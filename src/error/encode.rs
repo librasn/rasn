@@ -1,5 +1,7 @@
 use crate::types::constraints::{Bounded, Size};
-use snafu::{Backtrace, GenerateImplicitData, Snafu};
+use snafu::Snafu;
+#[cfg(feature = "backtraces")]
+use snafu::{Backtrace, GenerateImplicitData};
 
 use alloc::{boxed::Box, string::ToString};
 
@@ -62,6 +64,7 @@ impl From<CodecEncodeError> for EncodeError {
 /// );
 ///
 /// fn main() {
+///     // Below sample requires that `backtraces` feature is enabled
 ///
 ///     let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
 ///     let encoded = Codec::Uper.encode_to_binary(&constrained_str);
@@ -79,6 +82,7 @@ impl From<CodecEncodeError> for EncodeError {
 ///                     println!("Codec: {}", e.codec);
 ///                     println!("Character {} not found from the permitted list.",
 ///                              char::from_u32(character).unwrap());
+///                     #[cfg(feature = "backtraces")]
 ///                     println!("Backtrace:\n{}", e.backtrace);
 ///                 }
 ///                 _ => {
@@ -101,12 +105,14 @@ impl From<CodecEncodeError> for EncodeError {
 pub struct EncodeError {
     pub kind: Box<EncodeErrorKind>,
     pub codec: crate::Codec,
+    #[cfg(feature = "backtraces")]
     pub backtrace: Backtrace,
 }
 impl core::fmt::Display for EncodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Error Kind: {}", self.kind)?;
         writeln!(f, "Codec: {}", self.kind)?;
+        #[cfg(feature = "backtraces")]
         write!(f, "\nBacktrace:\n{}", self.backtrace)?;
 
         Ok(())
@@ -121,6 +127,7 @@ impl EncodeError {
         Self {
             kind: Box::new(EncodeErrorKind::AlphabetConstraintNotSatisfied { reason }),
             codec,
+            #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         }
     }
@@ -131,6 +138,7 @@ impl EncodeError {
                 expected: (**expected),
             }),
             codec,
+            #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         })
     }
@@ -152,6 +160,7 @@ impl EncodeError {
         Self {
             kind: Box::new(kind),
             codec,
+            #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         }
     }
@@ -168,6 +177,7 @@ impl EncodeError {
         Self {
             kind: Box::new(EncodeErrorKind::CodecSpecific { inner }),
             codec,
+            #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         }
     }
@@ -283,6 +293,7 @@ impl crate::enc::Error for EncodeError {
                 msg: msg.to_string(),
             }),
             codec,
+            #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         }
     }
