@@ -301,11 +301,16 @@ impl<'input> Decoder<'input> {
         if length == 0 {
             return Ok(BitString::new());
         }
+
         let num_unused_bits = self.parse_one_byte()?;
-        if num_unused_bits > 7 && self.options.encoding_rules.is_coer() {
-            return Err(CoerDecodeErrorKind::invalid_bit_string(
-                "Marked number of unused bits should be less than 8 when decoding BitString in Coer"
-                    .to_string(),
+        if length == 1 && num_unused_bits > 0 {
+            return Err(OerDecodeErrorKind::invalid_bit_string(
+                "Length includes only initial octet. There cannot be unused bits on the subsequent octects as there isn't any.".to_string(),
+            ));
+        }
+        if num_unused_bits > 7 {
+            return Err(OerDecodeErrorKind::invalid_bit_string(
+                "Marked number of unused bits should be less than 8 when decoding OER".to_string(),
             ));
         }
         // Remove one from length as one describes trailing zeros...
