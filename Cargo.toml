@@ -28,7 +28,7 @@ chrono = { version = "0.4.27", default-features = false, features = ["alloc"] }
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 
 [features]
-default = ["macros" ]
+default = ["macros", "backtraces"]
 macros = ["rasn-derive"]
 backtraces = []
 
