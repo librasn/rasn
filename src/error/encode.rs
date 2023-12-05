@@ -179,11 +179,7 @@ impl EncodeError {
     }
     #[must_use]
     pub fn invalid_length(length: usize, expected: Bounded<usize>, codec: crate::Codec) -> Self {
-        Self {
-            kind: Box::new(EncodeErrorKind::InvalidLength { length, expected }),
-            codec,
-            backtrace: Backtrace::generate(),
-        }
+        Self::from_kind(EncodeErrorKind::InvalidLength { length, expected }, codec)
     }
     #[must_use]
     pub fn opaque_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
