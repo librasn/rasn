@@ -421,6 +421,9 @@ impl OptionalEnum {
                 .segments
                 .last()
                 .map_or(false, |segment| segment.ident == self.path),
+            syn::Type::Reference(syn::TypeReference { elem, .. }) => {
+                self.is_option_type(elem)
+            }
             _ => false,
         }
     }
