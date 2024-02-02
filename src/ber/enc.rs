@@ -7,12 +7,11 @@ use chrono::Timelike;
 
 use super::Identifier;
 use crate::{
-    types::{
+    bits::octet_string_ascending, types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
         Constraints, Enumerated, Tag,
-    },
-    Codec, Encode,
+    }, Codec, Encode
 };
 
 pub use crate::error::{BerEncodeErrorKind, EncodeError, EncodeErrorKind};
@@ -553,13 +552,18 @@ impl crate::Encoder for Encoder {
         values: &types::SetOf<E>,
         _constraints: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut sequence_encoder = Self::new(self.config);
+        let mut encoded_values = values.iter().map(|val| {
+            let mut sequence_encoder = Self::new(self.config);
+            val.encode(&mut sequence_encoder).map(|_| sequence_encoder.output)
+        })
+        .collect::<Result<Vec<Vec<u8>>, _>>()?;
 
-        for value in values {
-            value.encode(&mut sequence_encoder)?;
-        }
+        // The encodings of the component values of a set-of value shall appear in ascending order,
+        // the encodings being compared as octet strings [...]
+        encoded_values.sort_by(octet_string_ascending);
+        let sorted_elements: Vec<u8> = encoded_values.into_iter().flatten().collect();
 
-        self.encode_constructed(tag, &sequence_encoder.output);
+        self.encode_constructed(tag, &sorted_elements);
 
         Ok(())
     }
