@@ -9,7 +9,7 @@ enum Tx {
     Reset {
         #[rasn(tag(explicit(0)))]
         keys: Option<Vec<u32>>,
-    }
+    },
 }
 
 #[test]
