@@ -9,6 +9,6 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rasn = { path = "../..", version = "0.12.4" }
-rasn-cms = { path = "../cms", version = "0.12.4" }
-rasn-pkix = { path = "../pkix", version = "0.12.4" }
+rasn = { path = "../..", version = "0.12.5" }
+rasn-cms = { path = "../cms", version = "0.12.5" }
+rasn-pkix = { path = "../pkix", version = "0.12.5" }
