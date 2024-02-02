@@ -14,11 +14,11 @@ pub(crate) fn range_from_len(bit_length: u32) -> i128 {
 /// The encoded elements are then compared as octet strings
 /// (shorter strings are zero-padded at their backs).
 /// The function is to be used as a compare function for `alloc::slice::sort_by`.
-/// 
+///
 /// ***From ISO/IEC 8825-1:2021***
-/// 
+///
 /// *11.6 Set of components*
-/// 
+///
 /// *The encodings of the component values of a set-of value shall appear in ascending order,*
 /// *the encodings being compared as octet strings with the shorter components being padded*
 /// *at their trailing end with 0-octets.*
@@ -31,9 +31,9 @@ pub(crate) fn octet_string_ascending(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
         }
     }
     if b.len() > a.len() {
-        return Ordering::Less
+        return Ordering::Less;
     } else if a.len() > b.len() {
-        return Ordering::Greater
+        return Ordering::Greater;
     } else {
         Ordering::Equal
     }
