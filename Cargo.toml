@@ -13,14 +13,14 @@ edition.workspace = true
 bench = false
 
 [workspace]
-members = [".", "macros", "standards/*", "compiler", "compiler/pest"]
+members = [".", "macros", "standards/*"]
 exclude = ["fuzzing"]
 
 [workspace.package]
 edition = "2021"
 license = "MIT/Apache-2.0"
 version = "0.12.4"
-repository = "https://github.com/XAMPPRocky/rasn.git"
+repository = "https://github.com/librasn/rasn.git"
 
 [workspace.dependencies]
 pretty_assertions = "1.1"
