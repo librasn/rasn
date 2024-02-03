@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.5](https://github.com/librasn/rasn/compare/rasn-v0.12.4...rasn-v0.12.5) - 2024-02-02
+
+### Fixed
+- *(der)* sort SET OF items ([#220](https://github.com/librasn/rasn/pull/220))
+- *(macro)* recognize option references ([#219](https://github.com/librasn/rasn/pull/219))
+
+### Other
+- remove legacy compiler ([#221](https://github.com/librasn/rasn/pull/221))
+- Make backtraces as feature, enabled by default ([#214](https://github.com/librasn/rasn/pull/214))
+
 ## [0.12.4](https://github.com/XAMPPRocky/rasn/compare/rasn-v0.12.3...rasn-v0.12.4) - 2023-12-04
 
 ### Other
