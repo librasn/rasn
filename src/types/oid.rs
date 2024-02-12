@@ -225,7 +225,7 @@ impl PartialEq<ObjectIdentifier> for &Oid {
 
 impl PartialEq<[u32]> for ObjectIdentifier {
     fn eq(&self, rhs: &[u32]) -> bool {
-        self == rhs
+        self.0 == rhs
     }
 }
 
