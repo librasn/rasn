@@ -20,7 +20,7 @@ impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
         tag: Tag,
         _: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder.decode_sequence(tag, |sequence| {
+        decoder.decode_sequence(tag, None::<fn() -> Self>, |sequence| {
             let type_id = ObjectIdentifier::decode(sequence)?;
             let value = sequence.decode_explicit_prefix(Tag::new(Class::Context, 0))?;
 

@@ -107,7 +107,7 @@ use rasn::{prelude::*, types::{Integer, Utf8String}};
 impl Decode for Person {
     fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints) -> Result<Self, D::Error> {
         // Accepts a closure that decodes the contents of the sequence.
-        decoder.decode_sequence(tag, |decoder| {
+        decoder.decode_sequence(tag, None::<fn () -> Self>, |decoder| {
             let age = Integer::decode(decoder)?;
             let name = Utf8String::decode(decoder)?;
             Ok(Self { age, name })

@@ -167,8 +167,13 @@ pub fn derive_struct_impl(
             )
         }
     } else {
+        let mut all_fields_optional_or_default = true;
         for (i, field) in container.fields.iter().enumerate() {
             let field_config = FieldConfig::new(field, config);
+
+            if !field_config.is_option_or_default_type() {
+                all_fields_optional_or_default = false;
+            }
 
             list.push(field_config.decode_field_def(&name, i));
         }
@@ -179,8 +184,33 @@ pub fn derive_struct_impl(
             Fields::Unit => quote!(),
         };
 
+        let initializer_fn = if all_fields_optional_or_default {
+            let fields = match container.fields {
+                Fields::Named(_) => {
+                    let init_fields = container
+                        .fields
+                        .iter()
+                        .map(|field| field.ident.clone())
+                        .map(|name| quote!(#name : <_>::default()));
+                    quote!({ #(#init_fields),* })
+                }
+                Fields::Unnamed(_) => {
+                    let init_fields = container.fields.iter().map(|_| quote!(<_>::default()));
+                    quote!(( #(#init_fields),* ))
+                }
+                Fields::Unit => quote!(),
+            };
+            quote! {
+                Some(|| {
+                    Self #fields
+                })
+            }
+        } else {
+            quote!(None::<fn() -> Self>)
+        };
+
         quote! {
-            decoder.decode_sequence(tag, |decoder| {
+            decoder.decode_sequence(tag, #initializer_fn, |decoder| {
                 Ok(Self #fields)
             })
         }

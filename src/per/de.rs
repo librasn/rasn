@@ -815,9 +815,15 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .map(|seq| seq.into_iter().collect())
     }
 
-    fn decode_sequence<D, F>(&mut self, _: Tag, decode_fn: F) -> Result<D, Self::Error>
+    fn decode_sequence<D, DF, F>(
+        &mut self,
+        _: Tag,
+        _: Option<DF>,
+        decode_fn: F,
+    ) -> Result<D, Self::Error>
     where
         D: crate::types::Constructed,
+        DF: FnOnce() -> D,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
         let is_extensible = D::EXTENDED_FIELDS

@@ -83,9 +83,15 @@ pub trait Decoder: Sized {
     ) -> Result<types::ObjectIdentifier, Self::Error>;
     /// Decode a `SEQUENCE` identified by `tag` from the available input. Returning
     /// a new `Decoder` containing the sequence's contents to be decoded.
-    fn decode_sequence<D, F>(&mut self, tag: Tag, decode_fn: F) -> Result<D, Self::Error>
+    fn decode_sequence<D, DF, F>(
+        &mut self,
+        tag: Tag,
+        default_initializer_fn: Option<DF>,
+        decode_fn: F,
+    ) -> Result<D, Self::Error>
     where
         D: crate::types::Constructed,
+        DF: FnOnce() -> D,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>;
     /// Decode a `SEQUENCE OF D` where `D: Decode` identified by `tag` from the available input.
     fn decode_sequence_of<D: Decode>(

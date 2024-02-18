@@ -599,8 +599,16 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.parse_constructed_contents(tag, true, |decoder| {
             let mut items = Vec::new();
 
+            if decoder.input.is_empty() {
+                return Ok(items);
+            }
+
             while let Ok(item) = D::decode(decoder) {
                 items.push(item);
+
+                if decoder.input.is_empty() {
+                    return Ok(items);
+                }
             }
 
             Ok(items)
@@ -623,12 +631,32 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_sequence<D, F: FnOnce(&mut Self) -> Result<D>>(
+    fn decode_sequence<
+        D: crate::types::Constructed,
+        DF: FnOnce() -> D,
+        F: FnOnce(&mut Self) -> Result<D>,
+    >(
         &mut self,
         tag: Tag,
+        default_initializer_fn: Option<DF>,
         decode_fn: F,
     ) -> Result<D> {
-        self.parse_constructed_contents(tag, true, decode_fn)
+        self.parse_constructed_contents(tag, true, |decoder| {
+            // If there are no fields, or the input is empty and we know that
+            // all fields are optional or default fields, we call the default
+            // initializer and skip calling the decode function at all.
+            if D::FIELDS.is_empty()
+                || (D::FIELDS.len() == D::FIELDS.number_of_optional_and_default_fields()
+                    && decoder.input.is_empty())
+            {
+                if let Some(default_initializer_fn) = default_initializer_fn {
+                    return Ok((default_initializer_fn)());
+                } else {
+                    return Err(BerDecodeErrorKind::UnexpectedEmptyInput.into());
+                }
+            }
+            (decode_fn)(decoder)
+        })
     }
 
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D> {
@@ -949,7 +977,7 @@ mod tests {
                 tag: Tag,
                 _: Constraints,
             ) -> Result<Self, D::Error> {
-                decoder.decode_sequence(tag, |sequence| {
+                decoder.decode_sequence(tag, None::<fn() -> Self>, |sequence| {
                     let name: Ia5String = Ia5String::decode(sequence)?;
                     let ok: bool = bool::decode(sequence)?;
                     Ok(Self { name, ok })

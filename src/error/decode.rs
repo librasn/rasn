@@ -515,6 +515,8 @@ pub enum BerDecodeErrorKind {
         /// The actual tag.
         actual: Tag,
     },
+    #[snafu(display("SEQUENCE has at least one required field, but no input provided"))]
+    UnexpectedEmptyInput,
 }
 
 impl BerDecodeErrorKind {

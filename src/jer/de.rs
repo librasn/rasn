@@ -81,7 +81,12 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(Self::object_identifier_from_value, self.stack)
     }
 
-    fn decode_sequence<D, F>(&mut self, _: crate::Tag, decode_fn: F) -> Result<D, Self::Error>
+    fn decode_sequence<D, DF, F>(
+        &mut self,
+        _: crate::Tag,
+        _: Option<DF>,
+        decode_fn: F,
+    ) -> Result<D, Self::Error>
     where
         D: Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
