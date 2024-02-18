@@ -806,10 +806,7 @@ impl<'a> FieldConfig<'a> {
         let mut ty = self.field.ty.clone();
         let crate_root = &self.container_config.crate_root;
         ty.strip_lifetimes();
-        let default_fn = self.default.as_ref().map(|default_fn| match default_fn {
-            Some(path) => quote!(#path),
-            None => quote!(<#ty>::default),
-        });
+        let default_fn = self.default_fn();
 
         let encode = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
@@ -939,10 +936,7 @@ impl<'a> FieldConfig<'a> {
         );
 
         let or_else = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error.into(), decoder.codec()))?);
-        let default_fn = self.default.as_ref().map(|default_fn| match default_fn {
-            Some(path) => quote!(#path),
-            None => quote!(<#ty>::default),
-        });
+        let default_fn = self.default_fn();
 
         let tag = self.tag(context);
         let constraints = self.constraints.const_expr(crate_root);
@@ -1069,6 +1063,14 @@ impl<'a> FieldConfig<'a> {
                 #decode
             })
         }
+    }
+
+    pub fn default_fn(&self) -> Option<proc_macro2::TokenStream> {
+        let ty = &self.field.ty;
+        self.default.as_ref().map(|default_fn| match default_fn {
+            Some(path) => quote!(#path),
+            None => quote!(<#ty>::default),
+        })
     }
 
     pub fn tag_derive(&self, context: usize) -> proc_macro2::TokenStream {
