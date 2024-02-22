@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.6](https://github.com/librasn/rasn/compare/rasn-derive-v0.12.5...rasn-derive-v0.12.6) - 2024-02-22
+
+### Other
+- Fix calling the specified default fn
+- Add default_initializer_fn optimisation
+
 ## [0.12.5](https://github.com/librasn/rasn/compare/rasn-derive-v0.12.4...rasn-derive-v0.12.5) - 2024-02-02
 
 ### Fixed
