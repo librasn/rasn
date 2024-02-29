@@ -3,7 +3,7 @@
 
 extern crate alloc;
 
-use rasn::{types::*, Decode, Encode};
+use rasn::{types::*, Decode, Encode, Decoder, Encoder};
 
 /// ID value of a corresponding request [`LdapMessage`].
 ///
@@ -362,9 +362,23 @@ impl BindResponse {
 /// The Unbind operation is not the antithesis of the Bind operation as the name
 /// implies. The naming of these operations are historical. The Unbind operation
 /// should be thought of as the "quit" operation.
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(application, 2))]
 pub struct UnbindRequest;
+
+impl Decode for UnbindRequest {
+    fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, _constraints: Constraints) -> Result<Self, D::Error> {
+        decoder.decode_null(tag)?;
+        Ok(Self)
+    }
+}
+
+impl Encode for UnbindRequest {
+    fn encode_with_tag_and_constraints<E: Encoder>(&self, encoder: &mut E, tag: Tag, _constraints: Constraints) -> Result<(), E::Error> {
+        encoder.encode_null(tag)?;
+        Ok(())
+    }
+}
 
 /// Used to request a server to return, subject to access controls and other
 /// restrictions, a set of entries matching a complex search criterion. This can
