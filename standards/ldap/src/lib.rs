@@ -365,7 +365,7 @@ impl BindResponse {
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(application, 2))]
 #[rasn(delegate)]
-pub struct UnbindRequest(());
+pub struct UnbindRequest(pub ());
 
 /// Used to request a server to return, subject to access controls and other
 /// restrictions, a set of entries matching a complex search criterion. This can
