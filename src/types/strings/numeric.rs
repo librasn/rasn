@@ -2,10 +2,13 @@ use super::*;
 
 use crate::error::strings::{InvalidNumericString, PermittedAlphabetError};
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+use once_cell::race::OnceBox;
 
 /// A string which can only contain numbers or `SPACE` characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct NumericString(Vec<u8>);
+static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
+static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl NumericString {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidNumericString> {
@@ -100,5 +103,13 @@ impl StaticPermittedAlphabet for NumericString {
             ch
         );
         self.0.push(ch as u8);
+    }
+
+    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        INDEX_MAP.get_or_init(||Self::build_index_map())
+    }
+
+    fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        CHARACTER_MAP.get_or_init(||Self::build_character_map())
     }
 }

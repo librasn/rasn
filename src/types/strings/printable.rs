@@ -2,6 +2,7 @@ use super::*;
 
 use crate::error::strings::InvalidPrintableString;
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+use once_cell::race::OnceBox;
 
 /// A string, which contains the characters defined in X.680 41.4 Section, Table 10.
 ///
@@ -9,6 +10,8 @@ use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(clippy::module_name_repetitions)]
 pub struct PrintableString(Vec<u8>);
+static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
+static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl StaticPermittedAlphabet for PrintableString {
     /// `PrintableString` contains only "printable" characters.
@@ -31,6 +34,14 @@ impl StaticPermittedAlphabet for PrintableString {
 
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
         Box::from(self.0.iter().map(|byte| *byte as u32))
+    }
+
+    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        INDEX_MAP.get_or_init(||Self::build_index_map())
+    }
+
+    fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        CHARACTER_MAP.get_or_init(||Self::build_character_map())
     }
 }
 
