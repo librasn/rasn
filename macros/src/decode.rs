@@ -188,7 +188,9 @@ pub fn derive_struct_impl(
             let fields = match container.fields {
                 Fields::Named(_) => {
                     let init_fields = container.fields.iter().map(|field| {
-                        let default_fn = FieldConfig::new(field, config).default_fn().unwrap_or(quote!(<_>::default));
+                        let default_fn = FieldConfig::new(field, config)
+                            .default_fn()
+                            .unwrap_or(quote!(<_>::default));
                         let name = &field.ident;
                         quote!(#name : #default_fn ())
                     });
@@ -197,7 +199,9 @@ pub fn derive_struct_impl(
                 }
                 Fields::Unnamed(_) => {
                     let init_fields = container.fields.iter().map(|field| {
-                        let default_fn = FieldConfig::new(field, config).default_fn().unwrap_or(quote!(<_>::default));
+                        let default_fn = FieldConfig::new(field, config)
+                            .default_fn()
+                            .unwrap_or(quote!(<_>::default));
                         quote!(#default_fn ())
                     });
                     quote!(( #(#init_fields),* ))
