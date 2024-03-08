@@ -364,8 +364,7 @@ impl BindResponse {
 /// should be thought of as the "quit" operation.
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(tag(application, 2))]
-#[rasn(delegate)]
-pub struct UnbindRequest(pub ());
+pub struct UnbindRequest;
 
 /// Used to request a server to return, subject to access controls and other
 /// restrictions, a set of entries matching a complex search criterion. This can
