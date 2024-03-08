@@ -104,7 +104,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
                 .copied()
                 .enumerate()
                 .map(|(i, e)| (e, i as u32))
-                .collect()
+                .collect(),
         )
     }
 
@@ -115,7 +115,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
                 .copied()
                 .enumerate()
                 .map(|(i, e)| (i as u32, e))
-                .collect()
+                .collect(),
         )
     }
 

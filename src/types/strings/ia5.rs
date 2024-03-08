@@ -138,10 +138,10 @@ impl super::StaticPermittedAlphabet for Ia5String {
     }
 
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
-        INDEX_MAP.get_or_init(||Self::build_index_map())
+        INDEX_MAP.get_or_init(Self::build_index_map)
     }
 
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
-        CHARACTER_MAP.get_or_init(||Self::build_character_map())
+        CHARACTER_MAP.get_or_init(Self::build_character_map)
     }
 }
