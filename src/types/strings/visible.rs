@@ -2,6 +2,7 @@ use super::*;
 
 use crate::error::strings::InvalidIso646Character;
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+use once_cell::race::OnceBox;
 
 /// A string which contains a subset of the ISO 646 character set.
 /// Type **should be** constructed by using `try_from` or `from` methods.
@@ -14,6 +15,8 @@ use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(clippy::module_name_repetitions)]
 pub struct VisibleString(Vec<u8>);
+static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
+static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl VisibleString {
     /// Create a new `VisibleString` from ISO 646 bytes (also known as US-ASCII/IA5/IRA5).
@@ -63,6 +66,14 @@ impl StaticPermittedAlphabet for VisibleString {
             ch
         );
         self.0.push(ch as u8);
+    }
+
+    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        INDEX_MAP.get_or_init(Self::build_index_map)
+    }
+
+    fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        CHARACTER_MAP.get_or_init(Self::build_character_map)
     }
 }
 

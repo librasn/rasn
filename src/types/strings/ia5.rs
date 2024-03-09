@@ -2,10 +2,13 @@ use super::*;
 
 use crate::error::strings::InvalidIso646Character;
 use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+use once_cell::race::OnceBox;
 
 /// An string which only contains ASCII characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ia5String(Vec<u8>);
+static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
+static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl Ia5String {
     pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, InvalidIso646Character> {
@@ -132,5 +135,13 @@ impl super::StaticPermittedAlphabet for Ia5String {
             ch
         );
         self.0.push(ch as u8);
+    }
+
+    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        INDEX_MAP.get_or_init(Self::build_index_map)
+    }
+
+    fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
+        CHARACTER_MAP.get_or_init(Self::build_character_map)
     }
 }

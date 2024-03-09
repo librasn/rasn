@@ -3,7 +3,6 @@ use alloc::collections::BTreeMap;
 use crate::error::strings::PermittedAlphabetError;
 use alloc::{boxed::Box, vec::Vec};
 use bitvec::prelude::*;
-use once_cell::race::OnceBox;
 
 use crate::types;
 
@@ -13,6 +12,8 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
 
     fn push_char(&mut self, ch: u32);
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_>;
+    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
+    fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
     fn char_range_to_bit_range(mut range: core::ops::Range<usize>) -> core::ops::Range<usize> {
         let width = Self::CHARACTER_WIDTH as usize;
         range.start *= width;
@@ -96,34 +97,26 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         self.chars().count()
     }
 
-    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
-        static MAP: OnceBox<BTreeMap<u32, u32>> = OnceBox::new();
-
-        MAP.get_or_init(|| {
-            Box::new(
-                Self::CHARACTER_SET
-                    .iter()
-                    .copied()
-                    .enumerate()
-                    .map(|(i, e)| (e, i as u32))
-                    .collect(),
-            )
-        })
+    fn build_index_map() -> Box<alloc::collections::BTreeMap<u32, u32>> {
+        Box::new(
+            Self::CHARACTER_SET
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(i, e)| (e, i as u32))
+                .collect(),
+        )
     }
 
-    fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
-        static MAP: OnceBox<BTreeMap<u32, u32>> = OnceBox::new();
-
-        MAP.get_or_init(|| {
-            Box::new(
-                Self::CHARACTER_SET
-                    .iter()
-                    .copied()
-                    .enumerate()
-                    .map(|(i, e)| (i as u32, e))
-                    .collect(),
-            )
-        })
+    fn build_character_map() -> Box<alloc::collections::BTreeMap<u32, u32>> {
+        Box::new(
+            Self::CHARACTER_SET
+                .iter()
+                .copied()
+                .enumerate()
+                .map(|(i, e)| (i as u32, e))
+                .collect(),
+        )
     }
 
     fn try_from_permitted_alphabet(

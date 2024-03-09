@@ -89,7 +89,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn numeric_string() {
         round_trip!(
             uper,
