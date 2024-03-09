@@ -10,6 +10,7 @@ mod ext;
 mod tag;
 
 use config::Config;
+use syn::DataStruct;
 
 const CRATE_NAME: &str = "rasn";
 
@@ -30,8 +31,24 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     let config = Config::from_attributes(&input);
     let name = input.ident;
     let generics = input.generics;
+    let crate_root = &config.crate_root;
 
     match input.data {
+        // Unit structs are treated as ASN.1 NULL values.
+        syn::Data::Struct(DataStruct {
+            fields: syn::Fields::Unit,
+            ..
+        }) => quote! {
+            impl #crate_root::Decode for #name {
+                fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(
+                    decoder: &mut D,
+                    tag: #crate_root::Tag,
+                    _: #crate_root::prelude::Constraints,
+                ) -> Result<Self, D::Error> {
+                    decoder.decode_null(tag).map(|_| #name)
+                }
+            }
+        },
         syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
         syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
             name,
@@ -58,8 +75,25 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
     let name = input.ident;
     let generics = input.generics;
+    let crate_root = &config.crate_root;
 
     match input.data {
+        // Unit structs are treated as ASN.1 NULL values.
+        syn::Data::Struct(DataStruct {
+            fields: syn::Fields::Unit,
+            ..
+        }) => quote! {
+            impl #crate_root::Encode for #name {
+                fn encode_with_tag_and_constraints<E: #crate_root::Encoder>(
+                    &self,
+                    encoder: &mut E,
+                    tag: #crate_root::Tag,
+                    _: #crate_root::prelude::Constraints,
+                ) -> Result<(), E::Error> {
+                    encoder.encode_null(tag).map(drop)
+                }
+            }
+        },
         syn::Data::Struct(v) => encode::derive_struct_impl(name, generics, v, &config),
         syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
             name,

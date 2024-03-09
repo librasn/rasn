@@ -7,6 +7,7 @@ pub fn derive_struct_impl(
     config: &Config,
 ) -> proc_macro2::TokenStream {
     let crate_root = &config.crate_root;
+
     let list: Vec<_> = container
         .fields
         .iter()

@@ -298,6 +298,12 @@ Test-type-a ::= NULL
 // either
 use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
+struct TestTypeA;
+```
+```rust
+// or
+use rasn::prelude::*;
+#[derive(AsnType, Decode, Encode)]
 #[rasn(delegate)]
 struct TestTypeA(());
 ```

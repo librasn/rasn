@@ -401,6 +401,7 @@ impl Config {
                     quote!(<#ty as #crate_root::AsnType>::TAG)
                 })
             })
+            .or_else(|| (fields == &syn::Fields::Unit).then(|| quote!(#crate_root::Tag::NULL)))
             .or_else(|| self.set.then(|| quote!(#crate_root::Tag::SET)))
             .unwrap_or(quote!(#crate_root::Tag::SEQUENCE))
     }
