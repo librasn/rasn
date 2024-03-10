@@ -219,7 +219,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
     fn long_sequence_of() {
         round_trip(&vec![5u8; 0xffff]);
     }
