@@ -414,6 +414,7 @@ pub struct SearchRequest {
 
 impl SearchRequest {
     /// SearchRequest constructor
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         base_object: LdapDn,
         scope: SearchRequestScope,

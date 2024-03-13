@@ -16,7 +16,7 @@ pub type AsymmetricDecryptKeyIdentifier = rasn::types::OctetString;
 pub type CsrAttrs = SequenceOf<AttrOrOid>;
 
 /// The OID identifying a `DecryptKeyIdentifier` attribute.
-pub const ASYMMETRIC_DECRYPT_KEY_OID: &'static Oid =
+pub const ASYMMETRIC_DECRYPT_KEY_OID: &Oid =
     Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_ASYMMETRIC_DECRYPT_KEY;
 
 /// Either an OID pointing a specific signature scheme or an attribute for
@@ -77,7 +77,7 @@ mod tests {
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![
                     1, 3, 6, 1, 5, 5, 7, 48, 1,
                 ])),
-                values: (|| {
+                values: {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
                         rasn::der::encode(
@@ -97,7 +97,7 @@ mod tests {
                         .unwrap(),
                     ));
                     b
-                })(),
+                },
             }),
         ];
 
@@ -127,7 +127,7 @@ mod tests {
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![
                     1, 2, 840, 10045, 2, 1,
                 ])),
-                values: (|| {
+                values: {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
                         // secp384r1 (SECG (Certicom) named elliptic curve)
@@ -137,14 +137,14 @@ mod tests {
                         .unwrap(),
                     ));
                     b
-                })(),
+                },
             }),
             AttrOrOid::Attribute(Attribute {
                 // extensionRequest (PKCS #9 via CRMF)
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![
                     1, 2, 840, 113549, 1, 9, 14,
                 ])),
-                values: (|| {
+                values: {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
@@ -153,7 +153,7 @@ mod tests {
                         .unwrap(),
                     ));
                     b
-                })(),
+                },
             }),
             // ecdsaWithSHA384 (ANSI X9.62 ECDSA algorithm with SHA384)
             AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
@@ -163,7 +163,7 @@ mod tests {
 
         let data_bin = rasn::der::encode(&data).unwrap();
         let txt = "MEEGCSqGSIb3DQEJBzASBgcqhkjOPQIBMQcGBSuBBAAiMBYGCSqGSIb3DQEJDjEJBgcrBgEBAQEWBggqhkjOPQQDAw==";
-        let bin = base64::decode(&txt).unwrap();
+        let bin = base64::decode(txt).unwrap();
         assert_eq!(data_bin, bin);
         let decoded_data = rasn::der::decode::<CsrAttrs>(&bin);
         assert!(decoded_data.is_ok());
@@ -180,7 +180,7 @@ mod tests {
             // ecPublicKey (ANSI X9.62 public key type)
             AttrOrOid::Attribute(Attribute {
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![2, 999, 1])),
-                values: (|| {
+                values: {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
                         rasn::der::encode(
@@ -192,7 +192,7 @@ mod tests {
                         .unwrap(),
                     ));
                     b
-                })(),
+                },
             }),
             // challengePassword (PKCS #9)
             AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
@@ -200,7 +200,7 @@ mod tests {
             ))),
             AttrOrOid::Attribute(Attribute {
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![2, 999, 2])),
-                values: (|| {
+                values: {
                     let mut b = BTreeSet::new();
                     b.insert(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
@@ -224,7 +224,7 @@ mod tests {
                         .unwrap(),
                     ));
                     b
-                })(),
+                },
             }),
             // brainpoolP384r1 (ECC Brainpool Standard Curves and Curve Generation)
             AttrOrOid::Oid(rasn::types::ObjectIdentifier::new_unchecked(Cow::from(
@@ -238,7 +238,7 @@ mod tests {
 
         let data_bin = rasn::der::encode(&data).unwrap();
         let txt = "MHwGBysGAQEBARYwIgYDiDcBMRsTGVBhcnNlIFNFVCBhcyAyLjk5OS4xIGRhdGEGCSqGSIb3DQEJBzAsBgOINwIxJQYDiDcDBgOINwQTGVBhcnNlIFNFVCBhcyAyLjk5OS4yIGRhdGEGCSskAwMCCAEBCwYJYIZIAWUDBAIC";
-        let bin = base64::decode(&txt).unwrap();
+        let bin = base64::decode(txt).unwrap();
         assert_eq!(bin, data_bin);
         let decoded_data = rasn::der::decode::<CsrAttrs>(&bin);
         assert!(decoded_data.is_ok());

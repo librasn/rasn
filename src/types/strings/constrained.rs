@@ -97,6 +97,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         self.chars().count()
     }
 
+    #[allow(clippy::box_collection)]
     fn build_index_map() -> Box<alloc::collections::BTreeMap<u32, u32>> {
         Box::new(
             Self::CHARACTER_SET
@@ -108,6 +109,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         )
     }
 
+    #[allow(clippy::box_collection)]
     fn build_character_map() -> Box<alloc::collections::BTreeMap<u32, u32>> {
         Box::new(
             Self::CHARACTER_SET
@@ -162,7 +164,7 @@ pub(crate) fn try_from_permitted_alphabet<S: StaticPermittedAlphabet>(
             string.push_char(
                 *alphabet
                     .get(&index)
-                    .ok_or_else(|| PermittedAlphabetError::IndexNotFound { index })?,
+                    .ok_or(PermittedAlphabetError::IndexNotFound { index })?,
             );
         }
     } else {
@@ -176,11 +178,7 @@ pub(crate) fn try_from_permitted_alphabet<S: StaticPermittedAlphabet>(
 }
 pub(crate) fn should_be_indexed(width: u32, character_set: &[u32]) -> bool {
     let largest_value = character_set.iter().copied().max().unwrap_or(0);
-    if 2u32.pow(width) > largest_value {
-        false
-    } else {
-        true
-    }
+    2u32.pow(width) <= largest_value
 }
 
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]

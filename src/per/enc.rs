@@ -198,7 +198,7 @@ impl Encoder {
         let mut buffer = BitString::default();
         let string_length = value.len();
 
-        let is_extended_value = self.encode_extensible_bit(&constraints, &mut buffer, || {
+        let is_extended_value = self.encode_extensible_bit(constraints, &mut buffer, || {
             constraints.size().map_or(false, |size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&string_length)

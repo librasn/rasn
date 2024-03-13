@@ -73,7 +73,7 @@ impl Codec {
                         crate::error::DecodeErrorKind::Custom {
                             msg: alloc::format!("Failed to decode JER from UTF8 bytes: {e:?}"),
                         },
-                        self.clone(),
+                        *self,
                     ))
                 },
                 |s| crate::jer::decode(&s),
@@ -115,7 +115,7 @@ impl Codec {
                 crate::error::DecodeErrorKind::Custom {
                     msg: alloc::format!("{codec} is a text-based encoding. Call `Codec::decode_from_binary` instead."),
                 },
-                codec.clone(),
+                *codec,
             )),
         }
     }

@@ -1023,7 +1023,7 @@ mod tests {
         ][..];
 
         assert_eq!(expected_enc, rasn::der::encode(&expected_de).unwrap());
-        assert_eq!(expected_de, rasn::der::decode(&expected_enc).unwrap());
+        assert_eq!(expected_de, rasn::der::decode(expected_enc).unwrap());
     }
 
     #[test]
@@ -1066,7 +1066,7 @@ mod tests {
         assert_eq!(expected_enc, rasn::der::encode(&expected_de).unwrap());
         assert_eq!(
             expected_de,
-            rasn::der::decode::<CertificatePolicies>(&expected_enc).unwrap()
+            rasn::der::decode::<CertificatePolicies>(expected_enc).unwrap()
         );
     }
 }

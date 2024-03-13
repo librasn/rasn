@@ -91,12 +91,12 @@ impl crate::Decoder for Decoder {
         D: Constructed,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
-        let mut last = self.stack.pop().ok_or_else(|| JerDecodeErrorKind::eoi())?;
+        let mut last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
         let value_map = last
             .as_object_mut()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "object",
-                found: alloc::format!("unknown"),
+                found: "unknown".into(),
             })?;
         let mut field_names = [D::FIELDS, D::EXTENDED_FIELDS.unwrap_or(Fields::empty())]
             .iter()
@@ -275,12 +275,12 @@ impl crate::Decoder for Decoder {
         D: Fn(&mut Self, usize, crate::Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        let mut last = self.stack.pop().ok_or_else(|| JerDecodeErrorKind::eoi())?;
+        let mut last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
         let value_map = last
             .as_object_mut()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "object",
-                found: alloc::format!("unknown"),
+                found: "unknown".into(),
             })?;
         let mut field_indices = SET::FIELDS
             .iter()
@@ -316,7 +316,7 @@ impl crate::Decoder for Decoder {
     }
 
     fn decode_optional<D: crate::Decode>(&mut self) -> Result<Option<D>, Self::Error> {
-        let last = self.stack.pop().ok_or_else(|| JerDecodeErrorKind::eoi())?;
+        let last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
         match last {
             JsonValue::Null => Ok(None),
             v => {
@@ -417,8 +417,7 @@ impl Decoder {
             .try_into()
             .ok();
         Ok(discriminant
-            .map(|i| E::from_discriminant(i))
-            .flatten()
+            .and_then(|i| E::from_discriminant(i))
             .ok_or_else(|| JerDecodeErrorKind::InvalidEnumDiscriminant {
                 discriminant: discriminant.unwrap_or(isize::MIN),
             })?)
@@ -437,7 +436,7 @@ impl Decoder {
     fn null_from_value(value: JsonValue) -> Result<(), DecodeError> {
         Ok(value
             .is_null()
-            .then(|| ())
+            .then_some(())
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "null",
                 found: alloc::format!("{value}"),
@@ -451,17 +450,17 @@ impl Decoder {
                 needed: "number array",
                 found: alloc::format!("{value}"),
             })?
-            .split(".")
-            .into_iter()
+            .split('.')
             .map(|arc| {
-                u32::from_str_radix(arc, 10).map_err(|_| JerDecodeErrorKind::TypeMismatch {
-                    needed: "OID arc number",
-                    found: alloc::format!("{arc}"),
-                })
+                arc.parse::<u32>()
+                    .map_err(|_| JerDecodeErrorKind::TypeMismatch {
+                        needed: "OID arc number",
+                        found: arc.into(),
+                    })
             })
             .collect::<Result<alloc::vec::Vec<u32>, _>>()
             .ok()
-            .and_then(|arcs| Oid::new(&arcs).map(|oid| ObjectIdentifier::from(oid)))
+            .and_then(|arcs| Oid::new(&arcs).map(ObjectIdentifier::from))
             .ok_or_else(|| JerDecodeErrorKind::InvalidOIDString { value })?)
     }
 
@@ -529,7 +528,7 @@ impl Decoder {
                 D::IDENTIFIERS
                     .iter()
                     .enumerate()
-                    .find(|id| id.1.eq_ignore_ascii_case(&k))
+                    .find(|id| id.1.eq_ignore_ascii_case(k))
                     .map(|(i, _)| (i, v))
             })
             .map_or(Tag::EOC, |(i, v)| {
@@ -540,7 +539,7 @@ impl Decoder {
                 {
                     Some(t) => {
                         self.stack.push(v.clone());
-                        t.clone()
+                        *t
                     }
                     None => Tag::EOC,
                 }

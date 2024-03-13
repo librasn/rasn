@@ -813,9 +813,8 @@ impl<'a> FieldConfig<'a> {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;);
                 if self.is_option_type() {
-                    let none = &self.container_config.option_type.none_variant;
                     quote! {
-                        if !matches!(&#this #field, #none) {
+                        if #this #field.is_some() {
                             #encode
                         }
                     }
