@@ -168,7 +168,7 @@ impl<'input> Decoder<'input> {
         // Helper function to deal with fractions and without timezone
         let parse_without_timezone = |string: &str| -> Result<NaiveDateTime, DecodeError> {
             // Handle both decimal cases (dot . and comma , )
-            let string: &str = &string.replace(",", ".");
+            let string: &str = &string.replace(',', ".");
             if string.contains('.') {
                 // Use chrono to parse the string every time, since we don't the know the number of decimals places
                 NaiveDateTime::parse_from_str(string, "%Y%m%d%H%.f")
@@ -530,13 +530,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::TeletexString> {
-        types::TeletexString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
-            DecodeError::string_conversion_failed(
-                types::Tag::TELETEX_STRING,
-                e.to_string(),
-                self.codec(),
-            )
-        })
+        Ok(types::TeletexString::from(
+            self.decode_octet_string(tag, constraints)?,
+        ))
     }
 
     fn decode_bmp_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::BmpString> {

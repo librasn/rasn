@@ -63,41 +63,38 @@ impl From<CodecEncodeError> for EncodeError {
 ///     VisibleString,
 /// );
 ///
-/// fn main() {
-///     // Below sample requires that `backtraces` feature is enabled
+/// // Below sample requires that `backtraces` feature is enabled
 ///
-///     let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
-///     let encoded = Codec::Uper.encode_to_binary(&constrained_str);
-///     match encoded {
-///         Ok(succ) => {
-///             println!("Successful encoding!");
-///             dbg!(succ);
-///         }
-///         Err(e) => {
-///             // e is EncodeError, Kind is boxed
-///             match *e.kind {
-///                 EncodeErrorKind::AlphabetConstraintNotSatisfied {
-///                     reason: PermittedAlphabetError::CharacterNotFound {character },
-///                 } => {
-///                     println!("Codec: {}", e.codec);
-///                     println!("Character {} not found from the permitted list.",
-///                              char::from_u32(character).unwrap());
-///                     #[cfg(feature = "backtraces")]
-///                     println!("Backtrace:\n{}", e.backtrace);
-///                 }
-///                 _ => {
-///                     panic!("Unexpected error!");
-///                 }
+/// let constrained_str = MyConstrainedString(VisibleString::try_from("abcD").unwrap());
+/// let encoded = Codec::Uper.encode_to_binary(&constrained_str);
+/// match encoded {
+///     Ok(succ) => {
+///         println!("Successful encoding!");
+///         dbg!(succ);
+///     }
+///     Err(e) => {
+///         // e is EncodeError, Kind is boxed
+///         match *e.kind {
+///             EncodeErrorKind::AlphabetConstraintNotSatisfied {
+///                reason: PermittedAlphabetError::CharacterNotFound {character },
+///             } => {
+///                 println!("Codec: {}", e.codec);
+///                 println!("Character {} not found from the permitted list.",
+///                          char::from_u32(character).unwrap());
+///                 #[cfg(feature = "backtraces")]
+///                 println!("Backtrace:\n{}", e.backtrace);
+///             }
+///             _ => {
+///                 panic!("Unexpected error!");
 ///             }
 ///         }
 ///     }
-///     // Should print ->
-///     //
-///     // Codec: UPER
-///     // Character D not found from the permitted list.
-///     // Backtrace: ...
-///
 /// }
+/// // Should print ->
+/// //
+/// // Codec: UPER
+/// // Character D not found from the permitted list.
+/// // Backtrace: ...
 /// ```
 ///
 #[derive(Debug)]

@@ -25,9 +25,8 @@ pub fn derive_struct_impl(
             let tag = tag.to_tokens(crate_root);
             let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.0).map(drop));
             if config.option_type.is_option_type(ty) {
-                let none_variant = &config.option_type.none_variant;
                 quote! {
-                    if !matches!(&self.0, #none_variant) {
+                    if &self.0.is_some() {
                         #encode
                     }
                 }
@@ -81,6 +80,7 @@ pub fn derive_struct_impl(
 
     let vars = fields_as_vars(&container.fields);
     quote! {
+        #[allow(clippy::mutable_key_type)]
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
             fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
                 #(#vars)*

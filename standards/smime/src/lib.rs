@@ -12,16 +12,16 @@ pub use rasn_cms::{IssuerAndSerialNumber, RecipientKeyIdentifier, SubjectKeyIden
 /// S/MIME Capabilities provides a method of broadcasting the
 /// symmetric capabilities understood.  Algorithms SHOULD be ordered
 /// by preference and grouped by type.
-pub const CAPABILITIES: &'static Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_CAPABILITIES;
+pub const CAPABILITIES: &Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_CAPABILITIES;
 
 /// Encryption Key Preference provides a method of broadcasting the preferred
 /// encryption certificate.
-pub const ENCRYPTION_KEY_PREFERENCE: &'static Oid =
+pub const ENCRYPTION_KEY_PREFERENCE: &Oid =
     Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_AA_ENCRYPTION_KEY_PREFERENCE;
 
 /// Indicates the ability to receive messages with binary encoding inside the
 /// CMS wrapper. The attribute's value field is `None`.
-pub const PREFER_BINARY_INSIDE: &'static Oid =
+pub const PREFER_BINARY_INSIDE: &Oid =
     Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_CAPABILITY_PREFER_BINARY_INSIDE;
 
 /// RC2 Key Length (number of bits)

@@ -34,7 +34,7 @@ impl Class {
 }
 
 impl Class {
-    pub fn to_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
+    pub fn as_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
         match self {
             Self::Universal => quote!(#crate_root::types::Class::Universal),
             Self::Application => quote!(#crate_root::types::Class::Application),
@@ -158,7 +158,7 @@ impl Tag {
     pub fn to_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
         match self {
             Self::Value { class, value, .. } => {
-                let cls = class.to_tokens(crate_root);
+                let cls = class.as_tokens(crate_root);
                 quote!(#crate_root::Tag::new(#cls, #value))
             }
             Self::Delegate { ty } => quote!(<#ty as #crate_root::AsnType>::TAG),

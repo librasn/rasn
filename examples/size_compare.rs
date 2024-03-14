@@ -2,7 +2,7 @@ use rasn_pkix::Certificate;
 
 fn main() {
     const DER_BYTES: &[u8] = include_bytes!("../standards/pkix/tests/data/letsencrypt-x3.crt");
-    let original = rasn::der::decode::<Certificate>(&DER_BYTES).unwrap();
+    let original = rasn::der::decode::<Certificate>(DER_BYTES).unwrap();
     let ber = rasn::ber::encode(&original).unwrap();
     let cer = rasn::cer::encode(&original).unwrap();
     let uper = rasn::uper::encode(&original).unwrap();

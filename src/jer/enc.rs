@@ -13,6 +13,12 @@ pub struct Encoder {
     root_value: Option<JsonValue>,
 }
 
+impl Default for Encoder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Encoder {
     pub fn new() -> Self {
         Self {
@@ -25,7 +31,7 @@ impl Encoder {
     pub fn root_value(self) -> Result<JsonValue, EncodeError> {
         Ok(self
             .root_value
-            .ok_or_else(|| JerEncodeErrorKind::NoRootValueFound)?)
+            .ok_or(JerEncodeErrorKind::NoRootValueFound)?)
     }
 
     pub fn to_json(self) -> alloc::string::String {
@@ -40,7 +46,7 @@ impl Encoder {
                     .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
                         msg: "Internal stack mismatch!".into(),
                     })?
-                    .insert(id.into(), value);
+                    .insert(id, value);
             }
             None => {
                 self.root_value = Some(value);

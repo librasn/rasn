@@ -55,12 +55,9 @@ fn extensions() {
         const TAG: Tag = Tag::new(Class::Context, 3);
     }
 
+    assert_eq!(expected_extension, &*rasn::der::encode(&extension).unwrap());
     assert_eq!(
-        &*expected_extension,
-        &*rasn::der::encode(&extension).unwrap()
-    );
-    assert_eq!(
-        &*expected,
+        expected,
         &*rasn::der::encode(&Explicit::<C0, _>::new(extensions)).unwrap()
     );
 }
@@ -356,7 +353,7 @@ fn lets_encrypt_x3() {
     };
 
     let original_data: &[u8] = include_bytes!("data/letsencrypt-x3.crt");
-    let original = rasn::der::decode::<Certificate>(&original_data).unwrap();
+    let original = rasn::der::decode::<Certificate>(original_data).unwrap();
 
     assert_eq!(
         original.tbs_certificate.version,

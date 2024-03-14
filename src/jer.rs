@@ -4,7 +4,7 @@ pub mod enc;
 /// Attempts to decode `T` from `input` using JER.
 /// # Errors
 /// Returns error specific to JER decoder if decoding is not possible.
-pub fn decode<'de, T: crate::Decode>(input: &'de str) -> Result<T, crate::error::DecodeError> {
+pub fn decode<T: crate::Decode>(input: &str) -> Result<T, crate::error::DecodeError> {
     T::decode(&mut de::Decoder::new(input)?)
 }
 

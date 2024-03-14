@@ -22,6 +22,7 @@ pub(crate) fn range_from_len(bit_length: u32) -> i128 {
 /// *The encodings of the component values of a set-of value shall appear in ascending order,*
 /// *the encodings being compared as octet strings with the shorter components being padded*
 /// *at their trailing end with 0-octets.*
+#[allow(clippy::ptr_arg)] // used in comparison function
 pub(crate) fn octet_string_ascending(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
     let min_length = b.len().min(a.len());
     for i in 0..min_length {
@@ -30,13 +31,7 @@ pub(crate) fn octet_string_ascending(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
             o => return o,
         }
     }
-    if b.len() > a.len() {
-        return Ordering::Less;
-    } else if a.len() > b.len() {
-        return Ordering::Greater;
-    } else {
-        Ordering::Equal
-    }
+    a.len().cmp(&b.len())
 }
 
 // Workaround for https://github.com/ferrilab/bitvec/issues/228
