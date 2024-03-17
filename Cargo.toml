@@ -19,7 +19,7 @@ exclude = ["fuzzing"]
 [workspace.package]
 edition = "2021"
 license = "MIT/Apache-2.0"
-version = "0.12.6"
+version = "0.13.0"
 repository = "https://github.com/librasn/rasn.git"
 
 [workspace.dependencies]
