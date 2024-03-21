@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(test), no_std)]
+
 extern crate alloc;
 
 #[cfg(test)]
@@ -7,13 +8,62 @@ macro_rules! round_trip {
     ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
         let value: $typ = $value;
         let expected: &[u8] = $expected;
-        let actual_encoding = crate::$codec::encode(&value).unwrap();
-
-        pretty_assertions::assert_eq!(expected, &*actual_encoding);
-
+        let result = crate::$codec::encode(&value);
+        let actual_encoding = match result {
+            Ok(actual_encoding) => {
+                pretty_assertions::assert_eq!(expected, &*actual_encoding);
+                actual_encoding
+            }
+            Err(error) => {
+                panic!("Unexpected encoding error: {:?}", error);
+            }
+        };
         let decoded_value: $typ = crate::$codec::decode(&actual_encoding).unwrap();
-
         pretty_assertions::assert_eq!(value, decoded_value);
+    }};
+}
+#[cfg(test)]
+macro_rules! encode_error {
+    ($codec:ident, $typ:ty, $value:expr) => {{
+        let value: $typ = $value;
+        let result = crate::$codec::encode(&value);
+        match result {
+            Ok(actual_encoding) => {
+                panic!(
+                    "Expected an encoding error but got a valid encoding: {:?}",
+                    &*actual_encoding
+                );
+            }
+            Err(_) => {
+                // Expected an encoding error, so we're good!
+            }
+        }
+    }};
+}
+#[cfg(test)]
+macro_rules! decode_error {
+    ($codec:ident, $typ:ty, $value:expr) => {{
+        match crate::$codec::decode::<$typ>($value) {
+            Ok(_) => {
+                panic!("Unexpected decoding success!");
+            }
+            Err(_) => {
+                // Expected a deoding error, so we're good!
+            }
+        }
+    }};
+}
+#[cfg(test)]
+macro_rules! decode_ok {
+    ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
+        match crate::$codec::decode::<$typ>($value) {
+            Ok(result) => {
+                pretty_assertions::assert_eq!(result, $expected);
+            }
+            Err(_) => {
+                panic!("Unexpected decoding failure!");
+            }
+        }
     }};
 }
 
@@ -32,6 +82,24 @@ macro_rules! round_trip_with_constraints {
         pretty_assertions::assert_eq!(value, decoded_value);
     }};
 }
+#[cfg(test)]
+macro_rules! encode_error_with_constraints {
+    ($codec:ident, $typ:ty, $constraints:expr, $value:expr) => {{
+        let value: $typ = $value;
+        let result = crate::$codec::encode_with_constraints($constraints, &value);
+        match result {
+            Ok(actual_encoding) => {
+                panic!(
+                    "Expected an encoding error but got a valid encoding: {:?}",
+                    &*actual_encoding
+                );
+            }
+            Err(_) => {
+                // Expected an encoding error, so we're good!
+            }
+        }
+    }};
+}
 
 pub mod codec;
 pub mod de;
@@ -46,10 +114,12 @@ pub mod aper;
 pub mod ber;
 mod bits;
 pub mod cer;
+pub mod coer;
 pub mod der;
 pub mod error;
 pub mod jer;
 mod num;
+pub mod oer;
 pub mod uper;
 
 #[doc(inline)]

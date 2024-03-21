@@ -7,8 +7,7 @@ use snafu::Snafu;
 use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::de::Error;
-use crate::types::variants::Variants;
-use crate::types::Tag;
+use crate::types::{constraints::Bounded, variants::Variants, Integer, Tag};
 use crate::Codec;
 
 /// Variants for every codec-specific `DecodeError` kind.
@@ -21,6 +20,8 @@ pub enum CodecDecodeError {
     Uper(UperDecodeErrorKind),
     Aper(AperDecodeErrorKind),
     Jer(JerDecodeErrorKind),
+    Oer(OerDecodeErrorKind),
+    Coer(CoerDecodeErrorKind),
 }
 
 macro_rules! impl_from {
@@ -40,6 +41,8 @@ impl_from!(Der, DerDecodeErrorKind);
 impl_from!(Uper, UperDecodeErrorKind);
 impl_from!(Aper, AperDecodeErrorKind);
 impl_from!(Jer, JerDecodeErrorKind);
+impl_from!(Oer, OerDecodeErrorKind);
+impl_from!(Coer, CoerDecodeErrorKind);
 
 impl From<CodecDecodeError> for DecodeError {
     fn from(error: CodecDecodeError) -> Self {
@@ -154,6 +157,35 @@ impl DecodeError {
         )
     }
     #[must_use]
+    pub fn size_constraint_not_satisfied(
+        size: Option<usize>,
+        expected: alloc::string::String,
+        codec: Codec,
+    ) -> Self {
+        Self::from_kind(
+            DecodeErrorKind::SizeConstraintNotSatisfied { size, expected },
+            codec,
+        )
+    }
+    #[must_use]
+    pub fn value_constraint_not_satisfied(
+        value: Integer,
+        expected: Bounded<i128>,
+        codec: Codec,
+    ) -> Self {
+        Self::from_kind(
+            DecodeErrorKind::ValueConstraintNotSatisfied { value, expected },
+            codec,
+        )
+    }
+    #[must_use]
+    pub fn discriminant_value_not_found(discriminant: isize, codec: Codec) -> Self {
+        Self::from_kind(
+            DecodeErrorKind::DiscriminantValueNotFound { discriminant },
+            codec,
+        )
+    }
+    #[must_use]
     pub fn range_exceeds_platform_width(needed: u32, present: u32, codec: Codec) -> Self {
         Self::from_kind(
             DecodeErrorKind::RangeExceedsPlatformWidth { needed, present },
@@ -217,7 +249,7 @@ impl DecodeError {
     }
 
     #[must_use]
-    pub fn required_extension_not_present(tag: crate::types::Tag, codec: Codec) -> Self {
+    pub fn required_extension_not_present(tag: Tag, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::RequiredExtensionNotPresent { tag }, codec)
     }
     #[must_use]
@@ -243,6 +275,10 @@ impl DecodeError {
             DecodeErrorKind::ChoiceIndexExceedsPlatformWidth { needed, present },
             codec,
         )
+    }
+    #[must_use]
+    pub fn length_exceeds_platform_width(msg: alloc::string::String, codec: Codec) -> Self {
+        Self::from_kind(DecodeErrorKind::LengthExceedsPlatformWidth { msg }, codec)
     }
 
     #[must_use]
@@ -304,6 +340,8 @@ impl DecodeError {
             CodecDecodeError::Uper(_) => crate::Codec::Uper,
             CodecDecodeError::Aper(_) => crate::Codec::Aper,
             CodecDecodeError::Jer(_) => crate::Codec::Jer,
+            CodecDecodeError::Oer(_) => crate::Codec::Oer,
+            CodecDecodeError::Coer(_) => crate::Codec::Coer,
         };
         Self {
             kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
@@ -322,6 +360,20 @@ impl DecodeError {
 pub enum DecodeErrorKind {
     #[snafu(display("Alphabet constraint not satisfied {}", reason))]
     AlphabetConstraintNotSatisfied { reason: PermittedAlphabetError },
+    #[snafu(display("Size constraint not satisfied: expected: {expected}; actual: {size:?}"))]
+    SizeConstraintNotSatisfied {
+        /// Actual sie of the data
+        size: Option<usize>,
+        /// Expected size by the constraint
+        expected: alloc::string::String,
+    },
+    #[snafu(display("Value constraint not satisfied: expected: {expected}; actual: {value}"))]
+    ValueConstraintNotSatisfied {
+        /// Actual value of the data
+        value: Integer,
+        /// Expected value by the constraint
+        expected: Bounded<i128>,
+    },
     #[snafu(display("Wrapped codec-specific decode error"))]
     CodecSpecific { inner: CodecDecodeError },
 
@@ -355,6 +407,11 @@ pub enum DecodeErrorKind {
         /// The error's message.
         msg: alloc::string::String,
     },
+    #[snafu(display("Discriminant value '{}' did not match any variant", discriminant))]
+    DiscriminantValueNotFound {
+        /// The found value of the discriminant
+        discriminant: isize,
+    },
     #[snafu(display("Duplicate field for `{}`", name))]
     DuplicateField {
         /// The field's name.
@@ -365,6 +422,11 @@ pub enum DecodeErrorKind {
         /// The maximum length.
         length: num_bigint::BigUint,
     },
+    ///  More than `usize::MAX` number of data requested.
+    #[snafu(display(
+        "Length of the incoming data is either incorrect or your device is up by miracle."
+    ))]
+    LengthExceedsPlatformWidth { msg: alloc::string::String },
     #[snafu(display("Error when decoding field `{}`: {}", name, nested))]
     FieldError {
         /// The field's name.
@@ -402,12 +464,15 @@ pub enum DecodeErrorKind {
         /// The amount of invalid bits.
         bits: u8,
     },
-    /// BOOL value is not `0` or `0xFF`. Applies: BER/OER/PER?
+    /// BOOL value is not `0` or `0xFF`. Applies: BER/COER/PER? TODO categorize better
     #[snafu(display(
         "Bool value is not `0` or `0xFF` as canonical requires. Actual: {}",
         value
     ))]
     InvalidBool { value: u8 },
+    // Length of Length zero
+    #[snafu(display("Length of Length cannot be zero"))]
+    ZeroLengthOfLength,
     /// The length does not match what was expected.
     #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
     MismatchedLength {
@@ -493,11 +558,6 @@ pub enum DecodeErrorKind {
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum BerDecodeErrorKind {
-    #[snafu(display("Discriminant value '{}' did not match any variant", discriminant))]
-    DiscriminantValueNotFound {
-        /// The found value of the discriminant
-        discriminant: isize,
-    },
     #[snafu(display("Indefinite length encountered but not allowed."))]
     IndefiniteLengthNotAllowed,
     #[snafu(display("Invalid constructed identifier for ASN.1 value: not primitive."))]
@@ -593,6 +653,66 @@ pub enum UperDecodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperDecodeErrorKind {}
+
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum OerDecodeErrorKind {
+    /// Tag class must be one of Universal (0b00), Application (0b01), Context (0b10) or Private (0b11).
+    #[snafu(display("Invalid tag class when decoding choice: actual {:?}", class))]
+    InvalidTagClassOnChoice {
+        /// The actual class.
+        class: u8,
+    },
+    #[snafu(display("Invalid tag number when decoding Choice. Value: {value}"))]
+    InvalidTagNumberOnChoice { value: u32 },
+    #[snafu(display(
+        "Tag not found from the variants of the platform when decoding Choice. Tag: {value}, extensible status: {is_extensible}"
+    ))]
+    InvalidTagVariantOnChoice { value: Tag, is_extensible: bool },
+
+    InvalidExtensionHeader {
+        /// The amount of invalid bits.
+        msg: alloc::string::String,
+    },
+    #[snafu(display("Invalid BitString: {msg}"))]
+    InvalidOerBitString {
+        /// The amount of invalid bits.
+        msg: alloc::string::String,
+    },
+}
+
+impl OerDecodeErrorKind {
+    #[must_use]
+    pub fn invalid_tag_number_on_choice(value: u32) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidTagNumberOnChoice { value }).into()
+    }
+    #[must_use]
+    pub fn invalid_tag_variant_on_choice(value: Tag, is_extensible: bool) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidTagVariantOnChoice {
+            value,
+            is_extensible,
+        })
+        .into()
+    }
+
+    #[must_use]
+    pub fn invalid_extension_header(msg: alloc::string::String) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidExtensionHeader { msg }).into()
+    }
+    #[must_use]
+    pub fn invalid_bit_string(msg: alloc::string::String) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidOerBitString { msg }).into()
+    }
+}
+
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum CoerDecodeErrorKind {
+    #[snafu(display("Invalid Canonical Octet Encoding, not encoded as the smallest possible number of octets: {msg}"))]
+    NotValidCanonicalEncoding { msg: alloc::string::String },
+}
 
 impl crate::de::Error for DecodeError {
     fn custom<D: core::fmt::Display>(msg: D, codec: Codec) -> Self {

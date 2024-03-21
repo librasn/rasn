@@ -3,6 +3,7 @@
 use core::cmp::Ordering;
 
 use alloc::vec::Vec;
+use num_traits::{Signed, Zero};
 
 pub(crate) fn range_from_len(bit_length: u32) -> i128 {
     2i128.pow(bit_length) - 1
@@ -63,5 +64,31 @@ pub(crate) fn to_left_padded_vec(
             vec.push(s.load_be());
         }
         vec
+    }
+}
+#[allow(dead_code)]
+pub fn integer_to_bitvec_bytes(
+    value: &crate::prelude::Integer,
+    signed: bool,
+) -> Option<bitvec::vec::BitVec<u8, bitvec::order::Msb0>> {
+    if signed {
+        Some(bitvec::vec::BitVec::<u8, bitvec::order::Msb0>::from_slice(
+            &(value.to_signed_bytes_be()),
+        ))
+    } else if !signed && (value.is_positive() || value.is_zero()) {
+        Some(bitvec::vec::BitVec::<u8, bitvec::order::Msb0>::from_slice(
+            &(value.to_biguint().unwrap().to_bytes_be()),
+        ))
+    } else {
+        None
+    }
+}
+pub fn integer_to_bytes(value: &crate::prelude::Integer, signed: bool) -> Option<Vec<u8>> {
+    if signed {
+        Some(value.to_signed_bytes_be())
+    } else if !signed && (value.is_positive() || value.is_zero()) {
+        Some(value.to_biguint().unwrap().to_bytes_be())
+    } else {
+        None
     }
 }
