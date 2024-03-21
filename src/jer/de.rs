@@ -444,6 +444,8 @@ impl Decoder {
     }
 
     fn object_identifier_from_value(value: JsonValue) -> Result<ObjectIdentifier, DecodeError> {
+        // For performance reasons, sometimes it is better to use lazy one
+        #[allow(clippy::unnecessary_lazy_evaluations)]
         Ok(value
             .as_str()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
