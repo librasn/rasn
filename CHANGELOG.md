@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1](https://github.com/librasn/rasn/compare/rasn-v0.13.0...rasn-v0.13.1) - 2024-03-21
+
+### Other
+- Manually fix the incompatible versions (a result of v0.13.0 release) and some clippy warnings ([#237](https://github.com/librasn/rasn/pull/237))
+
 ## [0.12.6](https://github.com/librasn/rasn/compare/rasn-v0.12.5...rasn-v0.12.6) - 2024-03-09
 
 ### Fixed
