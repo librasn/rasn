@@ -1,12 +1,8 @@
 //! Version 2 (RFC 2578)
 
 use alloc::string::ToString;
-use core::convert::TryInto;
 
-use rasn::{
-    prelude::*,
-    types::{Integer, ObjectIdentifier, OctetString, Oid, Utf8String},
-};
+use rasn::prelude::*;
 
 use crate::v1::InvalidVariant;
 

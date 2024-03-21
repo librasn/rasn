@@ -28,6 +28,8 @@ pub const SPC_TIME_STAMP_REQUEST_OBJID: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_
 pub const SPC_RFC3161_OBJID: &Oid =
     Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_PRIVATE_ENTERPRISES_MICROSOFT_SPC_RFC3161_OBJID;
 
+#[allow(clippy::declare_interior_mutable_const)]
+// Mutable const warning comes from external crate `bytes` FIXME
 pub const SPC_CLASS_UUID: OctetString = OctetString::from_static(&[
     0xa6, 0xb5, 0x86, 0xd5, 0xb4, 0xa1, 0x24, 0x66, 0xae, 0x05, 0xa2, 0x17, 0xda, 0x8e, 0x60, 0xd6,
 ]);

@@ -1,7 +1,6 @@
 //! Generic ASN.1 decoding framework.
 
 use alloc::{boxed::Box, string::ToString, vec::Vec};
-use core::convert::TryInto;
 
 use crate::error::DecodeError;
 use crate::types::{self, AsnType, Constraints, Enumerated, Tag};

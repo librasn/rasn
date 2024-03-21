@@ -12,10 +12,7 @@
 
 use alloc::boxed::Box;
 
-use rasn::{
-    prelude::*,
-    types::{Integer, OctetString},
-};
+use rasn::prelude::*;
 
 pub use crate::v2::{
     GetBulkRequest, GetNextRequest, GetRequest, InformRequest, Pdus, Response, SetRequest, Trap,
