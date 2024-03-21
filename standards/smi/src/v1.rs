@@ -1,7 +1,5 @@
 //! Version 1 (RFC 1155)
 
-use core::convert::TryInto;
-
 use rasn::{
     error::EncodeError,
     types::{Constraints, FixedOctetString, Integer, ObjectIdentifier, OctetString, Oid},

@@ -1026,7 +1026,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         if let Some((_, true)) = self.field_bitfield.get(&tag) {
             value.encode(self)
-        } else if self.field_bitfield.get(&tag).is_none() {
+        } else if !self.field_bitfield.contains_key(&tag) {
             // There is no bitfield if none of the parent objects is struct/set
             // But we still need to handle nested choices explicitly
             value.encode(self)

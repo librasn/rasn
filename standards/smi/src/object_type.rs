@@ -1,5 +1,3 @@
-use core::convert::TryInto;
-
 /// A managed Management Information Base (MIB) object.
 pub trait ObjectType
 where
