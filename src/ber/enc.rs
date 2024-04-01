@@ -359,7 +359,6 @@ impl crate::Encoder for Encoder {
         &mut self,
         _: Constraints,
         _t: Tag,
-        _i: &str,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         (encode_fn)(self).map(drop)

@@ -724,6 +724,33 @@ struct TestTypeA {
 </td>
 </tr>
 <tr>
+<td>Renaming fields</td>
+<td>
+
+```asn
+Test-type-a ::= SEQUENCE { 
+    notQuiteRustCase INTEGER
+}
+```
+
+</td>
+<td>
+
+```rust
+use rasn::prelude::*;
+
+#[derive(AsnType, Decode, Encode)]
+#[rasn(automatic_tags, identifier = "Test-type-a")]
+struct TestTypeA {
+    #[rasn(identifier = "notQuiteRustCase")]
+    rust_case_indeed: Integer
+}
+
+```
+
+</td>
+</tr>
+<tr>
 <td>OPTIONAL and DEFAULT fields</td>
 <td>
 

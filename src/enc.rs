@@ -323,7 +323,6 @@ pub trait Encoder {
         &mut self,
         constraints: Constraints,
         tag: Tag,
-        identifier: &'static str,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error>;
 

@@ -329,18 +329,6 @@ impl Enum {
     fn encode_choice(&self, generics: &syn::Generics) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
 
-        let identifiers = self.variants.iter().map(|v| {
-            let ident = &v.ident;
-            let name = &self.name;
-
-            let identifier = syn::LitStr::new(&v.ident.to_string(), proc_macro2::Span::call_site());
-
-            match &v.fields {
-                syn::Fields::Named(_) => quote!(#name::#ident { .. } => #identifier),
-                syn::Fields::Unnamed(_) => quote!(#name::#ident (_) => #identifier),
-                syn::Fields::Unit => quote!(#name::#ident => #identifier),
-            }
-        });
         let tags = self.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
             let name = &self.name;
@@ -429,9 +417,6 @@ impl Enum {
                 Self::CONSTRAINTS,
                 match self {
                     #(#tags),*
-                },
-                match self {
-                    #(#identifiers),*
                 },
                 |encoder| match self {
                     #(#variants),*
