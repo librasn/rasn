@@ -94,6 +94,11 @@ pub fn derive_struct_impl(
 
     let constraints_def = config.constraints.const_static_def(crate_root);
 
+    let alt_identifier = config.identifier.as_ref().map_or(
+        quote!(),
+        |id| quote!(const IDENTIFIER: Option<&'static str> = Some(#id);),
+    );
+
     quote! {
         #constructed_impl
 
@@ -104,7 +109,7 @@ pub fn derive_struct_impl(
 
                 #tag
             };
-
+            #alt_identifier
             #constraints_def
         }
     }

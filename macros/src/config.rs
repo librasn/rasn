@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use quote::ToTokens;
-use syn::{Lit, NestedMeta, Path, UnOp};
+use syn::{Lit, LitStr, NestedMeta, Path, UnOp};
 
 use crate::{ext::TypeExt, tag::Tag};
 
@@ -214,6 +214,7 @@ impl Constraints {
 #[derive(Clone, Debug)]
 pub struct Config {
     pub crate_root: Path,
+    pub identifier: Option<syn::LitStr>,
     pub enumerated: bool,
     pub choice: bool,
     pub set: bool,
@@ -229,6 +230,7 @@ impl Config {
         let mut choice = false;
         let mut set = false;
         let mut crate_root = None;
+        let mut identifier = None;
         let mut enumerated = false;
         let mut automatic_tags = false;
         let mut tag = None;
@@ -259,6 +261,13 @@ impl Config {
                     if let syn::Meta::NameValue(nv) = item {
                         crate_root = match &nv.lit {
                             syn::Lit::Str(s) => s.parse::<syn::Path>().ok(),
+                            _ => None,
+                        };
+                    }
+                } else if path.is_ident("identifier") {
+                    if let syn::Meta::NameValue(nv) = item {
+                        identifier = match &nv.lit {
+                            syn::Lit::Str(s) => Some(s.clone()),
                             _ => None,
                         };
                     }
@@ -362,6 +371,7 @@ impl Config {
             option_type,
             set,
             tag,
+            identifier,
             constraints: Constraints {
                 extensible,
                 from,
@@ -457,6 +467,7 @@ pub struct VariantConfig<'config> {
     container_config: &'config Config,
     generics: &'config syn::Generics,
     pub tag: Option<Tag>,
+    pub identifier: Option<LitStr>,
     pub extension_addition: bool,
     pub constraints: Constraints,
 }
@@ -468,6 +479,7 @@ impl<'config> VariantConfig<'config> {
         container_config: &'config Config,
     ) -> Self {
         let mut extensible = false;
+        let mut identifier = None;
         let mut extension_addition = false;
         let mut from = None;
         let mut size = None;
@@ -488,6 +500,13 @@ impl<'config> VariantConfig<'config> {
                 let path = item.path();
                 if path.is_ident("tag") {
                     tag = Tag::from_meta(item);
+                } else if path.is_ident("identifier") {
+                    if let syn::Meta::NameValue(nv) = item {
+                        identifier = match &nv.lit {
+                            syn::Lit::Str(s) => Some(s.clone()),
+                            _ => None,
+                        };
+                    }
                 } else if path.is_ident("size") {
                     size = Some(Value::from_meta(item));
                 } else if path.is_ident("value") {
@@ -507,6 +526,7 @@ impl<'config> VariantConfig<'config> {
             extension_addition,
             generics,
             tag,
+            identifier,
             variant,
             constraints: Constraints {
                 extensible,
@@ -709,6 +729,7 @@ pub struct FieldConfig<'a> {
     pub field: &'a syn::Field,
     pub container_config: &'a Config,
     pub tag: Option<Tag>,
+    pub identifier: Option<LitStr>,
     pub default: Option<Option<syn::Path>>,
     pub extension_addition: bool,
     pub extension_addition_group: bool,
@@ -726,6 +747,7 @@ impl<'a> FieldConfig<'a> {
         let mut default = None;
         let mut tag = None;
         let mut size = None;
+        let mut identifier = None;
         let mut from = None;
         let mut value = None;
         let mut extensible = false;
@@ -753,6 +775,13 @@ impl<'a> FieldConfig<'a> {
                         },
                         _ => None,
                     });
+                } else if path.is_ident("identifier") {
+                    if let syn::Meta::NameValue(nv) = item {
+                        identifier = match &nv.lit {
+                            syn::Lit::Str(s) => Some(s.clone()),
+                            _ => None,
+                        };
+                    }
                 } else if path.is_ident("size") {
                     size = Some(Value::from_meta(item));
                 } else if path.is_ident("value") {
@@ -782,6 +811,7 @@ impl<'a> FieldConfig<'a> {
             container_config,
             default,
             field,
+            identifier,
             tag,
             extension_addition,
             extension_addition_group,
@@ -1122,12 +1152,14 @@ impl<'a> FieldConfig<'a> {
         let tag = self.tag(context);
         let tag_tree = self.tag_tree(context);
         let name = self
-            .field
-            .ident
-            .as_ref()
-            .map_or(syn::LitStr::new("", proc_macro2::Span::call_site()), |id| {
-                syn::LitStr::new(&id.to_string(), proc_macro2::Span::call_site())
-            });
+            .identifier
+            .clone()
+            .or(self
+                .field
+                .ident
+                .as_ref()
+                .map(|id| syn::LitStr::new(&id.to_string(), proc_macro2::Span::call_site())))
+            .unwrap_or(syn::LitStr::new("", proc_macro2::Span::call_site()));
 
         let constructor = quote::format_ident!(
             "{}",

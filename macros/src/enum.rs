@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use quote::ToTokens;
+use syn::Variant;
 
 use crate::{config::*, ext::GenericsExt};
 
@@ -75,7 +76,14 @@ impl Enum {
         let identifiers = self
             .variants
             .iter()
-            .map(|v| syn::LitStr::new(&v.ident.to_string(), proc_macro2::Span::call_site()))
+            .map(|v| {
+                VariantConfig::new(v, &self.generics, &self.config)
+                    .identifier
+                    .unwrap_or(syn::LitStr::new(
+                        &v.ident.to_string(),
+                        proc_macro2::Span::call_site(),
+                    ))
+            })
             .collect_vec();
 
         let constraints_def = self.config.constraints.const_static_def(crate_root);
@@ -128,9 +136,18 @@ impl Enum {
 
                     const DISCRIMINANTS: &'static [(Self, isize)] = &[#(#discriminants,)*];
                     const EXTENDED_DISCRIMINANTS: Option<&'static [(Self, isize)]> = #extended_discriminants;
+
+                    const IDENTIFIERS: &'static [&'static str] = &[
+                        #(#identifiers),*
+                    ];
                 }
             }
         });
+
+        let alt_identifier = self.config.identifier.as_ref().map_or(
+            quote!(),
+            |id| quote!(const IDENTIFIER: Option<&'static str> = Some(#id);),
+        );
 
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
@@ -143,7 +160,7 @@ impl Enum {
                     const _: () = assert!(TAG_TREE.is_unique(), #error_message);
                     #return_val
                 };
-
+                #alt_identifier
                 #constraints_def
             }
 
