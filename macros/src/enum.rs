@@ -1,6 +1,5 @@
 use itertools::Itertools;
 use quote::ToTokens;
-use syn::Variant;
 
 use crate::{config::*, ext::GenericsExt};
 
