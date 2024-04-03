@@ -75,7 +75,14 @@ impl Enum {
         let identifiers = self
             .variants
             .iter()
-            .map(|v| syn::LitStr::new(&v.ident.to_string(), proc_macro2::Span::call_site()))
+            .map(|v| {
+                VariantConfig::new(v, &self.generics, &self.config)
+                    .identifier
+                    .unwrap_or(syn::LitStr::new(
+                        &v.ident.to_string(),
+                        proc_macro2::Span::call_site(),
+                    ))
+            })
             .collect_vec();
 
         let constraints_def = self.config.constraints.const_static_def(crate_root);
@@ -128,9 +135,18 @@ impl Enum {
 
                     const DISCRIMINANTS: &'static [(Self, isize)] = &[#(#discriminants,)*];
                     const EXTENDED_DISCRIMINANTS: Option<&'static [(Self, isize)]> = #extended_discriminants;
+
+                    const IDENTIFIERS: &'static [&'static str] = &[
+                        #(#identifiers),*
+                    ];
                 }
             }
         });
+
+        let alt_identifier = self.config.identifier.as_ref().map_or(
+            quote!(),
+            |id| quote!(const IDENTIFIER: Option<&'static str> = Some(#id);),
+        );
 
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
@@ -143,7 +159,7 @@ impl Enum {
                     const _: () = assert!(TAG_TREE.is_unique(), #error_message);
                     #return_val
                 };
-
+                #alt_identifier
                 #constraints_def
             }
 
@@ -312,18 +328,6 @@ impl Enum {
     fn encode_choice(&self, generics: &syn::Generics) -> proc_macro2::TokenStream {
         let crate_root = &self.config.crate_root;
 
-        let identifiers = self.variants.iter().map(|v| {
-            let ident = &v.ident;
-            let name = &self.name;
-
-            let identifier = syn::LitStr::new(&v.ident.to_string(), proc_macro2::Span::call_site());
-
-            match &v.fields {
-                syn::Fields::Named(_) => quote!(#name::#ident { .. } => #identifier),
-                syn::Fields::Unnamed(_) => quote!(#name::#ident (_) => #identifier),
-                syn::Fields::Unit => quote!(#name::#ident => #identifier),
-            }
-        });
         let tags = self.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
             let name = &self.name;
@@ -412,9 +416,6 @@ impl Enum {
                 Self::CONSTRAINTS,
                 match self {
                     #(#tags),*
-                },
-                match self {
-                    #(#identifiers),*
                 },
                 |encoder| match self {
                     #(#variants),*

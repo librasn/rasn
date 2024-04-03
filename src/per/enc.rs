@@ -1096,7 +1096,6 @@ impl crate::Encoder for Encoder {
         &mut self,
         constraints: Constraints,
         tag: Tag,
-        _: &str,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::new();

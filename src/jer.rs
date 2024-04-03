@@ -148,6 +148,25 @@ mod tests {
     #[rasn(crate_root = "crate", delegate, size("3", extensible))]
     struct ConstrainedBitString(pub BitString);
 
+    #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    #[rasn(automatic_tags)]
+    #[rasn(crate_root = "crate")]
+    struct Renamed {
+        #[rasn(identifier = "so-very")]
+        very: Integer,
+        #[rasn(identifier = "re_named")]
+        renamed: Option<bool>,
+    }
+
+    #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
+    #[rasn(automatic_tags, choice)]
+    #[rasn(crate_root = "crate")]
+    enum Renumed {
+        #[rasn(identifier = "test-1")]
+        #[rasn(size("0..3"))]
+        Test1(Utf8String),
+    }
+
     #[test]
     fn bool() {
         round_trip_jer!(bool, true, "true");
@@ -287,5 +306,19 @@ mod tests {
             },
             "{\"a\":{\"very\":{},\"nested\":false}}"
         );
+    }
+
+    #[test]
+    fn with_identifier_annotation() {
+        round_trip_jer!(
+            Renamed,
+            Renamed {
+                very: 1.into(),
+                renamed: Some(true),
+            },
+            r#"{"so_very":1,"re_named":true}"#
+        );
+
+        round_trip_jer!(Renumed, Renumed::Test1("hel".into()), r#"{"test_1":"hel"}"#);
     }
 }

@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub struct Encoder {
-    stack: alloc::vec::Vec<&'static str>,
+    stack: alloc::vec::Vec<alloc::string::String>,
     constructed_stack: alloc::vec::Vec<Object>,
     root_value: Option<JsonValue>,
 }
@@ -46,7 +46,7 @@ impl Encoder {
                     .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
                         msg: "Internal stack mismatch!".into(),
                     })?
-                    .insert(id, value);
+                    .insert(&id, value);
             }
             None => {
                 self.root_value = Some(value);
@@ -284,7 +284,7 @@ impl crate::Encoder for Encoder {
             .collect::<alloc::vec::Vec<&str>>();
         field_names.reverse();
         for name in field_names {
-            self.stack.push(name);
+            self.stack.push(name.replace('-', "_"));
         }
         self.constructed_stack.push(Object::new());
         (encoder_scope)(self)?;
@@ -371,18 +371,28 @@ impl crate::Encoder for Encoder {
     fn encode_choice<E: crate::Encode + crate::types::Choice>(
         &mut self,
         _c: crate::types::Constraints,
-        _t: crate::types::Tag,
-        identifier: &'static str,
+        tag: crate::types::Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<crate::Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
         let variants = variants::Variants::from_slice(
             &[E::VARIANTS, E::EXTENDED_VARIANTS.unwrap_or(&[])].concat(),
         );
+
+        let identifier = variants
+            .iter()
+            .enumerate()
+            .find_map(|(i, &variant_tag)| {
+                (tag == variant_tag)
+                    .then_some(E::IDENTIFIERS.get(i))
+                    .flatten()
+            })
+            .ok_or_else(|| crate::error::EncodeError::variant_not_in_choice(self.codec()))?;
+
         if variants.is_empty() {
             self.update_root_or_constructed(JsonValue::Object(Object::new()))
         } else {
             self.constructed_stack.push(Object::new());
-            self.stack.push(identifier);
+            self.stack.push(identifier.replace('-', "_"));
             (encode_fn)(self)?;
             let value_map =
                 self.constructed_stack

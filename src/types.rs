@@ -84,6 +84,10 @@ pub trait AsnType {
     const TAG_TREE: TagTree = TagTree::Leaf(Self::TAG);
 
     const CONSTRAINTS: Constraints<'static> = Constraints::NONE;
+
+    /// Identifier of an ASN.1 type as specified in the original specification
+    /// if not identical with the identifier of `Self`
+    const IDENTIFIER: Option<&'static str> = None;
 }
 
 /// A `SET` or `SEQUENCE` value.
@@ -122,6 +126,9 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
     /// Variants contained in the list of extensions mapped to their respective discriminant, if
     /// present.
     const EXTENDED_DISCRIMINANTS: Option<&'static [(Self, isize)]>;
+
+    /// Identifiers of enum variants
+    const IDENTIFIERS: &'static [&'static str];
 
     /// Returns the number of "root" variants for a given type.
     fn variance() -> usize {

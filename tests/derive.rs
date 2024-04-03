@@ -209,3 +209,42 @@ fn enum_with_encoder_tag_name_variants() {
         },
     }
 }
+
+#[test]
+fn explicit_identifiers() {
+    #[derive(AsnType, Encode, Decode)]
+    #[rasn(choice, identifier = "my-choice")]
+    enum MyChoice {
+        #[rasn(identifier = "has-alt-ident")]
+        HasAltIdent(()),
+    }
+
+    #[derive(AsnType, Encode, Decode, Debug, PartialEq, Clone, Copy)]
+    #[rasn(enumerated, identifier = "my-enum")]
+    enum MyEnum {
+        #[rasn(identifier = "has-alt-ident")]
+        HasAltIdent,
+    }
+
+    #[derive(AsnType, Encode, Decode)]
+    #[rasn(identifier = "my-struct")]
+    struct MyStruct {
+        #[rasn(identifier = "has-alt-ident")]
+        has_alt_ident: (),
+    }
+
+    #[derive(AsnType, Encode, Decode)]
+    #[rasn(identifier = "my-delegate")]
+    struct MyDelegate(());
+
+    assert_eq!(MyEnum::IDENTIFIER, Some("my-enum"));
+    assert_eq!(MyEnum::IDENTIFIERS, ["has-alt-ident"]);
+    assert_eq!(MyChoice::IDENTIFIER, Some("my-choice"));
+    assert_eq!(MyChoice::IDENTIFIERS, ["has-alt-ident"]);
+    assert_eq!(MyStruct::IDENTIFIER, Some("my-struct"));
+    assert_eq!(
+        MyStruct::FIELDS.identifiers().collect::<Vec<_>>(),
+        vec!["has-alt-ident"]
+    );
+    assert_eq!(MyDelegate::IDENTIFIER, Some("my-delegate"));
+}

@@ -101,12 +101,12 @@ impl crate::Decoder for Decoder {
         let mut field_names = [D::FIELDS, D::EXTENDED_FIELDS.unwrap_or(Fields::empty())]
             .iter()
             .flat_map(|f| f.iter())
-            .map(|f| f.name)
-            .collect::<alloc::vec::Vec<&str>>();
+            .map(|f| f.name.replace('-', "_"))
+            .collect::<alloc::vec::Vec<alloc::string::String>>();
         field_names.reverse();
         for name in field_names {
             self.stack
-                .push(value_map.remove(name).unwrap_or(JsonValue::Null));
+                .push(value_map.remove(&name).unwrap_or(JsonValue::Null));
         }
 
         (decode_fn)(self)
@@ -530,7 +530,7 @@ impl Decoder {
                 D::IDENTIFIERS
                     .iter()
                     .enumerate()
-                    .find(|id| id.1.eq_ignore_ascii_case(k))
+                    .find(|id| id.1.replace('-', "_").eq_ignore_ascii_case(k))
                     .map(|(i, _)| (i, v))
             })
             .map_or(Tag::EOC, |(i, v)| {

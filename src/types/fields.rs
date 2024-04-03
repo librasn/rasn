@@ -58,6 +58,10 @@ impl Fields {
     pub fn iter(&self) -> impl Iterator<Item = Field> + '_ {
         self.fields.iter().cloned()
     }
+
+    pub fn identifiers(&self) -> impl Iterator<Item = &str> + '_ {
+        self.fields.iter().map(|f| f.name)
+    }
 }
 
 impl From<Cow<'static, [Field]>> for Fields {
