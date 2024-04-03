@@ -8,7 +8,7 @@ use crate::{
 };
 
 pub struct Encoder {
-    stack: alloc::vec::Vec<alloc::string::String>,
+    stack: alloc::vec::Vec<&'static str>,
     constructed_stack: alloc::vec::Vec<Object>,
     root_value: Option<JsonValue>,
 }
@@ -284,7 +284,7 @@ impl crate::Encoder for Encoder {
             .collect::<alloc::vec::Vec<&str>>();
         field_names.reverse();
         for name in field_names {
-            self.stack.push(name.replace('-', "_"));
+            self.stack.push(name);
         }
         self.constructed_stack.push(Object::new());
         (encoder_scope)(self)?;
@@ -392,7 +392,7 @@ impl crate::Encoder for Encoder {
             self.update_root_or_constructed(JsonValue::Object(Object::new()))
         } else {
             self.constructed_stack.push(Object::new());
-            self.stack.push(identifier.replace('-', "_"));
+            self.stack.push(identifier);
             (encode_fn)(self)?;
             let value_map =
                 self.constructed_stack

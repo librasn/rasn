@@ -316,9 +316,9 @@ mod tests {
                 very: 1.into(),
                 renamed: Some(true),
             },
-            r#"{"so_very":1,"re_named":true}"#
+            r#"{"so-very":1,"re_named":true}"#
         );
 
-        round_trip_jer!(Renumed, Renumed::Test1("hel".into()), r#"{"test_1":"hel"}"#);
+        round_trip_jer!(Renumed, Renumed::Test1("hel".into()), r#"{"test-1":"hel"}"#);
     }
 }
