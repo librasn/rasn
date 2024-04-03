@@ -231,11 +231,11 @@ mod tests {
 
     #[test]
     fn enumerated() {
-        round_trip_jer!(SimpleEnum, SimpleEnum::Test1, "5");
-        round_trip_jer!(SimpleEnum, SimpleEnum::Test2, "2");
-        round_trip_jer!(ExtEnum, ExtEnum::Test1, "5");
-        round_trip_jer!(ExtEnum, ExtEnum::Test2, "2");
-        round_trip_jer!(ExtEnum, ExtEnum::Test3, "-1");
+        round_trip_jer!(SimpleEnum, SimpleEnum::Test1, "\"Test1\"");
+        round_trip_jer!(SimpleEnum, SimpleEnum::Test2, "\"Test2\"");
+        round_trip_jer!(ExtEnum, ExtEnum::Test1, "\"Test1\"");
+        round_trip_jer!(ExtEnum, ExtEnum::Test2, "\"Test2\"");
+        round_trip_jer!(ExtEnum, ExtEnum::Test3, "\"Test3\"");
     }
 
     #[test]

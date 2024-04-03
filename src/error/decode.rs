@@ -571,7 +571,7 @@ pub enum JerDecodeErrorKind {
     #[snafu(display("Failed to construct OID from value {value}",))]
     InvalidOIDString { value: JsonValue },
     #[snafu(display("Found invalid enumerated discriminant {discriminant}",))]
-    InvalidEnumDiscriminant { discriminant: isize },
+    InvalidEnumDiscriminant { discriminant: alloc::string::String },
 }
 
 impl JerDecodeErrorKind {
