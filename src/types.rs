@@ -209,7 +209,8 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
                 .unwrap()
                 .iter()
                 .position(|lhs| lhs == self)
-                .unwrap() + Self::VARIANTS.len()
+                .unwrap()
+                + Self::VARIANTS.len()
         } else {
             Self::VARIANTS
                 .iter()
@@ -224,15 +225,15 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
         Self::IDENTIFIERS
             .iter()
             .enumerate()
-            .find(|id| id.1.eq(&identifier)).and_then(|(i, _)| {
-            if i < Self::VARIANTS.len() {
-                Self::VARIANTS.get(i).copied()
-            } else {
-                Self::EXTENDED_VARIANTS.and_then(|array| 
-                    array.get(i - Self::VARIANTS.len()).copied()
-                )
-            }
-        })
+            .find(|id| id.1.eq(&identifier))
+            .and_then(|(i, _)| {
+                if i < Self::VARIANTS.len() {
+                    Self::VARIANTS.get(i).copied()
+                } else {
+                    Self::EXTENDED_VARIANTS
+                        .and_then(|array| array.get(i - Self::VARIANTS.len()).copied())
+                }
+            })
     }
 }
 
