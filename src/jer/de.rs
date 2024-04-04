@@ -448,7 +448,7 @@ impl Decoder {
             })?;
         Ok(E::from_identifier(identifier).ok_or_else(|| {
             JerDecodeErrorKind::InvalidEnumDiscriminant {
-                discriminant: alloc::string::ToString::to_string(identifier),
+                discriminant: alloc::string::String::from(identifier),
             }
         })?)
     }
