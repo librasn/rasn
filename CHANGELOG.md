@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0](https://github.com/librasn/rasn/compare/rasn-v0.13.1...rasn-v0.14.0) - 2024-04-04
+
+### Fixed
+- *(jer)* ENUMERATED values as strings ([#242](https://github.com/librasn/rasn/pull/242))
+
+### Other
+- Fix/jer compliance ([#243](https://github.com/librasn/rasn/pull/243))
+- Feat/identifier annotation ([#239](https://github.com/librasn/rasn/pull/239))
+
 ## [0.13.1](https://github.com/librasn/rasn/compare/rasn-v0.13.0...rasn-v0.13.1) - 2024-03-21
 
 ### Other
