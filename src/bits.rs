@@ -3,7 +3,6 @@
 use core::cmp::Ordering;
 
 use alloc::vec::Vec;
-use bitvec::bitvec;
 
 pub(crate) fn range_from_len(bit_length: u32) -> i128 {
     2i128.pow(bit_length) - 1
