@@ -408,19 +408,17 @@ impl Decoder {
     }
 
     fn enumerated_from_value<E: Enumerated>(value: JsonValue) -> Result<E, DecodeError> {
-        let discriminant = value
-            .as_i64()
+        let identifier = value
+            .as_str()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
-                needed: "enumerable index",
+                needed: "enumerated item as string",
                 found: alloc::format!("{value}"),
-            })?
-            .try_into()
-            .ok();
-        Ok(discriminant
-            .and_then(|i| E::from_discriminant(i))
-            .ok_or_else(|| JerDecodeErrorKind::InvalidEnumDiscriminant {
-                discriminant: discriminant.unwrap_or(isize::MIN),
-            })?)
+            })?;
+        Ok(E::from_identifier(identifier).ok_or_else(|| {
+            JerDecodeErrorKind::InvalidEnumDiscriminant {
+                discriminant: alloc::string::String::from(identifier),
+            }
+        })?)
     }
 
     fn integer_from_value(value: JsonValue) -> Result<Integer, DecodeError> {

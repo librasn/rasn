@@ -93,7 +93,9 @@ impl crate::Encoder for Encoder {
         _: crate::Tag,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(JsonValue::Number(value.discriminant().into()))
+        self.update_root_or_constructed(JsonValue::String(alloc::string::String::from(
+            value.identifier(),
+        )))
     }
 
     fn encode_object_identifier(
