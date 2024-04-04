@@ -145,7 +145,7 @@ mod tests {
     struct ConstrainedInt(pub Integer);
 
     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-    #[rasn(crate_root = "crate", delegate, size("3", extensible))]
+    #[rasn(crate_root = "crate", delegate, size("3"))]
     struct ConstrainedBitString(pub BitString);
 
     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
@@ -190,12 +190,12 @@ mod tests {
         round_trip_jer!(
             BitString,
             BitString::from_iter([true, false].into_iter()),
-            "\"10\""
+            r#"{"value":"80","length":2}"#
         );
         round_trip_jer!(
             ConstrainedBitString,
-            ConstrainedBitString(BitString::from_iter([true, false, true, true].into_iter())),
-            "\"1011\""
+            ConstrainedBitString(BitString::from_iter([true, false, true].into_iter())),
+            "\"A0\""
         );
     }
 
@@ -294,7 +294,7 @@ mod tests {
                 wine: Inner::Wine(4),
                 grappa: BitString::from_iter([true, false].iter())
             },
-            "{\"juice\":0,\"wine\":{\"Wine\":4},\"grappa\":\"10\"}"
+            r#"{"juice":0,"wine":{"Wine":4},"grappa":{"value":"80","length":2}}"#
         );
         round_trip_jer!(
             Very,
@@ -316,9 +316,9 @@ mod tests {
                 very: 1.into(),
                 renamed: Some(true),
             },
-            r#"{"so_very":1,"re_named":true}"#
+            r#"{"so-very":1,"re_named":true}"#
         );
 
-        round_trip_jer!(Renumed, Renumed::Test1("hel".into()), r#"{"test_1":"hel"}"#);
+        round_trip_jer!(Renumed, Renumed::Test1("hel".into()), r#"{"test-1":"hel"}"#);
     }
 }

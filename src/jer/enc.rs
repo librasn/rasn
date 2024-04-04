@@ -3,12 +3,14 @@
 use jzon::{object::Object, JsonValue};
 
 use crate::{
+    bits::to_vec,
+    enc::Error,
     error::{EncodeError, JerEncodeErrorKind},
     types::{fields::Fields, variants},
 };
 
 pub struct Encoder {
-    stack: alloc::vec::Vec<alloc::string::String>,
+    stack: alloc::vec::Vec<&'static str>,
     constructed_stack: alloc::vec::Vec<Object>,
     root_value: Option<JsonValue>,
 }
@@ -46,7 +48,7 @@ impl Encoder {
                     .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
                         msg: "Internal stack mismatch!".into(),
                     })?
-                    .insert(&id, value);
+                    .insert(id, value);
             }
             None => {
                 self.root_value = Some(value);
@@ -76,16 +78,31 @@ impl crate::Encoder for Encoder {
     fn encode_bit_string(
         &mut self,
         _t: crate::Tag,
-        _c: crate::types::Constraints,
+        constraints: crate::types::Constraints,
         value: &crate::types::BitStr,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(JsonValue::String(value.iter().fold(
-            alloc::string::String::new(),
-            |mut acc, bit| {
-                acc.push(if *bit { '1' } else { '0' });
+        let bytes = to_vec(value)
+            .iter()
+            .fold(alloc::string::String::new(), |mut acc, bit| {
+                acc.push_str(&alloc::format!("{bit:02X?}"));
                 acc
-            },
-        )))
+            });
+        let json_value = if constraints
+            .size()
+            .map_or(false, |s| s.constraint.is_fixed())
+        {
+            JsonValue::String(bytes)
+        } else {
+            let mut value_map = JsonValue::new_object();
+            value_map
+                .insert("value", bytes)
+                .and(value_map.insert("length", JsonValue::Number(value.len().into())))
+                .map_err(|_| {
+                    EncodeError::custom("Failed to create BitString object!", self.codec())
+                })?;
+            value_map
+        };
+        self.update_root_or_constructed(json_value)
     }
 
     fn encode_enumerated<E: crate::types::Enumerated>(
@@ -286,7 +303,7 @@ impl crate::Encoder for Encoder {
             .collect::<alloc::vec::Vec<&str>>();
         field_names.reverse();
         for name in field_names {
-            self.stack.push(name.replace('-', "_"));
+            self.stack.push(name);
         }
         self.constructed_stack.push(Object::new());
         (encoder_scope)(self)?;
@@ -394,7 +411,7 @@ impl crate::Encoder for Encoder {
             self.update_root_or_constructed(JsonValue::Object(Object::new()))
         } else {
             self.constructed_stack.push(Object::new());
-            self.stack.push(identifier.replace('-', "_"));
+            self.stack.push(identifier);
             (encode_fn)(self)?;
             let value_map =
                 self.constructed_stack

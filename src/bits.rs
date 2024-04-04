@@ -40,7 +40,16 @@ pub(crate) fn to_vec(slice: &bitvec::slice::BitSlice<u8, bitvec::order::Msb0>) -
     let mut vec = Vec::new();
 
     for slice in slice.chunks(8) {
-        vec.push(slice.load_be());
+        if slice.len() != 8 {
+            // pad unaligned BitSlices
+            let mut owned = slice.to_bitvec();
+            for _ in 0..(8 - slice.len()) {
+                owned.push(false);
+            }
+            vec.push(owned.load_be());
+        } else {
+            vec.push(slice.load_be());
+        }
     }
 
     vec

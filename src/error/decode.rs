@@ -1,3 +1,5 @@
+use core::num::ParseIntError;
+
 use super::strings::PermittedAlphabetError;
 use alloc::{boxed::Box, string::ToString};
 
@@ -564,8 +566,8 @@ pub enum JerDecodeErrorKind {
         needed: &'static str,
         found: alloc::string::String,
     },
-    #[snafu(display("Found invalid character {invalid} in bit string."))]
-    InvalidJerBitstring { invalid: char },
+    #[snafu(display("Found invalid byte in bit string. {parse_int_err}"))]
+    InvalidJerBitstring { parse_int_err: ParseIntError },
     #[snafu(display("Found invalid character in octet string."))]
     InvalidJerOctetString {},
     #[snafu(display("Failed to construct OID from value {value}",))]

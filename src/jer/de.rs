@@ -3,6 +3,7 @@
 use jzon::JsonValue;
 
 use crate::{
+    de::Error,
     error::*,
     types::{fields::Fields, *},
     Decode,
@@ -53,9 +54,58 @@ impl crate::Decoder for Decoder {
     fn decode_bit_string(
         &mut self,
         _t: crate::Tag,
-        _c: Constraints,
+        constraints: Constraints,
     ) -> Result<BitString, Self::Error> {
-        decode_jer_value!(Self::bit_string_from_value, self.stack)
+        let (mut padded, bitstring_length) = if let Some(size) = constraints
+            .size()
+            .and_then(|s| s.constraint.is_fixed().then_some(s.constraint.as_start()))
+            .flatten()
+        {
+            let value = BitString::try_from_vec(decode_jer_value!(
+                Self::octet_string_from_value,
+                self.stack
+            )?)
+            .map_err(|e| {
+                DecodeError::custom(
+                    alloc::format!("Failed to create BitString from bytes: {e:02x?}"),
+                    self.codec(),
+                )
+            })?;
+            (value, *size)
+        } else {
+            let last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
+            let value_map = last
+                .as_object()
+                .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
+                    needed: "object",
+                    found: "unknown".into(),
+                })?;
+            let (value, length) = value_map
+                .get("value")
+                .and_then(|v| v.as_str())
+                .zip(value_map.get("length").and_then(|l| l.as_usize()))
+                .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
+                    needed: "JSON object containing 'value' and 'length' properties.",
+                    found: alloc::format!("{value_map:#?}"),
+                })?;
+            (
+                (0..value.len())
+                    .step_by(2)
+                    .map(|i| u8::from_str_radix(&value[i..=i + 1], 16))
+                    .collect::<Result<BitString, _>>()
+                    .map_err(|e| JerDecodeErrorKind::InvalidJerBitstring { parse_int_err: e })?,
+                length,
+            )
+        };
+        let padding_length = if bitstring_length % 8 == 0 {
+            0
+        } else {
+            8 - (bitstring_length % 8)
+        };
+        for _ in 0..padding_length {
+            padded.pop();
+        }
+        Ok(padded)
     }
 
     fn decode_bool(&mut self, _t: crate::Tag) -> Result<bool, Self::Error> {
@@ -101,12 +151,12 @@ impl crate::Decoder for Decoder {
         let mut field_names = [D::FIELDS, D::EXTENDED_FIELDS.unwrap_or(Fields::empty())]
             .iter()
             .flat_map(|f| f.iter())
-            .map(|f| f.name.replace('-', "_"))
-            .collect::<alloc::vec::Vec<alloc::string::String>>();
+            .map(|f| f.name)
+            .collect::<alloc::vec::Vec<&str>>();
         field_names.reverse();
         for name in field_names {
             self.stack
-                .push(value_map.remove(&name).unwrap_or(JsonValue::Null));
+                .push(value_map.remove(name).unwrap_or(JsonValue::Null));
         }
 
         (decode_fn)(self)
@@ -380,24 +430,6 @@ impl Decoder {
         Ok(Any::new(alloc::format!("{value}").as_bytes().to_vec()))
     }
 
-    fn bit_string_from_value(value: JsonValue) -> Result<BitString, DecodeError> {
-        Ok(value
-            .as_str()
-            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
-                needed: "bit string",
-                found: alloc::format!("{value}"),
-            })?
-            .chars()
-            .try_fold(BitString::new(), |mut acc, bit| {
-                match bit {
-                    '0' => acc.push(false),
-                    '1' => acc.push(true),
-                    c => return Err(JerDecodeErrorKind::InvalidJerBitstring { invalid: c }),
-                }
-                Ok(acc)
-            })?)
-    }
-
     fn boolean_from_value(value: JsonValue) -> Result<bool, DecodeError> {
         Ok(value
             .as_bool()
@@ -528,7 +560,7 @@ impl Decoder {
                 D::IDENTIFIERS
                     .iter()
                     .enumerate()
-                    .find(|id| id.1.replace('-', "_").eq_ignore_ascii_case(k))
+                    .find(|id| id.1.eq_ignore_ascii_case(k))
                     .map(|(i, _)| (i, v))
             })
             .map_or(Tag::EOC, |(i, v)| {
@@ -551,7 +583,7 @@ impl Decoder {
         let octet_string = value
             .as_str()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
-                needed: "octet string",
+                needed: "hex string",
                 found: alloc::format!("{value}"),
             })?;
         Ok((0..octet_string.len())
