@@ -414,10 +414,11 @@ impl Decoder {
                 needed: "enumerated item as string",
                 found: alloc::format!("{value}"),
             })?;
-        Ok(E::from_identifier(identifier)
-            .ok_or_else(|| JerDecodeErrorKind::InvalidEnumDiscriminant {
-                discriminant: alloc::format!("{identifier}"),
-            })?)
+        Ok(E::from_identifier(identifier).ok_or_else(|| {
+            JerDecodeErrorKind::InvalidEnumDiscriminant {
+                discriminant: alloc::string::String::from(identifier),
+            }
+        })?)
     }
 
     fn integer_from_value(value: JsonValue) -> Result<Integer, DecodeError> {
