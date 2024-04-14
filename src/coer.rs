@@ -1171,5 +1171,29 @@ mod tests {
             b: Option<Integer>,
         }
         round_trip!(coer, Sequence2, Sequence2 { a: None, b: None }, &[0x00]);
+        // Only default values
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence3 {
+            #[rasn(default = "default_a")]
+            a: Integer,
+            #[rasn(default = "default_b")]
+            b: Integer,
+        }
+        fn default_a() -> Integer {
+            0.into()
+        }
+        fn default_b() -> Integer {
+            1.into()
+        }
+        round_trip!(
+            coer,
+            Sequence3,
+            Sequence3 {
+                a: 0.into(),
+                b: 1.into()
+            },
+            &[0x00]
+        );
     }
 }
