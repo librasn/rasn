@@ -54,13 +54,11 @@ pub fn encode_with_constraints<T: crate::Encode>(
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_statements)]
 mod tests {
-    // use super::*;
-    #![allow(clippy::items_after_statements)]
     use crate as rasn;
     use crate::prelude::*;
-    use crate::types::constraints::{Bounded, Constraint, Size, Value};
-    use crate::types::Integer;
+    use crate::types::constraints::{Bounded, Size, Value};
     use bitvec::prelude::*;
     #[test]
     fn bool() {

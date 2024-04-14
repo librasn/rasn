@@ -816,7 +816,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         if let Some((_, true)) = self.field_bitfield.get(&tag) {
             value.encode(self)
-        } else if self.field_bitfield.get(&tag).is_none() {
+        } else if !self.field_bitfield.contains_key(&tag) {
             value.encode(self)
         } else {
             self.set_bit(tag, true);
@@ -968,7 +968,7 @@ mod tests {
 
     use super::*;
     use crate::prelude::{AsnType, Decode, Encode};
-    use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Value};
+    use crate::types::constraints::{Bounded, Constraint, Extensible, Value};
 
     #[test]
     fn test_encode_bool() {

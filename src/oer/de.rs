@@ -371,8 +371,7 @@ impl<'input> Decoder<'input> {
         if self
             .fields
             .front()
-            .map(|field| field.0.tag_tree.smallest_tag() == tag)
-            .unwrap_or_default()
+            .is_some_and(|field| field.0.tag_tree.smallest_tag() == tag)
         {
             Ok(self.fields.pop_front().unwrap().1)
         } else {
@@ -718,9 +717,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<TeletexString, Self::Error> {
-        TeletexString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
-            DecodeError::string_conversion_failed(Tag::TELETEX_STRING, e.to_string(), self.codec())
-        })
+        // Teletex conversion cannot fail
+        Ok(TeletexString::from(
+            self.decode_octet_string(tag, constraints)?,
+        ))
     }
 
     fn decode_bmp_string(
@@ -895,10 +895,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             return Ok(None);
         }
 
-        let extension_is_present = self
-            .extension_is_present()?
-            .map(|(_, b)| b)
-            .unwrap_or_default();
+        let extension_is_present = self.extension_is_present()?.is_some_and(|(_, b)| b);
 
         if !extension_is_present {
             return Ok(None);
@@ -918,10 +915,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             return Ok(None);
         }
 
-        let extension_is_present = self
-            .extension_is_present()?
-            .map(|(_, b)| b)
-            .unwrap_or_default();
+        let extension_is_present = self.extension_is_present()?.is_some_and(|(_, b)| b);
 
         if !extension_is_present {
             return Ok(None);
@@ -936,8 +930,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
 }
 
 #[cfg(test)]
+#[allow(clippy::assertions_on_constants)]
 mod tests {
-    #![allow(clippy::assertions_on_constants)]
     use num_bigint::BigUint;
 
     use super::*;
