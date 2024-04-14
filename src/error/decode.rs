@@ -553,6 +553,8 @@ pub enum DecodeErrorKind {
     },
     #[snafu(display("Unknown field with index {} and tag {}", index, tag))]
     UnknownField { index: usize, tag: Tag },
+    #[snafu(display("SEQUENCE has at least one required field, but no input provided"))]
+    UnexpectedEmptyInput,
 }
 
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for BER.
@@ -577,8 +579,6 @@ pub enum BerDecodeErrorKind {
         /// The actual tag.
         actual: Tag,
     },
-    #[snafu(display("SEQUENCE has at least one required field, but no input provided"))]
-    UnexpectedEmptyInput,
 }
 
 impl BerDecodeErrorKind {

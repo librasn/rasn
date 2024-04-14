@@ -543,11 +543,31 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .decode_object_identifier_from_bytes(self.extract_data_by_length(length)?.as_bytes())
     }
 
-    fn decode_sequence<D, F>(&mut self, _: Tag, decode_fn: F) -> Result<D, Self::Error>
+    fn decode_sequence<D, DF: FnOnce() -> D, F>(
+        &mut self,
+        _: Tag,
+        default_initializer_fn: Option<DF>,
+        decode_fn: F,
+    ) -> Result<D, Self::Error>
     where
         D: Constructed,
+
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
+        // If there are no fields then the sequence is empty
+        // Or if all fields are optional and default and there is no data
+        if D::FIELDS.is_empty()
+            || D::FIELDS.len() == D::FIELDS.number_of_optional_and_default_fields()
+                && self.input.is_empty()
+        {
+            if let Some(default_initializer_fn) = default_initializer_fn {
+                return Ok((default_initializer_fn)());
+            }
+            return Err(DecodeError::from_kind(
+                DecodeErrorKind::UnexpectedEmptyInput,
+                self.codec(),
+            ));
+        }
         // ### PREAMBLE ###
         // TODO check if decoded value is same as default, error for COER
         let (bitmap, extensible_present) = self.parse_preamble::<D>()?;

@@ -647,9 +647,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
             {
                 if let Some(default_initializer_fn) = default_initializer_fn {
                     return Ok((default_initializer_fn)());
-                } else {
-                    return Err(BerDecodeErrorKind::UnexpectedEmptyInput.into());
                 }
+                return Err(DecodeError::from_kind(
+                    DecodeErrorKind::UnexpectedEmptyInput,
+                    decoder.codec(),
+                ));
             }
             (decode_fn)(decoder)
         })
