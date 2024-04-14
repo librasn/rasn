@@ -79,7 +79,7 @@ pub fn integer_to_bytes(value: &crate::prelude::Integer, signed: bool) -> Option
     if signed {
         Some(value.to_signed_bytes_be())
     } else if !signed && (value.is_positive() || value.is_zero()) {
-        Some(value.to_biguint().unwrap().to_bytes_be())
+        Some(value.to_biguint()?.to_bytes_be())
     } else {
         None
     }
