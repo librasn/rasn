@@ -569,7 +569,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
             ));
         }
         // ### PREAMBLE ###
-        // TODO check if decoded value is same as default, error for COER
         let (bitmap, extensible_present) = self.parse_preamble::<D>()?;
         // ### ENDS
         let fields = D::FIELDS

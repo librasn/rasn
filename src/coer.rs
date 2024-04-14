@@ -1158,4 +1158,20 @@ mod tests {
             &[0x80, 0x01, 0x01, 0x81, 0x80, 0x01, 0x02, 0x80, 0xff]
         );
     }
+    #[test]
+    fn test_empty_sequence() {
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence1 {}
+        round_trip!(coer, Sequence1, Sequence1 {}, &[]);
+
+        // Only optional fields, all empty
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence2 {
+            a: Option<Integer>,
+            b: Option<Integer>,
+        }
+        round_trip!(coer, Sequence2, Sequence2 { a: None, b: None }, &[0x00]);
+    }
 }
