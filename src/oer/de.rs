@@ -17,7 +17,6 @@ use alloc::{
     vec::Vec,
 };
 use bitvec::field::BitField;
-use bitvec::macros::internal::funty::Fundamental;
 use nom::{AsBytes, Slice};
 use num_bigint::Sign;
 use num_integer::div_ceil;
@@ -183,7 +182,7 @@ impl<'input> Decoder<'input> {
             }
             // Should not overflow, max size 8 x 127 = 1016 < u16::MAX
             let result: Result<(InputSlice, InputSlice), DecodeError> =
-                nom::bytes::streaming::take(length.as_u16() * 8)(self.input)
+                nom::bytes::streaming::take((length as u16) * 8)(self.input)
                     .map_err(|e| DecodeError::map_nom_err(e, self.codec()));
 
             match result {
