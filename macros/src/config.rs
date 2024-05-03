@@ -420,7 +420,9 @@ impl Config {
 #[derive(Clone, Debug)]
 pub struct OptionalEnum {
     pub path: syn::Ident,
+    #[allow(unused)]
     pub some_variant: syn::Type,
+    #[allow(unused)]
     pub none_variant: syn::Type,
 }
 
