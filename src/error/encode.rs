@@ -1,3 +1,4 @@
+use crate::prelude::Integer;
 use crate::types::constraints::{Bounded, Size};
 use snafu::Snafu;
 #[cfg(feature = "backtraces")]
@@ -15,6 +16,7 @@ pub enum CodecEncodeError {
     Uper(UperEncodeErrorKind),
     Aper(AperEncodeErrorKind),
     Jer(JerEncodeErrorKind),
+    Coer(CoerEncodeErrorKind),
 }
 macro_rules! impl_from {
     ($variant:ident, $error_kind:ty) => {
@@ -33,6 +35,7 @@ impl_from!(Der, DerEncodeErrorKind);
 impl_from!(Uper, UperEncodeErrorKind);
 impl_from!(Aper, AperEncodeErrorKind);
 impl_from!(Jer, JerEncodeErrorKind);
+impl_from!(Coer, CoerEncodeErrorKind);
 
 impl From<CodecEncodeError> for EncodeError {
     fn from(error: CodecEncodeError) -> Self {
@@ -121,28 +124,62 @@ impl EncodeError {
         reason: super::strings::PermittedAlphabetError,
         codec: crate::Codec,
     ) -> Self {
-        Self {
-            kind: Box::new(EncodeErrorKind::AlphabetConstraintNotSatisfied { reason }),
+        Self::from_kind(
+            EncodeErrorKind::AlphabetConstraintNotSatisfied { reason },
             codec,
-            #[cfg(feature = "backtraces")]
-            backtrace: Backtrace::generate(),
-        }
+        )
+    }
+    #[must_use]
+    pub fn size_constraint_not_satisfied(
+        size: usize,
+        expected: &Size,
+        codec: crate::Codec,
+    ) -> Self {
+        Self::from_kind(
+            EncodeErrorKind::SizeConstraintNotSatisfied {
+                size,
+                expected: (**expected),
+            },
+            codec,
+        )
+    }
+    #[must_use]
+    pub fn value_constraint_not_satisfied(
+        value: Integer,
+        expected: &Bounded<i128>,
+        codec: crate::Codec,
+    ) -> Self {
+        Self::from_kind(
+            EncodeErrorKind::ValueConstraintNotSatisfied {
+                value,
+                expected: (*expected),
+            },
+            codec,
+        )
     }
     pub fn check_length(length: usize, expected: &Size, codec: crate::Codec) -> Result<(), Self> {
         expected.contains_or_else(&length, || Self {
             kind: Box::new(EncodeErrorKind::InvalidLength {
                 length,
-                expected: (**expected),
+                expected: **expected,
             }),
             codec,
             #[cfg(feature = "backtraces")]
             backtrace: Backtrace::generate(),
         })
     }
+    #[must_use]
+    pub fn length_exceeds_platform_size(codec: crate::Codec) -> Self {
+        Self::from_kind(EncodeErrorKind::LengthExceedsPlatformSize, codec)
+    }
     /// An error for failed conversion from `BitInt` or `BigUint` to primitive integer types
     #[must_use]
     pub fn integer_type_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::IntegerTypeConversionFailed { msg }, codec)
+    }
+    #[must_use]
+    pub fn invalid_length(length: usize, expected: Bounded<usize>, codec: crate::Codec) -> Self {
+        Self::from_kind(EncodeErrorKind::InvalidLength { length, expected }, codec)
     }
     #[must_use]
     pub fn opaque_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
@@ -170,6 +207,7 @@ impl EncodeError {
             CodecEncodeError::Uper(_) => crate::Codec::Uper,
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
             CodecEncodeError::Jer(_) => crate::Codec::Jer,
+            CodecEncodeError::Coer(_) => crate::Codec::Coer,
         };
         Self {
             kind: Box::new(EncodeErrorKind::CodecSpecific { inner }),
@@ -194,14 +232,32 @@ pub enum EncodeErrorKind {
         /// Expected length of the data
         expected: Bounded<usize>,
     },
+    #[snafu(display("invalid length, exceeds platform maximum size usize::MAX"))]
+    LengthExceedsPlatformSize,
+    #[snafu(display("Integer does not fit to the reserved octets {expected}; actual: {value}"))]
+    MoreBytesThanExpected { value: usize, expected: usize },
     #[snafu(display("custom error:\n{}", msg))]
     Custom { msg: alloc::string::String },
     #[snafu(display("Wrapped codec-specific encode error"))]
     CodecSpecific { inner: CodecEncodeError },
-    #[snafu(display("Constraint not satisfied: {reason}"))]
+    #[snafu(display("Alphabet constraint not satisfied: {reason}"))]
     AlphabetConstraintNotSatisfied {
         /// Inner error from mapping realized characters to allowed characters
         reason: super::strings::PermittedAlphabetError,
+    },
+    #[snafu(display("Size constraint not satisfied: expected: {expected}; actual: {size}"))]
+    SizeConstraintNotSatisfied {
+        /// Actual sie of the data
+        size: usize,
+        /// Expected size by the constraint
+        expected: Bounded<usize>,
+    },
+    #[snafu(display("Value constraint not satisfied: expected: {expected}; actual: {value}"))]
+    ValueConstraintNotSatisfied {
+        /// Actual value of the data
+        value: Integer,
+        /// Expected value by the constraint
+        expected: Bounded<i128>,
     },
     #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
     IntegerTypeConversionFailed { msg: alloc::string::String },
@@ -282,6 +338,20 @@ pub enum UperEncodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperEncodeErrorKind {}
+
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum CoerEncodeErrorKind {
+    #[snafu(display("Provided data is too long to be encoded with COER."))]
+    TooLongValue { length: u128 },
+    #[snafu(display(
+    "Provided length in not correct format. Should be bits as multiple of 8. {remainder}; actual: {length}"
+    ))]
+    LengthNotAsBitLength { length: usize, remainder: usize },
+    #[snafu(display("Provided integer exceeds limits of the constrained word sizes."))]
+    InvalidConstrainedIntegerOctetSize,
+}
 
 impl crate::enc::Error for EncodeError {
     fn custom<D: core::fmt::Display>(msg: D, codec: crate::Codec) -> Self {

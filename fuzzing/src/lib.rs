@@ -17,4 +17,3 @@ macro_rules! fuzz_type {
 pub fn fuzz(data: &[u8]) {
     fuzz_type!(data, rasn_pkix::Certificate);
 }
-
