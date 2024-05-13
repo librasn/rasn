@@ -93,11 +93,26 @@ mod tests {
             A = 1,
             B = 2,
         }
+        #[derive(AsnType, Decode, Encode, Debug, Clone, Copy, PartialEq)]
+        #[rasn(enumerated)]
+        enum TestDefaults {
+            A,
+            B,
+        }
         // Leading zeroes
         decode_error!(coer, Test, &[0x00, 0x00, 0x00, 0x01, 0x01]);
-        decode_ok!(oer, Test, &[0x00, 0x00, 0x00, 0x01, 0x01], Test::A);
+        // Leading zeros not allowed for enumerated values in any case
+        round_trip!(oer, Test, Test::A, &[0x01]);
+        round_trip!(oer, TestDefaults, TestDefaults::A, &[0x00]);
+        // Unfortunately, below is correct since we just parse the first byte and do not chek the
+        // remainder in reality
+        decode_ok!(oer, TestDefaults, &[0x00, 0x00], TestDefaults::A);
+        decode_error!(oer, Test, &[0x00, 0x01]);
+        decode_error!(oer, Test, &[0x00, 0x81, 0x01]);
+        decode_ok!(oer, Test, &[0x81, 0x01], Test::A);
+        decode_ok!(oer, Test, &[0x01], Test::A);
         // Long form when not needed
-        decode_error!(coer, Test, &[0b1000_0001, 0x01, 0x01]);
-        decode_ok!(oer, Test, &[0b1000_0001, 0x01, 0x01], Test::A);
+        decode_error!(coer, Test, &[0b1000_0001, 0x01]);
+        decode_ok!(oer, Test, &[0b1000_0001, 0x01], Test::A);
     }
 }

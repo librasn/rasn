@@ -497,7 +497,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, _: Tag) -> Result<E, Self::Error> {
-        let byte = self.parse_byte_and_leading_zeros()?;
+        let byte = self.parse_one_byte()?;
         if byte < 128 {
             // Short form, use value directly as unsigned integer
             E::from_discriminant(isize::from(byte))
