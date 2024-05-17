@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0](https://github.com/librasn/rasn/compare/rasn-derive-v0.14.0...rasn-derive-v0.15.0) - 2024-05-17
+
+### Other
+- Remove `backtraces` from `rasn`'s `default` feature ([#247](https://github.com/librasn/rasn/pull/247))
+
 ## [0.14.0](https://github.com/librasn/rasn/compare/rasn-derive-v0.13.1...rasn-derive-v0.14.0) - 2024-04-04
 
 ### Other
