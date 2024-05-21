@@ -5,8 +5,8 @@ set -e
 source ci/common.bash
 
 # $1 {path} = Path to cross/cargo executable
-CROSS=$1
+CROSS="$1"
 
-required_arg $CROSS 'CROSS'
+required_arg "$CROSS" 'CROSS'
 
-$CROSS clippy --all -- -D warnings
+"$CROSS" clippy --all-targets -- -D warnings

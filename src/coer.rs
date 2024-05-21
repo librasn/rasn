@@ -707,8 +707,8 @@ mod tests {
     }
     #[test]
     fn test_utf8_string() {
-        round_trip!(coer, Utf8String, "".try_into().unwrap(), &[0x00]);
-        round_trip!(coer, Utf8String, "2".try_into().unwrap(), &[0x01, 0x32]);
+        round_trip!(coer, Utf8String, "".into(), &[0x00]);
+        round_trip!(coer, Utf8String, "2".into(), &[0x01, 0x32]);
         round_trip!(
             coer,
             Utf8String,
@@ -722,7 +722,7 @@ mod tests {
         round_trip!(
             coer,
             Utf8String,
-            "ÄÖÄÖÄÖÄÖ12e4Ä".try_into().unwrap(),
+            "ÄÖÄÖÄÖÄÖ12e4Ä".into(),
             &[
                 0x16, 0xc3, 0x84, 0xc3, 0x96, 0xc3, 0x84, 0xc3, 0x96, 0xc3, 0x84, 0xc3, 0x96, 0xc3,
                 0x84, 0xc3, 0x96, 0x31, 0x32, 0x65, 0x34, 0xc3, 0x84
@@ -732,7 +732,7 @@ mod tests {
             coer,
             Utf8String,
             Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
-            "foo".try_into().unwrap(),
+            "foo".into(),
             &[0x66, 0x6f, 0x6f]
         );
     }

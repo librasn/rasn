@@ -184,10 +184,10 @@ mod tests {
             $(
                 #[test]
                 fn $integer() {
-                    let min = <$integer>::min_value();
-                    let max = <$integer>::max_value();
-                    let half_max = <$integer>::max_value() / 2;
-                    let half_min = <$integer>::min_value() / 2;
+                    let min = <$integer>::MIN;
+                    let max = <$integer>::MAX;
+                    let half_max = <$integer>::MAX / 2;
+                    let half_min = <$integer>::MIN / 2;
 
                     round_trip(&min);
                     round_trip(&half_min);
