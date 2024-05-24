@@ -5,6 +5,7 @@
 
 mod any;
 mod instance;
+mod integer;
 mod open;
 mod prefix;
 mod tag;
@@ -23,6 +24,7 @@ pub use {
         any::Any,
         constraints::{Constraint, Constraints, Extensible},
         instance::InstanceOf,
+        integer::{ConstrainedInteger, Integer, PrimitiveInteger, TryFromIntegerError},
         oid::{ObjectIdentifier, Oid},
         open::Open,
         prefix::{Explicit, Implicit},
@@ -33,7 +35,6 @@ pub use {
         },
         tag::{Class, Tag, TagTree},
     },
-    num_bigint::BigInt as Integer,
     rasn_derive::AsnType,
 };
 
@@ -234,34 +235,6 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
                         .and_then(|array| array.get(i - Self::VARIANTS.len()).copied())
                 }
             })
-    }
-}
-
-/// A integer which has encoded constraint range between `START` and `END`.
-#[derive(Debug, Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
-pub struct ConstrainedInteger<const START: i128, const END: i128>(pub(crate) Integer);
-
-impl<const START: i128, const END: i128> AsnType for ConstrainedInteger<START, END> {
-    const TAG: Tag = Tag::INTEGER;
-    const CONSTRAINTS: Constraints<'static> =
-        Constraints::new(&[constraints::Constraint::Value(Extensible::new(
-            constraints::Value::new(constraints::Bounded::const_new(START, END)),
-        ))]);
-}
-
-impl<const START: i128, const END: i128> core::ops::Deref for ConstrainedInteger<START, END> {
-    type Target = Integer;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl<T: Into<Integer>, const START: i128, const END: i128> From<T>
-    for ConstrainedInteger<START, END>
-{
-    fn from(value: T) -> Self {
-        Self(value.into())
     }
 }
 

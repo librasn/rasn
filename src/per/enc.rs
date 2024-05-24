@@ -11,7 +11,7 @@ use crate::{
         strings::{
             should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
         },
-        BitString, Constraints, Enumerated, Tag,
+        BitString, Constraints, Enumerated, Integer, Tag, TryFromIntegerError,
     },
     Encode,
 };
@@ -535,9 +535,8 @@ impl Encoder {
                     // Add final fragment in the frame.
                     buffer.extend(&[0]);
                     break;
-                } else {
-                    length = length.saturating_sub(amount);
                 }
+                length = length.saturating_sub(amount);
             }
         }
 
@@ -619,7 +618,7 @@ impl Encoder {
     fn encode_integer_into_buffer(
         &mut self,
         constraints: Constraints,
-        value: &num_bigint::BigInt,
+        value: &Integer,
         buffer: &mut BitString,
     ) -> Result<()> {
         let is_extended_value = self.encode_extensible_bit(&constraints, buffer, || {
@@ -629,7 +628,7 @@ impl Encoder {
         });
 
         let value_range = if is_extended_value || constraints.value().is_none() {
-            let bytes = value.to_signed_bytes_be();
+            let bytes = value.to_be_bytes();
             self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
             })?;
@@ -639,19 +638,16 @@ impl Encoder {
         };
 
         let bytes = match value_range.constraint.effective_bigint_value(value.clone()) {
-            either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
-            either::Right(value) => value.to_signed_bytes_be(),
+            either::Left(offset) => offset.to_unsigned_be_bytes().unwrap(),
+            either::Right(value) => value.to_be_bytes(),
         };
 
-        let effective_value: i128 =
-            value_range
-                .constraint
-                .effective_value(value.try_into().map_err(
-                    |e: num_bigint::TryFromBigIntError<()>| {
-                        Error::integer_type_conversion_failed(e.to_string(), self.codec())
-                    },
-                )?)
-                .either_into();
+        let effective_value: i128 = value_range
+            .constraint
+            .effective_value(value.try_into().map_err(|e: TryFromIntegerError<()>| {
+                Error::integer_type_conversion_failed(e.to_string(), self.codec())
+            })?)
+            .either_into();
 
         const K64: i128 = SIXTY_FOUR_K as i128;
         const OVER_K64: i128 = K64 + 1;
@@ -840,7 +836,7 @@ impl crate::Encoder for Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &num_bigint::BigInt,
+        value: &Integer,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         let mut buffer = BitString::new();

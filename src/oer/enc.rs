@@ -7,7 +7,6 @@ use crate::prelude::{
 };
 use crate::Codec;
 use bitvec::prelude::*;
-use num_traits::{Signed, ToPrimitive};
 
 use crate::types::{fields::FieldPresence, BitString, Constraints, Integer};
 use crate::{Encode, Tag};
@@ -235,17 +234,30 @@ impl Encoder {
     ///
     /// COER tries to use the shortest possible encoding and avoids leading zeros.
     fn encode_length(&mut self, buffer: &mut Vec<u8>, length: usize) -> Result<(), EncodeError> {
-        let bytes =
-            crate::bits::integer_to_bytes(&Integer::from(length), false).ok_or_else(|| {
-                EncodeError::integer_type_conversion_failed(
-                    "For unknown reason, length conversion failed when encoding length".to_string(),
-                    self.codec(),
-                )
-            })?;
+        // let bytes =
+        //     crate::bits::integer_to_bytes(&Integer::from(length), false).ok_or_else(|| {
+        //         EncodeError::integer_type_conversion_failed(
+        //             "For unknown reason, length conversion failed when encoding length".to_string(),
+        //             self.codec(),
+        //         )
+        //     })?;
+
+        let zeros_count = crate::bits::zero_padding_count::<usize>(length);
+        dbg!(zeros_count);
+        let bytes = length.to_be_bytes();
+        debug_assert!(zeros_count <= 16);
+        let bytes: &[u8] = bytes[zeros_count..].try_into().map_err(|_| {
+            EncodeError::integer_type_conversion_failed(
+                "For unknown reason, length conversion failed when encoding length".to_string(),
+                self.codec(),
+            )
+        })?;
+        dbg!(&length);
+        dbg!(&bytes);
 
         if length < 128 {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
-            buffer.extend(&bytes);
+            buffer.extend(bytes);
             return Ok(());
         }
         let mut length_of_length = u8::try_from(bytes.len()).map_err(|err| {
@@ -264,7 +276,7 @@ impl Encoder {
         // It is always zero by default with u8 type when value being < 128
         length_of_length |= 0b_1000_0000;
         buffer.extend(&length_of_length.to_be_bytes());
-        buffer.extend(&bytes);
+        buffer.extend(bytes);
         Ok(())
     }
     /// Encode integer `value_to_enc` with length determinant
@@ -275,15 +287,34 @@ impl Encoder {
         signed: bool,
     ) -> Result<Vec<u8>, EncodeError> {
         let mut buffer = Vec::new();
-        let bytes = crate::bits::integer_to_bytes(value_to_enc, signed).ok_or_else(|| {
-            EncodeError::integer_type_conversion_failed(
-                "Negative integer value has been provided to be converted into unsigned bytes"
-                    .to_string(),
-                self.codec(),
+        dbg!(signed);
+        dbg!(&value_to_enc);
+
+        if let Integer::Primitive(value) = value_to_enc {
+            crate::bits::append_fixed_size_integer_bytes(
+                &mut buffer,
+                value,
+                |buffer, inner_value| {
+                    dbg!("WHAT ISHAPPENING");
+                    dbg!(&buffer);
+                    dbg!(value);
+                    self.encode_length(buffer, inner_value).unwrap();
+                },
             )
-        })?;
-        self.encode_length(&mut buffer, bytes.len())?;
-        buffer.extend(bytes);
+            .unwrap();
+        } else {
+            // let bytes = value_to_enc.to_be_bytes();
+            let bytes = crate::bits::integer_to_bytes(value_to_enc, signed).ok_or_else(|| {
+                EncodeError::integer_type_conversion_failed(
+                    "Negative integer value has been provided to be converted into unsigned bytes"
+                        .to_string(),
+                    self.codec(),
+                )
+            })?;
+            self.encode_length(&mut buffer, bytes.len())?;
+            buffer.extend(bytes);
+        }
+
         Ok(buffer)
     }
 
@@ -351,26 +382,36 @@ impl Encoder {
         if octets > 8 {
             return Err(CoerEncodeErrorKind::InvalidConstrainedIntegerOctetSize.into());
         }
-        let bytes = if signed {
-            value.to_signed_bytes_be()
+        let mut buffer1: Vec<u8> = Vec::new();
+        let mut buffer2: Vec<u8> = Vec::new();
+        if signed {
+            match value {
+                Integer::Primitive(value) => buffer2.extend(value.to_be_bytes()),
+                Integer::Big(_) => buffer2.extend_from_slice(&value.to_be_bytes()),
+            };
         } else {
-            value.to_biguint().unwrap().to_bytes_be()
+            buffer2.extend_from_slice(&value.to_unsigned_be_bytes().ok_or_else(|| {
+                EncodeError::integer_type_conversion_failed(
+                    "Negative integer value has been provided to be converted into unsigned bytes"
+                        .to_string(),
+                    self.codec(),
+                )
+            })?);
         };
-        let mut buffer: Vec<u8> = Vec::new();
 
-        match octets.cmp(&bytes.len()) {
+        match octets.cmp(&buffer2.len()) {
             Ordering::Greater => {
                 if signed && value.is_negative() {
                     // 2's complement
-                    buffer.extend(core::iter::repeat(0xff).take(octets - bytes.len()));
+                    buffer1.extend(core::iter::repeat(0xff).take(octets - buffer2.len()));
                 } else {
-                    buffer.extend(core::iter::repeat(0x00).take(octets - bytes.len()));
+                    buffer1.extend(core::iter::repeat(0x00).take(octets - buffer2.len()));
                 }
             }
             Ordering::Less => {
                 return Err(EncodeError::from_kind(
                     EncodeErrorKind::MoreBytesThanExpected {
-                        value: bytes.len(),
+                        value: buffer2.len(),
                         expected: octets,
                     },
                     self.codec(),
@@ -379,8 +420,8 @@ impl Encoder {
             // As is
             Ordering::Equal => {}
         };
-        buffer.extend(bytes);
-        Ok(buffer)
+        buffer1.extend(buffer2);
+        Ok(buffer1)
     }
     fn check_fixed_size_constraint<T>(
         &self,
@@ -618,7 +659,7 @@ impl crate::Encoder for Encoder {
             let missing_bits: usize = (8 - value.len() % 8) % 8;
             let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
             // missing bits never > 8
-            bit_string_encoding.extend(missing_bits.to_u8().unwrap_or(0).to_be_bytes());
+            bit_string_encoding.extend(u8::try_from(missing_bits).unwrap_or(0).to_be_bytes());
             bit_string_encoding.extend(value);
             bit_string_encoding.extend(trailing);
             self.encode_length(&mut buffer, bit_string_encoding.len() / 8)?;
@@ -964,7 +1005,7 @@ impl crate::Encoder for Encoder {
 
 #[cfg(test)]
 mod tests {
-    use num_bigint::BigInt;
+    use num_traits::Pow;
 
     use super::*;
     use crate::prelude::{AsnType, Decode, Encode};
@@ -993,12 +1034,12 @@ mod tests {
         let consts = Constraints::new(value_range);
         let mut encoder = Encoder::default();
         let result =
-            encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &BigInt::from(244));
+            encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &Integer::from(244));
         assert!(result.is_ok());
         let v = vec![244u8];
         assert_eq!(encoder.output, v);
         encoder.output.clear();
-        let value = BigInt::from(256);
+        let value = Integer::from(256);
         let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &value);
         assert!(result.is_err());
     }
@@ -1007,8 +1048,11 @@ mod tests {
         // Using defaults, no limits
         let constraints = Constraints::default();
         let mut encoder = Encoder::default();
-        let result =
-            encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &BigInt::from(244));
+        let result = encoder.encode_integer_with_constraints(
+            Tag::INTEGER,
+            &constraints,
+            &Integer::from(244),
+        );
         assert!(result.is_ok());
         let v = vec![2u8, 0, 244];
         assert_eq!(encoder.output, v);
@@ -1016,7 +1060,7 @@ mod tests {
         let result = encoder.encode_integer_with_constraints(
             Tag::INTEGER,
             &constraints,
-            &BigInt::from(-1_234_567),
+            &Integer::from(-1_234_567),
         );
         assert!(result.is_ok());
         let v = vec![0x03u8, 0xED, 0x29, 0x79];
@@ -1029,7 +1073,7 @@ mod tests {
 
         // Signed integer with byte length of 128
         // Needs long form to represent
-        let number = BigInt::from(256).pow(127) - 1;
+        let number = Integer::from(256).pow(127.into()) - 1.into();
         let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &number);
         assert!(result.is_ok());
         let vc = [

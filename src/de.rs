@@ -3,7 +3,7 @@
 use alloc::{boxed::Box, string::ToString, vec::Vec};
 
 use crate::error::DecodeError;
-use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, Tag, TryFromIntegerError};
 
 pub use nom::Needed;
 pub use rasn_derive::Decode;
@@ -387,7 +387,7 @@ macro_rules! impl_integers {
                         tag,
                         constraints,
                     )?
-                ).map_err(|e: num_bigint::TryFromBigIntError<types::Integer>|D::Error::from(DecodeError::integer_type_conversion_failed(e.to_string(), decoder.codec())))
+                ).map_err(|e: TryFromIntegerError<types::Integer>|D::Error::from(DecodeError::integer_type_conversion_failed(e.to_string(), decoder.codec())))
             }
         }
         )+

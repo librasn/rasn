@@ -3,11 +3,12 @@
 use core::cmp::Ordering;
 
 use alloc::vec::Vec;
-use num_traits::{Signed, Zero};
 
 pub(crate) fn range_from_len(bit_length: u32) -> i128 {
     2i128.pow(bit_length) - 1
 }
+use crate::types::{Integer, PrimitiveInteger};
+use num_traits::{PrimInt, Zero};
 
 /// The canonical encoding of SET OF values in DER requires
 /// the encoded elements to be sorted in ascending order.
@@ -75,11 +76,55 @@ pub(crate) fn to_left_padded_vec(
         vec
     }
 }
-pub fn integer_to_bytes(value: &crate::prelude::Integer, signed: bool) -> Option<Vec<u8>> {
+
+pub fn zero_padding_count<T: PrimInt >(value: T) -> usize {
+    if !value.is_zero()  {
+        let leading_byte_count = value.leading_zeros() / 8;
+        return leading_byte_count as usize;
+    }
+    (value.count_zeros() - 8) as usize / 8 
+    
+}
+pub fn one_padding_count<T: PrimInt >(value: T) -> usize {
+    if !value.is_zero()  {
+        let leading_byte_count = value.leading_ones() / 8;
+        return leading_byte_count as usize;
+    }
+    (value.count_ones() - 8) as usize / 8 
+    
+}
+
+pub fn append_fixed_size_integer_bytes(
+    buffer: &mut Vec<u8>,
+    value: &PrimitiveInteger<i128>,
+    mut encode_length: impl FnMut(&mut Vec<u8>, usize) 
+) -> Option<()>
+    {
+    if value.is_positive() || value.is_zero() {
+        let zeros_count = zero_padding_count::<i128>(value.value());
+        dbg!(zeros_count);
+        let bytes = value.to_be_bytes();
+        debug_assert!(zeros_count <= 16);
+        let non_zeroes : &[u8] = bytes[zeros_count..].try_into().ok()?;
+        dbg!(non_zeroes);
+        encode_length(buffer, non_zeroes.len());
+        buffer.extend_from_slice(non_zeroes);
+        Some(())
+    } else {
+        let one_count = one_padding_count::<i128>(value.value());
+        let bytes = value.to_be_bytes();
+        let non_ones : &[u8] = bytes[one_count..].try_into().ok()?;
+        encode_length(buffer, non_ones.len());
+        buffer.extend_from_slice(non_ones);
+        Some(())
+    }
+}
+
+pub fn integer_to_bytes(value: &Integer, signed: bool) -> Option<Vec<u8>> {
     if signed {
-        Some(value.to_signed_bytes_be())
+        Some(value.to_be_bytes())
     } else if !signed && (value.is_positive() || value.is_zero()) {
-        Some(value.to_biguint()?.to_bytes_be())
+        Some(value.to_unsigned_be_bytes()?)
     } else {
         None
     }

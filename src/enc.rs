@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, Integer, Tag};
 
 pub use rasn_derive::Encode;
 
@@ -84,7 +84,7 @@ pub trait Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &num_bigint::BigInt,
+        value: &Integer,
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `NULL` value.

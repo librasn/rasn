@@ -6,7 +6,7 @@ use crate::{
     bits::to_vec,
     enc::Error,
     error::{EncodeError, JerEncodeErrorKind},
-    types::{fields::Fields, variants},
+    types::{fields::Fields, variants, Integer},
 };
 
 pub struct Encoder {
@@ -133,7 +133,7 @@ impl crate::Encoder for Encoder {
         &mut self,
         _t: crate::Tag,
         _c: crate::types::Constraints,
-        value: &num_bigint::BigInt,
+        value: &Integer,
     ) -> Result<Self::Ok, Self::Error> {
         let as_i64: i64 =
             value

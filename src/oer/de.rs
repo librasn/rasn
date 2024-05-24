@@ -18,7 +18,6 @@ use alloc::{
 };
 use bitvec::field::BitField;
 use nom::{AsBytes, Slice};
-use num_bigint::Sign;
 use num_integer::div_ceil;
 use num_traits::ToPrimitive;
 
@@ -254,9 +253,9 @@ impl<'input> Decoder<'input> {
             .into());
         }
         if signed {
-            Ok(Integer::from_signed_bytes_be(data.as_bytes()))
+            Ok(Integer::from_signed_be_bytes(data.as_bytes()))
         } else {
-            Ok(Integer::from_bytes_be(Sign::Plus, data.as_bytes()))
+            Ok(Integer::from_be_bytes(data.as_bytes()))
         }
     }
     fn decode_integer_with_constraints(
@@ -506,7 +505,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             // Long form, value as signed integer. Previous byte is length of the subsequent octets
             let length = byte & 0x7fu8;
             let data = self.decode_integer_from_bytes(true, Some(length.into()))?;
-            let discriminant = data.to_isize().ok_or_else(|| {
+            let discriminant = isize::try_from(data).map_err(|_| {
                 DecodeError::length_exceeds_platform_width(
                     "Enumerated discriminant value too large for this platform.".to_string(),
                     self.codec(),
@@ -520,7 +519,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 .into());
             }
             E::from_discriminant(discriminant).ok_or_else(|| {
-                DecodeError::discriminant_value_not_found(data.to_isize().unwrap(), self.codec())
+                DecodeError::discriminant_value_not_found(discriminant, self.codec())
             })
         }
     }
@@ -931,12 +930,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
 #[cfg(test)]
 #[allow(clippy::assertions_on_constants)]
 mod tests {
-    use num_bigint::BigUint;
-
     use super::*;
     use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Size, Value};
     use bitvec::prelude::BitSlice;
-    use num_bigint::BigInt;
+    use num_traits::Pow;
 
     #[test]
     fn test_decode_bool() {
@@ -966,9 +963,9 @@ mod tests {
     #[test]
     fn test_decode_length_valid() {
         // Max length
-        let max_length: BigUint = BigUint::from(2u8).pow(1016u32) - BigUint::from(1u8);
-        assert_eq!(max_length.to_bytes_be(), MAX_LENGTH);
-        assert_eq!(max_length.to_bytes_be().len(), MAX_LENGTH_LENGTH);
+        let max_length: Integer = Integer::from(2u8).pow(1016u32.into()) - Integer::from(1u8);
+        assert_eq!(max_length.to_be_bytes(), MAX_LENGTH);
+        assert_eq!(max_length.to_be_bytes().len(), MAX_LENGTH_LENGTH);
         // Unfortunately we cannot support lengths > 2^64 - 1 at the moment
         // Nor larger than BitSlice::<usize>::MAX_BITS
         assert!(max_length > usize::MAX.into());
@@ -1017,7 +1014,7 @@ mod tests {
             0xff, 0xff, 0xff, 0xff,
         ]);
         let mut decoder = Decoder::new(&vc, DecoderOptions::oer());
-        let number = BigInt::from(256).pow(127) - 1;
+        let number = Integer::from(256).pow(127.into()) - 1.into();
         let constraints = Constraints::default();
         let new_number = decoder
             .decode_integer_with_constraints(&constraints)
@@ -1079,6 +1076,6 @@ mod tests {
                 Size::new(Bounded::None).into(),
             )]))
             .unwrap();
-        assert_eq!(decoded_int, BigInt::from(-255));
+        assert_eq!(decoded_int, Integer::from(-255));
     }
 }

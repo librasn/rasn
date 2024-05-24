@@ -3,6 +3,7 @@ use bitvec::field::BitField;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::bits::{to_left_padded_vec, to_vec};
+use crate::types::TryFromIntegerError;
 use crate::{
     de::Error as _,
     types::{
@@ -10,7 +11,7 @@ use crate::{
         constraints::{self, Extensible},
         fields::{Field, Fields},
         strings::{should_be_indexed, StaticPermittedAlphabet},
-        Constraints, Enumerated, Tag,
+        Constraints, Enumerated, Integer, Tag,
     },
     Decode,
 };
@@ -370,7 +371,7 @@ impl<'input> Decoder<'input> {
             data.to_bitvec()
         };
 
-        Ok(num_bigint::BigUint::from_bytes_be(&to_left_padded_vec(&data)).into())
+        Ok(Integer::from_be_bytes(&to_left_padded_vec(&data)).into())
     }
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
@@ -379,7 +380,7 @@ impl<'input> Decoder<'input> {
 
         let Some(value_constraint) = value_constraint.filter(|_| !extensible) else {
             let bytes = to_vec(&self.decode_octets()?);
-            return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes));
+            return Ok(Integer::from_be_bytes(&bytes));
         };
 
         const K64: i128 = SIXTY_FOUR_K as i128;
@@ -402,7 +403,7 @@ impl<'input> Decoder<'input> {
                     let length: u32 = self
                         .parse_non_negative_binary_integer(range_len_in_bytes)?
                         .try_into()
-                        .map_err(|e: num_bigint::TryFromBigIntError<types::Integer>| {
+                        .map_err(|e: TryFromIntegerError<types::Integer>| {
                             DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
                         })?;
                     self.input = self.parse_padding(self.input)?;
@@ -424,11 +425,15 @@ impl<'input> Decoder<'input> {
             value_constraint
                 .constraint
                 .as_start()
-                .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
-                .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
+                .map(|_| Integer::from_be_bytes(&bytes).into())
+                .unwrap_or_else(|| Integer::from_signed_be_bytes(&bytes))
         };
+        // match number {
+        //     Integer::Primitive(value) => Ok((value_constraint.constraint.minimum() + *value).into()),
+        //     Integer::Big(value) => Ok((value_constraint.constraint.minimum() + value).into()),
+        // }
 
-        Ok(value_constraint.constraint.minimum() + number)
+        Ok(Integer::from(value_constraint.constraint.minimum()) + number)
     }
 
     fn parse_extension_header(&mut self) -> Result<bool> {
@@ -439,10 +444,10 @@ impl<'input> Decoder<'input> {
         }
 
         // The length bitfield has a lower bound of `1..`
-        let extensions_length = self.parse_normally_small_integer()? + 1;
+        let extensions_length = self.parse_normally_small_integer()? + 1.into();
         let (input, bitfield) =
             nom::bytes::streaming::take(usize::try_from(extensions_length).map_err(
-                |e: num_bigint::TryFromBigIntError<types::Integer>| {
+                |e: TryFromIntegerError<types::Integer>| {
                     DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
                 },
             )?)(self.input)
@@ -641,7 +646,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         if extensible {
             let index: usize = self.parse_normally_small_integer()?.try_into().map_err(
-                |e: num_bigint::TryFromBigIntError<types::Integer>| {
+                |e: TryFromIntegerError<types::Integer>| {
                     DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
                 },
             )?;
@@ -651,7 +656,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             let index = self
                 .parse_non_negative_binary_integer(E::variance() as i128)?
                 .try_into()
-                .map_err(|e: num_bigint::TryFromBigIntError<types::Integer>| {
+                .map_err(|e: TryFromIntegerError<types::Integer>| {
                     DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
                 })?;
             E::from_enumeration_index(index)

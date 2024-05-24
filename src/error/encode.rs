@@ -318,7 +318,7 @@ pub enum JerEncodeErrorKind {
     #[snafu(display("Exceeds supported integer range -2^63..2^63 ({:?}).", value))]
     ExceedsSupportedIntSize {
         /// value failed to encode
-        value: num_bigint::BigInt,
+        value: Integer,
     },
     #[snafu(display("Invalid character: {:?}", error))]
     InvalidCharacter {
