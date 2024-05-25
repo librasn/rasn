@@ -4,6 +4,10 @@ use core::ops::{Add, Sub};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Num, NumOps, Pow, PrimInt, Signed, ToBytes, ToPrimitive, Zero};
 
+#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+pub type StdInt = isize;
+
+#[cfg(target_pointer_width = "64")]
 pub type StdInt = i128;
 
 macro_rules! impl_from_integer {
@@ -53,7 +57,6 @@ impl<T> alloc::fmt::Display for TryFromIntegerError<T> {
         self.__description().fmt(f)
     }
 }
-
 macro_rules! impl_try_from_bigint {
     ($T:ty, $to_ty:path) => {
         impl TryFrom<&Integer> for $T {
@@ -84,6 +87,8 @@ macro_rules! impl_try_from_bigint {
     };
 }
 
+// TODO note the change here if inner primitive type should be changed
+
 impl_try_from_bigint!(u8, ToPrimitive::to_u8);
 impl_try_from_bigint!(u16, ToPrimitive::to_u16);
 impl_try_from_bigint!(u32, ToPrimitive::to_u32);
@@ -103,54 +108,72 @@ impl From<BigInt> for Integer {
         Integer::Big(value)
     }
 }
+#[cfg(target_pointer_width = "64")]
 impl From<u128> for Integer {
     fn from(value: u128) -> Self {
         Integer::Big(value.into())
     }
 }
-// `From` macro for other integer types than `u128`
-// #[cfg(target_pointer_width = "64")]
 impl_from_primitive_integer! {
     i8,
     i16,
     i32,
-    i64,
-    i128,
     isize,
     u8,
     u16,
     u32,
-    u64,
     usize
+}
+#[cfg(target_pointer_width = "64")]
+impl_from_primitive_integer! {
+    i64,
+    i128,
+    u64
 }
 impl_from_integer! {
     i8,
     i16,
     i32,
-    i64,
-    i128,
     isize,
     u8,
     u16,
     u32,
-    u64,
     usize
 }
+#[cfg(target_pointer_width = "64")]
+impl_from_integer! {
+    i64,
+    i128,
+    u64
+}
+
+pub trait PrimitiveIntegerTraits:
+    PrimInt + Num + NumOps + Signed + ToBytes + Default + Sized
+{
+}
+impl<T: PrimInt + Num + NumOps + Signed + ToBytes + Default + Sized> PrimitiveIntegerTraits for T {}
+
 /// Primitive integers can bring significant performance improvements
 /// As a result, native word size and i128/u128 are supported as smaller integers
 /// Note: all architectures do not support i128/u128
 /// 128-support
-#[derive(Debug, Clone, Copy, Ord, Hash, Eq, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, PartialOrd, Ord)]
 #[non_exhaustive]
-pub struct PrimitiveInteger<T: PrimInt + Num + NumOps + Signed>(T);
+pub struct PrimitiveInteger<T: PrimitiveIntegerTraits>(T);
 
-impl<T: PrimInt + Num + NumOps + Signed + ToBytes> core::ops::Deref for PrimitiveInteger<T> {
+impl<T: PrimitiveIntegerTraits> core::ops::Deref for PrimitiveInteger<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
-impl<T: PrimInt + Num + NumOps + Signed + ToBytes> PrimitiveInteger<T> {
+impl<T: PrimitiveIntegerTraits> core::default::Default for PrimitiveInteger<T> {
+    fn default() -> Self {
+        PrimitiveInteger(T::from(0).unwrap_or_default())
+    }
+}
+
+impl<T: PrimitiveIntegerTraits> PrimitiveInteger<T> {
     /// Byte with of the primitive integer. E.g. width for `i128` is 16 bytes.
     pub const BYTE_WIDTH: usize = core::mem::size_of::<T>();
     /// Optimized primitive integer bytes
@@ -237,6 +260,7 @@ impl Integer {
     }
 
     /// Returns inner stack located primitive integer `i128` if that is the current variant
+    /// TODO make i128 feature/pointer width gated
     #[must_use]
     pub fn as_i128(&self) -> Option<i128> {
         match self {
