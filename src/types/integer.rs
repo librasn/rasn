@@ -290,6 +290,19 @@ impl Integer {
             // Integer::Big(value) => value.to_biguint().unwrap().to_bytes_be(),
         }
     }
+
+    #[must_use]
+    #[inline]
+    pub fn to_unsigned_be_bytes(&self) -> Option<alloc::vec::Vec<u8>> {
+        match self {
+            Integer::Primitive(value) => {
+                let value = value.unsafe_minimal_primitive_ne_bytes(false);
+                Some(value.to_vec())
+            }
+            Integer::Big(value) => Some(value.to_biguint()?.to_bytes_be()),
+        }
+    }
+
     #[must_use]
     pub fn from_signed_be_bytes(bytes: &[u8]) -> Self {
         if bytes.len() <= 16 {
@@ -321,18 +334,6 @@ impl Integer {
             Integer::Primitive(PrimitiveInteger::<i128>(i128::from_be_bytes(array)))
         } else {
             Integer::Big(BigUint::from_bytes_be(bytes).into())
-        }
-    }
-
-    #[must_use]
-    #[inline]
-    pub fn to_unsigned_be_bytes(&self) -> Option<alloc::vec::Vec<u8>> {
-        match self {
-            Integer::Primitive(value) => {
-                let value = value.unsafe_minimal_primitive_ne_bytes(false);
-                Some(value.to_vec())
-            }
-            Integer::Big(value) => Some(value.to_biguint()?.to_bytes_be()),
         }
     }
     #[must_use]
@@ -381,7 +382,7 @@ impl Sub for Integer {
     fn sub(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Big((BigInt::from(*lhs) - *rhs))
+                Integer::Big(BigInt::from(*lhs) - *rhs)
             }
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs - rhs),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => Integer::Big(*lhs - rhs),
