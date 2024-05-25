@@ -964,8 +964,8 @@ mod tests {
     fn test_decode_length_valid() {
         // Max length
         let max_length: Integer = Integer::from(2u8).pow(1016u32.into()) - Integer::from(1u8);
-        assert_eq!(max_length.to_be_bytes(), MAX_LENGTH);
-        assert_eq!(max_length.to_be_bytes().len(), MAX_LENGTH_LENGTH);
+        assert_eq!(max_length.to_unsigned_be_bytes().unwrap(), MAX_LENGTH);
+        assert_eq!(max_length.to_unsigned_be_bytes().unwrap().len(), MAX_LENGTH_LENGTH);
         // Unfortunately we cannot support lengths > 2^64 - 1 at the moment
         // Nor larger than BitSlice::<usize>::MAX_BITS
         assert!(max_length > usize::MAX.into());
