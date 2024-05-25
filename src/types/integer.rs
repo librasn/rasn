@@ -182,19 +182,11 @@ impl<T: PrimInt + Num + NumOps + Signed + ToBytes> PrimitiveInteger<T> {
     /// Optimized primitive integer conversion to bytes
     pub fn unsafe_minimal_primitive_ne_bytes(&self, signed: bool) -> &[u8] {
         let ptr = &self.0 as *const T as *const u8; // Cast to a pointer to the first byte
-         unsafe{
-             // print every byte from pointer
-             for i in 0..PRIMITIVE_BYTE_WIDTH {
-                 let byte = *ptr.add(i);
-                 print!("{:02x} ", byte);
-             }
-         }  
-    let bytes_needed = if signed {
-        self.signed_bytes_needed()
-    } else {
-        self.unsigned_bytes_needed()
+        let bytes_needed = if signed {
+            self.signed_bytes_needed()
+        } else {
+            self.unsigned_bytes_needed()
         };
-    dbg!(bytes_needed);
         unsafe { core::slice::from_raw_parts(ptr, bytes_needed) }
     }
     fn unsigned_bytes_needed(&self) -> usize {
@@ -244,9 +236,9 @@ impl<T: PrimInt + Num + NumOps + Signed + ToBytes> PrimitiveInteger<T> {
     pub fn primitive_needed_bytes(&self, signed: bool) -> ([u8; PRIMITIVE_BYTE_WIDTH], usize) {
         let bytes: [u8; PRIMITIVE_BYTE_WIDTH] = self.primitive_int_le_bytes();
         let needed = if signed {
-             self.signed_bytes_needed()
+            self.signed_bytes_needed()
         } else {
-             self.unsigned_bytes_needed()
+            self.unsigned_bytes_needed()
         };
         let mut slice_reversed: [u8; 16] = [0; 16];
         let len = needed;
