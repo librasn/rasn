@@ -7,8 +7,7 @@ use alloc::vec::Vec;
 pub(crate) fn range_from_len(bit_length: u32) -> i128 {
     2i128.pow(bit_length) - 1
 }
-use crate::types::{Integer, PrimitiveInteger};
-use num_traits::{PrimInt, Signed, Zero};
+use crate::types::Integer;
 
 /// The canonical encoding of SET OF values in DER requires
 /// the encoded elements to be sorted in ascending order.
@@ -77,15 +76,7 @@ pub(crate) fn to_left_padded_vec(
     }
 }
 
-pub fn zero_padding_count<T: PrimInt>(value: T) -> usize {
-    if !value.is_zero() {
-        let leading_byte_count = value.leading_zeros() / 8;
-        return leading_byte_count as usize;
-    }
-    (value.count_zeros() - 8) as usize / 8
-}
-
-pub fn integer_to_bytes(value: &Integer, signed: bool) -> Option<Vec<u8>> {
+pub(crate) fn integer_to_bytes(value: &Integer, signed: bool) -> Option<Vec<u8>> {
     if signed {
         Some(value.to_be_bytes())
     } else if !signed && (value.is_positive() || value.is_zero()) {
