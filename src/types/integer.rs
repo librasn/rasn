@@ -4,13 +4,15 @@ use core::ops::{Add, Sub};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Num, NumOps, Pow, PrimInt, Signed, ToBytes, ToPrimitive, Zero};
 
+pub type StdInt = i128;
+
 macro_rules! impl_from_integer {
     ($($t:ty),*) => {
         $(
             impl From<$t> for Integer {
                 fn from(value: $t) -> Self {
                     #[allow(clippy::cast_possible_truncation)]
-                    Integer::Primitive(PrimitiveInteger::<i128>(value as i128))
+                    Integer::Primitive(PrimitiveInteger::<StdInt>(value as StdInt))
                 }
             }
         )*
@@ -19,10 +21,10 @@ macro_rules! impl_from_integer {
 macro_rules! impl_from_primitive_integer {
     ($($t:ty),*) => {
         $(
-            impl From<$t> for PrimitiveInteger<i128> {
+            impl From<$t> for PrimitiveInteger<StdInt> {
 fn from(value: $t) -> Self {
                     #[allow(clippy::cast_possible_truncation)]
-                    PrimitiveInteger::<i128>(value as i128)
+                    PrimitiveInteger::<StdInt>(value as StdInt)
                 }
             }
         )*
@@ -96,29 +98,6 @@ impl_try_from_bigint!(i64, ToPrimitive::to_i64);
 impl_try_from_bigint!(isize, ToPrimitive::to_isize);
 impl_try_from_bigint!(i128, ToPrimitive::to_i128);
 
-// try_into to primitives from Integer
-// impl TryFrom<Integer> for i8 {
-//     type Error = crate::error::DecodeError;
-//     fn try_from(value: Integer) -> Result<Sef, Self::Error> {
-//         match value {
-//             Integer::Primitive(PrimitiveInteger::<i128>(value)) => {
-//                 if value > i8::MAX as i128 || value < i8::MIN as i128 {
-//                     Err(crate::Error::InvalidInteger)
-//                 } else {
-//                     Ok(value as i8)
-//                 }
-//             }
-//             Integer::Big(value) => {
-//                 if value > i8::MAX as i128 || value < i8::MIN as i128 {
-//                     Err(crate::Error::InvalidInteger)
-//                 } else {
-//                     Ok(value.to_i8().unwrap())
-//                 }
-//             }
-//         }
-//     }
-// }
-//
 impl From<BigInt> for Integer {
     fn from(value: BigInt) -> Self {
         Integer::Big(value)
@@ -129,7 +108,7 @@ impl From<u128> for Integer {
         Integer::Big(value.into())
     }
 }
-
+// `From` macro for other integer types than `u128`
 // #[cfg(target_pointer_width = "64")]
 impl_from_primitive_integer! {
     i8,
@@ -165,8 +144,6 @@ impl_from_integer! {
 #[non_exhaustive]
 pub struct PrimitiveInteger<T: PrimInt + Num + NumOps + Signed>(T);
 
-const PRIMITIVE_BYTE_WIDTH: usize = core::mem::size_of::<i128>();
-
 impl<T: PrimInt + Num + NumOps + Signed + ToBytes> core::ops::Deref for PrimitiveInteger<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
@@ -174,13 +151,13 @@ impl<T: PrimInt + Num + NumOps + Signed + ToBytes> core::ops::Deref for Primitiv
     }
 }
 impl<T: PrimInt + Num + NumOps + Signed + ToBytes> PrimitiveInteger<T> {
-    #[must_use]
-    pub const fn value(&self) -> T {
-        self.0
-    }
+    /// Byte with of the primitive integer. E.g. width for `i128` is 16 bytes.
+    pub const BYTE_WIDTH: usize = core::mem::size_of::<T>();
+    /// Optimized primitive integer bytes
+    /// Returns pointer to the native endian presentation of the integer from the memory
+    /// Pointer includes minimal amount of bytes to present unsigned or signed integer, based on `signed`
     #[inline]
-    /// Optimized primitive integer conversion to bytes
-    pub fn unsafe_minimal_primitive_ne_bytes(&self, signed: bool) -> &[u8] {
+    pub fn unsafe_minimal_ne_bytes(&self, signed: bool) -> &[u8] {
         let ptr = &self.0 as *const T as *const u8; // Cast to a pointer to the first byte
         let bytes_needed = if signed {
             self.signed_bytes_needed()
@@ -189,58 +166,51 @@ impl<T: PrimInt + Num + NumOps + Signed + ToBytes> PrimitiveInteger<T> {
         };
         unsafe { core::slice::from_raw_parts(ptr, bytes_needed) }
     }
+    /// Minimal number of bytes needed to present unsigned integer
     fn unsigned_bytes_needed(&self) -> usize {
         if self.0.is_zero() {
             1
         } else {
-            PRIMITIVE_BYTE_WIDTH - (self.0.leading_zeros() / 8) as usize
+            Self::BYTE_WIDTH - (self.0.leading_zeros() / 8) as usize
         }
     }
 
+    /// Minimal number of bytes needed to present signed integer
     fn signed_bytes_needed(&self) -> usize {
         if self.0.is_negative() {
             let leading_ones = self.0.leading_ones() as usize;
             if leading_ones % 8 == 0 {
-                PRIMITIVE_BYTE_WIDTH - leading_ones / 8 + 1
+                Self::BYTE_WIDTH - leading_ones / 8 + 1
             } else {
-                PRIMITIVE_BYTE_WIDTH - leading_ones / 8
+                Self::BYTE_WIDTH - leading_ones / 8
             }
         } else {
             let leading_zeroes = self.0.leading_zeros() as usize;
             if leading_zeroes % 8 == 0 {
-                PRIMITIVE_BYTE_WIDTH - leading_zeroes / 8 + 1
+                Self::BYTE_WIDTH - leading_zeroes / 8 + 1
             } else {
-                PRIMITIVE_BYTE_WIDTH - leading_zeroes / 8
+                Self::BYTE_WIDTH - leading_zeroes / 8
             }
         }
     }
 
-    fn primitive_int_le_bytes(&self) -> [u8; PRIMITIVE_BYTE_WIDTH] {
-        #[cfg(target_endian = "big")]
-        {
-            self.0
-                .to_le_bytes()
-                .as_ref()
-                .try_into()
-                .expect("Invalid byte width! Should not happen.")
-        }
-        #[cfg(target_endian = "little")]
-        {
-            self.0
-                .to_ne_bytes()
-                .as_ref()
-                .try_into()
-                .expect("Invalid byte width! Should not happen.")
-        }
+    fn to_le_bytes<const N: usize>(self) -> [u8; N] {
+        self.0
+            .to_le_bytes()
+            .as_ref()
+            .try_into()
+            .expect("Invalid byte width! Should not happen.")
     }
-    pub fn primitive_needed_bytes(&self, signed: bool) -> ([u8; PRIMITIVE_BYTE_WIDTH], usize) {
-        let bytes: [u8; PRIMITIVE_BYTE_WIDTH] = self.primitive_int_le_bytes();
+    /// Calculate minimal number of bytes to show integer based on `signed` status
+    /// Returns slice an with fixed-width `N` and number of needed bytes
+    pub fn needed_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
+        let bytes: [u8; N] = self.to_le_bytes();
         let needed = if signed {
             self.signed_bytes_needed()
         } else {
             self.unsigned_bytes_needed()
         };
-        let mut slice_reversed: [u8; 16] = [0; 16];
+        let mut slice_reversed: [u8; N] = [0; N];
         let len = needed;
         for i in 0..len {
             slice_reversed[i] = bytes[len - 1 - i];
@@ -253,19 +223,20 @@ impl<T: PrimInt + Num + NumOps + Signed + ToBytes> PrimitiveInteger<T> {
 #[derive(Debug, Clone, Ord, Hash, Eq, PartialEq, PartialOrd)]
 #[non_exhaustive]
 pub enum Integer {
-    Primitive(PrimitiveInteger<i128>),
+    Primitive(PrimitiveInteger<StdInt>),
     Big(BigInt),
 }
 impl Integer {
-    /// encoding and decoding functions, and use fixed-size arrays to get byte presentation
+    /// Returns generic `PrimitiveInteger` wrapper type if that is the current variant
     #[must_use]
-    pub fn as_primitive(&self) -> Option<&PrimitiveInteger<i128>> {
+    pub fn as_primitive(&self) -> Option<&PrimitiveInteger<StdInt>> {
         match self {
             Integer::Primitive(ref inner) => Some(inner),
             _ => None,
         }
     }
 
+    /// Returns inner stack located primitive integer `i128` if that is the current variant
     #[must_use]
     pub fn as_i128(&self) -> Option<i128> {
         match self {
@@ -273,6 +244,7 @@ impl Integer {
             _ => None,
         }
     }
+    /// Returns inner heap-allocated `BigInt` if that is the current variant
     #[must_use]
     pub fn as_big(&self) -> Option<&BigInt> {
         match self {
@@ -280,6 +252,7 @@ impl Integer {
             _ => None,
         }
     }
+    /// Return Big-Endian presentation of `Integer`
     /// Will always create new heap allocation, use carefully
     #[must_use]
     #[inline]
@@ -291,12 +264,14 @@ impl Integer {
         }
     }
 
+    /// Return `Integer` as unsigned bytes if possible
+    /// Will always create new heap allocation, use carefully
     #[must_use]
     #[inline]
     pub fn to_unsigned_be_bytes(&self) -> Option<alloc::vec::Vec<u8>> {
         match self {
             Integer::Primitive(value) => {
-                let value = value.unsafe_minimal_primitive_ne_bytes(false);
+                let value = value.unsafe_minimal_ne_bytes(false);
                 Some(value.to_vec())
             }
             Integer::Big(value) => Some(value.to_biguint()?.to_bytes_be()),
@@ -305,19 +280,19 @@ impl Integer {
 
     #[must_use]
     pub fn from_signed_be_bytes(bytes: &[u8]) -> Self {
-        if bytes.len() <= 16 {
+        if bytes.len() <= PrimitiveInteger::<StdInt>::BYTE_WIDTH {
             if bytes[0] < 0b1000_0000 {
-                let mut array = [0u8; 16];
+                let mut array = [0u8; PrimitiveInteger::<StdInt>::BYTE_WIDTH];
                 array[16 - bytes.len()..].copy_from_slice(bytes);
-                let value = i128::from_be_bytes(array);
-                Integer::Primitive(PrimitiveInteger::<i128>(value))
+                let value = StdInt::from_be_bytes(array);
+                Integer::Primitive(PrimitiveInteger::<StdInt>(value))
             } else {
-                let mut array = [0xffu8; 16];
+                let mut array = [0xffu8; PrimitiveInteger::<StdInt>::BYTE_WIDTH];
                 dbg!(bytes);
                 dbg!(bytes.len());
                 array[16 - bytes.len()..].copy_from_slice(bytes);
                 dbg!(&array);
-                Integer::Primitive(PrimitiveInteger::<i128>(i128::from_be_bytes(array)))
+                Integer::Primitive(PrimitiveInteger::<StdInt>(StdInt::from_be_bytes(array)))
             }
         } else {
             Integer::Big(BigInt::from_signed_bytes_be(bytes))
@@ -326,12 +301,12 @@ impl Integer {
     #[must_use]
     pub fn from_be_bytes(bytes: &[u8]) -> Self {
         // For u128 to be able to fit into i128, the byte length must be less or equal than 15 bytes
-        if bytes.len() <= 16 {
-            let mut array = [0u8; 16];
+        if bytes.len() <= PrimitiveInteger::<StdInt>::BYTE_WIDTH {
+            let mut array = [0u8; PrimitiveInteger::<StdInt>::BYTE_WIDTH];
             for i in 0..bytes.len() {
-                array[16 - bytes.len() + i] = bytes[i];
+                array[PrimitiveInteger::<StdInt>::BYTE_WIDTH - bytes.len() + i] = bytes[i];
             }
-            Integer::Primitive(PrimitiveInteger::<i128>(i128::from_be_bytes(array)))
+            Integer::Primitive(PrimitiveInteger::<StdInt>(StdInt::from_be_bytes(array)))
         } else {
             Integer::Big(BigUint::from_bytes_be(bytes).into())
         }
@@ -429,7 +404,7 @@ impl core::ops::Shl<Integer> for Integer {
     fn shl(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Primitive(PrimitiveInteger::<i128>(*lhs << *rhs))
+                Integer::Primitive(PrimitiveInteger::<StdInt>(*lhs << *rhs))
             }
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs << rhs.to_i128().unwrap()),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => {
@@ -451,16 +426,16 @@ impl alloc::fmt::Display for Integer {
 
 impl core::default::Default for Integer {
     fn default() -> Self {
-        Integer::Primitive(PrimitiveInteger::<i128>(0))
+        Integer::Primitive(PrimitiveInteger::<StdInt>(0))
     }
 }
 
 ///
 /// A integer which has encoded constraint range between `START` and `END`.
 #[derive(Debug, Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
-pub struct ConstrainedInteger<const START: i128, const END: i128>(pub(crate) Integer);
+pub struct ConstrainedInteger<const START: StdInt, const END: StdInt>(pub(crate) Integer);
 
-impl<const START: i128, const END: i128> AsnType for ConstrainedInteger<START, END> {
+impl<const START: StdInt, const END: StdInt> AsnType for ConstrainedInteger<START, END> {
     const TAG: Tag = Tag::INTEGER;
     const CONSTRAINTS: Constraints<'static> =
         Constraints::new(&[constraints::Constraint::Value(Extensible::new(
@@ -468,7 +443,7 @@ impl<const START: i128, const END: i128> AsnType for ConstrainedInteger<START, E
         ))]);
 }
 
-impl<const START: i128, const END: i128> core::ops::Deref for ConstrainedInteger<START, END> {
+impl<const START: StdInt, const END: StdInt> core::ops::Deref for ConstrainedInteger<START, END> {
     type Target = Integer;
 
     fn deref(&self) -> &Self::Target {
@@ -476,7 +451,7 @@ impl<const START: i128, const END: i128> core::ops::Deref for ConstrainedInteger
     }
 }
 
-impl<T: Into<Integer>, const START: i128, const END: i128> From<T>
+impl<T: Into<Integer>, const START: StdInt, const END: StdInt> From<T>
     for ConstrainedInteger<START, END>
 {
     fn from(value: T) -> Self {
