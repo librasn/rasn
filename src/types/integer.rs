@@ -430,7 +430,12 @@ impl Sub for Integer {
     fn sub(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Primitive((*lhs - *rhs).into())
+                let result = lhs.checked_sub(*rhs);
+                if let Some(result) = result {
+                    Integer::Primitive(result.into())
+                } else {
+                    Integer::Big(BigInt::from(*lhs) - *rhs)
+                }
             }
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs - rhs),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => Integer::Big(*lhs - rhs),
@@ -444,7 +449,12 @@ impl Add for Integer {
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Primitive((*lhs + *rhs).into())
+                let result = lhs.checked_add(*rhs);
+                if let Some(result) = result {
+                    Integer::Primitive(result.into())
+                } else {
+                    Integer::Big(BigInt::from(*lhs) + *rhs)
+                }
             }
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs + rhs),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => Integer::Big(*lhs + rhs),
@@ -460,7 +470,12 @@ impl Pow<Integer> for Integer {
     fn pow(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Primitive((lhs.pow(rhs.to_u32().unwrap())).into())
+                let result = lhs.checked_pow(*rhs as u32);
+                if let Some(result) = result {
+                    Integer::Primitive(result.into())
+                } else {
+                    Integer::Big(BigInt::from(*lhs).pow(*rhs as u32))
+                }
             }
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs.pow(rhs.to_u32().unwrap())),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => {
