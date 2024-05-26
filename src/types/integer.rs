@@ -25,6 +25,12 @@ macro_rules! impl_from_integer {
                     Integer::Primitive(PrimitiveInteger::<StdInt>(value as StdInt))
                 }
             }
+            impl From<&$t> for Integer {
+                        fn from(value: &$t) -> Self {
+                            #[allow(clippy::cast_possible_truncation)]
+                            Integer::Primitive(PrimitiveInteger::<StdInt>(*value as StdInt))
+                        }
+                    }
         )*
     };
 }
@@ -114,6 +120,11 @@ impl From<BigInt> for Integer {
         Integer::Big(value)
     }
 }
+impl From<&Integer> for Integer {
+    fn from(value: &Integer) -> Self {
+        Integer::from(value.clone())
+    }
+}
 #[cfg(target_pointer_width = "64")]
 #[cfg(feature = "i128")]
 impl From<u128> for Integer {
@@ -188,17 +199,20 @@ impl<T: PrimitiveIntegerTraits> PrimitiveInteger<T> {
     /// Optimized primitive integer bytes
     /// Returns pointer to the native endian presentation of the integer from the memory
     /// Pointer includes minimal amount of bytes to present unsigned or signed integer, based on `signed`
-    #[inline]
-    pub fn unsafe_minimal_ne_bytes(&self, signed: bool) -> &[u8] {
-        let ptr = &self.0 as *const T as *const u8; // Cast to a pointer to the first byte
-        let bytes_needed = if signed {
-            self.signed_bytes_needed()
-        } else {
-            self.unsigned_bytes_needed()
-        };
-        debug_assert!(bytes_needed <= Self::BYTE_WIDTH);
-        unsafe { core::slice::from_raw_parts(ptr, bytes_needed) }
-    }
+    // #[inline]
+    // pub fn unsafe_minimal_ne_bytes(&self, signed: bool) -> &[u8] {
+    //     let ptr = &self.0 as *const T as *const u8; // Cast to a pointer to the first byte
+    //     let bytes_needed = if signed {
+    //         self.signed_bytes_needed()
+    //     } else {
+    //         self.unsigned_bytes_needed()
+    //     };
+    //     debug_assert!(
+    //         bytes_needed <= Self::BYTE_WIDTH,
+    //         "Too many bytes needed in unsafe call! Would lead into reading more data than it is safe."
+    //     );
+    //     unsafe { core::slice::from_raw_parts(ptr, bytes_needed) }
+    // }
     /// Minimal number of bytes needed to present unsigned integer
     fn unsigned_bytes_needed(&self) -> usize {
         if self.0.is_zero() {
@@ -228,15 +242,12 @@ impl<T: PrimitiveIntegerTraits> PrimitiveInteger<T> {
     }
 
     fn to_le_bytes<const N: usize>(self) -> [u8; N] {
-        self.0
-            .to_le_bytes()
-            .as_ref()
-            .try_into()
-            .expect("Invalid byte width! Should not happen.")
+        self.0.to_le_bytes().as_ref().try_into().unwrap_or([0; N])
     }
     /// Calculate minimal number of bytes to show integer based on `signed` status
     /// Returns slice an with fixed-width `N` and number of needed bytes
-    pub fn needed_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
+    /// We need only some of the bytes, might be better than using `to_be_bytes`
+    pub fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
         let bytes: [u8; N] = self.to_le_bytes();
         let needed = if signed {
             self.signed_bytes_needed()
@@ -250,15 +261,24 @@ impl<T: PrimitiveIntegerTraits> PrimitiveInteger<T> {
         }
         (slice_reversed, needed)
     }
-    pub fn swap_bytes<const N: usize>(bytes: &[u8], needed: usize) -> Option<([u8; N], usize)> {
-        if needed > bytes.len() || needed > N {
-            return None; // do not exceed the bounds
-        }
+    /// Swap bytes order and copy to new `N` sized slice
+    fn swap_bytes<const N: usize>(bytes: &[u8]) -> ([u8; N], usize) {
         let mut slice_reversed: [u8; N] = [0; N];
-        for i in 0..needed {
-            slice_reversed[i] = bytes[needed - 1 - i];
+        for i in 0..bytes.len() {
+            slice_reversed[i] = bytes[bytes.len() - 1 - i];
         }
-        Some((slice_reversed, needed))
+        (slice_reversed, bytes.len())
+    }
+    /// Swap bytes order and copy to new `N` sized slice
+    pub fn swap_to_be_bytes<const N: usize>(bytes: &[u8]) -> ([u8; N], usize) {
+        #[cfg(target_endian = "little")]
+        {
+            Self::swap_bytes(bytes)
+        }
+        #[cfg(target_endian = "big")]
+        {
+            (bytes.try_into().unwrap_or([0; N]), bytes.len())
+        }
     }
 }
 
@@ -316,8 +336,9 @@ impl Integer {
     pub fn to_unsigned_be_bytes(&self) -> Option<alloc::vec::Vec<u8>> {
         match self {
             Integer::Primitive(value) => {
-                let value = value.unsafe_minimal_ne_bytes(false);
-                Some(value.to_vec())
+                let (value, len) =
+                    value.needed_as_be_bytes::<{ PrimitiveInteger::<StdInt>::BYTE_WIDTH }>(false);
+                Some(value[..len].to_vec())
             }
             Integer::Big(value) => Some(value.to_biguint()?.to_bytes_be()),
         }

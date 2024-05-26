@@ -371,7 +371,7 @@ impl<'input> Decoder<'input> {
             data.to_bitvec()
         };
 
-        Ok(Integer::from_be_bytes(&to_left_padded_vec(&data)).into())
+        Ok(Integer::from_be_bytes(&to_left_padded_vec(&data)))
     }
 
     fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
@@ -380,7 +380,7 @@ impl<'input> Decoder<'input> {
 
         let Some(value_constraint) = value_constraint.filter(|_| !extensible) else {
             let bytes = to_vec(&self.decode_octets()?);
-            return Ok(Integer::from_be_bytes(&bytes));
+            return Ok(Integer::from_signed_be_bytes(&bytes));
         };
 
         const K64: i128 = SIXTY_FOUR_K as i128;
@@ -425,7 +425,7 @@ impl<'input> Decoder<'input> {
             value_constraint
                 .constraint
                 .as_start()
-                .map(|_| Integer::from_be_bytes(&bytes).into())
+                .map(|_| Integer::from_be_bytes(&bytes))
                 .unwrap_or_else(|| Integer::from_signed_be_bytes(&bytes))
         };
         // match number {

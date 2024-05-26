@@ -1,5 +1,4 @@
 use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
-
 use bitvec::prelude::*;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
@@ -11,7 +10,7 @@ use crate::{
         strings::{
             should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
         },
-        BitString, Constraints, Enumerated, Integer, Tag, TryFromIntegerError,
+        BitString, Constraints, Enumerated, Integer, PrimitiveInteger, Tag, TryFromIntegerError,
     },
     Encode,
 };
@@ -628,18 +627,47 @@ impl Encoder {
         });
 
         let value_range = if is_extended_value || constraints.value().is_none() {
-            let bytes = value.to_be_bytes();
+            let reversed_bytes: [u8; PrimitiveInteger::BYTE_WIDTH];
+            let len: usize;
+            let bytes = if let Integer::Primitive(value) = value {
+                (reversed_bytes, len) = value.needed_as_be_bytes(true);
+                &reversed_bytes[..len]
+            } else {
+                &value.to_be_bytes()
+            };
+
             self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
                 Ok(BitString::from_slice(&bytes[range]))
             })?;
+
             return Ok(());
         } else {
             constraints.value().unwrap()
         };
+        // For lifetime reasons, extract range here
+        let effective_range = value_range
+            .constraint
+            .effective_integer_value(value.clone());
 
-        let bytes = match value_range.constraint.effective_bigint_value(value.clone()) {
-            either::Left(offset) => offset.to_unsigned_be_bytes().unwrap(),
-            either::Right(value) => value.to_be_bytes(),
+        let reversed_bytes: [u8; PrimitiveInteger::BYTE_WIDTH];
+        let len: usize;
+        let bytes: &[u8] = match &effective_range {
+            either::Left(offset) => {
+                if let Integer::Primitive(value) = offset {
+                    (reversed_bytes, len) = value.needed_as_be_bytes(false);
+                    &reversed_bytes[..len]
+                } else {
+                    &offset.to_unsigned_be_bytes().unwrap()
+                }
+            }
+            either::Right(value) => {
+                if let Integer::Primitive(value) = value {
+                    (reversed_bytes, len) = value.needed_as_be_bytes(true);
+                    &reversed_bytes[..len]
+                } else {
+                    &value.to_be_bytes()
+                }
+            }
         };
 
         let effective_value: i128 = value_range
@@ -656,11 +684,11 @@ impl Encoder {
             match (self.options.aligned, range) {
                 (true, 256) => {
                     self.pad_to_alignment(buffer);
-                    self.encode_non_negative_binary_integer(buffer, range, &bytes)
+                    self.encode_non_negative_binary_integer(buffer, range, bytes)
                 }
                 (true, 257..=K64) => {
                     self.pad_to_alignment(buffer);
-                    self.encode_non_negative_binary_integer(buffer, K64, &bytes);
+                    self.encode_non_negative_binary_integer(buffer, K64, bytes);
                 }
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
@@ -673,7 +701,7 @@ impl Encoder {
                             &[0],
                         );
                         self.pad_to_alignment(&mut *buffer);
-                        self.encode_non_negative_binary_integer(&mut *buffer, 255, &bytes);
+                        self.encode_non_negative_binary_integer(&mut *buffer, 255, bytes);
                     } else {
                         let range_value_in_bytes =
                             num_integer::div_ceil(crate::num::log2(effective_value + 1), 8) as i128;
@@ -686,11 +714,11 @@ impl Encoder {
                         self.encode_non_negative_binary_integer(
                             &mut *buffer,
                             crate::bits::range_from_len(range_value_in_bytes as u32 * 8),
-                            &bytes,
+                            bytes,
                         );
                     }
                 }
-                (_, _) => self.encode_non_negative_binary_integer(buffer, range, &bytes),
+                (_, _) => self.encode_non_negative_binary_integer(buffer, range, bytes),
             }
         } else {
             self.encode_length(buffer, bytes.len(), <_>::default(), |range| {

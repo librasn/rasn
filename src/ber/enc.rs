@@ -380,27 +380,12 @@ impl crate::Encoder for Encoder {
         value: &Integer,
     ) -> Result<Self::Ok, Self::Error> {
         if let Integer::Primitive(value) = value {
-            let bytes = value.unsafe_minimal_ne_bytes(true);
-            // On Little Endian, we need to reverse the bytes, as integer bytes are stored in native endianess
-            #[cfg(target_endian = "little")]
-            {
-                let (slice_reversed, len) = PrimitiveInteger::swap_bytes::<{PrimitiveInteger::BYTE_WIDTH}>(bytes, bytes.len())
-                .ok_or_else(|| EncodeError::from_kind(
-                    EncodeErrorKind::IntegerTypeConversionFailed { msg: "Failed to change endianess with minimal needed bytes to present integer bytes".to_string() } 
-                    ,
-                    self.codec(),
-                ))?;
-                self.encode_primitive(tag, &slice_reversed[..len]);
-            }
-            #[cfg(target_endian = "big")]
-            {
-                self.encode_primitive(tag, bytes);
-            }
+            let (reversed_bytes, len) =
+                value.needed_as_be_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(true);
+            self.encode_primitive(tag, &reversed_bytes[..len]);
         } else {
-            // Big integer encoding
             self.encode_primitive(tag, &value.to_be_bytes());
         }
-
         Ok(())
     }
 

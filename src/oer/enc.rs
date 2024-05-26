@@ -200,8 +200,8 @@ impl Encoder {
         buffer: &mut Vec<u8>,
         value: isize,
     ) -> Result<(), EncodeError> {
-        let (bytes, needed) =
-            PrimitiveInteger::from(value).needed_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(true);
+        let (bytes, needed) = PrimitiveInteger::from(value)
+            .needed_as_be_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(true);
         let mut length = u8::try_from(needed).map_err(|err| {
             EncodeError::integer_type_conversion_failed(
                 alloc::format!(
@@ -231,8 +231,8 @@ impl Encoder {
     ///
     /// COER tries to use the shortest possible encoding and avoids leading zeros.
     fn encode_length(&mut self, buffer: &mut Vec<u8>, length: usize) -> Result<(), EncodeError> {
-        let (bytes, needed) =
-            PrimitiveInteger::from(length).needed_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(false);
+        let (bytes, needed) = PrimitiveInteger::from(length)
+            .needed_as_be_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(false);
 
         if length < 128 {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
@@ -265,7 +265,8 @@ impl Encoder {
         // For primitives byte_length + 1 is enough without additional allocations
         let mut buffer = Vec::with_capacity(value_to_enc.byte_length() + 1);
         if let Integer::Primitive(value) = value_to_enc {
-            let (slice, needed) = value.needed_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(true);
+            let (slice, needed) =
+                value.needed_as_be_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(true);
             self.encode_length(&mut buffer, needed)?;
             buffer.extend_from_slice(&slice[..needed]);
         } else {
@@ -347,15 +348,24 @@ impl Encoder {
             return Err(CoerEncodeErrorKind::InvalidConstrainedIntegerOctetSize.into());
         }
         let mut buffer: Vec<u8> = Vec::with_capacity(octets);
+        let reversed_bytes: [u8; PrimitiveInteger::BYTE_WIDTH];
+        let len: usize;
         let bytes = if signed {
             match value {
                 // For efficiency, access primitive ints with slice reference
-                Integer::Primitive(value) => value.unsafe_minimal_ne_bytes(true),
+                Integer::Primitive(value) => {
+                    (reversed_bytes, len) = value.needed_as_be_bytes(true);
+                    &reversed_bytes[..len]
+                }
                 Integer::Big(_) => &value.to_be_bytes(),
             }
         } else {
             match value {
-                Integer::Primitive(value) => value.unsafe_minimal_ne_bytes(false),
+                Integer::Primitive(value) => {
+                    (reversed_bytes, len) = value.needed_as_be_bytes(false);
+                    &reversed_bytes[..len]
+                }
+
                 Integer::Big(_) => &value.to_unsigned_be_bytes().ok_or_else(|| {
                     EncodeError::integer_type_conversion_failed(
                     "Negative integer value has been provided to be converted into unsigned bytes"
@@ -387,26 +397,7 @@ impl Encoder {
             // As is
             Ordering::Equal => {}
         };
-        if let Integer::Primitive(_) = value {
-            // On Little Endian, we need to reverse the bytes, as integer bytes are stored in native endianess
-            // OER uses Big Endian order to show bytes
-            #[cfg(target_endian = "little")]
-            {
-                let (slice_reversed, len) = PrimitiveInteger::swap_bytes::<{PrimitiveInteger::BYTE_WIDTH}>(bytes, bytes.len())
-                .ok_or_else(|| EncodeError::from_kind(
-                    EncodeErrorKind::IntegerTypeConversionFailed { msg: "Failed to change endianess with minimal needed bytes to present integer bytes".to_string() } 
-                    ,
-                    self.codec(),
-                ))?;
-                buffer.extend(&slice_reversed[..len]);
-            }
-            #[cfg(target_endian = "big")]
-            {
-                buffer.extend_from_slice(bytes);
-            }
-        } else {
-            buffer.extend(bytes);
-        }
+        buffer.extend(bytes);
         Ok(buffer)
     }
     fn check_fixed_size_constraint<T>(

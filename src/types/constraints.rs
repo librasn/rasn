@@ -1,3 +1,4 @@
+use crate::types::Integer;
 use alloc::borrow::Cow;
 
 #[derive(Debug, Default, Clone)]
@@ -424,18 +425,15 @@ impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + Partia
 
 impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd<T>> Bounded<T>
 where
-    crate::types::Integer: From<T>,
+    Integer: From<T>,
 {
     /// The same as [`effective_value`] except using [`crate::types::Integer`].
-    pub fn effective_bigint_value(
-        &self,
-        value: crate::types::Integer,
-    ) -> either::Either<crate::types::Integer, crate::types::Integer> {
+    pub fn effective_integer_value(&self, value: Integer) -> either::Either<Integer, Integer> {
         if let Bounded::Range {
             start: Some(start), ..
         } = self
         {
-            let start = crate::types::Integer::from(start.clone());
+            let start = Integer::from(start.clone());
             debug_assert!(value >= start);
             either::Left(value - start)
         } else {
