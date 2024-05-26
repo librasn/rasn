@@ -323,6 +323,9 @@ impl Integer {
         }
     }
 
+    /// New `Integer` from signed bytes.
+    /// Inner type is defined based on the amount of bytes.
+    /// `Integer::Primitive` if less or equal defined primitive width, otherwise `Integer::Big`.
     #[must_use]
     pub fn from_signed_be_bytes(bytes: &[u8]) -> Self {
         let mut array = [0u8; PrimitiveInteger::<StdInt>::BYTE_WIDTH];
@@ -338,9 +341,11 @@ impl Integer {
             Integer::Big(BigInt::from_signed_bytes_be(bytes))
         }
     }
+    /// New `Integer` from unsigned bytes.
+    /// Inner type is defined based on the amount of bytes.
+    /// `Integer::Primitive` if less or equal defined primitive width, otherwise `Integer::Big`.
     #[must_use]
     pub fn from_be_bytes(bytes: &[u8]) -> Self {
-        // For u128 to be able to fit into i128, the byte length must be less or equal than 15 bytes
         if bytes.len() <= PrimitiveInteger::<StdInt>::BYTE_WIDTH {
             let mut array = [0u8; PrimitiveInteger::<StdInt>::BYTE_WIDTH];
             for i in 0..bytes.len() {
