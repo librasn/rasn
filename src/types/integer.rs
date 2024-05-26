@@ -120,11 +120,7 @@ impl From<BigInt> for Integer {
         Integer::Big(value)
     }
 }
-impl From<&Integer> for Integer {
-    fn from(value: &Integer) -> Self {
-        Integer::from(value.clone())
-    }
-}
+
 #[cfg(target_pointer_width = "64")]
 #[cfg(feature = "i128")]
 impl From<u128> for Integer {
