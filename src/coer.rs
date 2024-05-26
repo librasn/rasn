@@ -3,6 +3,7 @@
 pub use super::oer::*;
 use crate::error::{DecodeError, EncodeError};
 use crate::types::Constraints;
+use core::mem::size_of_val;
 
 /// Attempts to decode `T` from `input` using OER.
 ///
@@ -20,7 +21,8 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
 /// Returns `EncodeError` if `value` cannot be encoded as COER, usually meaning that constraints
 /// are not met.
 pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    let mut enc = Encoder::new(enc::EncoderOptions::coer());
+    let pre_alloc = size_of_val(value);
+    let mut enc = Encoder::new(enc::EncoderOptions::coer(), pre_alloc);
     value.encode(&mut enc)?;
     Ok(enc.output())
 }
@@ -48,7 +50,8 @@ pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    let mut enc = Encoder::new(enc::EncoderOptions::coer());
+    let pre_alloc = size_of_val(value);
+    let mut enc = Encoder::new(enc::EncoderOptions::coer(), pre_alloc);
     value.encode_with_constraints(&mut enc, constraints)?;
     Ok(enc.output())
 }
