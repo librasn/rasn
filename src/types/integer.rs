@@ -196,6 +196,7 @@ impl<T: PrimitiveIntegerTraits> PrimitiveInteger<T> {
         } else {
             self.unsigned_bytes_needed()
         };
+        debug_assert!(bytes_needed <= Self::BYTE_WIDTH);
         unsafe { core::slice::from_raw_parts(ptr, bytes_needed) }
     }
     /// Minimal number of bytes needed to present unsigned integer
