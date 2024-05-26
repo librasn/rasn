@@ -1,6 +1,5 @@
 use alloc::{string::ToString, vec::Vec};
 use core::cmp::Ordering;
-use core::mem::size_of_val;
 
 use crate::oer::ranges;
 use crate::prelude::{
@@ -74,7 +73,7 @@ impl EncodingRules {
 }
 impl Default for Encoder {
     fn default() -> Self {
-        Self::new(EncoderOptions::coer(), 0)
+        Self::new(EncoderOptions::coer())
     }
 }
 /// COER encoder. A subset of OER to provide canonical and unique encoding.  
@@ -107,10 +106,10 @@ pub struct Encoder {
 impl Encoder {
     // pub fn new(options: EncoderOptions) -> Self {
     #[must_use]
-    pub fn new(options: EncoderOptions, pre_alloc: usize) -> Self {
+    pub fn new(options: EncoderOptions) -> Self {
         Self {
             options,
-            output: Vec::with_capacity(pre_alloc),
+            output: <_>::default(),
             set_output: <_>::default(),
             field_bitfield: <_>::default(),
             extension_fields: <_>::default(),
@@ -450,8 +449,7 @@ impl Encoder {
     fn new_set_encoder<C: Constructed>(&self) -> Self {
         let mut options = self.options;
         options.set_encoding = true;
-        let pre_alloc = size_of_val(self);
-        let mut encoder = Self::new(options, pre_alloc);
+        let mut encoder = Self::new(options);
         encoder.field_bitfield = C::FIELDS
             .canonised()
             .iter()
@@ -462,8 +460,7 @@ impl Encoder {
     }
 
     fn new_sequence_encoder<C: Constructed>(&self) -> Self {
-        let pre_alloc = size_of_val(self);
-        let mut encoder = Self::new(self.options.without_set_encoding(), pre_alloc);
+        let mut encoder = Self::new(self.options.without_set_encoding());
         encoder.field_bitfield = C::FIELDS
             .iter()
             .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
@@ -867,8 +864,7 @@ impl crate::Encoder for Encoder {
         let value_len_bytes = self.encode_unconstrained_integer(&value.len().into(), false)?;
         buffer.extend(value_len_bytes);
         for one in value {
-            let pre_alloc = size_of_val(one);
-            let mut encoder = Self::new(self.options, pre_alloc);
+            let mut encoder = Self::new(self.options);
             E::encode(one, &mut encoder)?;
             buffer.extend(encoder.output());
         }
@@ -926,8 +922,7 @@ impl crate::Encoder for Encoder {
         _tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
-        let pre_alloc = size_of_val(self);
-        let mut choice_encoder = Self::new(self.options.without_set_encoding(), pre_alloc);
+        let mut choice_encoder = Self::new(self.options.without_set_encoding());
         let tag = encode_fn(&mut choice_encoder)?;
         let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
         let tag_bytes: Vec<u8> = Self::encode_tag(tag);
@@ -948,8 +943,7 @@ impl crate::Encoder for Encoder {
         constraints: Constraints,
         value: E,
     ) -> Result<Self::Ok, Self::Error> {
-        let pre_alloc = size_of_val(self);
-        let mut encoder = Self::new(self.options.without_set_encoding(), pre_alloc);
+        let mut encoder = Self::new(self.options.without_set_encoding());
         encoder.field_bitfield = <_>::from([(tag, (FieldPresence::Optional, false))]);
         E::encode_with_tag_and_constraints(&value, &mut encoder, tag, constraints)?;
 
