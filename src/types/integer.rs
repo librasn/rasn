@@ -430,7 +430,7 @@ impl Sub for Integer {
     fn sub(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Big(BigInt::from(*lhs) - *rhs)
+                Integer::Primitive((*lhs - *rhs).into())
             }
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs - rhs),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => Integer::Big(*lhs - rhs),
@@ -444,7 +444,7 @@ impl Add for Integer {
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Big(BigInt::from(*lhs) + *rhs)
+                Integer::Primitive((*lhs + *rhs).into())
             }
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs + rhs),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => Integer::Big(*lhs + rhs),
@@ -460,7 +460,7 @@ impl Pow<Integer> for Integer {
     fn pow(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Big(BigInt::from(*lhs).pow(rhs.to_u32().unwrap()))
+                Integer::Primitive((lhs.pow(rhs.to_u32().unwrap())).into())
             }
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs.pow(rhs.to_u32().unwrap())),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => {
