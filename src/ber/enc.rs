@@ -11,7 +11,7 @@ use crate::{
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Constraints, Enumerated, Integer, Tag,
+        Constraints, Enumerated, Integer, PrimitiveInteger, Tag,
     },
     Codec, Encode,
 };
@@ -379,7 +379,28 @@ impl crate::Encoder for Encoder {
         _constraints: Constraints,
         value: &Integer,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_primitive(tag, &value.to_be_bytes());
+        if let Integer::Primitive(value) = value {
+            let bytes = value.unsafe_minimal_ne_bytes(true);
+            // On Little Endian, we need to reverse the bytes, as integer bytes are stored in native endianess
+            #[cfg(target_endian = "little")]
+            {
+                let (slice_reversed, len) = PrimitiveInteger::swap_bytes::<{PrimitiveInteger::BYTE_WIDTH}>(bytes, bytes.len())
+                .ok_or_else(|| EncodeError::from_kind(
+                    EncodeErrorKind::IntegerTypeConversionFailed { msg: "Failed to change endianess with minimal needed bytes to present integer bytes".to_string() } 
+                    ,
+                    self.codec(),
+                ))?;
+                self.encode_primitive(tag, &slice_reversed[..len]);
+            }
+            #[cfg(target_endian = "big")]
+            {
+                self.encode_primitive(tag, bytes);
+            }
+        } else {
+            // Big integer encoding
+            self.encode_primitive(tag, &value.to_be_bytes());
+        }
+
         Ok(())
     }
 
