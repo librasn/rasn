@@ -24,7 +24,7 @@ pub use {
         any::Any,
         constraints::{Constraint, Constraints, Extensible},
         instance::InstanceOf,
-        integer::{ConstrainedInteger, Integer, TryFromIntegerError},
+        integer::{ConstrainedInteger, Integer, StdInt, TryFromIntegerError},
         oid::{ObjectIdentifier, Oid},
         open::Open,
         prefix::{Explicit, Implicit},

@@ -32,7 +32,6 @@ pub fn octet_size_by_range(value: i128) -> Option<u8> {
 }
 // Constraints limit Bound to i128 in Value type (see Value struct)
 // Only Value constraint is OER visible (range, single value)
-// TODO - maybe use BigInt instead of i128 some day?
 pub fn determine_integer_size_and_sign<T, U, E>(
     value_constraint: &Extensible<Value>,
     data: U,

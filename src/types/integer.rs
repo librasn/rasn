@@ -4,10 +4,16 @@ use core::ops::{Add, Sub};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Num, NumOps, Pow, PrimInt, Signed, ToBytes, ToPrimitive, Zero};
 
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-pub type StdInt = isize;
+// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+
+// It seems that just ~1% performance difference between i64 and i128 (at least on M2 Mac)
+// If disabled, it should be meant for targets which cannot use i128
+
+#[cfg(not(feature = "i128"))]
+pub type StdInt = i64;
 
 #[cfg(target_pointer_width = "64")]
+#[cfg(feature = "i128")]
 pub type StdInt = i128;
 
 macro_rules! impl_from_integer {
@@ -65,7 +71,7 @@ macro_rules! impl_try_from_bigint {
             #[inline]
             fn try_from(value: &Integer) -> Result<$T, TryFromIntegerError<()>> {
                 match value {
-                    Integer::Primitive(PrimitiveInteger::<i128>(value)) => {
+                    Integer::Primitive(PrimitiveInteger::<StdInt>(value)) => {
                         $to_ty(value).ok_or(TryFromIntegerError::new(()))
                     }
                     Integer::Big(value) => {
@@ -109,6 +115,7 @@ impl From<BigInt> for Integer {
     }
 }
 #[cfg(target_pointer_width = "64")]
+#[cfg(feature = "i128")]
 impl From<u128> for Integer {
     fn from(value: u128) -> Self {
         Integer::Big(value.into())
@@ -125,6 +132,7 @@ impl_from_primitive_integer! {
     usize
 }
 #[cfg(target_pointer_width = "64")]
+#[cfg(feature = "i128")]
 impl_from_primitive_integer! {
     i64,
     i128,
@@ -141,6 +149,7 @@ impl_from_integer! {
     usize
 }
 #[cfg(target_pointer_width = "64")]
+#[cfg(feature = "i128")]
 impl_from_integer! {
     i64,
     i128,
@@ -240,6 +249,16 @@ impl<T: PrimitiveIntegerTraits> PrimitiveInteger<T> {
         }
         (slice_reversed, needed)
     }
+    pub fn swap_bytes<const N: usize>(bytes: &[u8], needed: usize) -> Option<([u8; N], usize)> {
+        if needed > bytes.len() || needed > N {
+            return None; // do not exceed the bounds
+        }
+        let mut slice_reversed: [u8; N] = [0; N];
+        for i in 0..needed {
+            slice_reversed[i] = bytes[needed - 1 - i];
+        }
+        Some((slice_reversed, needed))
+    }
 }
 
 //
@@ -259,8 +278,8 @@ impl Integer {
         }
     }
 
-    /// Returns inner stack located primitive integer `i128` if that is the current variant
-    /// TODO make i128 feature/pointer width gated
+    /// Returns inner stack-located `i128` if that is the current variant
+    #[cfg(feature = "i128")]
     #[must_use]
     pub fn as_i128(&self) -> Option<i128> {
         match self {
@@ -284,12 +303,13 @@ impl Integer {
         match self {
             Integer::Primitive(value) => value.to_be_bytes().to_vec(),
             Integer::Big(value) => value.to_signed_bytes_be(),
-            // Integer::Big(value) => value.to_biguint().unwrap().to_bytes_be(),
         }
     }
 
     /// Return `Integer` as unsigned bytes if possible
+    /// Typically this means that resulting byte array does not include any padded zeros or 0xFF
     /// Will always create new heap allocation, use carefully
+    /// Rather, if possible, match for underlying primitive integer type to get raw slice without conversions
     #[must_use]
     #[inline]
     pub fn to_unsigned_be_bytes(&self) -> Option<alloc::vec::Vec<u8>> {
@@ -304,21 +324,16 @@ impl Integer {
 
     #[must_use]
     pub fn from_signed_be_bytes(bytes: &[u8]) -> Self {
+        let mut array = [0u8; PrimitiveInteger::<StdInt>::BYTE_WIDTH];
         if bytes.len() <= PrimitiveInteger::<StdInt>::BYTE_WIDTH {
-            if bytes[0] < 0b1000_0000 {
-                let mut array = [0u8; PrimitiveInteger::<StdInt>::BYTE_WIDTH];
-                array[16 - bytes.len()..].copy_from_slice(bytes);
-                let value = StdInt::from_be_bytes(array);
-                Integer::Primitive(PrimitiveInteger::<StdInt>(value))
-            } else {
-                let mut array = [0xffu8; PrimitiveInteger::<StdInt>::BYTE_WIDTH];
-                dbg!(bytes);
-                dbg!(bytes.len());
-                array[16 - bytes.len()..].copy_from_slice(bytes);
-                dbg!(&array);
-                Integer::Primitive(PrimitiveInteger::<StdInt>(StdInt::from_be_bytes(array)))
-            }
+            let pad = if bytes[0] & 0x80 == 0 { 0 } else { 0xff };
+
+            array[..PrimitiveInteger::<StdInt>::BYTE_WIDTH - bytes.len()].fill(pad);
+            array[PrimitiveInteger::<StdInt>::BYTE_WIDTH - bytes.len()..].copy_from_slice(bytes);
+
+            Integer::Primitive(PrimitiveInteger::<StdInt>(StdInt::from_be_bytes(array)))
         } else {
+            // If the byte slice is longer than the byte width, treat it as a BigInt
             Integer::Big(BigInt::from_signed_bytes_be(bytes))
         }
     }
@@ -335,6 +350,17 @@ impl Integer {
             Integer::Big(BigUint::from_bytes_be(bytes).into())
         }
     }
+    /// Returns the amount of bytes that integer **might** take to present
+    /// Useful on pre-allocating vectors with minimum size
+    /// *Not* free operation
+    #[must_use]
+    pub fn byte_length(&self) -> usize {
+        match self {
+            Integer::Primitive(value) => value.to_ne_bytes().len(),
+            Integer::Big(value) => value.to_ne_bytes().len(),
+        }
+    }
+
     #[must_use]
     pub fn bits(&self) -> u64 {
         // TODO: will overflow and panic on very large numbers
@@ -347,7 +373,7 @@ impl Integer {
     pub fn signum(&self) -> Self {
         match self {
             Integer::Primitive(value) => {
-                Integer::Primitive(PrimitiveInteger::<i128>(value.signum()))
+                Integer::Primitive(PrimitiveInteger::<StdInt>(value.signum()))
             }
             Integer::Big(value) => Integer::Big(value.signum()),
         }
@@ -463,7 +489,7 @@ impl<const START: StdInt, const END: StdInt> AsnType for ConstrainedInteger<STAR
     const TAG: Tag = Tag::INTEGER;
     const CONSTRAINTS: Constraints<'static> =
         Constraints::new(&[constraints::Constraint::Value(Extensible::new(
-            constraints::Value::new(constraints::Bounded::const_new(START, END)),
+            constraints::Value::new(constraints::Bounded::const_new(START as i128, END as i128)),
         ))]);
 }
 

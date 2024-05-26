@@ -3,6 +3,8 @@ use alloc::borrow::Cow;
 #[derive(Debug, Default, Clone)]
 pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
 
+// use crate::types::integer::StdInt;
+
 impl<'r> Constraints<'r> {
     pub const NONE: Self = Self(Cow::Borrowed(&[]));
 
@@ -229,8 +231,13 @@ macro_rules! from_primitives {
 }
 
 from_primitives! {
-    u8, u16, u32, u64,
-    i8, i16, i32, i64, i128,
+    u8, u16, u32,
+    i8, i16, i32, i64
+}
+// #[cfg(feature = "i128")]
+from_primitives! {
+    u64,
+    i128,
 }
 
 impl TryFrom<Bounded<usize>> for Value {

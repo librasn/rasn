@@ -9,7 +9,7 @@ use snafu::Snafu;
 use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::de::Error;
-use crate::types::{constraints::Bounded, variants::Variants, Integer, Tag};
+use crate::types::{constraints::Bounded, variants::Variants, Integer, Tag}; // StdInt
 use crate::Codec;
 
 /// Variants for every codec-specific `DecodeError` kind.

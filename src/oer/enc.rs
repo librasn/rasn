@@ -9,7 +9,9 @@ use crate::prelude::{
 use crate::Codec;
 use bitvec::prelude::*;
 
-use crate::types::{fields::FieldPresence, BitString, Constraints, Integer, PrimitiveInteger};
+use crate::types::{
+    fields::FieldPresence, BitString, Class, Constraints, Integer, PrimitiveInteger,
+};
 use crate::{Encode, Tag};
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
@@ -152,7 +154,6 @@ impl Encoder {
     ///
     /// Encoding of the tag is only required when encoding a choice type.
     fn encode_tag(tag: Tag) -> Vec<u8> {
-        use crate::types::Class;
         let mut bv: BitVec<u8, Msb0> = BitVec::new();
         // Encode the tag class
         match tag.class {
@@ -214,7 +215,7 @@ impl Encoder {
             // There seems to be an error in standard. It states that enumerated index can be
             // between –2^1015 and 2^1015 – 1, but then it limits the amount of subsequent bytes to 127
             return Err(CoerEncodeErrorKind::TooLongValue {
-                length: bytes.len() as u128,
+                length: bytes.len(),
             }
             .into());
         }
@@ -245,10 +246,7 @@ impl Encoder {
             )
         })?;
         if length_of_length > 127 {
-            return Err(CoerEncodeErrorKind::TooLongValue {
-                length: length as u128,
-            }
-            .into());
+            return Err(CoerEncodeErrorKind::TooLongValue { length }.into());
         }
         // We must swap the first bit to show long form
         // It is always zero by default with u8 type when value being < 128
@@ -300,7 +298,7 @@ impl Encoder {
         constraints: &Constraints,
         value_to_enc: &Integer,
     ) -> Result<(), EncodeError> {
-        let mut buffer = Vec::new();
+        let mut buffer = Vec::with_capacity(value_to_enc.byte_length());
 
         if let Some(value) = constraints.value() {
             if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
@@ -347,20 +345,24 @@ impl Encoder {
         if octets > 8 {
             return Err(CoerEncodeErrorKind::InvalidConstrainedIntegerOctetSize.into());
         }
-        let mut buffer: Vec<u8> = Vec::new();
+        let mut buffer: Vec<u8> = Vec::with_capacity(octets);
         let bytes = if signed {
             match value {
+                // For efficiency, access primitive ints with slice reference
                 Integer::Primitive(value) => value.unsafe_minimal_ne_bytes(true),
                 Integer::Big(_) => &value.to_be_bytes(),
             }
         } else {
-            &value.to_unsigned_be_bytes().ok_or_else(|| {
-                EncodeError::integer_type_conversion_failed(
+            match value {
+                Integer::Primitive(value) => value.unsafe_minimal_ne_bytes(false),
+                Integer::Big(_) => &value.to_unsigned_be_bytes().ok_or_else(|| {
+                    EncodeError::integer_type_conversion_failed(
                     "Negative integer value has been provided to be converted into unsigned bytes"
                         .to_string(),
                     self.codec(),
                 )
-            })?
+                })?,
+            }
         };
         let needed = bytes.len();
         match octets.cmp(&needed) {
@@ -384,14 +386,23 @@ impl Encoder {
             // As is
             Ordering::Equal => {}
         };
-        // On Little Endian, we need to reverse the bytes TODO
         if let Integer::Primitive(_) = value {
-            let mut slice_reversed: [u8; 16] = [0; 16];
-            let len = needed;
-            for i in 0..len {
-                slice_reversed[i] = bytes[len - 1 - i];
+            // On Little Endian, we need to reverse the bytes, as integer bytes are stored in native endianess
+            // OER uses Big Endian order to show bytes
+            #[cfg(target_endian = "little")]
+            {
+                let (slice_reversed, len) = PrimitiveInteger::swap_bytes::<{PrimitiveInteger::BYTE_WIDTH}>(bytes, bytes.len())
+                .ok_or_else(|| EncodeError::from_kind(
+                    EncodeErrorKind::IntegerTypeConversionFailed { msg: "Failed to change endianess with minimal needed bytes to present integer bytes".to_string() } 
+                    ,
+                    self.codec(),
+                ))?;
+                buffer.extend(&slice_reversed[..len]);
             }
-            buffer.extend(&slice_reversed[..len]);
+            #[cfg(target_endian = "big")]
+            {
+                buffer.extend_from_slice(bytes);
+            }
         } else {
             buffer.extend(bytes);
         }

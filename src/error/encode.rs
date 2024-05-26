@@ -344,7 +344,7 @@ pub enum AperEncodeErrorKind {}
 #[non_exhaustive]
 pub enum CoerEncodeErrorKind {
     #[snafu(display("Provided data is too long to be encoded with COER."))]
-    TooLongValue { length: u128 },
+    TooLongValue { length: usize },
     #[snafu(display(
     "Provided length in not correct format. Should be bits as multiple of 8. {remainder}; actual: {length}"
     ))]

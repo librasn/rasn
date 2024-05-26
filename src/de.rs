@@ -3,7 +3,7 @@
 use alloc::{boxed::Box, string::ToString, vec::Vec};
 
 use crate::error::DecodeError;
-use crate::types::{self, AsnType, Constraints, Enumerated, Tag, TryFromIntegerError};
+use crate::types::{self, AsnType, Constraints, Enumerated, StdInt, Tag, TryFromIntegerError};
 
 pub use nom::Needed;
 pub use rasn_derive::Decode;
@@ -407,7 +407,7 @@ impl_integers! {
     usize,
 }
 
-impl<const START: i128, const END: i128> Decode for types::ConstrainedInteger<START, END> {
+impl<const START: StdInt, const END: StdInt> Decode for types::ConstrainedInteger<START, END> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
