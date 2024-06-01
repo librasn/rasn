@@ -1,6 +1,5 @@
 use crate::types::{constraints, AsnType, Constraints, Extensible};
 use crate::Tag;
-use core::ops::{Add, Sub};
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Pow, PrimInt, Signed, ToBytes, ToPrimitive, Zero};
 
@@ -11,8 +10,10 @@ compile_error!("rasn requires currently support for 128-bit integers (i128).");
 
 // It seems that just ~1% performance difference between i64 and i128 (at least on M2 Mac)
 // If disabled, it should be meant for targets which cannot use i128
-// However, currently, library is not completely i128-free
-#[cfg(target_pointer_width = "64")]
+// TODO: currently, library is not completely i128-free
+
+// Currently available for small performance improvements, but maybe useful in future when i128 dropped completely
+// for some specific targets
 #[cfg(not(feature = "i128"))]
 pub type PrimitiveInteger = i64;
 
@@ -209,7 +210,9 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
 }
 impl PrimIntBytes for PrimitiveInteger {}
 
-//
+/// `Integer`` type is enum wrapper for `PrimitiveInteger` and `BigInt`
+/// `PrimitiveInteger` is `i128` by default when `i128` feature is enabled, otherwise `i64`.
+/// Combination of both types is used to optimize memory usage and performance, while also allowing arbitrary large numbers.
 #[derive(Debug, Clone, Ord, Hash, Eq, PartialEq, PartialOrd)]
 #[non_exhaustive]
 pub enum Integer {
@@ -313,6 +316,7 @@ impl Integer {
             Integer::Big(value) => value.bits(),
         }
     }
+    /// Returns the sign of the number.
     #[must_use]
     pub fn signum(&self) -> Self {
         match self {
@@ -320,6 +324,7 @@ impl Integer {
             Integer::Big(value) => Integer::Big(value.signum()),
         }
     }
+    /// Whether the number is positive.
     #[must_use]
     pub fn is_positive(&self) -> bool {
         match self {
@@ -327,6 +332,7 @@ impl Integer {
             Integer::Big(value) => value.is_positive(),
         }
     }
+    /// Whether the number is negative.
     #[must_use]
     pub fn is_negative(&self) -> bool {
         match self {
@@ -334,6 +340,7 @@ impl Integer {
             Integer::Big(value) => value.is_negative(),
         }
     }
+    /// Whether the number is zero.
     #[must_use]
     pub fn is_zero(&self) -> bool {
         match self {
@@ -343,9 +350,11 @@ impl Integer {
     }
 }
 
-impl Sub for Integer {
+impl core::ops::Sub for Integer {
     type Output = Self;
 
+    /// Subtraction of two `Integer` values
+    /// Will automatically convert to `BigInt` internally if the result is too large for `PrimitiveInteger`
     fn sub(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
@@ -362,9 +371,11 @@ impl Sub for Integer {
         }
     }
 }
-impl Add for Integer {
+impl core::ops::Add for Integer {
     type Output = Self;
 
+    /// Addition of two `Integer` values
+    /// Will automatically convert to `BigInt` internally if the result is too large for `PrimitiveInteger`
     fn add(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
@@ -382,11 +393,33 @@ impl Add for Integer {
     }
 }
 
+impl core::ops::Mul for Integer {
+    type Output = Self;
+    /// Multiplication of two `Integer` values
+    /// Will automatically convert to `BigInt` internally if the result is too large for `PrimitiveInteger`
+    fn mul(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
+                let result = lhs.checked_mul(rhs);
+                if let Some(result) = result {
+                    Integer::Primitive(result)
+                } else {
+                    Integer::Big(BigInt::from(lhs) * rhs)
+                }
+            }
+            (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs * rhs),
+            (Integer::Primitive(lhs), Integer::Big(rhs)) => Integer::Big(lhs * rhs),
+            (Integer::Big(lhs), Integer::Primitive(rhs)) => Integer::Big(lhs * rhs),
+        }
+    }
+}
+
 impl Pow<Integer> for Integer {
     type Output = Self;
 
-    /// `pow` operation for `Integer`
-    /// Will silently truncate too large exponents
+    /// Raises `Integer` to the power of `Integer`, using exponentiation by squaring.
+    /// Will automatically convert to `BigInt` internally if the result is too large for `PrimitiveInteger`
+    /// Will silently truncate too large exponents (> u32::MAX)
     fn pow(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
             (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
@@ -402,23 +435,6 @@ impl Pow<Integer> for Integer {
                 Integer::Big(BigInt::from(lhs).pow(rhs.to_u32().unwrap()))
             }
             (Integer::Big(lhs), Integer::Primitive(rhs)) => Integer::Big(lhs.pow(rhs as u128)),
-        }
-    }
-}
-
-impl core::ops::Shl<Integer> for Integer {
-    type Output = Self;
-
-    fn shl(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                Integer::Primitive(PrimitiveInteger::from(lhs << rhs))
-            }
-            (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs << rhs.to_i128().unwrap()),
-            (Integer::Primitive(lhs), Integer::Big(rhs)) => {
-                Integer::Big((lhs << rhs.to_i128().unwrap()).into())
-            }
-            (Integer::Big(lhs), Integer::Primitive(rhs)) => Integer::Big(lhs << rhs),
         }
     }
 }

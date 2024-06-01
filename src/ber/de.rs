@@ -744,6 +744,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 #[cfg(test)]
 mod tests {
     use alloc::string::String;
+    use num_bigint::BigInt;
 
     #[derive(Clone, Copy, Hash, Debug, PartialEq)]
     struct C2;
@@ -814,16 +815,15 @@ mod tests {
             decode::<i32>(&[0x02, 0x03, 0xff, 0x7f, 0xff]).unwrap()
         );
 
-        // TODO implement shifting for Integer
-        // let mut data = [0u8; 261];
-        // data[0] = 0x02;
-        // data[1] = 0x82;
-        // data[2] = 0x01;
-        // data[3] = 0x01;
-        // data[4] = 0x01;
-        // let mut bigint = Integer::from(1);
-        // bigint <<= 2048;
-        // assert_eq!(bigint, decode::<Integer>(&data).unwrap());
+        let mut data = [0u8; 261];
+        data[0] = 0x02;
+        data[1] = 0x82;
+        data[2] = 0x01;
+        data[3] = 0x01;
+        data[4] = 0x01;
+        let bigint = Integer::from(BigInt::from(1));
+        let shifted = bigint.as_big().unwrap() << 2048;
+        assert_eq!(Integer::from(shifted), decode::<Integer>(&data).unwrap());
     }
 
     #[test]
