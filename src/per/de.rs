@@ -429,9 +429,7 @@ impl<'input> Decoder<'input> {
                 .unwrap_or_else(|| Integer::from_signed_be_bytes(&bytes))
         };
         match number {
-            Integer::Primitive(value) => {
-                Ok((value_constraint.constraint.minimum() + *value).into())
-            }
+            Integer::Primitive(value) => Ok((value_constraint.constraint.minimum() + value).into()),
             Integer::Big(value) => Ok((value_constraint.constraint.minimum() + value).into()),
         }
     }

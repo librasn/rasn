@@ -11,7 +11,7 @@ use crate::{
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Constraints, Enumerated, Integer, PrimitiveInteger, Tag,
+        Constraints, Enumerated, Integer, PrimIntBytes, Tag, PRIMITIVE_BYTE_WIDTH,
     },
     Codec, Encode,
 };
@@ -380,8 +380,7 @@ impl crate::Encoder for Encoder {
         value: &Integer,
     ) -> Result<Self::Ok, Self::Error> {
         if let Integer::Primitive(value) = value {
-            let (reversed_bytes, len) =
-                value.needed_as_be_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(true);
+            let (reversed_bytes, len) = value.needed_as_be_bytes::<{ PRIMITIVE_BYTE_WIDTH }>(true);
             self.encode_primitive(tag, &reversed_bytes[..len]);
         } else {
             self.encode_primitive(tag, &value.to_be_bytes());

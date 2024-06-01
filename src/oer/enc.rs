@@ -10,7 +10,8 @@ use crate::Codec;
 use bitvec::prelude::*;
 
 use crate::types::{
-    fields::FieldPresence, BitString, Class, Constraints, Integer, PrimitiveInteger,
+    fields::FieldPresence, BitString, Class, Constraints, Integer, PrimIntBytes, PrimitiveInteger,
+    PRIMITIVE_BYTE_WIDTH,
 };
 use crate::{Encode, Tag};
 
@@ -200,8 +201,9 @@ impl Encoder {
         buffer: &mut Vec<u8>,
         value: isize,
     ) -> Result<(), EncodeError> {
-        let (bytes, needed) = PrimitiveInteger::from(value)
-            .needed_as_be_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(true);
+        // Truncated value here with `as` ?
+        let (bytes, needed) =
+            (value as PrimitiveInteger).needed_as_be_bytes::<PRIMITIVE_BYTE_WIDTH>(true);
         let mut length = u8::try_from(needed).map_err(|err| {
             EncodeError::integer_type_conversion_failed(
                 alloc::format!(
@@ -231,8 +233,8 @@ impl Encoder {
     ///
     /// COER tries to use the shortest possible encoding and avoids leading zeros.
     fn encode_length(&mut self, buffer: &mut Vec<u8>, length: usize) -> Result<(), EncodeError> {
-        let (bytes, needed) = PrimitiveInteger::from(length)
-            .needed_as_be_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(false);
+        let (bytes, needed) =
+            (length as PrimitiveInteger).needed_as_be_bytes::<PRIMITIVE_BYTE_WIDTH>(false);
 
         if length < 128 {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
@@ -265,8 +267,7 @@ impl Encoder {
         // For primitives byte_length + 1 is enough without additional allocations
         let mut buffer = Vec::with_capacity(value_to_enc.byte_length() + 1);
         if let Integer::Primitive(value) = value_to_enc {
-            let (slice, needed) =
-                value.needed_as_be_bytes::<{ PrimitiveInteger::BYTE_WIDTH }>(true);
+            let (slice, needed) = value.needed_as_be_bytes::<PRIMITIVE_BYTE_WIDTH>(true);
             self.encode_length(&mut buffer, needed)?;
             buffer.extend_from_slice(&slice[..needed]);
         } else {
@@ -348,22 +349,22 @@ impl Encoder {
             return Err(CoerEncodeErrorKind::InvalidConstrainedIntegerOctetSize.into());
         }
         let mut buffer: Vec<u8> = Vec::with_capacity(octets);
-        let reversed_bytes: [u8; PrimitiveInteger::BYTE_WIDTH];
+        let fixed_size_bytes: [u8; PRIMITIVE_BYTE_WIDTH];
         let len: usize;
         let bytes = if signed {
             match value {
                 // For efficiency, access primitive ints with slice reference
                 Integer::Primitive(value) => {
-                    (reversed_bytes, len) = value.needed_as_be_bytes(true);
-                    &reversed_bytes[..len]
+                    (fixed_size_bytes, len) = value.needed_as_be_bytes(true);
+                    &fixed_size_bytes[..len]
                 }
                 Integer::Big(_) => &value.to_be_bytes(),
             }
         } else {
             match value {
                 Integer::Primitive(value) => {
-                    (reversed_bytes, len) = value.needed_as_be_bytes(false);
-                    &reversed_bytes[..len]
+                    (fixed_size_bytes, len) = value.needed_as_be_bytes(false);
+                    &fixed_size_bytes[..len]
                 }
 
                 Integer::Big(_) => &value.to_unsigned_be_bytes().ok_or_else(|| {

@@ -10,7 +10,8 @@ use crate::{
         strings::{
             should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
         },
-        BitString, Constraints, Enumerated, Integer, PrimitiveInteger, Tag, TryFromIntegerError,
+        BitString, Constraints, Enumerated, Integer, PrimIntBytes, Tag, TryFromIntegerError,
+        PRIMITIVE_BYTE_WIDTH,
     },
     Encode,
 };
@@ -627,11 +628,11 @@ impl Encoder {
         });
 
         let value_range = if is_extended_value || constraints.value().is_none() {
-            let reversed_bytes: [u8; PrimitiveInteger::BYTE_WIDTH];
+            let fixed_size_bytes: [u8; PRIMITIVE_BYTE_WIDTH];
             let len: usize;
             let bytes = if let Integer::Primitive(value) = value {
-                (reversed_bytes, len) = value.needed_as_be_bytes(true);
-                &reversed_bytes[..len]
+                (fixed_size_bytes, len) = value.needed_as_be_bytes(true);
+                &fixed_size_bytes[..len]
             } else {
                 &value.to_be_bytes()
             };
@@ -649,21 +650,21 @@ impl Encoder {
             .constraint
             .effective_integer_value(value.clone());
 
-        let reversed_bytes: [u8; PrimitiveInteger::BYTE_WIDTH];
+        let fixed_size_bytes: [u8; PRIMITIVE_BYTE_WIDTH];
         let len: usize;
         let bytes: &[u8] = match &effective_range {
             either::Left(offset) => {
                 if let Integer::Primitive(value) = offset {
-                    (reversed_bytes, len) = value.needed_as_be_bytes(false);
-                    &reversed_bytes[..len]
+                    (fixed_size_bytes, len) = value.needed_as_be_bytes(false);
+                    &fixed_size_bytes[..len]
                 } else {
                     &offset.to_unsigned_be_bytes().unwrap()
                 }
             }
             either::Right(value) => {
                 if let Integer::Primitive(value) = value {
-                    (reversed_bytes, len) = value.needed_as_be_bytes(true);
-                    &reversed_bytes[..len]
+                    (fixed_size_bytes, len) = value.needed_as_be_bytes(true);
+                    &fixed_size_bytes[..len]
                 } else {
                     &value.to_be_bytes()
                 }

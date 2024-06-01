@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, AsnType, Constraints, Enumerated, Integer, StdInt, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, Integer, PrimitiveInteger, Tag};
 
 pub use rasn_derive::Encode;
 
@@ -479,7 +479,9 @@ impl_integers! {
     usize
 }
 
-impl<const START: StdInt, const END: StdInt> Encode for types::ConstrainedInteger<START, END> {
+impl<const START: PrimitiveInteger, const END: PrimitiveInteger> Encode
+    for types::ConstrainedInteger<START, END>
+{
     fn encode_with_tag_and_constraints<E: Encoder>(
         &self,
         encoder: &mut E,

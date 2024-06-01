@@ -24,7 +24,10 @@ pub use {
         any::Any,
         constraints::{Constraint, Constraints, Extensible},
         instance::InstanceOf,
-        integer::{ConstrainedInteger, Integer, StdInt, TryFromIntegerError},
+        integer::{
+            ConstrainedInteger, Integer, PrimIntBytes, PrimitiveInteger, TryFromIntegerError,
+            PRIMITIVE_BYTE_WIDTH,
+        },
         oid::{ObjectIdentifier, Oid},
         open::Open,
         prefix::{Explicit, Implicit},
@@ -37,8 +40,6 @@ pub use {
     },
     rasn_derive::AsnType,
 };
-/// The 'PrimitiveInteger' type uses standard library integer type like `i128` as inner type.
-pub type PrimitiveInteger = integer::PrimitiveInteger<integer::StdInt>;
 
 ///  The `SET OF` type.
 pub type SetOf<T> = alloc::collections::BTreeSet<T>;
