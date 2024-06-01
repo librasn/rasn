@@ -164,8 +164,7 @@ mod tests {
                 )+
             }
         }
-
-        codecs!(uper, aper);
+        codecs!(uper, aper, ber, cer, der, oer, coer);
     }
 
     #[test]
@@ -202,11 +201,16 @@ mod tests {
         i8,
         i16,
         i32,
-        i64,
-        isize,
         u8,
         u16,
-        u32,
+        u32
+    }
+    // With i64 `PrimitiveInteger` type without `i128`, constraints are not large enough as primitive integers are constrained by default
+    // max range of i64 is 2x i64::MAX + 1
+    #[cfg(all(target_has_atomic = "128", feature = "i128"))]
+    integer_tests! {
+        i64,
+        isize,
         u64,
         usize
     }

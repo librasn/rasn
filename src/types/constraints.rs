@@ -399,7 +399,13 @@ impl<T: num_traits::WrappingSub<Output = T> + num_traits::SaturatingAdd<Output =
             Self::Range {
                 start: Some(start),
                 end: Some(end),
-            } => Some(end.wrapping_sub(start).saturating_add(&1.into())),
+            } => {
+                // NOTE: if Constraint's integer type is too low, encoding will be incorrect at least for APER and UPER
+                // E.g. if PrimitiveInteger is `i64`, range is 2x `i64:MAX`
+                // when `i64:MIN` and `i64:MAX` are value constraints
+                // In this case, warpping and saturating will result to zero
+                Some(end.wrapping_sub(start).saturating_add(&1.into()))
+            }
             _ => None,
         }
     }

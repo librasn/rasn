@@ -477,9 +477,12 @@ impl_integers! {
     u32,
     usize
 }
-#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+// `PrimitiveInteger` defines caps for constraints and if `i128` is disabled,
+// `i64` is not sufficient for u64
+#[cfg(all(target_has_atomic = "128", feature = "i128"))]
 impl_integers! {
-    u64
+    u64,
+    i128
 }
 
 impl<const START: PrimitiveInteger, const END: PrimitiveInteger> Encode

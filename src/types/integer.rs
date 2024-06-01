@@ -21,21 +21,27 @@ pub type PrimitiveInteger = i64;
 pub type PrimitiveInteger = i128;
 pub const PRIMITIVE_BYTE_WIDTH: usize = core::mem::size_of::<PrimitiveInteger>();
 
-macro_rules! impl_from_integer {
+macro_rules! impl_from_prim_ints {
     ($($t:ty),*) => {
         $(
             impl From<$t> for Integer {
                 fn from(value: $t) -> Self {
-                    #[allow(clippy::cast_possible_truncation)]
-                    Integer::Primitive(value as PrimitiveInteger)
+                    let primitive = PrimitiveInteger::try_from(value);
+                    match primitive {
+                        Ok(value) => Integer::Primitive(value),
+                        Err(_) => Integer::Big(BigInt::from(value)),
+                    }
                 }
             }
             impl From<&$t> for Integer {
-                        fn from(value: &$t) -> Self {
-                            #[allow(clippy::cast_possible_truncation)]
-                            Integer::Primitive(*value as PrimitiveInteger)
-                        }
+                fn from(value: &$t) -> Self {
+                    let primitive = PrimitiveInteger::try_from(*value);
+                    match primitive {
+                        Ok(value) => Integer::Primitive(value),
+                        Err(_) => Integer::Big(BigInt::from(*value)),
                     }
+                }
+            }
         )*
     };
 }
@@ -103,9 +109,9 @@ impl_try_from_bigint!(i32, ToPrimitive::to_i32);
 impl_try_from_bigint!(i64, ToPrimitive::to_i64);
 impl_try_from_bigint!(isize, ToPrimitive::to_isize);
 
-#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+#[cfg(all(target_has_atomic = "128", feature = "i128"))]
 impl_try_from_bigint!(u128, ToPrimitive::to_u128);
-#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+#[cfg(all(target_has_atomic = "128", feature = "i128"))]
 impl_try_from_bigint!(i128, ToPrimitive::to_i128);
 
 impl From<BigInt> for Integer {
@@ -114,30 +120,28 @@ impl From<BigInt> for Integer {
     }
 }
 
-#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+#[cfg(all(target_has_atomic = "128", feature = "i128"))]
 impl From<u128> for Integer {
     fn from(value: u128) -> Self {
         Integer::Big(value.into())
     }
 }
-impl_from_integer! {
+// Note: usize and u64 will be converted to BigInt when `PrimitiveInteger` is i64
+impl_from_prim_ints! {
     i8,
     i16,
     i32,
     isize,
+    i64,
     u8,
     u16,
     u32,
+    u64,
     usize
 }
-#[cfg(all(target_pointer_width = "64", feature = "i128"))]
-impl_from_integer! {
+#[cfg(all(target_has_atomic = "128", feature = "i128"))]
+impl_from_prim_ints! {
     i128
-}
-#[cfg(target_pointer_width = "64")]
-impl_from_integer! {
-    i64,
-    u64
 }
 
 /// Fixed-size byte presentations for signed primitive integers
@@ -153,28 +157,37 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
 
     /// Minimal number of bytes needed to present signed integer
     fn signed_bytes_needed(&self) -> usize {
-        if self.is_negative() {
-            let leading_ones = self.leading_ones() as usize;
-            if leading_ones % 8 == 0 {
-                PRIMITIVE_BYTE_WIDTH - leading_ones / 8 + 1
-            } else {
-                PRIMITIVE_BYTE_WIDTH - leading_ones / 8
-            }
+        // if self.is_negative() {
+        //     let leading_ones = self.leading_ones() as usize;
+        //     if leading_ones % 8 == 0 {
+        //         PRIMITIVE_BYTE_WIDTH - leading_ones / 8 + 1
+        //     } else {
+        //         PRIMITIVE_BYTE_WIDTH - leading_ones / 8
+        //     }
+        // } else {
+        //     let leading_zeroes = self.leading_zeros() as usize;
+        //     if leading_zeroes % 8 == 0 {
+        //         PRIMITIVE_BYTE_WIDTH - leading_zeroes / 8 + 1
+        //     } else {
+        //         PRIMITIVE_BYTE_WIDTH - leading_zeroes / 8
+        //     }
+        // }
+        let leading_bits = if self.is_negative() {
+            self.leading_ones() as usize
         } else {
-            let leading_zeroes = self.leading_zeros() as usize;
-            if leading_zeroes % 8 == 0 {
-                PRIMITIVE_BYTE_WIDTH - leading_zeroes / 8 + 1
-            } else {
-                PRIMITIVE_BYTE_WIDTH - leading_zeroes / 8
-            }
-        }
+            self.leading_zeros() as usize
+        };
+
+        let full_bytes = PRIMITIVE_BYTE_WIDTH - leading_bits / 8;
+        let extra_byte = (leading_bits % 8 == 0) as usize;
+        full_bytes + extra_byte
     }
 
     /// Calculate minimal number of bytes to show integer based on `signed` status
     /// Returns slice an with fixed-width `N` and number of needed bytes
     /// We need only some of the bytes, more optimal than just using `to_be_bytes` we would need to drop the rest anyway
     fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
-        let bytes: [u8; N] = self.to_le_bytes().as_ref().try_into().unwrap_or([0; N]);
+        let bytes: [u8; N] = self.to_le_bytes().as_ref().try_into().unwrap(); // unwrap_or([0; N]);
         let needed = if signed {
             self.signed_bytes_needed()
         } else {

@@ -1004,7 +1004,7 @@ mod tests {
     }
     #[test]
     fn test_encode_integer_manual_setup() {
-        let range_bound = Bounded::<i128>::Range {
+        let range_bound = Bounded::<PrimitiveInteger>::Range {
             start: 0.into(),
             end: 255.into(),
         };

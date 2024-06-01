@@ -931,7 +931,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
 #[allow(clippy::assertions_on_constants)]
 mod tests {
     use super::*;
-    use crate::types::constraints::{Bounded, Constraint, Constraints, Extensible, Size, Value};
+    use crate::types::{
+        constraints::{Bounded, Constraint, Constraints, Extensible, Size, Value},
+        PrimitiveInteger,
+    };
     use bitvec::prelude::BitSlice;
     use num_traits::Pow;
 
@@ -1051,7 +1054,7 @@ mod tests {
     }
     #[test]
     fn test_integer_decode_with_constraints() {
-        let range_bound = Bounded::<i128>::Range {
+        let range_bound = Bounded::<PrimitiveInteger>::Range {
             start: 0.into(),
             end: 255.into(),
         };

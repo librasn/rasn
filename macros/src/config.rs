@@ -145,19 +145,19 @@ impl Constraints {
             let extensible = value.extensible.is_some();
             let constraint = match value.constraint {
                 Value::Range(Some(min), Some(max)) => {
-                    quote!(#crate_root::types::constraints::Bounded::const_new(#min as i128, #max as i128))
+                    quote!(#crate_root::types::constraints::Bounded::const_new(#min as #crate_root::types::PrimitiveInteger, #max as #crate_root::types::PrimitiveInteger))
                 }
                 Value::Range(Some(min), None) => {
-                    quote!(#crate_root::types::constraints::Bounded::start_from(#min as i128))
+                    quote!(#crate_root::types::constraints::Bounded::start_from(#min as #crate_root::types::PrimitiveInteger))
                 }
                 Value::Range(None, Some(max)) => {
-                    quote!(#crate_root::types::constraints::Bounded::up_to(#max as i128))
+                    quote!(#crate_root::types::constraints::Bounded::up_to(#max as #crate_root::types::PrimitiveInteger))
                 }
                 Value::Range(None, None) => {
-                    quote!(#crate_root::types::constraints::Bounded::const_new(i128::MIN, i128::MAX))
+                    quote!(#crate_root::types::constraints::Bounded::const_new(#crate_root::types::PrimitiveInteger::MIN, #crate_root::types::PrimitiveInteger::MAX))
                 }
                 Value::Single(length) => {
-                    quote!(#crate_root::types::constraints::Bounded::single_value(#length as i128))
+                    quote!(#crate_root::types::constraints::Bounded::single_value(#length as #crate_root::types::PrimitiveInteger))
                 }
             };
 

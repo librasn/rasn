@@ -389,6 +389,8 @@ impl<'input> Decoder<'input> {
         const K64: PrimitiveInteger = SIXTY_FOUR_K as PrimitiveInteger;
         const OVER_K64: PrimitiveInteger = K64 + 1;
 
+        // Range might be wrapped or saturated if constraint's integer type is too low
+        // E.g. range goes out of bounds if i64:MIN and i64:MAX are as constraints, when the type itself is i64
         let number = if let Some(range) = value_constraint.constraint.range() {
             match (self.options.aligned, range) {
                 (_, 0) => return Ok(value_constraint.constraint.minimum().into()),

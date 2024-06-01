@@ -125,18 +125,22 @@ mod tests {
             i64::MIN.into(),
             &[0x08u8, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
+
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         round_trip!(
             coer,
             Integer,
             (i128::from(i64::MAX) + 1).into(),
             &[0x09u8, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         round_trip!(
             coer,
             Integer,
             (i128::from(i64::MIN) - 1).into(),
             &[0x09u8, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
         );
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         round_trip!(
             coer,
             Integer,
@@ -146,6 +150,7 @@ mod tests {
                 0xff, 0xff, 0xff, 0xff
             ]
         );
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         round_trip!(
             coer,
             Integer,
@@ -155,6 +160,7 @@ mod tests {
                 0x00, 0x00, 0x00, 0x00
             ]
         );
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         round_trip!(
             coer,
             Integer,
@@ -164,6 +170,7 @@ mod tests {
                 0x00, 0x00, 0x00, 0x00, 0x00
             ]
         );
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         round_trip!(
             coer,
             Integer,
@@ -176,12 +183,13 @@ mod tests {
     }
     #[test]
     fn test_integer_with_unsigned_constraints() {
-        type A = ConstrainedInteger<0, { u8::MAX as i128 }>;
-        type B = ConstrainedInteger<0, { u16::MAX as i128 }>;
-        type C = ConstrainedInteger<0, { u32::MAX as i128 }>;
-        type D = ConstrainedInteger<0, { u64::MAX as i128 }>;
+        type A = ConstrainedInteger<0, { u8::MAX as PrimitiveInteger }>;
+        type B = ConstrainedInteger<0, { u16::MAX as PrimitiveInteger }>;
+        type C = ConstrainedInteger<0, { u32::MAX as PrimitiveInteger }>;
+        type D = ConstrainedInteger<0, { i64::MAX as PrimitiveInteger }>;
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         type E = ConstrainedInteger<0, { i128::MAX }>;
-        type F = ConstrainedInteger<2, { u16::MAX as i128 }>;
+        type F = ConstrainedInteger<2, { u16::MAX as PrimitiveInteger }>;
 
         round_trip!(coer, A, 0.into(), &[0x00]);
         round_trip!(coer, A, 5.into(), &[0x05]);
@@ -204,6 +212,7 @@ mod tests {
             &[0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff]
         );
         // Use length determinant when upper range above u64 max
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         round_trip!(
             coer,
             E,
@@ -216,19 +225,25 @@ mod tests {
         encode_error!(coer, B, (-1).into());
         encode_error!(coer, C, (-1).into());
         encode_error!(coer, D, (-1).into());
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         encode_error!(coer, E, (-1).into());
         encode_error!(coer, F, (1).into());
         encode_error!(coer, A, (u16::from(u8::MAX) + 1).into());
         encode_error!(coer, B, (u32::from(u16::MAX) + 1).into());
         encode_error!(coer, C, (u64::from(u32::MAX) + 1).into());
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         encode_error!(coer, D, (u128::from(u64::MAX) + 1).into());
     }
     #[test]
     fn test_integer_with_signed_constraints() {
-        type A = ConstrainedInteger<{ i8::MIN as i128 }, { i8::MAX as i128 }>;
-        type B = ConstrainedInteger<{ i16::MIN as i128 }, { i16::MAX as i128 }>;
-        type C = ConstrainedInteger<{ i32::MIN as i128 }, { i32::MAX as i128 }>;
-        type D = ConstrainedInteger<{ i64::MIN as i128 }, { i64::MAX as i128 }>;
+        type A =
+            ConstrainedInteger<{ i8::MIN as PrimitiveInteger }, { i8::MAX as PrimitiveInteger }>;
+        type B =
+            ConstrainedInteger<{ i16::MIN as PrimitiveInteger }, { i16::MAX as PrimitiveInteger }>;
+        type C =
+            ConstrainedInteger<{ i32::MIN as PrimitiveInteger }, { i32::MAX as PrimitiveInteger }>;
+        type D =
+            ConstrainedInteger<{ i64::MIN as PrimitiveInteger }, { i64::MAX as PrimitiveInteger }>;
         type E = ConstrainedInteger<-5, 5>;
 
         round_trip!(coer, A, 0.into(), &[0x00]);
@@ -293,11 +308,13 @@ mod tests {
         encode_error!(coer, A, (i16::from(i8::MIN) - 1).into());
         encode_error!(coer, B, (i32::from(i16::MIN) - 1).into());
         encode_error!(coer, C, (i64::from(i32::MIN) - 1).into());
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         encode_error!(coer, D, (i128::from(i64::MIN) - 1).into());
 
         encode_error!(coer, A, (i16::from(i8::MAX) + 1).into());
         encode_error!(coer, B, (i32::from(i16::MAX) + 1).into());
         encode_error!(coer, C, (i64::from(i32::MAX) + 1).into());
+        #[cfg(all(target_has_atomic = "128", feature = "i128"))]
         encode_error!(coer, D, (i128::from(i64::MAX) + 1).into());
     }
     #[test]

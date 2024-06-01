@@ -78,8 +78,9 @@ mod tests {
     }
 
     #[test]
+    // #[cfg(all(target_pointer_width = "64", feature = "i128"))]
     fn implicit_prefix() {
-        type MyInteger = Implicit<C0, u64>;
+        type MyInteger = Implicit<C0, i64>;
 
         let new_int = MyInteger::new(5);
 
@@ -88,7 +89,7 @@ mod tests {
 
     #[test]
     fn explicit_prefix() {
-        type MyInteger = Explicit<C0, u64>;
+        type MyInteger = Explicit<C0, i64>;
 
         let new_int = MyInteger::new(5);
         let data = &[0xA0, 3, 0x2, 0x1, 5][..];
