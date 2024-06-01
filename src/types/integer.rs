@@ -2,25 +2,23 @@ use crate::types::{constraints, AsnType, Constraints, Extensible};
 use crate::Tag;
 use core::ops::{Add, Sub};
 use num_bigint::{BigInt, BigUint};
-// use num_traits::{Num, NumOps, Pow, PrimInt, Signed, ToBytes, ToPrimitive, Zero};
 use num_traits::{Pow, PrimInt, Signed, ToBytes, ToPrimitive, Zero};
 
-// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+compile_error!("rasn requires currently a 64-bit pointer width.");
+#[cfg(not(target_has_atomic = "128"))]
+compile_error!("rasn requires currently support for 128-bit integers (i128).");
 
 // It seems that just ~1% performance difference between i64 and i128 (at least on M2 Mac)
 // If disabled, it should be meant for targets which cannot use i128
-
+// However, currently, library is not completely i128-free
+#[cfg(target_pointer_width = "64")]
 #[cfg(not(feature = "i128"))]
 pub type PrimitiveInteger = i64;
 
-// pub type StdInt = i128;
-#[cfg(target_pointer_width = "64")]
-#[cfg(feature = "i128")]
-// {
+#[cfg(all(target_pointer_width = "64", feature = "i128"))]
 pub type PrimitiveInteger = i128;
-
 pub const PRIMITIVE_BYTE_WIDTH: usize = core::mem::size_of::<PrimitiveInteger>();
-// }
 
 macro_rules! impl_from_integer {
     ($($t:ty),*) => {
@@ -40,18 +38,6 @@ macro_rules! impl_from_integer {
         )*
     };
 }
-// macro_rules! impl_from_primitive_integer {
-//     ($($t:ty),*) => {
-//         $(
-//             impl From<$t> for PrimitiveInteger {
-// fn from(value: $t) -> Self {
-//                     #[allow(clippy::cast_possible_truncation)]
-//                     PrimitiveInteger::from(value)
-//                 }
-//             }
-//         )*
-//     };
-// }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct TryFromIntegerError<T> {
@@ -88,7 +74,6 @@ macro_rules! impl_try_from_bigint {
                         value.try_into().map_err(|_| TryFromIntegerError::new(()))
                     }
                 }
-                // $to_ty(value).ok_or(TryFromIntegerError::new(()))
             }
         }
 
@@ -106,15 +91,20 @@ macro_rules! impl_try_from_bigint {
 impl_try_from_bigint!(u8, ToPrimitive::to_u8);
 impl_try_from_bigint!(u16, ToPrimitive::to_u16);
 impl_try_from_bigint!(u32, ToPrimitive::to_u32);
+#[cfg(target_pointer_width = "64")]
 impl_try_from_bigint!(u64, ToPrimitive::to_u64);
 impl_try_from_bigint!(usize, ToPrimitive::to_usize);
-// impl_try_from_bigint!(u128, ToPrimitive::to_u128);
 
 impl_try_from_bigint!(i8, ToPrimitive::to_i8);
 impl_try_from_bigint!(i16, ToPrimitive::to_i16);
 impl_try_from_bigint!(i32, ToPrimitive::to_i32);
+#[cfg(target_pointer_width = "64")]
 impl_try_from_bigint!(i64, ToPrimitive::to_i64);
 impl_try_from_bigint!(isize, ToPrimitive::to_isize);
+
+#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+impl_try_from_bigint!(u128, ToPrimitive::to_u128);
+#[cfg(all(target_pointer_width = "64", feature = "i128"))]
 impl_try_from_bigint!(i128, ToPrimitive::to_i128);
 
 impl From<BigInt> for Integer {
@@ -123,8 +113,7 @@ impl From<BigInt> for Integer {
     }
 }
 
-#[cfg(target_pointer_width = "64")]
-#[cfg(feature = "i128")]
+#[cfg(all(target_pointer_width = "64", feature = "i128"))]
 impl From<u128> for Integer {
     fn from(value: u128) -> Self {
         Integer::Big(value.into())
@@ -140,11 +129,13 @@ impl_from_integer! {
     u32,
     usize
 }
+#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+impl_from_integer! {
+    i128
+}
 #[cfg(target_pointer_width = "64")]
-#[cfg(feature = "i128")]
 impl_from_integer! {
     i64,
-    i128,
     u64
 }
 
@@ -235,15 +226,6 @@ impl Integer {
         }
     }
 
-    /// Returns inner stack-located `i128` if that is the current variant
-    #[cfg(feature = "i128")]
-    #[must_use]
-    pub fn as_i128(&self) -> Option<i128> {
-        match self {
-            Integer::Primitive(value) => Some(*value),
-            _ => None,
-        }
-    }
     /// Returns inner heap-allocated `BigInt` if that is the current variant
     #[must_use]
     pub fn as_big(&self) -> Option<&BigInt> {
@@ -281,7 +263,7 @@ impl Integer {
 
     /// New `Integer` from signed bytes.
     /// Inner type is defined based on the amount of bytes.
-    /// `Integer::Primitive` if less or equal defined primitive width, otherwise `Integer::Big`.
+    /// `Integer::Primitive` if less or equal defined primitive width `PRIMITIVE_BYTE_WIDTH`, otherwise `Integer::Big`.
     #[must_use]
     pub fn from_signed_be_bytes(bytes: &[u8]) -> Self {
         let mut array = [0u8; PRIMITIVE_BYTE_WIDTH];
@@ -299,7 +281,7 @@ impl Integer {
     }
     /// New `Integer` from unsigned bytes.
     /// Inner type is defined based on the amount of bytes.
-    /// `Integer::Primitive` if less or equal defined primitive width, otherwise `Integer::Big`.
+    /// `Integer::Primitive` if less or equal defined primitive width `PRIMITIVE_BYTE_WIDTH`, otherwise `Integer::Big`.
     #[must_use]
     pub fn from_be_bytes(bytes: &[u8]) -> Self {
         if bytes.len() <= PRIMITIVE_BYTE_WIDTH {
@@ -403,6 +385,7 @@ impl Add for Integer {
 impl Pow<Integer> for Integer {
     type Output = Self;
 
+    /// `pow` operation for `Integer`
     /// Will silently truncate too large exponents
     fn pow(self, rhs: Self) -> Self::Output {
         match (self, rhs) {
@@ -455,8 +438,7 @@ impl core::default::Default for Integer {
     }
 }
 
-///
-/// A integer which has encoded constraint range between `START` and `END`.
+/// An integer which has encoded constraint range between `START` and `END`.
 #[derive(Debug, Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct ConstrainedInteger<const START: PrimitiveInteger, const END: PrimitiveInteger>(
     pub(crate) Integer,

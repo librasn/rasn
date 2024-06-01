@@ -9,7 +9,7 @@ use snafu::Snafu;
 use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::de::Error;
-use crate::types::{constraints::Bounded, variants::Variants, Integer, Tag}; // StdInt
+use crate::types::{constraints::Bounded, variants::Variants, Integer, PrimitiveInteger, Tag}; // StdInt
 use crate::Codec;
 
 /// Variants for every codec-specific `DecodeError` kind.
@@ -172,7 +172,7 @@ impl DecodeError {
     #[must_use]
     pub fn value_constraint_not_satisfied(
         value: Integer,
-        expected: Bounded<i128>,
+        expected: Bounded<PrimitiveInteger>,
         codec: Codec,
     ) -> Self {
         Self::from_kind(
@@ -374,7 +374,7 @@ pub enum DecodeErrorKind {
         /// Actual value of the data
         value: Integer,
         /// Expected value by the constraint
-        expected: Bounded<i128>,
+        expected: Bounded<PrimitiveInteger>,
     },
     #[snafu(display("Wrapped codec-specific decode error"))]
     CodecSpecific { inner: CodecDecodeError },

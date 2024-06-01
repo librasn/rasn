@@ -3,7 +3,7 @@ use bitvec::field::BitField;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
 use crate::bits::{to_left_padded_vec, to_vec};
-use crate::types::TryFromIntegerError;
+use crate::types::{PrimitiveInteger, TryFromIntegerError};
 use crate::{
     de::Error as _,
     types::{
@@ -264,7 +264,7 @@ impl<'input> Decoder<'input> {
             } else {
                 let range = if self.options.aligned && range > 256 {
                     input = self.parse_padding(input)?;
-                    let range = crate::num::log2(range as i128);
+                    let range = crate::num::log2(range as PrimitiveInteger);
                     crate::bits::range_from_len(
                         range
                             .is_power_of_two()
@@ -272,7 +272,7 @@ impl<'input> Decoder<'input> {
                             .unwrap_or_else(|| range.next_power_of_two()),
                     )
                 } else {
-                    range as i128
+                    range as PrimitiveInteger
                 };
 
                 let (mut input, length) =
@@ -314,7 +314,7 @@ impl<'input> Decoder<'input> {
             } else {
                 let range = if self.options.aligned && range > 256 {
                     input = self.parse_padding(input)?;
-                    let range = crate::num::log2(range as i128);
+                    let range = crate::num::log2(range as PrimitiveInteger);
                     crate::bits::range_from_len(
                         range
                             .is_power_of_two()
@@ -322,7 +322,7 @@ impl<'input> Decoder<'input> {
                             .unwrap_or_else(|| range.next_power_of_two()),
                     )
                 } else {
-                    range as i128
+                    range as PrimitiveInteger
                 };
 
                 let (mut input, length) =
@@ -358,7 +358,10 @@ impl<'input> Decoder<'input> {
         self.parse_integer(Constraints::new(&[constraints]))
     }
 
-    fn parse_non_negative_binary_integer(&mut self, range: i128) -> Result<types::Integer> {
+    fn parse_non_negative_binary_integer(
+        &mut self,
+        range: PrimitiveInteger,
+    ) -> Result<types::Integer> {
         let bits = crate::num::log2(range);
         let (input, data) = nom::bytes::streaming::take(bits)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
@@ -383,8 +386,8 @@ impl<'input> Decoder<'input> {
             return Ok(Integer::from_signed_be_bytes(&bytes));
         };
 
-        const K64: i128 = SIXTY_FOUR_K as i128;
-        const OVER_K64: i128 = K64 + 1;
+        const K64: PrimitiveInteger = SIXTY_FOUR_K as PrimitiveInteger;
+        const OVER_K64: PrimitiveInteger = K64 + 1;
 
         let number = if let Some(range) = value_constraint.constraint.range() {
             match (self.options.aligned, range) {
@@ -399,7 +402,7 @@ impl<'input> Decoder<'input> {
                 }
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
-                        num_integer::div_ceil(crate::num::log2(range), 8) as i128;
+                        num_integer::div_ceil(crate::num::log2(range), 8) as PrimitiveInteger;
                     let length: u32 = self
                         .parse_non_negative_binary_integer(range_len_in_bytes)?
                         .try_into()
@@ -484,7 +487,9 @@ impl<'input> Decoder<'input> {
         let mut bit_string = types::BitString::default();
         let char_width = constraints
             .permitted_alphabet()
-            .map(|alphabet| crate::num::log2(alphabet.constraint.len() as i128) as usize)
+            .map(|alphabet| {
+                crate::num::log2(alphabet.constraint.len() as PrimitiveInteger) as usize
+            })
             .unwrap_or(ALPHABET::character_width() as usize);
 
         let char_width = (self.options.aligned && !char_width.is_power_of_two())
@@ -559,13 +564,15 @@ impl<'input> Decoder<'input> {
                         .aligned
                         .then(|| {
                             let alphabet_width =
-                                crate::num::log2(alphabet.constraint.len() as i128);
+                                crate::num::log2(alphabet.constraint.len() as PrimitiveInteger);
                             alphabet_width
                                 .is_power_of_two()
                                 .then_some(alphabet_width)
                                 .unwrap_or_else(|| alphabet_width.next_power_of_two())
                         })
-                        .unwrap_or(crate::num::log2(alphabet.constraint.len() as i128))
+                        .unwrap_or(crate::num::log2(
+                            alphabet.constraint.len() as PrimitiveInteger
+                        ))
             }),
         ) {
             (Some(alphabet), true, _) | (Some(alphabet), _, Some(true)) => {
@@ -652,7 +659,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 .ok_or_else(|| DecodeError::enumeration_index_not_found(index, true, self.codec()))
         } else {
             let index = self
-                .parse_non_negative_binary_integer(E::variance() as i128)?
+                .parse_non_negative_binary_integer(E::variance() as PrimitiveInteger)?
                 .try_into()
                 .map_err(|e: TryFromIntegerError<types::Integer>| {
                     DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
@@ -986,9 +993,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 debug_assert!(variance > 0);
                 // https://github.com/XAMPPRocky/rasn/issues/168
                 // Choice index starts from zero, so we need to reduce variance by one
-                let choice_range =
-                    constraints::Value::new(constraints::Bounded::new(0, (variance - 1) as i128))
-                        .into();
+                let choice_range = constraints::Value::new(constraints::Bounded::new(
+                    0,
+                    (variance - 1) as PrimitiveInteger,
+                ))
+                .into();
                 self.parse_integer(Constraints::new(&[choice_range]))?
             })
             .map_err(|error| {

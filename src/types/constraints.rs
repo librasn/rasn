@@ -1,4 +1,4 @@
-use crate::types::Integer;
+use crate::types::{Integer, PrimitiveInteger};
 use alloc::borrow::Cow;
 
 #[derive(Debug, Default, Clone)]
@@ -190,16 +190,16 @@ impl From<PermittedAlphabet> for Extensible<PermittedAlphabet> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Value(pub(crate) Bounded<i128>);
+pub struct Value(pub(crate) Bounded<PrimitiveInteger>);
 
 impl Value {
-    pub const fn new(value: Bounded<i128>) -> Self {
+    pub const fn new(value: Bounded<PrimitiveInteger>) -> Self {
         Self(value)
     }
 }
 
 impl core::ops::Deref for Value {
-    type Target = Bounded<i128>;
+    type Target = Bounded<PrimitiveInteger>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -235,14 +235,14 @@ from_primitives! {
     u8, u16, u32,
     i8, i16, i32, i64
 }
-// #[cfg(feature = "i128")]
+#[cfg(feature = "i128")]
 from_primitives! {
     u64,
     i128,
 }
 
 impl TryFrom<Bounded<usize>> for Value {
-    type Error = <i128 as TryFrom<usize>>::Error;
+    type Error = <PrimitiveInteger as TryFrom<usize>>::Error;
 
     fn try_from(bounded: Bounded<usize>) -> Result<Self, Self::Error> {
         Ok(Self(match bounded {
@@ -478,7 +478,7 @@ impl From<Extensible<PermittedAlphabet>> for Constraint {
     }
 }
 
-impl Bounded<i128> {
+impl Bounded<PrimitiveInteger> {
     pub fn bigint_contains(&self, element: &crate::types::Integer) -> bool {
         match &self {
             Self::Single(value) => crate::types::Integer::from(*value) == *element,

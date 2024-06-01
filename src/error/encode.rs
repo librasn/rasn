@@ -1,4 +1,4 @@
-use crate::prelude::Integer;
+use crate::prelude::{Integer, PrimitiveInteger};
 use crate::types::constraints::{Bounded, Size};
 use snafu::Snafu;
 #[cfg(feature = "backtraces")]
@@ -146,7 +146,7 @@ impl EncodeError {
     #[must_use]
     pub fn value_constraint_not_satisfied(
         value: Integer,
-        expected: &Bounded<i128>,
+        expected: &Bounded<PrimitiveInteger>,
         codec: crate::Codec,
     ) -> Self {
         Self::from_kind(
@@ -257,7 +257,7 @@ pub enum EncodeErrorKind {
         /// Actual value of the data
         value: Integer,
         /// Expected value by the constraint
-        expected: Bounded<i128>,
+        expected: Bounded<PrimitiveInteger>,
     },
     #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
     IntegerTypeConversionFailed { msg: alloc::string::String },

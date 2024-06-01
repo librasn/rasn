@@ -10,8 +10,8 @@ use crate::{
         strings::{
             should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
         },
-        BitString, Constraints, Enumerated, Integer, PrimIntBytes, Tag, TryFromIntegerError,
-        PRIMITIVE_BYTE_WIDTH,
+        BitString, Constraints, Enumerated, Integer, PrimIntBytes, PrimitiveInteger, Tag,
+        TryFromIntegerError, PRIMITIVE_BYTE_WIDTH,
     },
     Encode,
 };
@@ -207,9 +207,9 @@ impl Encoder {
 
         let is_large_string = if let Some(size) = constraints.size() {
             let width = match constraints.permitted_alphabet() {
-                Some(alphabet) => {
-                    self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
-                }
+                Some(alphabet) => self.character_width(crate::num::log2(
+                    alphabet.constraint.len() as PrimitiveInteger
+                )),
                 None => self.character_width(S::CHARACTER_WIDTH),
             };
 
@@ -240,7 +240,9 @@ impl Encoder {
             should_be_indexed(S::CHARACTER_WIDTH, S::CHARACTER_SET),
             constraints.permitted_alphabet().map(|alphabet| {
                 S::CHARACTER_WIDTH
-                    > self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
+                    > self.character_width(crate::num::log2(
+                        alphabet.constraint.len() as PrimitiveInteger
+                    ))
             }),
         ) {
             (Some(alphabet), _, Some(true)) | (Some(alphabet), true, _) => {
@@ -445,7 +447,7 @@ impl Encoder {
                     let effective_length = constraints.effective_value(length).into_inner();
                     let range = (self.options.aligned && range > 256)
                         .then(|| {
-                            let range = crate::num::log2(range as i128);
+                            let range = crate::num::log2(range as PrimitiveInteger);
                             crate::bits::range_from_len(
                                 range
                                     .is_power_of_two()
@@ -453,7 +455,7 @@ impl Encoder {
                                     .unwrap_or_else(|| range.next_power_of_two()),
                             )
                         })
-                        .unwrap_or(range as i128);
+                        .unwrap_or(range as PrimitiveInteger);
                     self.encode_non_negative_binary_integer(
                         buffer,
                         range,
@@ -671,15 +673,15 @@ impl Encoder {
             }
         };
 
-        let effective_value: i128 = value_range
+        let effective_value: PrimitiveInteger = value_range
             .constraint
             .effective_value(value.try_into().map_err(|e: TryFromIntegerError<()>| {
                 Error::integer_type_conversion_failed(e.to_string(), self.codec())
             })?)
             .either_into();
 
-        const K64: i128 = SIXTY_FOUR_K as i128;
-        const OVER_K64: i128 = K64 + 1;
+        const K64: PrimitiveInteger = SIXTY_FOUR_K as PrimitiveInteger;
+        const OVER_K64: PrimitiveInteger = K64 + 1;
 
         if let Some(range) = value_range.constraint.range() {
             match (self.options.aligned, range) {
@@ -693,7 +695,7 @@ impl Encoder {
                 }
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
-                        num_integer::div_ceil(crate::num::log2(range), 8) as i128;
+                        num_integer::div_ceil(crate::num::log2(range), 8) as PrimitiveInteger;
 
                     if effective_value == 0 {
                         self.encode_non_negative_binary_integer(
@@ -705,7 +707,8 @@ impl Encoder {
                         self.encode_non_negative_binary_integer(&mut *buffer, 255, bytes);
                     } else {
                         let range_value_in_bytes =
-                            num_integer::div_ceil(crate::num::log2(effective_value + 1), 8) as i128;
+                            num_integer::div_ceil(crate::num::log2(effective_value + 1), 8)
+                                as PrimitiveInteger;
                         self.encode_non_negative_binary_integer(
                             buffer,
                             range_len_in_bytes,
@@ -733,7 +736,7 @@ impl Encoder {
     fn encode_non_negative_binary_integer(
         &self,
         buffer: &mut BitString,
-        range: i128,
+        range: PrimitiveInteger,
         bytes: &[u8],
     ) {
         use core::cmp::Ordering;
@@ -840,19 +843,19 @@ impl crate::Encoder for Encoder {
         } else if core::mem::size_of::<usize>() == 4 {
             self.encode_non_negative_binary_integer(
                 &mut buffer,
-                E::variance() as i128,
+                E::variance() as PrimitiveInteger,
                 &u32::try_from(index).unwrap().to_be_bytes(),
             );
         } else if core::mem::size_of::<usize>() == 2 {
             self.encode_non_negative_binary_integer(
                 &mut buffer,
-                E::variance() as i128,
+                E::variance() as PrimitiveInteger,
                 &u16::try_from(index).unwrap().to_be_bytes(),
             );
         } else {
             self.encode_non_negative_binary_integer(
                 &mut buffer,
-                E::variance() as i128,
+                E::variance() as PrimitiveInteger,
                 &usize::to_be_bytes(index)[..],
             );
         }
@@ -1158,7 +1161,7 @@ impl crate::Encoder for Encoder {
             choice_bits_len += 1;
         }
         choice_bits_len += if let Some(Some(variance)) = bounds {
-            crate::num::log2(variance as i128) as usize
+            crate::num::log2(variance as PrimitiveInteger) as usize
         } else {
             0
         };
@@ -1172,7 +1175,7 @@ impl crate::Encoder for Encoder {
                 // Choice index starts from zero, so we need to reduce variance by one
                 let choice_range = &[constraints::Value::new(constraints::Bounded::new(
                     0,
-                    (variance - 1) as i128,
+                    (variance - 1) as PrimitiveInteger,
                 ))
                 .into()];
                 self.encode_integer_into_buffer(

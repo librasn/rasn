@@ -4,10 +4,10 @@ use core::cmp::Ordering;
 
 use alloc::vec::Vec;
 
-pub(crate) fn range_from_len(bit_length: u32) -> i128 {
-    2i128.pow(bit_length) - 1
+pub(crate) fn range_from_len(bit_length: u32) -> PrimitiveInteger {
+    (2 as PrimitiveInteger).pow(bit_length) - 1
 }
-use crate::types::Integer;
+use crate::types::{Integer, PrimitiveInteger};
 
 /// The canonical encoding of SET OF values in DER requires
 /// the encoded elements to be sorted in ascending order.

@@ -475,8 +475,11 @@ impl_integers! {
     u8,
     u16,
     u32,
-    u64,
     usize
+}
+#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+impl_integers! {
+    u64
 }
 
 impl<const START: PrimitiveInteger, const END: PrimitiveInteger> Encode

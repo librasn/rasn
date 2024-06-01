@@ -1,4 +1,5 @@
 //! Module for different number-related functions which are used in the library.
-pub(crate) const fn log2(x: i128) -> u32 {
-    i128::BITS - (x - 1).leading_zeros()
+use crate::types::PrimitiveInteger;
+pub(crate) const fn log2(x: PrimitiveInteger) -> u32 {
+    PrimitiveInteger::BITS - (x - 1).leading_zeros()
 }

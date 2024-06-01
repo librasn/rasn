@@ -50,7 +50,7 @@ pub fn determine_integer_size_and_sign<T, U, E>(
         } => {
             if start >= 0 {
                 for (min, max, octets) in UNSIGNED_RANGES {
-                    if min <= start && end <= max {
+                    if min <= i128::from(start) && i128::from(end) <= max {
                         return transform_fn(data, false, Some(octets));
                     }
                 }
@@ -58,7 +58,7 @@ pub fn determine_integer_size_and_sign<T, U, E>(
                 return transform_fn(data, false, None);
             }
             for (min, max, octets) in SIGNED_RANGES {
-                if min <= start && end <= max {
+                if min <= start.into() && i128::from(end) <= max {
                     return transform_fn(data, true, Some(octets));
                 }
             }
@@ -75,6 +75,6 @@ pub fn determine_integer_size_and_sign<T, U, E>(
         }
         | Bounded::None => transform_fn(data, true, None),
         // TODO - check if this is correct way instead of not encoding at all, or true/false
-        Bounded::Single(value) => transform_fn(data, value < 0, octet_size_by_range(value)),
+        Bounded::Single(value) => transform_fn(data, value < 0, octet_size_by_range(value.into())),
     }
 }

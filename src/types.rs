@@ -271,7 +271,7 @@ macro_rules! asn_integer_type {
             impl AsnType for $int {
                 const TAG: Tag = Tag::INTEGER;
                 const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-                    constraints::Constraint::Value(Extensible::new(constraints::Value::new(constraints::Bounded::const_new(<$int>::MIN as i128, <$int>::MAX as i128)))),
+                    constraints::Constraint::Value(Extensible::new(constraints::Value::new(constraints::Bounded::const_new(<$int>::MIN as PrimitiveInteger, <$int>::MAX as PrimitiveInteger)))),
                 ]);
             }
         )+
@@ -283,14 +283,17 @@ asn_integer_type! {
     i16,
     i32,
     i64,
-    i128,
     isize,
     u8,
     u16,
     u32,
+    usize,
+}
+#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+asn_integer_type! {
+    i128,
     u64,
     u128,
-    usize,
 }
 
 impl AsnType for str {
