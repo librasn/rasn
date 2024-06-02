@@ -147,6 +147,7 @@ impl_from_prim_ints! {
 /// Fixed-size byte presentations for signed primitive integers
 pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     /// Minimal number of bytes needed to present unsigned integer
+    #[inline(always)]
     fn unsigned_bytes_needed(&self) -> usize {
         if self.is_zero() {
             1
@@ -156,22 +157,8 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     }
 
     /// Minimal number of bytes needed to present signed integer
+    #[inline(always)]
     fn signed_bytes_needed(&self) -> usize {
-        // if self.is_negative() {
-        //     let leading_ones = self.leading_ones() as usize;
-        //     if leading_ones % 8 == 0 {
-        //         PRIMITIVE_BYTE_WIDTH - leading_ones / 8 + 1
-        //     } else {
-        //         PRIMITIVE_BYTE_WIDTH - leading_ones / 8
-        //     }
-        // } else {
-        //     let leading_zeroes = self.leading_zeros() as usize;
-        //     if leading_zeroes % 8 == 0 {
-        //         PRIMITIVE_BYTE_WIDTH - leading_zeroes / 8 + 1
-        //     } else {
-        //         PRIMITIVE_BYTE_WIDTH - leading_zeroes / 8
-        //     }
-        // }
         let leading_bits = if self.is_negative() {
             self.leading_ones() as usize
         } else {
@@ -186,6 +173,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     /// Calculate minimal number of bytes to show integer based on `signed` status
     /// Returns slice an with fixed-width `N` and number of needed bytes
     /// We need only some of the bytes, more optimal than just using `to_be_bytes` we would need to drop the rest anyway
+    #[inline(always)]
     fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
         let bytes: [u8; N] = self.to_le_bytes().as_ref().try_into().unwrap(); // unwrap_or([0; N]);
         let needed = if signed {
@@ -202,6 +190,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     }
     /// Swap bytes order and copy to new `N` sized slice
     /// Returns also the count of "needed" bytes, since the slice width might be much larger
+    #[inline(always)]
     fn min_swap_bytes<const N: usize>(bytes: &[u8]) -> ([u8; N], usize) {
         let mut slice_reversed: [u8; N] = [0; N];
         for i in 0..bytes.len() {
@@ -210,6 +199,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
         (slice_reversed, bytes.len())
     }
     /// Swap bytes order and copy to new `N` sized slice
+    #[inline(always)]
     fn swap_to_be_bytes<const N: usize>(bytes: &[u8]) -> ([u8; N], usize) {
         #[cfg(target_endian = "little")]
         {
@@ -253,7 +243,7 @@ impl Integer {
     /// Return Big-Endian presentation of `Integer`
     /// Will always create new heap allocation, use carefully
     #[must_use]
-    #[inline]
+    #[inline(always)]
     pub fn to_be_bytes(&self) -> alloc::vec::Vec<u8> {
         match self {
             Integer::Primitive(value) => value.to_be_bytes().to_vec(),
@@ -266,7 +256,7 @@ impl Integer {
     /// Will always create new heap allocation, use carefully
     /// Rather, if possible, match for underlying primitive integer type to get raw slice without conversions
     #[must_use]
-    #[inline]
+    #[inline(always)]
     pub fn to_unsigned_be_bytes(&self) -> Option<alloc::vec::Vec<u8>> {
         match self {
             Integer::Primitive(value) => {
@@ -281,6 +271,7 @@ impl Integer {
     /// Inner type is defined based on the amount of bytes.
     /// `Integer::Primitive` if less or equal defined primitive width `PRIMITIVE_BYTE_WIDTH`, otherwise `Integer::Big`.
     #[must_use]
+    #[inline(always)]
     pub fn from_signed_be_bytes(bytes: &[u8]) -> Self {
         let mut array = [0u8; PRIMITIVE_BYTE_WIDTH];
         if bytes.len() <= PRIMITIVE_BYTE_WIDTH {
@@ -299,12 +290,11 @@ impl Integer {
     /// Inner type is defined based on the amount of bytes.
     /// `Integer::Primitive` if less or equal defined primitive width `PRIMITIVE_BYTE_WIDTH`, otherwise `Integer::Big`.
     #[must_use]
+    #[inline(always)]
     pub fn from_be_bytes(bytes: &[u8]) -> Self {
         if bytes.len() <= PRIMITIVE_BYTE_WIDTH {
             let mut array = [0u8; PRIMITIVE_BYTE_WIDTH];
-            for i in 0..bytes.len() {
-                array[PRIMITIVE_BYTE_WIDTH - bytes.len() + i] = bytes[i];
-            }
+            array[PRIMITIVE_BYTE_WIDTH - bytes.len()..].copy_from_slice(bytes);
             Integer::Primitive(PrimitiveInteger::from_be_bytes(array))
         } else {
             Integer::Big(BigUint::from_bytes_be(bytes).into())
