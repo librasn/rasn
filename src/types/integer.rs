@@ -3,12 +3,12 @@ use crate::Tag;
 use num_bigint::{BigInt, BigUint};
 use num_traits::{Pow, PrimInt, Signed, ToBytes, ToPrimitive, Zero};
 
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-compile_error!("rasn requires currently a 64-bit pointer width.");
 #[cfg(not(target_has_atomic = "128"))]
 compile_error!("rasn requires currently support for 128-bit integers (i128).");
 
 // It seems that just ~1% performance difference between i64 and i128 (at least on M2 Mac)
+// Decoding on i64 is slower for unkonwn reasons, especially on UPER and APER
+//
 // If disabled, it should be meant for targets which cannot use i128
 // TODO: currently, library is not completely i128-free
 
@@ -17,7 +17,7 @@ compile_error!("rasn requires currently support for 128-bit integers (i128).");
 #[cfg(not(feature = "i128"))]
 pub type PrimitiveInteger = i64;
 
-#[cfg(all(target_pointer_width = "64", feature = "i128"))]
+#[cfg(all(target_has_atomic = "128", feature = "i128"))]
 pub type PrimitiveInteger = i128;
 pub const PRIMITIVE_BYTE_WIDTH: usize = core::mem::size_of::<PrimitiveInteger>();
 
@@ -98,14 +98,12 @@ macro_rules! impl_try_from_bigint {
 impl_try_from_bigint!(u8, ToPrimitive::to_u8);
 impl_try_from_bigint!(u16, ToPrimitive::to_u16);
 impl_try_from_bigint!(u32, ToPrimitive::to_u32);
-#[cfg(target_pointer_width = "64")]
 impl_try_from_bigint!(u64, ToPrimitive::to_u64);
 impl_try_from_bigint!(usize, ToPrimitive::to_usize);
 
 impl_try_from_bigint!(i8, ToPrimitive::to_i8);
 impl_try_from_bigint!(i16, ToPrimitive::to_i16);
 impl_try_from_bigint!(i32, ToPrimitive::to_i32);
-#[cfg(target_pointer_width = "64")]
 impl_try_from_bigint!(i64, ToPrimitive::to_i64);
 impl_try_from_bigint!(isize, ToPrimitive::to_isize);
 
@@ -147,7 +145,7 @@ impl_from_prim_ints! {
 /// Fixed-size byte presentations for signed primitive integers
 pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     /// Minimal number of bytes needed to present unsigned integer
-    #[inline(always)]
+    #[inline]
     fn unsigned_bytes_needed(&self) -> usize {
         if self.is_zero() {
             1
@@ -157,7 +155,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     }
 
     /// Minimal number of bytes needed to present signed integer
-    #[inline(always)]
+    #[inline]
     fn signed_bytes_needed(&self) -> usize {
         let leading_bits = if self.is_negative() {
             self.leading_ones() as usize
@@ -173,7 +171,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     /// Calculate minimal number of bytes to show integer based on `signed` status
     /// Returns slice an with fixed-width `N` and number of needed bytes
     /// We need only some of the bytes, more optimal than just using `to_be_bytes` we would need to drop the rest anyway
-    #[inline(always)]
+    #[inline]
     fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
         let bytes: [u8; N] = self.to_le_bytes().as_ref().try_into().unwrap(); // unwrap_or([0; N]);
         let needed = if signed {
@@ -190,7 +188,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     }
     /// Swap bytes order and copy to new `N` sized slice
     /// Returns also the count of "needed" bytes, since the slice width might be much larger
-    #[inline(always)]
+    #[inline]
     fn min_swap_bytes<const N: usize>(bytes: &[u8]) -> ([u8; N], usize) {
         let mut slice_reversed: [u8; N] = [0; N];
         for i in 0..bytes.len() {
@@ -199,7 +197,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
         (slice_reversed, bytes.len())
     }
     /// Swap bytes order and copy to new `N` sized slice
-    #[inline(always)]
+    #[inline]
     fn swap_to_be_bytes<const N: usize>(bytes: &[u8]) -> ([u8; N], usize) {
         #[cfg(target_endian = "little")]
         {
@@ -241,7 +239,7 @@ impl Integer {
         }
     }
     /// Return Big-Endian presentation of `Integer`
-    /// Will always create new heap allocation, use carefully
+    /// Will always create a new heap allocation, so use carefully
     #[must_use]
     #[inline(always)]
     pub fn to_be_bytes(&self) -> alloc::vec::Vec<u8> {
@@ -253,7 +251,7 @@ impl Integer {
 
     /// Return `Integer` as unsigned bytes if possible
     /// Typically this means that resulting byte array does not include any padded zeros or 0xFF
-    /// Will always create new heap allocation, use carefully
+    /// Will *always* create a new heap allocation, so use carefully
     /// Rather, if possible, match for underlying primitive integer type to get raw slice without conversions
     #[must_use]
     #[inline(always)]
