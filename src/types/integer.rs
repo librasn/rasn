@@ -169,7 +169,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
     }
 
     /// Calculate the minimal number of bytes to show integer based on `signed` status
-    /// Returns slice with fixed-width `N` and number of needed bytes
+    /// Returns slice with fixed-width `N` and number of needed bytes from that slice
     /// We need only some of the bytes, more optimal than just using `to_be_bytes` we would need to drop the rest anyway
     #[inline]
     fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
@@ -187,7 +187,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
         (slice_reversed, needed)
     }
     /// Swap bytes order and copy to new `N` sized slice
-    /// Returns also the count of "needed" bytes, since the slice width might be much larger
+    /// Returns also the count of "needed" bytes, since the slice width might be much larger than needed
     #[inline]
     fn min_swap_bytes<const N: usize>(bytes: &[u8]) -> ([u8; N], usize) {
         let mut slice_reversed: [u8; N] = [0; N];
@@ -212,7 +212,7 @@ pub trait PrimIntBytes: PrimInt + Signed + ToBytes {
 impl PrimIntBytes for PrimitiveInteger {}
 
 /// `Integer`` type is enum wrapper for `PrimitiveInteger` and `BigInt`
-/// When doing any math operations, access the inner type and use that. Most of the ops are not implemented on purpose.
+/// When doing any math operations, prefer the inner type. Most of the ops are not implemented on purpose.
 /// `PrimitiveInteger` is `i128` by default when `i128` feature is enabled, otherwise `i64`.
 /// Combination of both types is used to optimize memory usage and performance, while also allowing arbitrary large numbers.
 #[derive(Debug, Clone, Ord, Hash, Eq, PartialEq, PartialOrd)]
@@ -222,7 +222,7 @@ pub enum Integer {
     Big(BigInt),
 }
 impl Integer {
-    /// Returns generic `PrimitiveInteger` wrapper type if that is the current variant
+    /// Returns inner stack-allocated `PrimitiveInteger` wrapper type if that is the current variant
     #[must_use]
     pub fn as_primitive(&self) -> Option<&PrimitiveInteger> {
         match self {
