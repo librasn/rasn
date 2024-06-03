@@ -59,17 +59,17 @@ fn test_basic_int_ops() {
     let integer: Integer = 0x1234_5678u32.into();
     let result = integer.clone() + 1.into();
     match result {
-        Integer::Primitive(value) => assert!(value == 0x1234_5679u32.into()),
+        Integer::Primitive(value) => assert!(value == PrimitiveInteger::from(0x1234_5679u32)),
         _ => panic!("Expected primitive integer"),
     }
     let result = integer.clone() - 1.into();
     match result {
-        Integer::Primitive(value) => assert!(value == 0x1234_5677u32.into()),
+        Integer::Primitive(value) => assert!(value == PrimitiveInteger::from(0x1234_5677u32)),
         _ => panic!("Expected primitive integer"),
     }
     let result = integer * 2.into();
     match result {
-        Integer::Primitive(value) => assert!(value == 0x2468_ACF0u32.into()),
+        Integer::Primitive(value) => assert!(value == PrimitiveInteger::from(0x2468_ACF0u32)),
         _ => panic!("Expected primitive integer"),
     }
 }
