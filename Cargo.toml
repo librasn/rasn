@@ -34,8 +34,14 @@ backtraces = []
 i128 = []
 
 [[bench]]
-name = "criterion"
+name = "criterion_x509"
 path = "benches/criterion.rs"
+harness = false
+test = true
+
+[[bench]]
+name = "criterion_integer"
+path = "benches/integer.rs"
 harness = false
 test = true
 
