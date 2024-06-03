@@ -7,7 +7,7 @@ use alloc::vec::Vec;
 pub(crate) fn range_from_len(bit_length: u32) -> PrimitiveInteger {
     (2 as PrimitiveInteger).pow(bit_length) - 1
 }
-use crate::types::{Integer, PrimitiveInteger};
+use crate::types::PrimitiveInteger;
 
 /// The canonical encoding of SET OF values in DER requires
 /// the encoded elements to be sorted in ascending order.
@@ -73,15 +73,5 @@ pub(crate) fn to_left_padded_vec(
             vec.push(s.load_be());
         }
         vec
-    }
-}
-
-pub(crate) fn integer_to_bytes(value: &Integer, signed: bool) -> Option<Vec<u8>> {
-    if signed {
-        Some(value.to_be_bytes())
-    } else if !signed && (value.is_positive() || value.is_zero()) {
-        Some(value.to_unsigned_be_bytes()?)
-    } else {
-        None
     }
 }

@@ -155,7 +155,7 @@ impl Encoder {
     ///
     /// Encoding of the tag is only required when encoding a choice type.
     fn encode_tag(tag: Tag) -> Vec<u8> {
-        let mut bv: BitVec<u8, Msb0> = Vec::new();
+        let mut bv: BitVec<u8, Msb0> = BitVec::new();
         // Encode the tag class
         match tag.class {
             Class::Universal => bv.extend(&[false, false]),
@@ -270,7 +270,7 @@ impl Encoder {
             self.encode_length(&mut buffer, needed)?;
             buffer.extend_from_slice(&slice[..needed]);
         } else {
-            let bytes = crate::bits::integer_to_bytes(value_to_enc, signed).ok_or_else(|| {
+            let bytes = value_to_enc.to_bytes_by_sign(signed).ok_or_else(|| {
                 EncodeError::integer_type_conversion_failed(
                     "Negative integer value has been provided to be converted into unsigned bytes"
                         .to_string(),
@@ -478,7 +478,7 @@ impl Encoder {
     ) -> Result<(), EncodeError> {
         self.set_bit(tag, true);
         let mut buffer = Vec::new();
-        let mut preamble = Vec::new();
+        let mut preamble = BitString::new();
         // ### PREAMBLE ###
         // Section 16.2.2
         let extensions_defined = C::EXTENDED_FIELDS.is_some();

@@ -265,6 +265,19 @@ impl Integer {
             Integer::Big(value) => Some(value.to_biguint()?.to_bytes_be()),
         }
     }
+    /// Return `Integer` as bytes, based on the provided `signed` flag
+    /// Will *always* create a new heap allocation, so use carefully
+    #[must_use]
+    #[inline(always)]
+    pub(crate) fn to_bytes_by_sign(&self, signed: bool) -> Option<alloc::vec::Vec<u8>> {
+        if signed {
+            Some(self.to_be_bytes())
+        } else if !signed && (self.is_positive() || self.is_zero()) {
+            Some(self.to_unsigned_be_bytes()?)
+        } else {
+            None
+        }
+    }
 
     /// New `Integer` from signed bytes.
     /// Inner type is defined based on the amount of bytes.
