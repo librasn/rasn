@@ -155,7 +155,7 @@ impl Encoder {
     ///
     /// Encoding of the tag is only required when encoding a choice type.
     fn encode_tag(tag: Tag) -> Vec<u8> {
-        let mut bv: BitVec<u8, Msb0> = BitVec::with_capacity(8);
+        let mut bv: BitVec<u8, Msb0> = Vec::new();
         // Encode the tag class
         match tag.class {
             Class::Universal => bv.extend(&[false, false]),
@@ -264,8 +264,7 @@ impl Encoder {
         value_to_enc: &Integer,
         signed: bool,
     ) -> Result<Vec<u8>, EncodeError> {
-        // For primitives byte_length + 1 is enough without additional allocations
-        let mut buffer = Vec::with_capacity(value_to_enc.byte_length() + 1);
+        let mut buffer = Vec::new();
         if let Integer::Primitive(value) = value_to_enc {
             let (slice, needed) = value.needed_as_be_bytes::<PRIMITIVE_BYTE_WIDTH>(true);
             self.encode_length(&mut buffer, needed)?;
@@ -301,7 +300,7 @@ impl Encoder {
         constraints: &Constraints,
         value_to_enc: &Integer,
     ) -> Result<(), EncodeError> {
-        let mut buffer = Vec::with_capacity(value_to_enc.byte_length());
+        let mut buffer = Vec::new();
 
         if let Some(value) = constraints.value() {
             if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
@@ -348,7 +347,7 @@ impl Encoder {
         if octets > 8 {
             return Err(CoerEncodeErrorKind::InvalidConstrainedIntegerOctetSize.into());
         }
-        let mut buffer: Vec<u8> = Vec::with_capacity(octets);
+        let mut buffer: Vec<u8> = Vec::new();
         let fixed_size_bytes: [u8; PRIMITIVE_BYTE_WIDTH];
         let len: usize;
         let bytes = if signed {
@@ -479,7 +478,7 @@ impl Encoder {
     ) -> Result<(), EncodeError> {
         self.set_bit(tag, true);
         let mut buffer = Vec::new();
-        let mut preamble = BitString::with_capacity(8);
+        let mut preamble = Vec::new();
         // ### PREAMBLE ###
         // Section 16.2.2
         let extensions_defined = C::EXTENDED_FIELDS.is_some();
@@ -519,7 +518,7 @@ impl Encoder {
         }
         // Section 16.4 ### Extension addition presence bitmap ###
         let bitfield_length = extension_fields.len();
-        let mut extension_bitmap_buffer = BitString::with_capacity(8);
+        let mut extension_bitmap_buffer = BitString::new();
         #[allow(clippy::cast_possible_truncation)]
         let missing_bits: u8 = if bitfield_length > 0 {
             (8u8 - (bitfield_length % 8) as u8) % 8
@@ -584,8 +583,8 @@ impl crate::Encoder for Encoder {
         // effective size constraint.
         // Rasn does not currently support NamedBitList
         self.set_bit(tag, true);
-        let mut buffer: Vec<u8> = Vec::with_capacity(2);
-        let mut bit_string_encoding = BitVec::<u8, Msb0>::with_capacity(8);
+        let mut buffer: Vec<u8> = Vec::new();
+        let mut bit_string_encoding = BitVec::<u8, Msb0>::new();
 
         if let Some(size) = constraints.size() {
             // Constraints apply only if the lower and upper bounds
@@ -658,7 +657,7 @@ impl crate::Encoder for Encoder {
         // Spec allows between –2^1015 and 2^1015 – 1
         self.set_bit(tag, true);
         let number = value.discriminant();
-        let mut buffer = Vec::with_capacity(2);
+        let mut buffer = Vec::new();
         if 0isize <= number && number <= i8::MAX.into() {
             let bytes = self.encode_constrained_integer_with_padding(1, &number.into(), false)?;
             buffer.extend(bytes);
@@ -679,7 +678,7 @@ impl crate::Encoder for Encoder {
         self.set_bit(tag, true);
         let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
         let octets = enc.object_identifier_as_bytes(value)?;
-        let mut buffer = Vec::with_capacity(2 + octets.len());
+        let mut buffer = Vec::new();
         self.encode_length(&mut buffer, octets.len())?;
         buffer.extend(&octets);
         self.extend(tag, buffer)?;
@@ -708,7 +707,7 @@ impl crate::Encoder for Encoder {
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true);
-        let mut buffer = Vec::with_capacity(value.len());
+        let mut buffer = Vec::new();
         let fixed_size_encode = |value: &[u8]| {
             buffer.extend(value);
             Ok(())
