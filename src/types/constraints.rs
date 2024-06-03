@@ -4,8 +4,6 @@ use alloc::borrow::Cow;
 #[derive(Debug, Default, Clone)]
 pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
 
-// use crate::types::integer::StdInt;
-
 impl<'r> Constraints<'r> {
     pub const NONE: Self = Self(Cow::Borrowed(&[]));
 
@@ -235,7 +233,7 @@ from_primitives! {
     u8, u16, u32,
     i8, i16, i32, i64
 }
-#[cfg(feature = "i128")]
+#[cfg(all(target_has_atomic = "128", feature = "i128"))]
 from_primitives! {
     u64,
     i128,

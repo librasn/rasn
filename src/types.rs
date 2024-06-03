@@ -283,18 +283,15 @@ asn_integer_type! {
     i16,
     i32,
     i64,
+    i128,
     isize,
     u8,
     u16,
     u32,
-    usize,
-    i128,
     u64,
     u128,
+    usize,
 }
-// #[cfg(all(target_pointer_width = "64", feature = "i128"))]
-// asn_integer_type! {
-// }
 
 impl AsnType for str {
     const TAG: Tag = Tag::UTF8_STRING;
