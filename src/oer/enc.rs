@@ -983,11 +983,11 @@ impl crate::Encoder for Encoder {
 
 #[cfg(test)]
 mod tests {
-    use num_traits::Pow;
 
     use super::*;
     use crate::prelude::{AsnType, Decode, Encode};
     use crate::types::constraints::{Bounded, Constraint, Extensible, Value};
+    use num_bigint::BigInt;
 
     #[test]
     fn test_encode_bool() {
@@ -1051,7 +1051,7 @@ mod tests {
 
         // Signed integer with byte length of 128
         // Needs long form to represent
-        let number = Integer::from(256).pow(127.into()) - 1.into();
+        let number = Integer::from(BigInt::from(256).pow(127) - 1);
         let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &number);
         assert!(result.is_ok());
         let vc = [

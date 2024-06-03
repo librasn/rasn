@@ -936,7 +936,7 @@ mod tests {
         PrimitiveInteger,
     };
     use bitvec::prelude::BitSlice;
-    use num_traits::Pow;
+    use num_bigint::BigInt;
 
     #[test]
     fn test_decode_bool() {
@@ -966,7 +966,8 @@ mod tests {
     #[test]
     fn test_decode_length_valid() {
         // Max length
-        let max_length: Integer = Integer::from(2u8).pow(1016u32.into()) - Integer::from(1u8);
+        let max_length: Integer =
+            Integer::from(BigInt::from(2u8).pow(1016u32.into())) - Integer::from(1u8);
         assert_eq!(max_length.to_unsigned_be_bytes().unwrap(), MAX_LENGTH);
         assert_eq!(
             max_length.to_unsigned_be_bytes().unwrap().len(),
@@ -1020,7 +1021,7 @@ mod tests {
             0xff, 0xff, 0xff, 0xff,
         ]);
         let mut decoder = Decoder::new(&vc, DecoderOptions::oer());
-        let number = Integer::from(256).pow(127.into()) - 1.into();
+        let number = Integer::from(BigInt::from(256).pow(127) - 1);
         let constraints = Constraints::default();
         let new_number = decoder
             .decode_integer_with_constraints(&constraints)

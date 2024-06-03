@@ -1,7 +1,7 @@
 use crate::types::{constraints, AsnType, Constraints, Extensible};
 use crate::Tag;
 use num_bigint::{BigInt, BigUint};
-use num_traits::{Pow, PrimInt, Signed, ToBytes, ToPrimitive, Zero};
+use num_traits::{PrimInt, Signed, ToBytes, ToPrimitive, Zero};
 
 #[cfg(not(target_has_atomic = "128"))]
 compile_error!("rasn requires currently support for 128-bit integers (i128).");
@@ -411,31 +411,6 @@ impl core::ops::Mul for Integer {
             (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs * rhs),
             (Integer::Primitive(lhs), Integer::Big(rhs)) => Integer::Big(lhs * rhs),
             (Integer::Big(lhs), Integer::Primitive(rhs)) => Integer::Big(lhs * rhs),
-        }
-    }
-}
-
-impl Pow<Integer> for Integer {
-    type Output = Self;
-
-    /// Raises `Integer` to the power of `Integer`, using exponentiation by squaring.
-    /// Will automatically convert to `BigInt` internally if the result is too large for `PrimitiveInteger`
-    /// Will silently truncate too large exponents (> u32::MAX)
-    fn pow(self, rhs: Self) -> Self::Output {
-        match (self, rhs) {
-            (Integer::Primitive(lhs), Integer::Primitive(rhs)) => {
-                let result = lhs.checked_pow(rhs as u32);
-                if let Some(result) = result {
-                    Integer::Primitive(result)
-                } else {
-                    Integer::Big(BigInt::from(lhs).pow(rhs as u32))
-                }
-            }
-            (Integer::Big(lhs), Integer::Big(rhs)) => Integer::Big(lhs.pow(rhs.to_u32().unwrap())),
-            (Integer::Primitive(lhs), Integer::Big(rhs)) => {
-                Integer::Big(BigInt::from(lhs).pow(rhs.to_u32().unwrap()))
-            }
-            (Integer::Big(lhs), Integer::Primitive(rhs)) => Integer::Big(lhs.pow(rhs as u128)),
         }
     }
 }
