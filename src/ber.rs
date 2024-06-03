@@ -78,7 +78,6 @@ mod tests {
     }
 
     #[test]
-    // #[cfg(all(target_pointer_width = "64", feature = "i128"))]
     fn implicit_prefix() {
         type MyInteger = Implicit<C0, i64>;
 
