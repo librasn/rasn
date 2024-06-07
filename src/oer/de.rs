@@ -6,7 +6,7 @@ use super::enc::EncodingRules;
 use crate::oer::ranges;
 use crate::prelude::{
     Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, GeneralString,
-    GeneralizedTime, Ia5String, Integer, NumericString, ObjectIdentifier, PrintableString, SetOf,
+    GeneralizedTime, Ia5String, NumericString, ObjectIdentifier, PrintableString, SetOf,
     TeletexString, UtcTime, VisibleString,
 };
 use crate::types::fields::{Field, Fields};
@@ -18,7 +18,6 @@ use alloc::{
 };
 use bitvec::field::BitField;
 use nom::{AsBytes, Slice};
-use num_bigint::Sign;
 use num_integer::div_ceil;
 use num_traits::ToPrimitive;
 
@@ -234,16 +233,17 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(data)
     }
-    fn decode_integer_from_bytes(
+    fn decode_integer_from_bytes<I: crate::types::IntegerType>(
         &mut self,
         signed: bool,
         length: Option<usize>,
-    ) -> Result<Integer, DecodeError> {
+    ) -> Result<I, DecodeError> {
         let final_length = match length {
             Some(l) => l,
             None => self.decode_length()?,
         };
 
+        let codec = self.codec();
         let coer = self.options.encoding_rules.is_coer();
         let data = self.extract_data_by_length(final_length)?;
         // // Constrained data can correctly include leading zeros, unconstrained not
@@ -253,25 +253,36 @@ impl<'input> Decoder<'input> {
             }
             .into());
         }
+
         if signed {
-            Ok(Integer::from_signed_bytes_be(data.as_bytes()))
+            Ok(I::try_from_signed_bytes(data.as_bytes(), codec)?)
         } else {
-            Ok(Integer::from_bytes_be(Sign::Plus, data.as_bytes()))
+            Ok(I::try_from_unsigned_bytes(data.as_bytes(), codec)?)
         }
     }
-    fn decode_integer_with_constraints(
+    fn decode_integer_with_constraints<I: crate::types::IntegerType>(
         &mut self,
         constraints: &Constraints,
-    ) -> Result<Integer, DecodeError> {
+    ) -> Result<I, DecodeError> {
         // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
             ranges::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
-                let integer = self.decode_integer_from_bytes(sign, octets.map(usize::from))?;
-                if value.constraint.bigint_contains(&integer) {
+                let integer = self.decode_integer_from_bytes::<I>(sign, octets.map(usize::from))?;
+
+                // if the value is too large for a i128, the constraint isn't satisfied
+                let constraint_integer = integer.clone().try_into().map_err(|_| {
+                    DecodeError::value_constraint_not_satisfied(
+                        integer.clone().into(),
+                        value.constraint.0,
+                        self.codec(),
+                    )
+                })?;
+
+                if value.constraint.contains(&constraint_integer) {
                     Ok(integer)
                 } else {
                     Err(DecodeError::value_constraint_not_satisfied(
-                        integer,
+                        integer.into(),
                         value.constraint.0,
                         self.codec(),
                     ))
@@ -279,7 +290,7 @@ impl<'input> Decoder<'input> {
             })
         } else {
             // No constraints
-            self.decode_integer_from_bytes(true, None)
+            self.decode_integer_from_bytes::<I>(true, None)
         }
     }
     fn parse_bit_string(&mut self, constraints: &Constraints) -> Result<BitString, DecodeError> {
@@ -505,13 +516,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
         } else {
             // Long form, value as signed integer. Previous byte is length of the subsequent octets
             let length = byte & 0x7fu8;
-            let data = self.decode_integer_from_bytes(true, Some(length.into()))?;
-            let discriminant = data.to_isize().ok_or_else(|| {
-                DecodeError::length_exceeds_platform_width(
-                    "Enumerated discriminant value too large for this platform.".to_string(),
-                    self.codec(),
-                )
-            })?;
+            let discriminant: isize = self
+                .decode_integer_from_bytes(true, Some(length.into()))
+                .map_err(|e| {
+                    if matches!(&*e.kind, DecodeErrorKind::IntegerOverflow { .. }) {
+                        DecodeError::length_exceeds_platform_width(
+                            "Enumerated discriminant value too large for this platform."
+                                .to_string(),
+                            self.codec(),
+                        )
+                    } else {
+                        e
+                    }
+                })?;
+
             if (0..128).contains(&discriminant) && self.options.encoding_rules.is_coer() {
                 return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
                     msg: "Enumerated discriminant should have been encoded in short form."
@@ -520,13 +538,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 .into());
             }
             E::from_discriminant(discriminant).ok_or_else(|| {
-                DecodeError::discriminant_value_not_found(data.to_isize().unwrap(), self.codec())
+                DecodeError::discriminant_value_not_found(discriminant, self.codec())
             })
         }
     }
 
-    fn decode_integer(&mut self, _: Tag, constraints: Constraints) -> Result<Integer, Self::Error> {
-        self.decode_integer_with_constraints(&constraints)
+    fn decode_integer<I: crate::types::IntegerType>(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<I, Self::Error> {
+        self.decode_integer_with_constraints::<I>(&constraints)
     }
 
     /// Null contains no data, so we just skip
@@ -1019,7 +1041,7 @@ mod tests {
         let mut decoder = Decoder::new(&vc, DecoderOptions::oer());
         let number = BigInt::from(256).pow(127) - 1;
         let constraints = Constraints::default();
-        let new_number = decoder
+        let new_number: BigInt = decoder
             .decode_integer_with_constraints(&constraints)
             .unwrap();
         assert_eq!(new_number, number);
@@ -1059,22 +1081,22 @@ mod tests {
         let consts = Constraints::new(value_range);
         let data = BitString::from_slice(&[0x01u8]);
         let mut decoder = Decoder::new(&data, DecoderOptions::oer());
-        let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
-        assert_eq!(decoded_int, 1.into());
+        let decoded_int: i32 = decoder.decode_integer_with_constraints(&consts).unwrap();
+        assert_eq!(decoded_int, 1);
 
         let data = BitString::from_slice(&[0xffu8]);
         let mut decoder = Decoder::new(&data, DecoderOptions::oer());
-        let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
-        assert_eq!(decoded_int, 255.into());
+        let decoded_int: i64 = decoder.decode_integer_with_constraints(&consts).unwrap();
+        assert_eq!(decoded_int, 255);
 
         let data = BitString::from_slice(&[0xffu8, 0xff]);
         let mut decoder = Decoder::new(&data, DecoderOptions::oer());
-        let decoded_int = decoder.decode_integer_with_constraints(&consts).unwrap();
+        let decoded_int: BigInt = decoder.decode_integer_with_constraints(&consts).unwrap();
         assert_eq!(decoded_int, 255.into());
 
         let data = BitString::from_slice(&[0x02u8, 0xff, 0x01]);
         let mut decoder = Decoder::new(&data, DecoderOptions::oer());
-        let decoded_int = decoder
+        let decoded_int: BigInt = decoder
             .decode_integer_with_constraints(&Constraints::new(&[Constraint::Size(
                 Size::new(Bounded::None).into(),
             )]))

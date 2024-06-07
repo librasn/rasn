@@ -364,21 +364,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E> {
-        let discriminant = self
-            .decode_integer(tag, <_>::default())?
-            .try_into()
-            .map_err(|e: num_bigint::TryFromBigIntError<types::Integer>| {
-                DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
-            })?;
+        let discriminant = self.decode_integer::<isize>(tag, <_>::default())?;
 
         E::from_discriminant(discriminant)
             .ok_or_else(|| DecodeError::discriminant_value_not_found(discriminant, self.codec()))
     }
 
-    fn decode_integer(&mut self, tag: Tag, _: Constraints) -> Result<types::Integer> {
-        Ok(types::Integer::from_signed_bytes_be(
-            self.parse_primitive_value(tag)?.1,
-        ))
+    fn decode_integer<I: types::IntegerType>(&mut self, tag: Tag, _: Constraints) -> Result<I> {
+        I::try_from_bytes(self.parse_primitive_value(tag)?.1, self.codec())
     }
 
     fn decode_octet_string(&mut self, tag: Tag, _: Constraints) -> Result<Vec<u8>> {

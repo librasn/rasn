@@ -17,6 +17,7 @@ pub(crate) mod oid;
 pub(crate) mod strings;
 
 use alloc::boxed::Box;
+use num_bigint::BigUint;
 
 pub use {
     self::{
@@ -315,6 +316,176 @@ asn_integer_type! {
     u64,
     u128,
     usize,
+}
+
+pub trait IntegerType:
+    Sized
+    + Clone
+    + core::fmt::Debug
+    + TryFrom<i64>
+    + TryFrom<i128>
+    + TryInto<i128>
+    + Into<Integer>
+    + num_traits::Num
+    + num_traits::CheckedAdd
+{
+    const WIDTH: u32;
+
+    fn try_from_bytes(input: &[u8], codec: crate::Codec)
+        -> Result<Self, crate::error::DecodeError>;
+
+    fn try_from_signed_bytes(
+        input: &[u8],
+        codec: crate::Codec,
+    ) -> Result<Self, crate::error::DecodeError>;
+
+    fn try_from_unsigned_bytes(
+        input: &[u8],
+        codec: crate::Codec,
+    ) -> Result<Self, crate::error::DecodeError>;
+
+    // `num_traits::WrappingAdd` is not implemented for `BigInt`
+    #[doc(hidden)]
+    fn wrapping_add(self, other: Self) -> Self;
+}
+
+macro_rules! integer_type_decode {
+    ((signed $t1:ty, $t2:ty), $($ts:tt)*) => {
+        impl IntegerType for $t1 {
+            const WIDTH: u32 = <$t1>::BITS;
+
+            fn try_from_bytes(
+                input: &[u8],
+                codec: crate::Codec,
+            ) -> Result<Self, crate::error::DecodeError> {
+                Self::try_from_signed_bytes(input, codec)
+            }
+
+            fn try_from_signed_bytes(
+                input: &[u8],
+                codec: crate::Codec,
+            ) -> Result<Self, crate::error::DecodeError> {
+                const BYTE_SIZE: usize = (<$t1>::BITS / 8) as usize;
+                if input.is_empty() {
+                    return Err(crate::error::DecodeError::unexpected_empty_input(codec));
+                }
+
+                let mut bytes = [if input[0] & 0x80 == 0x80 { 0xFF } else { 0x00 }; BYTE_SIZE];
+                let start = bytes.len() - input.len();
+                bytes[start..].copy_from_slice(input);
+
+                Ok(Self::from_be_bytes(bytes))
+            }
+
+            fn try_from_unsigned_bytes(
+                input: &[u8],
+                codec: crate::Codec,
+            ) -> Result<Self, crate::error::DecodeError> {
+                Ok(<$t2>::try_from_bytes(input, codec)? as $t1)
+            }
+
+            fn wrapping_add(self, other: Self) -> Self {
+                self.wrapping_add(other)
+            }
+        }
+
+        integer_type_decode!($($ts)*);
+    };
+    ((unsigned $t1:ty, $t2:ty), $($ts:tt)*) => {
+        impl IntegerType for $t1 {
+            const WIDTH: u32 = <$t1>::BITS;
+
+            fn try_from_bytes(
+                input: &[u8],
+                codec: crate::Codec,
+            ) -> Result<Self, crate::error::DecodeError> {
+                Self::try_from_unsigned_bytes(input, codec)
+            }
+
+            fn try_from_signed_bytes(
+                input: &[u8],
+                codec: crate::Codec,
+            ) -> Result<Self, crate::error::DecodeError> {
+                Ok(<$t2>::try_from_bytes(input, codec)? as $t1)
+            }
+
+            fn try_from_unsigned_bytes(
+                input: &[u8],
+                codec: crate::Codec,
+            ) -> Result<Self, crate::error::DecodeError> {
+                const BYTE_SIZE: usize = (<$t1>::BITS / 8) as usize;
+                if input.is_empty() {
+                    return Err(crate::error::DecodeError::unexpected_empty_input(codec));
+                }
+
+                let mut bytes = [0x00; BYTE_SIZE];
+                let start = bytes.len() - input.len();
+                bytes[start..].copy_from_slice(input);
+
+                Ok(Self::from_be_bytes(bytes))
+            }
+
+            fn wrapping_add(self, other: Self) -> Self {
+                self.wrapping_add(other)
+            }
+        }
+
+        integer_type_decode!($($ts)*);
+    };
+    (,) => {};
+    () => {};
+}
+
+integer_type_decode!(
+    (unsigned u8, i8),
+    (signed i8, u8),
+    (unsigned u16, i16),
+    (signed i16, u16),
+    (unsigned u32, i32),
+    (signed i32, u32),
+    (unsigned u64, i64),
+    (signed i64, u64),
+    (unsigned u128, i128),
+    (signed i128, u128),
+    (unsigned usize, isize),
+    (signed isize, usize),
+);
+
+impl IntegerType for Integer {
+    const WIDTH: u32 = u32::MAX;
+
+    fn try_from_bytes(
+        input: &[u8],
+        codec: crate::Codec,
+    ) -> Result<Self, crate::error::DecodeError> {
+        if input.is_empty() {
+            return Err(crate::error::DecodeError::unexpected_empty_input(codec));
+        }
+
+        Ok(Integer::from_signed_bytes_be(input))
+    }
+
+    fn try_from_signed_bytes(
+        input: &[u8],
+        codec: crate::Codec,
+    ) -> Result<Self, crate::error::DecodeError> {
+        Self::try_from_bytes(input, codec)
+    }
+
+    fn try_from_unsigned_bytes(
+        input: &[u8],
+        codec: crate::Codec,
+    ) -> Result<Self, crate::error::DecodeError> {
+        if input.is_empty() {
+            return Err(crate::error::DecodeError::unexpected_empty_input(codec));
+        }
+
+        Ok(BigUint::from_bytes_be(input).into())
+    }
+
+    fn wrapping_add(self, other: Self) -> Self {
+        self + other
+    }
 }
 
 impl AsnType for str {

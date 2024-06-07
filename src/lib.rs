@@ -154,11 +154,11 @@ mod tests {
                         &match crate::$codec::decode::<T>(
                             &match crate::$codec::encode(value).map_err(|error| error.to_string()) {
                                 Ok(value) => value,
-                                Err(error) => panic!("{}", error),
+                                Err(error) => panic!("error encoding: {}", error),
                             }
                         ) {
                             Ok(value) => value,
-                            Err(error) => panic!("{}", error),
+                            Err(error) => panic!("error decoding: {}", error),
                         }
                     );
                 )+
@@ -251,14 +251,7 @@ mod tests {
                 tag: Tag,
                 constraints: Constraints,
             ) -> Result<Self, D::Error> {
-                use crate::de::Error;
-                use core::convert::TryFrom;
-
-                let integer = decoder.decode_integer(tag, constraints)?;
-
-                Ok(Self(
-                    <_>::try_from(integer).map_err(|e| D::Error::custom(e, decoder.codec()))?,
-                ))
+                Ok(Self(decoder.decode_integer::<i32>(tag, constraints)?))
             }
         }
 
