@@ -19,6 +19,16 @@ pub struct Bench {
     n: Utf8String,
     o: UtcTime,
     p: GeneralizedTime,
+    q: u8,
+    r: u16,
+    s: u32,
+    t: u64,
+    u: usize,
+    v: i8,
+    w: i16,
+    x: i32,
+    y: i64,
+    z: isize,
 }
 
 #[derive(AsnType, Decode, Encode)]
@@ -58,5 +68,15 @@ pub fn bench_default() -> Bench {
             .unwrap()
             .with_ymd_and_hms(2018, 6, 13, 11, 1, 58)
             .unwrap(),
+        q: u8::MAX / 2,
+        r: u16::MAX / 2,
+        s: u32::MAX / 2,
+        t: u64::MAX / 2,
+        u: usize::MAX / 2,
+        v: i8::MIN / 2,
+        w: i16::MIN / 2,
+        x: i32::MIN / 2,
+        y: i64::MIN / 2,
+        z: isize::MIN / 2,
     }
 }

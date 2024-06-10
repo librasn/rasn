@@ -357,7 +357,10 @@ impl<'input> Decoder<'input> {
         self.parse_integer(Constraints::new(&[constraints]))
     }
 
-    fn parse_non_negative_binary_integer(&mut self, range: i128) -> Result<types::Integer> {
+    fn parse_non_negative_binary_integer<I: types::IntegerType>(
+        &mut self,
+        range: i128,
+    ) -> Result<I> {
         let bits = crate::num::log2(range);
         let (input, data) = nom::bytes::streaming::take(bits)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
@@ -370,16 +373,16 @@ impl<'input> Decoder<'input> {
             data.to_bitvec()
         };
 
-        Ok(num_bigint::BigUint::from_bytes_be(&to_left_padded_vec(&data)).into())
+        I::try_from_unsigned_bytes(&to_left_padded_vec(&data), self.codec())
     }
 
-    fn parse_integer(&mut self, constraints: Constraints) -> Result<types::Integer> {
+    fn parse_integer<I: types::IntegerType>(&mut self, constraints: Constraints) -> Result<I> {
         let extensible = self.parse_extensible_bit(&constraints)?;
         let value_constraint = constraints.value();
 
         let Some(value_constraint) = value_constraint.filter(|_| !extensible) else {
             let bytes = to_vec(&self.decode_octets()?);
-            return Ok(num_bigint::BigInt::from_signed_bytes_be(&bytes));
+            return I::try_from_bytes(&bytes, self.codec());
         };
 
         const K64: i128 = SIXTY_FOUR_K as i128;
@@ -387,7 +390,13 @@ impl<'input> Decoder<'input> {
 
         let number = if let Some(range) = value_constraint.constraint.range() {
             match (self.options.aligned, range) {
-                (_, 0) => return Ok(value_constraint.constraint.minimum().into()),
+                (_, 0) => {
+                    return value_constraint
+                        .constraint
+                        .minimum()
+                        .try_into()
+                        .map_err(|_| DecodeError::integer_overflow(I::WIDTH, self.codec()))
+                }
                 (true, 256) => {
                     self.input = self.parse_padding(self.input)?;
                     self.parse_non_negative_binary_integer(range)?
@@ -399,12 +408,7 @@ impl<'input> Decoder<'input> {
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
                         num_integer::div_ceil(crate::num::log2(range), 8) as i128;
-                    let length: u32 = self
-                        .parse_non_negative_binary_integer(range_len_in_bytes)?
-                        .try_into()
-                        .map_err(|e: num_bigint::TryFromBigIntError<types::Integer>| {
-                            DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
-                        })?;
+                    let length: u32 = self.parse_non_negative_binary_integer(range_len_in_bytes)?;
                     self.input = self.parse_padding(self.input)?;
                     let range = length
                         .checked_add(1)
@@ -421,14 +425,21 @@ impl<'input> Decoder<'input> {
             }
         } else {
             let bytes = to_vec(&self.decode_octets()?);
+
             value_constraint
                 .constraint
                 .as_start()
-                .map(|_| num_bigint::BigUint::from_bytes_be(&bytes).into())
-                .unwrap_or_else(|| num_bigint::BigInt::from_signed_bytes_be(&bytes))
+                .map(|_| I::try_from_unsigned_bytes(&bytes, self.codec()))
+                .unwrap_or_else(|| I::try_from_signed_bytes(&bytes, self.codec()))?
         };
 
-        Ok(value_constraint.constraint.minimum() + number)
+        let minimum: I = value_constraint
+            .constraint
+            .minimum()
+            .try_into()
+            .map_err(|_| DecodeError::integer_overflow(I::WIDTH, self.codec()))?;
+
+        Ok(minimum.wrapping_add(number))
     }
 
     fn parse_extension_header(&mut self) -> Result<bool> {
@@ -648,19 +659,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
             E::from_extended_enumeration_index(index)
                 .ok_or_else(|| DecodeError::enumeration_index_not_found(index, true, self.codec()))
         } else {
-            let index = self
-                .parse_non_negative_binary_integer(E::variance() as i128)?
-                .try_into()
-                .map_err(|e: num_bigint::TryFromBigIntError<types::Integer>| {
-                    DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
-                })?;
+            let index = self.parse_non_negative_binary_integer::<usize>(E::variance() as i128)?;
             E::from_enumeration_index(index)
                 .ok_or_else(|| DecodeError::enumeration_index_not_found(index, false, self.codec()))
         }
     }
 
-    fn decode_integer(&mut self, _: Tag, constraints: Constraints) -> Result<types::Integer> {
-        self.parse_integer(constraints)
+    fn decode_integer<I: types::IntegerType>(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<I> {
+        self.parse_integer::<I>(constraints)
     }
 
     fn decode_octet_string(&mut self, _: Tag, constraints: Constraints) -> Result<Vec<u8>> {

@@ -143,7 +143,7 @@ pub struct DecodeError {
 impl core::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Error Kind: {}", self.kind)?;
-        writeln!(f, "Codec: {}", self.kind)?;
+        writeln!(f, "Codec: {}", self.codec)?;
         #[cfg(feature = "backtraces")]
         write!(f, "\nBacktrace:\n{}", self.backtrace)?;
         Ok(())
@@ -297,6 +297,10 @@ impl DecodeError {
     #[must_use]
     pub fn unexpected_extra_data(length: usize, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::UnexpectedExtraData { length }, codec)
+    }
+    #[must_use]
+    pub fn unexpected_empty_input(codec: Codec) -> Self {
+        Self::from_kind(DecodeErrorKind::UnexpectedEmptyInput, codec)
     }
 
     pub fn assert_length(
@@ -758,6 +762,7 @@ impl crate::de::Error for DecodeError {
         Self::from_kind(DecodeErrorKind::UnknownField { index, tag }, codec)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;

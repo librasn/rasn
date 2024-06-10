@@ -116,8 +116,12 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(Self::enumerated_from_value, self.stack)
     }
 
-    fn decode_integer(&mut self, _t: crate::Tag, _c: Constraints) -> Result<Integer, Self::Error> {
-        decode_jer_value!(Self::integer_from_value, self.stack)
+    fn decode_integer<I: crate::types::IntegerType>(
+        &mut self,
+        _t: crate::Tag,
+        _c: Constraints,
+    ) -> Result<I, Self::Error> {
+        decode_jer_value!(Self::integer_from_value::<I>, self.stack)
     }
 
     fn decode_null(&mut self, _t: crate::Tag) -> Result<(), Self::Error> {
@@ -453,14 +457,17 @@ impl Decoder {
         })?)
     }
 
-    fn integer_from_value(value: JsonValue) -> Result<Integer, DecodeError> {
-        Ok(value
+    fn integer_from_value<I: crate::types::IntegerType>(
+        value: JsonValue,
+    ) -> Result<I, DecodeError> {
+        value
             .as_i64()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "number (supported range -2^63..2^63)",
                 found: alloc::format!("{value}"),
-            })
-            .map(|n| n.into())?)
+            })?
+            .try_into()
+            .map_err(|_| DecodeError::integer_overflow(I::WIDTH, crate::Codec::Jer))
     }
 
     fn null_from_value(value: JsonValue) -> Result<(), DecodeError> {

@@ -1,6 +1,6 @@
 //! Generic ASN.1 decoding framework.
 
-use alloc::{boxed::Box, string::ToString, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 
 use crate::error::DecodeError;
 use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
@@ -68,11 +68,11 @@ pub trait Decoder: Sized {
     /// Decode an enumerated enum's discriminant identified by `tag` from the available input.
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E, Self::Error>;
     /// Decode a `INTEGER` identified by `tag` from the available input.
-    fn decode_integer(
+    fn decode_integer<I: types::IntegerType>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
-    ) -> Result<types::Integer, Self::Error>;
+    ) -> Result<I, Self::Error>;
     /// Decode `NULL` identified by `tag` from the available input.
     fn decode_null(&mut self, tag: Tag) -> Result<(), Self::Error>;
     /// Decode a `OBJECT IDENTIFIER` identified by `tag` from the available input.
@@ -382,12 +382,7 @@ macro_rules! impl_integers {
         $(
         impl Decode for $int {
             fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints) -> Result<Self, D::Error> {
-                core::convert::TryInto::try_into(
-                    decoder.decode_integer(
-                        tag,
-                        constraints,
-                    )?
-                ).map_err(|e: num_bigint::TryFromBigIntError<types::Integer>|D::Error::from(DecodeError::integer_type_conversion_failed(e.to_string(), decoder.codec())))
+                decoder.decode_integer::<$int>(tag, constraints)
             }
         }
         )+
@@ -413,7 +408,9 @@ impl<const START: i128, const END: i128> Decode for types::ConstrainedInteger<ST
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder.decode_integer(tag, constraints).map(Self)
+        decoder
+            .decode_integer::<types::Integer>(tag, constraints)
+            .map(Self)
     }
 }
 
