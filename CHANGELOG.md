@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.1](https://github.com/librasn/rasn/compare/rasn-v0.15.0...rasn-v0.15.1) - 2024-06-10
+
+### Other
+- Add OID for MGF1. ([#255](https://github.com/librasn/rasn/pull/255))
+- don't heap allocate a BigInt for every integer that is decoded ([#256](https://github.com/librasn/rasn/pull/256))
+- run Clippy also for tests ([#252](https://github.com/librasn/rasn/pull/252))
+
 ## [0.15.0](https://github.com/librasn/rasn/compare/rasn-v0.14.0...rasn-v0.15.0) - 2024-05-17
 
 ### Other
