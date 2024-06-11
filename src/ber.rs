@@ -47,6 +47,7 @@ mod tests {
     use alloc::vec;
     use alloc::vec::Vec;
     use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
+    use de::DecodeErrorKind;
 
     use crate::types::*;
 
@@ -56,6 +57,30 @@ mod tests {
     struct C0;
     impl AsnType for C0 {
         const TAG: Tag = Tag::new(Class::Context, 0);
+    }
+
+    #[test]
+    fn oversized_integer() {
+        const DATA: &[u8] = &[0x02, 0x06, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66];
+
+        assert!(matches!(
+            &*decode::<u32>(DATA).unwrap_err().kind,
+            DecodeErrorKind::IntegerOverflow { max_width: 32 }
+        ));
+
+        assert!(matches!(
+            &*decode::<i32>(DATA).unwrap_err().kind,
+            DecodeErrorKind::IntegerOverflow { max_width: 32 }
+        ));
+    }
+
+    #[test]
+    fn leading_integer_bytes() {
+        const DATA: &[u8] = &[0x02, 0x06, 0x00, 0x00, 0x33, 0x44, 0x55, 0x66];
+        assert_eq!(decode::<u32>(DATA).unwrap(), 0x33445566u32);
+
+        const SIGNED_DATA: &[u8] = &[0x02, 0x06, 0xFF, 0xFF, 0x83, 0x44, 0x55, 0x66];
+        assert_eq!(decode::<i32>(SIGNED_DATA).unwrap(), -2092673690);
     }
 
     #[test]
