@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.2](https://github.com/librasn/rasn/compare/rasn-v0.15.1...rasn-v0.15.2) - 2024-06-11
+
+### Fixed
+- decoding integers encoded with byte lengths greater than `{integer}::BITS / 8` would cause a subtraction underflow and subsequent index panic ([#257](https://github.com/librasn/rasn/pull/257))
+
 ## [0.15.1](https://github.com/librasn/rasn/compare/rasn-v0.15.0...rasn-v0.15.1) - 2024-06-10
 
 ### Other
