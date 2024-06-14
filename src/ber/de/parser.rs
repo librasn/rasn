@@ -1,13 +1,12 @@
 use alloc::vec::Vec;
 
 use nom::IResult;
-use num_bigint::BigInt;
 use num_traits::ToPrimitive;
 
 use super::{BerDecodeErrorKind, DecodeError, DecoderOptions, DerDecodeErrorKind};
 use crate::{
     ber::identifier::Identifier,
-    types::{Class, Tag},
+    types::{Class, IntegerType, Tag},
 };
 
 #[allow(clippy::type_complexity)]
@@ -16,8 +15,10 @@ pub(crate) fn parse_value<'input>(
     input: &'input [u8],
     tag: Option<Tag>,
 ) -> super::Result<(&'input [u8], (Identifier, Option<&'input [u8]>))> {
-    let (input, identifier) = parse_identifier_octet(input)
-        .map_err(|e| DecodeError::map_nom_err(e, config.current_codec()))?;
+    let (input, identifier) = parse_identifier_octet(input).map_err(|e| match e {
+        ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, config.current_codec()),
+        ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, config.current_codec()),
+    })?;
 
     if let Some(tag) = tag {
         BerDecodeErrorKind::assert_tag(tag, identifier.tag)?;
@@ -52,8 +53,12 @@ where
         const EOC: &[u8] = &[0, 0];
 
         while !input.is_empty() && !input.starts_with(EOC) {
-            let (_, identifier) = parse_identifier_octet(input)
-                .map_err(|e| DecodeError::map_nom_err(e, config.current_codec()))?;
+            let (_, identifier) = parse_identifier_octet(input).map_err(|e| match e {
+                ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, config.current_codec()),
+                ParseNumberError::Overflow => {
+                    DecodeError::integer_overflow(32u32, config.current_codec())
+                }
+            })?;
             let (i, mut child) =
                 parse_encoded_value(config, input, identifier.tag, primitive_callback)?;
             input = i;
@@ -72,15 +77,16 @@ where
     }
 }
 
-pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier> {
+pub(crate) fn parse_identifier_octet(
+    input: &[u8],
+) -> Result<(&[u8], Identifier), ParseNumberError<&[u8]>> {
     use nom::error::ParseError;
 
     let (input, identifier) = parse_initial_octet(input)?;
 
     if identifier.tag == Tag::EOC {
-        return Err(nom::Err::Failure(<_>::from_error_kind(
-            input,
-            nom::error::ErrorKind::Eof,
+        return Err(ParseNumberError::Nom(nom::Err::Failure(
+            <_>::from_error_kind(input, nom::error::ErrorKind::Eof),
         )));
     }
 
@@ -90,9 +96,8 @@ pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier>
         match tag.to_u32() {
             Some(value) => (input, value),
             None => {
-                return Err(nom::Err::Failure(<_>::from_error_kind(
-                    input,
-                    nom::error::ErrorKind::TooLarge,
+                return Err(ParseNumberError::Nom(nom::Err::Failure(
+                    <_>::from_error_kind(input, nom::error::ErrorKind::TooLarge),
                 )));
             }
         }
@@ -103,24 +108,42 @@ pub(crate) fn parse_identifier_octet(input: &[u8]) -> IResult<&[u8], Identifier>
     Ok((input, identifier.tag(tag)))
 }
 
-pub fn parse_encoded_number(input: &[u8]) -> IResult<&[u8], BigInt> {
+pub fn parse_encoded_number(input: &[u8]) -> Result<(&[u8], u32), ParseNumberError<&[u8]>> {
     let (input, body) = nom::bytes::streaming::take_while(|i| i & 0x80 != 0)(input)?;
     let (input, end) = nom::bytes::streaming::take(1usize)(input)?;
 
-    Ok((input, concat_number(body, end[0])))
+    Ok((input, concat_number(body, end[0])?))
 }
 
-pub fn parse_base128_number(input: &[u8]) -> IResult<&[u8], BigInt> {
+#[derive(Debug)]
+pub(crate) enum ParseNumberError<Input> {
+    Nom(nom::Err<nom::error::Error<Input>>),
+    Overflow,
+}
+
+impl<Input> From<nom::Err<nom::error::Error<Input>>> for ParseNumberError<Input> {
+    fn from(value: nom::Err<nom::error::Error<Input>>) -> Self {
+        Self::Nom(value)
+    }
+}
+
+pub fn parse_base128_number(input: &[u8]) -> Result<(&[u8], u32), ParseNumberError<&[u8]>> {
     let (input, body) = nom::bytes::streaming::take_while(|i| i & 0x80 != 0)(input)?;
     let (input, end) = nom::bytes::streaming::take(1usize)(input)?;
 
-    let mut number = BigInt::from(0);
+    let mut number = 0u32;
     for byte in body.iter() {
-        number <<= 7usize;
-        number |= BigInt::from(byte & 0x7F);
+        number = match number.checked_shl(7) {
+            Some(n) => n,
+            None => return Err(ParseNumberError::Overflow),
+        };
+        number |= u32::from(*byte & 0x7F);
     }
-    number <<= 7usize;
-    number |= BigInt::from(end[0]);
+    number = match number.checked_shl(7) {
+        Some(n) => n,
+        None => return Err(ParseNumberError::Overflow),
+    };
+    number |= u32::from(end[0]);
     Ok((input, number))
 }
 
@@ -187,20 +210,28 @@ impl Appendable for crate::types::BitString {
 
 /// Concatenates a series of 7 bit numbers delimited by `1`'s and
 /// ended by a `0` in the 8th bit.
-fn concat_number(body: &[u8], start: u8) -> BigInt {
-    let start = BigInt::from(start);
+fn concat_number(body: &[u8], start: u8) -> Result<u32, ParseNumberError<&[u8]>> {
+    let start = u32::from(start);
     if body.is_empty() {
-        return start;
+        return Ok(start);
     }
 
-    let mut number = BigInt::from(body[0] & 0x7F);
+    let mut number = u32::from(body[0] & 0x7F);
 
     for byte in body[1..].iter() {
-        number <<= 7usize;
-        number |= BigInt::from(byte & 0x7F);
+        number = match number.checked_shl(7) {
+            Some(n) => n,
+            None => return Err(ParseNumberError::Overflow),
+        };
+        number |= u32::from(byte & 0x7F);
     }
 
-    (number << 7usize) | start
+    number = match number.checked_shl(7) {
+        Some(n) => n,
+        None => return Err(ParseNumberError::Overflow),
+    };
+
+    Ok(number | start)
 }
 
 fn take_contents(input: &[u8], length: u8) -> IResult<&[u8], &[u8]> {
@@ -216,9 +247,9 @@ fn take_contents(input: &[u8], length: u8) -> IResult<&[u8], &[u8]> {
         _ => {
             let length = length ^ 0x80;
             let (input, length_slice) = nom::bytes::streaming::take(length)(input)?;
-            let length = BigInt::from_bytes_be(num_bigint::Sign::Plus, length_slice).to_usize();
+            let length = usize::try_from_bytes(length_slice, crate::Codec::Ber);
 
-            if let Some(length) = length {
+            if let Ok(length) = length {
                 nom::bytes::streaming::take(length)(input)
             } else {
                 nom::error::context("Length longer than possible capacity.", |_| {

@@ -116,15 +116,15 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 /// ##### Shared Attributes
 /// These attributes are available on containers, variants, and fields.
 /// - *`tag([class], number)`* — override the default tag with the one
-/// specified with this attribute. E.g. `#[rasn(tag(context, 0))]`, you can also
-/// wrapp `[class], number` in `explicit` to mark it as a explicit tag
-/// (e.g.  `#[rasn(tag(explicit(0)))]`.)
+///   specified with this attribute. E.g. `#[rasn(tag(context, 0))]`, you can also
+///   wrapp `[class], number` in `explicit` to mark it as a explicit tag
+///   (e.g.  `#[rasn(tag(explicit(0)))]`.)
 ///
 /// ##### Container Attributes
 /// - `crate_root` The path to the `rasn` library to use in the macro.
 /// - `enumerated/choice` Use either `#[rasn(choice)]` or `#[rasn(enumerated)]`
 /// - `delegate` Only available for newtype wrappers (e.g. `struct Delegate(T)`);
-/// uses the inner `T` type for implementing the trait.
+///   uses the inner `T` type for implementing the trait.
 #[proc_macro_derive(AsnType, attributes(rasn))]
 pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Parse the input tokens into a syntax tree

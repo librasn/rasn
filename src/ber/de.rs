@@ -14,6 +14,7 @@ use crate::{
 };
 use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
 use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
+use parser::ParseNumberError;
 
 pub use self::config::DecoderOptions;
 
@@ -123,33 +124,36 @@ impl<'input> Decoder<'input> {
         &self,
         data: &[u8],
     ) -> Result<crate::types::ObjectIdentifier, DecodeError> {
-        use num_traits::ToPrimitive;
-        let (mut contents, root_octets) = parser::parse_base128_number(data)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        let the_number = root_octets
-            .to_u32()
-            .ok_or_else(|| DecodeError::integer_overflow(32u32, self.codec()))?;
+        let (mut contents, root_octets) =
+            parser::parse_base128_number(data).map_err(|e| match e {
+                ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, self.codec()),
+                ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, self.codec()),
+            })?;
         let first: u32;
         let second: u32;
         const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
-        if the_number > MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD + MAX_OID_SECOND_OCTET {
+        if root_octets > MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD + MAX_OID_SECOND_OCTET {
             first = MAX_OID_FIRST_OCTET;
-            second = the_number - MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD;
+            second = root_octets - MAX_OID_FIRST_OCTET * MAX_OID_THRESHOLD;
         } else {
-            second = the_number % MAX_OID_THRESHOLD;
-            first = (the_number - second) / MAX_OID_THRESHOLD;
+            second = root_octets % MAX_OID_THRESHOLD;
+            first = (root_octets - second) / MAX_OID_THRESHOLD;
         }
-        let mut buffer = alloc::vec![first, second];
+
+        // preallocate some capacity for the OID arcs, maxing out at 16 elements
+        // to prevent excessive preallocation from malformed or malicious
+        // packets
+        let mut buffer = alloc::vec::Vec::with_capacity(core::cmp::min(contents.len() + 2, 16));
+        buffer.push(first);
+        buffer.push(second);
 
         while !contents.is_empty() {
-            let (c, number) = parser::parse_base128_number(contents)
-                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+            let (c, number) = parser::parse_base128_number(contents).map_err(|e| match e {
+                ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, self.codec()),
+                ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, self.codec()),
+            })?;
             contents = c;
-            buffer.push(
-                number
-                    .to_u32()
-                    .ok_or_else(|| DecodeError::integer_overflow(32u32, self.codec()))?,
-            );
+            buffer.push(number);
         }
         crate::types::ObjectIdentifier::new(buffer)
             .ok_or_else(|| BerDecodeErrorKind::InvalidObjectIdentifier.into())
@@ -711,8 +715,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
     where
         D: crate::types::DecodeChoice,
     {
-        let (_, identifier) = parser::parse_identifier_octet(self.input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+        let (_, identifier) = parser::parse_identifier_octet(self.input).map_err(|e| match e {
+            ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, self.codec()),
+            ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, self.codec()),
+        })?;
         D::from_tag(self, identifier.tag)
     }
 
