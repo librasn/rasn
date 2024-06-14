@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.3](https://github.com/librasn/rasn/compare/rasn-v0.15.2...rasn-v0.15.3) - 2024-06-14
+
+### Other
+- *(ber)* don't allocate `2 + N` `BigInt`s when parsing OIDs ([#263](https://github.com/librasn/rasn/pull/263))
+
 ## [0.15.2](https://github.com/librasn/rasn/compare/rasn-v0.15.1...rasn-v0.15.2) - 2024-06-11
 
 ### Fixed
