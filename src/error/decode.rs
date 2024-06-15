@@ -1,8 +1,10 @@
+#[cfg(feature = "jer")]
 use core::num::ParseIntError;
 
 use super::strings::PermittedAlphabetError;
 use alloc::{boxed::Box, string::ToString};
 
+#[cfg(feature = "jer")]
 use jzon::JsonValue;
 use snafu::Snafu;
 #[cfg(feature = "backtraces")]
@@ -21,6 +23,7 @@ pub enum CodecDecodeError {
     Der(DerDecodeErrorKind),
     Uper(UperDecodeErrorKind),
     Aper(AperDecodeErrorKind),
+    #[cfg(feature = "jer")]
     Jer(JerDecodeErrorKind),
     Oer(OerDecodeErrorKind),
     Coer(CoerDecodeErrorKind),
@@ -42,6 +45,7 @@ impl_from!(Cer, CerDecodeErrorKind);
 impl_from!(Der, DerDecodeErrorKind);
 impl_from!(Uper, UperDecodeErrorKind);
 impl_from!(Aper, AperDecodeErrorKind);
+#[cfg(feature = "jer")]
 impl_from!(Jer, JerDecodeErrorKind);
 impl_from!(Oer, OerDecodeErrorKind);
 impl_from!(Coer, CoerDecodeErrorKind);
@@ -345,6 +349,7 @@ impl DecodeError {
             CodecDecodeError::Der(_) => crate::Codec::Der,
             CodecDecodeError::Uper(_) => crate::Codec::Uper,
             CodecDecodeError::Aper(_) => crate::Codec::Aper,
+            #[cfg(feature = "jer")]
             CodecDecodeError::Jer(_) => crate::Codec::Jer,
             CodecDecodeError::Oer(_) => crate::Codec::Oer,
             CodecDecodeError::Coer(_) => crate::Codec::Coer,
@@ -630,16 +635,20 @@ pub enum JerDecodeErrorKind {
         needed: &'static str,
         found: alloc::string::String,
     },
+    #[cfg(feature = "jer")]
     #[snafu(display("Found invalid byte in bit string. {parse_int_err}"))]
     InvalidJerBitstring { parse_int_err: ParseIntError },
+    #[cfg(feature = "jer")]
     #[snafu(display("Found invalid character in octet string."))]
     InvalidJerOctetString {},
+    #[cfg(feature = "jer")]
     #[snafu(display("Failed to construct OID from value {value}",))]
     InvalidOIDString { value: JsonValue },
     #[snafu(display("Found invalid enumerated discriminant {discriminant}",))]
     InvalidEnumDiscriminant { discriminant: alloc::string::String },
 }
 
+#[cfg(feature = "jer")]
 impl JerDecodeErrorKind {
     pub fn eoi() -> CodecDecodeError {
         CodecDecodeError::Jer(JerDecodeErrorKind::EndOfInput {})

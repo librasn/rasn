@@ -31,6 +31,8 @@ bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 default = ["macros"]
 macros = ["rasn-derive"]
 backtraces = []
+std = []
+jer = ["std", "jzon"]
 
 [[bench]]
 name = "criterion"
@@ -58,7 +60,7 @@ arrayvec = { version = "0.7.4", default-features = false }
 either = { version = "1.9.0", default-features = false }
 once_cell = { version = "1.18.0", default-features = false, features = ["race", "alloc"] }
 num-integer = { version = "0.1.45", default-features = false, features = ["i128"] }
-jzon = "0.12.5"
+jzon = { version = "0.12.5", optional = true }
 
 [dev-dependencies]
 criterion = "0.5.1"
