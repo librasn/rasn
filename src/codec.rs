@@ -16,6 +16,7 @@ pub enum Codec {
     /// X.691 — Packed Encoding Rules (Unaligned)
     Uper,
     /// [JSON Encoding Rules](https://obj-sys.com/docs/JSONEncodingRules.pdf)
+    #[cfg(feature = "jer")]
     Jer,
     /// X.696 — Octet Encoding Rules
     Oer,
@@ -31,6 +32,7 @@ impl core::fmt::Display for Codec {
             Self::Cer => write!(f, "CER"),
             Self::Der => write!(f, "DER"),
             Self::Uper => write!(f, "UPER"),
+            #[cfg(feature = "jer")]
             Self::Jer => write!(f, "JER"),
             Self::Oer => write!(f, "OER"),
             Self::Coer => write!(f, "COER"),
@@ -54,6 +56,7 @@ impl Codec {
             Self::Cer => crate::cer::encode(value),
             Self::Der => crate::der::encode(value),
             Self::Uper => crate::uper::encode(value),
+            #[cfg(feature = "jer")]
             Self::Jer => crate::jer::encode(value).map(alloc::string::String::into_bytes),
             Self::Oer => crate::oer::encode(value),
             Self::Coer => crate::coer::encode(value),
@@ -77,6 +80,7 @@ impl Codec {
             Self::Uper => crate::uper::decode(input),
             Self::Oer => crate::oer::decode(input),
             Self::Coer => crate::coer::decode(input),
+            #[cfg(feature = "jer")]
             Self::Jer => alloc::string::String::from_utf8(input.to_vec()).map_or_else(
                 |e| {
                     Err(crate::error::DecodeError::from_kind(
@@ -97,6 +101,7 @@ impl Codec {
     /// # Errors
     /// - If the value fails to be encoded, or if trying to encode using
     ///   binary-based encoding rules, returns `EncodeError` struct.
+    #[cfg(feature = "jer")]
     pub fn encode_to_string<T: Encode>(
         self,
         value: &T,
@@ -118,6 +123,7 @@ impl Codec {
     /// # Errors
     /// - If `D` cannot be decoded from `input`, or if trying to decode using
     ///   binary-based encoding rules, returns `DecodeError` struct.
+    #[cfg(feature = "jer")]
     pub fn decode_from_str<D: Decode>(&self, input: &str) -> Result<D, crate::error::DecodeError> {
         match self {
             Self::Jer => crate::jer::decode(input),
