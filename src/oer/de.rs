@@ -193,7 +193,7 @@ impl<'input> Decoder<'input> {
                             self.codec(),
                         ));
                     }
-                    if self.options.encoding_rules.is_coer() && input.leading_zeros() > 8 {
+                    if self.options.encoding_rules.is_coer() && data.leading_zeros() > 8 {
                         return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
                             msg: "Length value should not have leading zeroes in COER".to_string(),
                         }
