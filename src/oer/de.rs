@@ -324,7 +324,7 @@ impl<'input> Decoder<'input> {
         Ok(BitString::from_bitslice(data.into()))
     }
     fn parse_known_multiplier_string<
-        T: crate::types::strings::StaticPermittedAlphabet + crate::types::AsnType,
+        T: crate::types::strings::StaticPermittedAlphabet + crate::types::AsnType + TryFrom<Vec<u8>>,
     >(
         &mut self,
         constraints: &Constraints,
@@ -335,14 +335,32 @@ impl<'input> Decoder<'input> {
                 let data = self
                     .extract_data_by_length(*size.constraint.as_start().unwrap())
                     .map(|data| data.to_bitvec())?;
-                return T::try_from_bits(data, 8).map_err(|e| {
-                    DecodeError::string_conversion_failed(T::TAG, e.to_string(), self.codec())
+                return T::try_from(crate::bits::to_vec(&data)).map_err(|_| {
+                    DecodeError::string_conversion_failed(
+                        T::TAG,
+                        alloc::format!(
+                            "Failed to convert to string type '{}' from bytes - all bytes not in permitted alphabet.",
+                            T::alphabet_name()
+                        ),
+                        self.codec(),
+                    )
                 });
             }
         }
         let length = self.decode_length()?;
-        T::try_from_bits(self.extract_data_by_length(length)?.to_bitvec(), 8)
-            .map_err(|e| DecodeError::string_conversion_failed(T::TAG, e.to_string(), self.codec()))
+        T::try_from(crate::bits::to_vec(
+            &self.extract_data_by_length(length)?.to_bitvec(),
+        ))
+        .map_err(|_| {
+            DecodeError::string_conversion_failed(
+                T::TAG,
+                alloc::format!(
+                    "Failed to convert to string type '{}' from bytes - all bytes not in permitted alphabet.",
+                    T::alphabet_name()
+                ),
+                self.codec(),
+            )
+        })
     }
     fn parse_optional_and_default_field_bitmap(
         &mut self,

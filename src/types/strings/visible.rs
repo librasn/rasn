@@ -54,6 +54,10 @@ impl StaticPermittedAlphabet for VisibleString {
         0x7A, 0x7B, 0x7C, 0x7D, 0x7E,
     ];
 
+    fn alphabet_name() -> &'static str {
+        "VisibleString"
+    }
+
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
         Box::from(self.0.iter().map(|byte| *byte as u32))
     }

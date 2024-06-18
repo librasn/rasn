@@ -690,6 +690,12 @@ mod tests {
             &[0x03, 0x66, 0x6f, 0x6f]
         );
     }
+    // https://github.com/librasn/rasn/issues/260
+    #[test]
+    fn invalid_ia5_oer() {
+        let data = [4, 4, 4, 129, 233, 0, 1, 0, 2, 4, 130, 236, 236];
+        decode_error!(coer, Ia5String, &data);
+    }
     #[test]
     fn test_general_string() {
         round_trip!(

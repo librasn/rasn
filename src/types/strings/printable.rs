@@ -23,6 +23,9 @@ impl StaticPermittedAlphabet for PrintableString {
         b't', b'u', b'v', b'w', b'x', b'y', b'z', b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7',
         b'8', b'9', b' ', b'\'', b'(', b')', b'+', b',', b'-', b'.', b'/', b':', b'=', b'?',
     ]);
+    fn alphabet_name() -> &'static str {
+        "PrintableString"
+    }
 
     fn push_char(&mut self, ch: u32) {
         debug_assert!(

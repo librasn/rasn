@@ -10,6 +10,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
     const CHARACTER_SET: &'static [u32];
     const CHARACTER_WIDTH: u32 = crate::num::log2(Self::CHARACTER_SET.len() as i128);
 
+    fn alphabet_name() -> &'static str;
     fn push_char(&mut self, ch: u32);
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_>;
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
