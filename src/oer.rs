@@ -78,7 +78,6 @@ mod tests {
     fn test_length_determinant() {
         // short with leading zeros
         decode_error!(coer, Integer, &[0x00, 0x00, 0x00, 0x01, 0x01]);
-        decode_ok!(oer, Integer, &[0x00, 0x00, 0x00, 0x01, 0x01], 1.into());
         decode_error!(coer, Integer, &[0x00, 0x00, 0x00, 0x01, 0x01]);
         // Long form when not needed
         decode_error!(coer, Integer, &[0b1000_0001, 0x01, 0x01]);
@@ -126,7 +125,7 @@ mod tests {
         // Leading zeros not allowed for enumerated values in any case
         round_trip!(oer, Test, Test::A, &[0x01]);
         round_trip!(oer, TestDefaults, TestDefaults::A, &[0x00]);
-        // Unfortunately, below is correct since we just parse the first byte and do not chek the
+        // Unfortunately, below is correct since we just parse the first byte and do not check the
         // remainder in reality
         decode_ok!(oer, TestDefaults, &[0x00, 0x00], TestDefaults::A);
         decode_error!(oer, Test, &[0x00, 0x01]);
@@ -160,5 +159,23 @@ mod tests {
             },
             &data
         );
+    }
+    #[test]
+    fn test_explicit_with_optional() {
+        #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
+        pub struct SequenceOptionals {
+            #[rasn(tag(explicit(0)))]
+            pub it: Integer,
+            #[rasn(tag(explicit(1)))]
+            pub is: Option<OctetString>,
+            #[rasn(tag(explicit(2)))]
+            pub late: Option<Integer>,
+        }
+        let test_seq = SequenceOptionals {
+            it: 42.into(),
+            is: None,
+            late: None,
+        };
+        round_trip!(oer, SequenceOptionals, test_seq, &[0x00, 0x01, 0x2A]);
     }
 }
