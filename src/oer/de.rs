@@ -626,6 +626,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
             }
             .into());
         }
+        if length_bits.len() == 0 {
+            return Err(DecodeError::length_exceeds_platform_width(
+                "Zero bits for quantity when decoding sequence of".to_string(),
+                self.codec(),
+            ));
+        }
+        if length_bits.len() > usize::BITS as usize {
+            return Err(DecodeError::length_exceeds_platform_width(
+                "Quantity value too large for this platform when decoding sequence of".to_string(),
+                self.codec(),
+            ));
+        }
 
         let length = length_bits.load_be::<usize>();
         let mut start = 1;
