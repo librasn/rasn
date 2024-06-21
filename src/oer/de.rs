@@ -340,7 +340,7 @@ impl<'input> Decoder<'input> {
                         T::TAG,
                         alloc::format!(
                             "Failed to convert to string type '{}' from bytes - all bytes not in permitted alphabet.",
-                            T::alphabet_name()
+                            T::CHARACTER_SET_NAME
                         ),
                         self.codec(),
                     )
@@ -356,7 +356,7 @@ impl<'input> Decoder<'input> {
                 T::TAG,
                 alloc::format!(
                     "Failed to convert to string type '{}' from bytes - all bytes not in permitted alphabet.",
-                    T::alphabet_name()
+                    T::CHARACTER_SET_NAME
                 ),
                 self.codec(),
             )

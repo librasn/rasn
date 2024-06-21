@@ -1,3 +1,5 @@
+use core::fmt;
+
 use alloc::collections::BTreeMap;
 
 use crate::error::strings::PermittedAlphabetError;
@@ -5,12 +7,34 @@ use alloc::{boxed::Box, vec::Vec};
 use bitvec::prelude::*;
 
 use crate::types;
+pub(crate) enum CharacterSetName {
+    Bmp,
+    General,
+    IA5,
+    Numeric,
+    Printable,
+    Teletex,
+    Visible,
+}
+impl fmt::Display for CharacterSetName {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Bmp => write!(f, "BMPString"),
+            Self::General => write!(f, "GeneralString"),
+            Self::IA5 => write!(f, "IA5String"),
+            Self::Numeric => write!(f, "NumericString"),
+            Self::Printable => write!(f, "PrintableString"),
+            Self::Teletex => write!(f, "TeletexString"),
+            Self::Visible => write!(f, "VisibleString"),
+        }
+    }
+}
 
 pub(crate) trait StaticPermittedAlphabet: Sized + Default {
     const CHARACTER_SET: &'static [u32];
     const CHARACTER_WIDTH: u32 = crate::num::log2(Self::CHARACTER_SET.len() as i128);
+    const CHARACTER_SET_NAME: CharacterSetName;
 
-    fn alphabet_name() -> &'static str;
     fn push_char(&mut self, ch: u32);
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_>;
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32>;

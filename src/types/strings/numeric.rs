@@ -91,10 +91,8 @@ impl StaticPermittedAlphabet for NumericString {
     const CHARACTER_SET: &'static [u32] = &bytes_to_chars([
         b' ', b'0', b'1', b'2', b'3', b'4', b'5', b'6', b'7', b'8', b'9',
     ]);
-
-    fn alphabet_name() -> &'static str {
-        "NumericString"
-    }
+    const CHARACTER_SET_NAME: constrained::CharacterSetName =
+        constrained::CharacterSetName::Numeric;
 
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
         Box::from(self.0.iter().map(|byte| *byte as u32))

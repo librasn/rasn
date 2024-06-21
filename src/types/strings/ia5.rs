@@ -123,10 +123,7 @@ impl super::StaticPermittedAlphabet for Ia5String {
         0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
         0x78, 0x79, 0x7A, 0x7B, 0x7C, 0x7D, 0x7E, 0x7F,
     ];
-
-    fn alphabet_name() -> &'static str {
-        "IA5String"
-    }
+    const CHARACTER_SET_NAME: constrained::CharacterSetName = constrained::CharacterSetName::IA5;
 
     fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
         Box::from(self.0.iter().map(|byte| *byte as u32))

@@ -28,9 +28,7 @@ impl StaticPermittedAlphabet for BmpString {
         }
         array
     };
-    fn alphabet_name() -> &'static str {
-        "BmpString"
-    }
+    const CHARACTER_SET_NAME: constrained::CharacterSetName = constrained::CharacterSetName::Bmp;
 
     fn push_char(&mut self, ch: u32) {
         debug_assert!(
