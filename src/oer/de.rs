@@ -92,11 +92,17 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(byte.as_bytes()[0])
     }
-    fn drop_bits(&mut self, num: usize) -> Result<(), DecodeError> {
-        let (input, _) = nom::bytes::streaming::take(num)(self.input)
+    fn drop_preamble_bits(&mut self, num: usize) -> Result<(), DecodeError> {
+        let (input, bits) = nom::bytes::streaming::take(num)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        self.input = input;
-        Ok(())
+        if bits.not_any() {
+            self.input = input;
+            Ok(())
+        } else {
+            Err(OerDecodeErrorKind::invalid_preamble(
+                "Preamble unused bits should be all zero.".to_string(),
+            ))
+        }
     }
     fn parse_tag(&mut self) -> Result<Tag, DecodeError> {
         // Seems like tag number
@@ -466,7 +472,7 @@ impl<'input> Decoder<'input> {
         } else {
             bitmap.len()
         };
-        self.drop_bits((8 - preamble_length % 8) % 8)?;
+        self.drop_preamble_bits((8 - preamble_length % 8) % 8)?;
 
         debug_assert_eq!(self.input.len() % 8, 0);
         Ok((bitmap, extensible_present))

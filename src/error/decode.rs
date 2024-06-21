@@ -695,6 +695,8 @@ pub enum OerDecodeErrorKind {
         /// The amount of invalid bits.
         msg: alloc::string::String,
     },
+    #[snafu(display("Invalid preamble: {msg}"))]
+    InvalidPreamble { msg: alloc::string::String },
 }
 
 impl OerDecodeErrorKind {
@@ -718,6 +720,10 @@ impl OerDecodeErrorKind {
     #[must_use]
     pub fn invalid_bit_string(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidOerBitString { msg }).into()
+    }
+    #[must_use]
+    pub fn invalid_preamble(msg: alloc::string::String) -> DecodeError {
+        CodecDecodeError::Oer(Self::InvalidPreamble { msg }).into()
     }
 }
 
