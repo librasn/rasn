@@ -137,4 +137,28 @@ mod tests {
         decode_error!(coer, Test, &[0b1000_0001, 0x01]);
         decode_ok!(oer, Test, &[0b1000_0001, 0x01], Test::A);
     }
+    #[test]
+    fn test_seq_preamble_unused_bits() {
+        use crate as rasn;
+        #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
+        #[rasn(automatic_tags)]
+        pub struct SequenceOptionals {
+            pub it: Integer,
+            pub is: Option<OctetString>,
+            pub late: Option<Integer>,
+        }
+        let data = [0x10, 0x01, 0x2A];
+        decode_error!(coer, SequenceOptionals, &data);
+        let data = [0x0, 0x01, 0x2A];
+        round_trip!(
+            oer,
+            SequenceOptionals,
+            SequenceOptionals {
+                it: 42.into(),
+                is: None,
+                late: None
+            },
+            &data
+        );
+    }
 }
