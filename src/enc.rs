@@ -249,7 +249,7 @@ pub trait Encoder {
         tag: Tag,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_some_with_tag_and_constraints(tag, <_>::default(), value)
+        self.encode_some_with_tag_and_constraints(tag, E::CONSTRAINTS, value)
     }
 
     /// Encode the present value of an optional field.
