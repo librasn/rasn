@@ -81,7 +81,7 @@ pub struct Encoder {
     output: Vec<u8>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     field_bitfield: alloc::collections::BTreeMap<Tag, (FieldPresence, bool)>,
-    extension_fields: Vec<Vec<u8>>,
+    extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
 }
@@ -450,9 +450,6 @@ impl Encoder {
         encoder.parent_output_length = Some(self.output_length());
         encoder
     }
-    fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
-        !extension_fields.iter().all(Vec::is_empty)
-    }
     fn encode_constructed<C: Constructed>(
         &mut self,
         tag: Tag,
@@ -466,7 +463,7 @@ impl Encoder {
         let extensions_defined = C::EXTENDED_FIELDS.is_some();
         let mut extensions_present = false;
         if extensions_defined {
-            extensions_present = Self::encoded_extension_addition(&encoder.extension_fields);
+            extensions_present = encoder.extension_fields.iter().any(Option::is_some);
             preamble.push(extensions_present);
         }
         // Section 16.2.3
@@ -514,18 +511,15 @@ impl Encoder {
         )?;
         extension_bitmap_buffer.extend(missing_bits.to_be_bytes());
         for field in &extension_fields {
-            extension_bitmap_buffer.push(!field.is_empty());
+            extension_bitmap_buffer.push(field.is_some());
         }
         extension_bitmap_buffer.extend(BitString::repeat(false, missing_bits as usize));
         debug_assert!(extension_bitmap_buffer.len() % 8 == 0);
         buffer.extend(crate::bits::to_vec(&extension_bitmap_buffer));
         // Section 16.5 # Encodings of the components in the extension addition group, as open type
-        for field in extension_fields
-            .into_iter()
-            .filter(|field| !field.is_empty())
-        {
+        for field in extension_fields.iter().filter_map(Option::as_ref) {
             self.encode_length(&mut buffer, field.len())?;
-            buffer.extend(field);
+            buffer.extend_from_slice(field);
         }
         self.extend(tag, buffer)?;
         Ok(())
@@ -928,15 +922,13 @@ impl crate::Encoder for Encoder {
         let mut encoder = Self::new(self.options.without_set_encoding());
         encoder.field_bitfield = <_>::from([(tag, (FieldPresence::Optional, false))]);
         E::encode_with_tag_and_constraints(&value, &mut encoder, tag, constraints)?;
-
         if encoder.field_bitfield.get(&tag).map_or(false, |(_, b)| *b) {
             self.set_bit(tag, true);
-            self.extension_fields.push(encoder.output());
+            self.extension_fields.push(Some(encoder.output()));
         } else {
             self.set_bit(tag, false);
-            self.extension_fields.push(Vec::new());
+            self.extension_fields.push(None);
         }
-
         Ok(())
     }
     fn encode_extension_addition_group<E>(
@@ -948,7 +940,7 @@ impl crate::Encoder for Encoder {
     {
         let Some(value) = value else {
             self.set_bit(E::TAG, false);
-            self.extension_fields.push(Vec::new());
+            self.extension_fields.push(None);
             return Ok(());
         };
         self.set_bit(E::TAG, true);
@@ -957,7 +949,7 @@ impl crate::Encoder for Encoder {
         value.encode(&mut encoder)?;
 
         let output = encoder.output();
-        self.extension_fields.push(output);
+        self.extension_fields.push(Some(output));
         Ok(())
     }
 }
