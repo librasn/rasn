@@ -63,7 +63,7 @@ pub struct Encoder {
     output: BitString,
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
     field_bitfield: alloc::collections::BTreeMap<Tag, (FieldPresence, bool)>,
-    extension_fields: Vec<Vec<u8>>,
+    extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
 }
@@ -320,10 +320,6 @@ impl Encoder {
             .unwrap_or(width)
     }
 
-    fn encoded_extension_addition(extension_fields: &[Vec<u8>]) -> bool {
-        !extension_fields.iter().all(Vec::is_empty)
-    }
-
     fn encode_constructed<C: crate::types::Constructed>(
         &mut self,
         tag: Tag,
@@ -333,7 +329,7 @@ impl Encoder {
         let mut buffer = BitString::default();
 
         if C::EXTENDED_FIELDS.is_some() {
-            buffer.push(Self::encoded_extension_addition(&encoder.extension_fields));
+            buffer.push(encoder.extension_fields.iter().any(Option::is_some));
         }
 
         for bit in encoder
@@ -353,7 +349,7 @@ impl Encoder {
             buffer.extend(encoder.bitstring_output());
         }
 
-        if !Self::encoded_extension_addition(&extension_fields) {
+        if !extension_fields.iter().any(Option::is_some) {
             self.extend(tag, &buffer);
             return Ok(());
         }
@@ -366,13 +362,10 @@ impl Encoder {
         };
 
         for field in &extension_fields {
-            extension_buffer.push(!field.is_empty());
+            extension_buffer.push(field.is_some());
         }
 
-        for field in extension_fields
-            .into_iter()
-            .filter(|field| !field.is_empty())
-        {
+        for field in extension_fields.iter().filter_map(Option::as_ref) {
             self.encode_length(
                 &mut extension_buffer,
                 field.len(),
@@ -1188,10 +1181,10 @@ impl crate::Encoder for Encoder {
 
         if encoder.field_bitfield.get(&tag).map_or(false, |(_, b)| *b) {
             self.set_bit(tag, true)?;
-            self.extension_fields.push(encoder.output());
+            self.extension_fields.push(Some(encoder.output()));
         } else {
             self.set_bit(tag, false)?;
-            self.extension_fields.push(Vec::new());
+            self.extension_fields.push(None);
         }
 
         Ok(())
@@ -1206,7 +1199,7 @@ impl crate::Encoder for Encoder {
     {
         let Some(value) = value else {
             self.set_bit(E::TAG, false)?;
-            self.extension_fields.push(Vec::new());
+            self.extension_fields.push(None);
             return Ok(());
         };
 
@@ -1216,7 +1209,7 @@ impl crate::Encoder for Encoder {
         value.encode(&mut encoder)?;
 
         let output = encoder.output();
-        self.extension_fields.push(output);
+        self.extension_fields.push(Some(output));
         Ok(())
     }
 }

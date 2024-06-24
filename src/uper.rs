@@ -1006,4 +1006,25 @@ mod tests {
             &[0x80, 0x95, 0x00]
         );
     }
+    #[test]
+    fn test_null_in_extended_option() {
+        use crate as rasn;
+        #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        pub struct Omitted {
+            pub a: Option<OctetString>,
+            #[rasn(extension_addition)]
+            pub omitted: Option<()>,
+        }
+        round_trip!(
+            uper,
+            Omitted,
+            Omitted {
+                a: Some(OctetString::from_static(&[0x00, 0x01, 0x02])),
+                omitted: Some(())
+            },
+            &[192, 192, 0, 64, 128, 64, 0]
+        );
+    }
 }
