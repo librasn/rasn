@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::error::strings::InvalidIso646Character;
-use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use once_cell::race::OnceBox;
 
 /// A string which contains a subset of the ISO 646 character set.
@@ -56,8 +56,8 @@ impl StaticPermittedAlphabet for VisibleString {
     const CHARACTER_SET_NAME: constrained::CharacterSetName =
         constrained::CharacterSetName::Visible;
 
-    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
-        Box::from(self.0.iter().map(|byte| *byte as u32))
+    fn chars(&self) -> impl Iterator<Item = u32> + '_ {
+        self.0.iter().map(|&byte| byte as u32)
     }
 
     #[track_caller]

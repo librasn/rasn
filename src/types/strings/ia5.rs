@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::error::strings::InvalidIso646Character;
-use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use once_cell::race::OnceBox;
 
 /// An string which only contains ASCII characters.
@@ -125,8 +125,8 @@ impl super::StaticPermittedAlphabet for Ia5String {
     ];
     const CHARACTER_SET_NAME: constrained::CharacterSetName = constrained::CharacterSetName::IA5;
 
-    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
-        Box::from(self.0.iter().map(|byte| *byte as u32))
+    fn chars(&self) -> impl Iterator<Item = u32> + '_ {
+        self.0.iter().map(|&byte| byte as u32)
     }
 
     fn push_char(&mut self, ch: u32) {

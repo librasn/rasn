@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::error::strings::InvalidBmpString;
-use alloc::{boxed::Box, string::String, vec::Vec};
+use alloc::{string::String, vec::Vec};
 use once_cell::race::OnceBox;
 
 /// A Basic Multilingual Plane (BMP) string, which is a subtype of [`UniversalString`]
@@ -19,6 +19,7 @@ impl BmpString {
 }
 
 impl StaticPermittedAlphabet for BmpString {
+    type CharacterSlice = &'static [u32];
     const CHARACTER_SET: &'static [u32] = &{
         let mut array = [0u32; 0xFFFE];
         let mut i = 0;
@@ -38,10 +39,13 @@ impl StaticPermittedAlphabet for BmpString {
         );
         self.0.push(ch as u16);
     }
-
-    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
-        Box::from(self.0.iter().map(|ch| *ch as u32))
+    fn as_slice(&self) -> &Self::CharacterSlice {
+        self.0.as_ref()
     }
+
+    // fn chars(&self) -> impl Iterator<Item = u32> + '_ {
+    //     self.0.iter().map(|&byte| byte as u32)
+    // }
 
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         INDEX_MAP.get_or_init(Self::build_index_map)

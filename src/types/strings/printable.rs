@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::error::strings::InvalidPrintableString;
-use alloc::{borrow::ToOwned, boxed::Box, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use once_cell::race::OnceBox;
 
 /// A string, which contains the characters defined in X.680 41.4 Section, Table 10.
@@ -34,8 +34,8 @@ impl StaticPermittedAlphabet for PrintableString {
         self.0.push(ch as u8);
     }
 
-    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_> {
-        Box::from(self.0.iter().map(|byte| *byte as u32))
+    fn chars(&self) -> impl Iterator<Item = u32> + '_ {
+        self.0.iter().map(|&byte| byte as u32)
     }
 
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {

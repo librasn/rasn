@@ -33,6 +33,18 @@ impl GeneralString {
     }
 }
 
+// impl StaticPermittedAlphabet for GeneralString {
+//     const CHARACTER_SET: &'static [u32] = &[
+//         0x00..=0x1F, // C0 Controls (C set)
+//         0x20,        // SPACE
+//         0x21..=0x7E, // Basic Latin (G set)
+//         0x7F,        // DELETE
+//         0xA1..=0xFF, // Latin-1 Supplement (G set)
+//     ];
+//     const CHARACTER_SET_NAME: constrained::CharacterSetName =
+//         constrained::CharacterSetName::General;
+// }
+
 impl TryFrom<Vec<u8>> for GeneralString {
     type Error = InvalidGeneralString;
 

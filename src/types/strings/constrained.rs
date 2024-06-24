@@ -5,6 +5,7 @@ use alloc::collections::BTreeMap;
 use crate::error::strings::PermittedAlphabetError;
 use alloc::{boxed::Box, vec::Vec};
 use bitvec::prelude::*;
+use num_traits::PrimInt;
 
 use crate::types;
 pub(crate) enum CharacterSetName {
@@ -30,13 +31,18 @@ impl fmt::Display for CharacterSetName {
     }
 }
 
-pub(crate) trait StaticPermittedAlphabet: Sized + Default {
-    const CHARACTER_SET: &'static [u32];
+pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
+    type CharacterSlice: AsRef<[T]>;
+    const CHARACTER_SET: &'static [T];
     const CHARACTER_WIDTH: u32 = crate::num::log2(Self::CHARACTER_SET.len() as i128);
     const CHARACTER_SET_NAME: CharacterSetName;
 
-    fn push_char(&mut self, ch: u32);
-    fn chars(&self) -> Box<dyn Iterator<Item = u32> + '_>;
+    fn push_char(&mut self, ch: T);
+    fn as_slice(&self) -> &Self::CharacterSlice;
+    // fn chars(&self) -> impl Iterator<Item = u32> + '_;
+    fn chars(&self) -> impl Iterator<Item = T> + '_ {
+        self.as_slice().as_ref().iter().map(|&byte| byte as T)
+    }
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
     fn char_range_to_bit_range(mut range: core::ops::Range<usize>) -> core::ops::Range<usize> {
