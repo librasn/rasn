@@ -28,6 +28,7 @@ impl StaticPermittedAlphabet for BmpString {
         }
         array
     };
+    const CHARACTER_SET_NAME: constrained::CharacterSetName = constrained::CharacterSetName::Bmp;
 
     fn push_char(&mut self, ch: u32) {
         debug_assert!(
@@ -59,11 +60,11 @@ impl TryFrom<String> for BmpString {
     }
 }
 
-impl TryFrom<&'_ str> for BmpString {
+impl TryFrom<Vec<u8>> for BmpString {
     type Error = InvalidBmpString;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
         let mut vec = Vec::with_capacity(value.len());
-        for ch in value.chars() {
+        for ch in value {
             if matches!(ch as u16, 0x0..=0xFFFF) {
                 vec.push(ch as u16);
             } else {
@@ -72,8 +73,14 @@ impl TryFrom<&'_ str> for BmpString {
                 });
             }
         }
-
         Ok(Self(vec))
+    }
+}
+
+impl TryFrom<&'_ str> for BmpString {
+    type Error = InvalidBmpString;
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::try_from(value.as_bytes().to_vec())
     }
 }
 
