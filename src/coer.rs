@@ -1242,4 +1242,25 @@ mod tests {
             &[192, 3, 0, 1, 2, 2, 7, 128, 0]
         );
     }
+    #[test]
+    // https://github.com/librasn/rasn/issues/271
+    fn test_untagged_duplicate_type_option_on_sequence() {
+        use crate as rasn;
+        #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
+        pub struct SequenceOptionals {
+            pub it: Integer,
+            pub is: Option<OctetString>,
+            pub late: Option<Integer>,
+        }
+        round_trip!(
+            coer,
+            SequenceOptionals,
+            SequenceOptionals {
+                it: 1.into(),
+                is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
+                late: None
+            },
+            &[0b10000000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03]
+        );
+    }
 }
