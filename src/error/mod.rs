@@ -10,8 +10,9 @@ mod string;
 pub mod strings {
     //! Errors specific to string conversions, permitted alphabets, and other type problems.
     pub use super::string::{
-        InvalidBmpString, InvalidGeneralString, InvalidIso646Character, InvalidNumericString,
-        InvalidPrintableString, PermittedAlphabetError,
+        InvalidBmpString, InvalidGeneralString, InvalidIA5String, InvalidNumericString,
+        InvalidPrintableString, InvalidRestrictedString, InvalidStringSize, InvalidVisibleString,
+        PermittedAlphabetError,
     };
 }
 

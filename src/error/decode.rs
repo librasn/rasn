@@ -156,11 +156,8 @@ impl core::fmt::Display for DecodeError {
 
 impl DecodeError {
     #[must_use]
-    pub fn alphabet_constraint_not_satisfied(reason: PermittedAlphabetError, codec: Codec) -> Self {
-        Self::from_kind(
-            DecodeErrorKind::AlphabetConstraintNotSatisfied { reason },
-            codec,
-        )
+    pub fn permitted_alphabet_error(reason: PermittedAlphabetError, codec: Codec) -> Self {
+        Self::from_kind(DecodeErrorKind::PermittedAlphabetError { reason }, codec)
     }
     #[must_use]
     pub fn size_constraint_not_satisfied(
@@ -370,7 +367,7 @@ impl DecodeError {
 #[non_exhaustive]
 pub enum DecodeErrorKind {
     #[snafu(display("Alphabet constraint not satisfied {}", reason))]
-    AlphabetConstraintNotSatisfied { reason: PermittedAlphabetError },
+    PermittedAlphabetError { reason: PermittedAlphabetError },
     #[snafu(display("Size constraint not satisfied: expected: {expected}; actual: {size:?}"))]
     SizeConstraintNotSatisfied {
         /// Actual sie of the data

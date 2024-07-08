@@ -324,7 +324,9 @@ impl<'input> Decoder<'input> {
         Ok(BitString::from_bitslice(data.into()))
     }
     fn parse_known_multiplier_string<
-        T: crate::types::strings::StaticPermittedAlphabet + crate::types::AsnType + TryFrom<Vec<u8>>,
+        T: crate::types::strings::StaticPermittedAlphabet
+            + crate::types::AsnType
+            + TryFrom<Vec<u8>, Error = crate::error::strings::PermittedAlphabetError>,
     >(
         &mut self,
         constraints: &Constraints,
@@ -334,33 +336,14 @@ impl<'input> Decoder<'input> {
             if size.constraint.is_fixed() && size.extensible.is_none() {
                 let data = self
                     .extract_data_by_length(*size.constraint.as_start().unwrap())
-                    .map(|data| data.to_bitvec())?;
-                return T::try_from(crate::bits::to_vec(&data)).map_err(|_| {
-                    DecodeError::string_conversion_failed(
-                        T::TAG,
-                        alloc::format!(
-                            "Failed to convert to string type '{}' from bytes - all bytes not in permitted alphabet.",
-                            T::CHARACTER_SET_NAME
-                        ),
-                        self.codec(),
-                    )
-                });
+                    .map(|data| data.as_bytes().to_vec())?;
+                return T::try_from(data)
+                    .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()));
             }
         }
         let length = self.decode_length()?;
-        T::try_from(crate::bits::to_vec(
-            &self.extract_data_by_length(length)?.to_bitvec(),
-        ))
-        .map_err(|_| {
-            DecodeError::string_conversion_failed(
-                T::TAG,
-                alloc::format!(
-                    "Failed to convert to string type '{}' from bytes - all bytes not in permitted alphabet.",
-                    T::CHARACTER_SET_NAME
-                ),
-                self.codec(),
-            )
-        })
+        T::try_from(self.extract_data_by_length(length)?.as_bytes().to_vec())
+            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
     fn parse_optional_and_default_field_bitmap(
         &mut self,
@@ -710,12 +693,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_general_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<GeneralString, Self::Error> {
-        GeneralString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
-            DecodeError::string_conversion_failed(Tag::GENERAL_STRING, e.to_string(), self.codec())
-        })
+        self.parse_known_multiplier_string(&constraints)
     }
 
     fn decode_ia5_string(

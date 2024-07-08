@@ -1,7 +1,7 @@
 use super::*;
 
-use crate::error::strings::InvalidPrintableString;
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use crate::error::strings::{InvalidPrintableString, PermittedAlphabetError};
+use alloc::{string::String, vec::Vec};
 use once_cell::race::OnceBox;
 
 /// A string, which contains the characters defined in X.680 41.4 Section, Table 10.
@@ -13,7 +13,27 @@ pub struct PrintableString(Vec<u8>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
+impl PrintableString {
+    pub(crate) fn new(data: Vec<u8>) -> Self {
+        Self(data)
+    }
+    /// Construct a new `PrintableString` from a byte array.
+    ///
+    /// # Errors
+    /// Raises `PermittedAlphabetError` if the byte array contains invalid characters,
+    /// other than in `CHARACTER_SET`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
+        Ok(Self(Self::try_from_slice(bytes)?))
+    }
+
+    #[must_use]
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
 impl StaticPermittedAlphabet for PrintableString {
+    type T = u8;
     /// `PrintableString` contains only "printable" characters.
     /// Latin letters, digits, (space) '()+,-./:=?
     const CHARACTER_SET: &'static [u32] = &bytes_to_chars([
@@ -27,10 +47,6 @@ impl StaticPermittedAlphabet for PrintableString {
         constrained::CharacterSetName::Printable;
 
     fn push_char(&mut self, ch: u32) {
-        debug_assert!(
-            Self::CHARACTER_SET.contains(&ch),
-            "{ch} not in character set"
-        );
         self.0.push(ch as u8);
     }
 
@@ -47,57 +63,33 @@ impl StaticPermittedAlphabet for PrintableString {
     }
 }
 
-impl PrintableString {
-    /// Construct a new `PrintableString` from a byte array.
-    ///
-    /// # Errors
-    /// Raises `InvalidPrintableString` if the byte array contains invalid characters,
-    /// other than in `CHARACTER_SET`.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, InvalidPrintableString> {
-        bytes.iter().copied().map(u32::from).try_for_each(|byte| {
-            if Self::CHARACTER_SET.contains(&byte) {
-                Ok(())
-            } else {
-                Err(InvalidPrintableString { character: byte })
-            }
-        })?;
-
-        Ok(Self(bytes.to_owned()))
-    }
-
-    #[must_use]
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-}
-
 impl TryFrom<String> for PrintableString {
-    type Error = InvalidPrintableString;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::from_bytes(value.as_bytes())
+        Ok(Self(Self::try_from_slice(value.as_bytes())?))
     }
 }
 
 impl TryFrom<alloc::vec::Vec<u8>> for PrintableString {
-    type Error = InvalidPrintableString;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
-        Self::from_bytes(&value)
+        Ok(Self(Self::try_from_slice(value.as_slice())?))
     }
 }
 
 impl TryFrom<&'_ [u8]> for PrintableString {
-    type Error = InvalidPrintableString;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Self::from_bytes(value)
+        Ok(Self(Self::try_from_slice(value)?))
     }
 }
 impl TryFrom<&'_ str> for PrintableString {
-    type Error = InvalidPrintableString;
+    type Error = PermittedAlphabetError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_bytes(value.as_bytes())
+        Ok(Self(Self::try_from_slice(value.as_bytes())?))
     }
 }
 

@@ -1,7 +1,8 @@
 use super::*;
 
-use crate::error::strings::InvalidIso646Character;
+use crate::error::strings::{InvalidIA5String, PermittedAlphabetError};
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use nom::AsBytes;
 use once_cell::race::OnceBox;
 
 /// An string which only contains ASCII characters.
@@ -11,18 +12,9 @@ static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox:
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl Ia5String {
-    pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, InvalidIso646Character> {
-        bytes.iter().try_for_each(|byte| {
-            if Self::CHARACTER_SET.contains(&(*byte as u32)) {
-                Ok(())
-            } else {
-                Err(InvalidIso646Character { character: *byte })
-            }
-        })?;
-
-        Ok(Self(bytes.to_owned()))
+    pub(crate) fn new(data: Vec<u8>) -> Self {
+        Self(data)
     }
-
     pub fn as_iso646_bytes(&self) -> &[u8] {
         &self.0
     }
@@ -60,42 +52,42 @@ impl Decode for Ia5String {
 }
 
 impl TryFrom<alloc::string::String> for Ia5String {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: alloc::string::String) -> Result<Self, Self::Error> {
-        Self::from_iso646_bytes(value.as_bytes())
+        Ok(Self(Self::try_from_slice(value.as_bytes())?))
     }
 }
 
 impl TryFrom<&'_ str> for Ia5String {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_iso646_bytes(value.as_bytes())
+        Ok(Self(Self::try_from_slice(value.as_bytes())?))
     }
 }
 
 impl TryFrom<alloc::vec::Vec<u8>> for Ia5String {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
-        Self::from_iso646_bytes(&value)
+        Ok(Self(Self::try_from_slice(value.as_slice())?))
     }
 }
 
 impl TryFrom<&'_ [u8]> for Ia5String {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Self::from_iso646_bytes(value)
+        Ok(Self(Self::try_from_slice(value)?))
     }
 }
 
 impl TryFrom<bytes::Bytes> for Ia5String {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: bytes::Bytes) -> Result<Self, Self::Error> {
-        Self::try_from(&*value)
+        Ok(Self(Self::try_from_slice(value.as_ref().as_bytes())?))
     }
 }
 
@@ -112,6 +104,7 @@ impl From<Ia5String> for alloc::string::String {
 }
 
 impl super::StaticPermittedAlphabet for Ia5String {
+    type T = u8;
     const CHARACTER_SET: &'static [u32] = &[
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E,
         0x0F, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D,
@@ -130,11 +123,6 @@ impl super::StaticPermittedAlphabet for Ia5String {
     }
 
     fn push_char(&mut self, ch: u32) {
-        debug_assert!(
-            Self::CHARACTER_SET.contains(&ch),
-            "{} not in character set",
-            ch
-        );
         self.0.push(ch as u8);
     }
 

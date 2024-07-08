@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::error::strings::InvalidIso646Character;
+use crate::error::strings::{InvalidVisibleString, PermittedAlphabetError};
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use once_cell::race::OnceBox;
 
@@ -19,21 +19,25 @@ static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox:
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl VisibleString {
+    /// `new` function is restricted for internal use only with `TryFrom` and `From` traits.
+    pub(crate) fn new(data: Vec<u8>) -> Self {
+        Self(data)
+    }
     /// Create a new `VisibleString` from ISO 646 bytes (also known as US-ASCII/IA5/IRA5).
     ///
     /// # Errors
     ///
     /// Error of type `InvalidIso646Bytes` is raised if the restriction is not met.
-    pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, InvalidIso646Character> {
-        bytes.iter().try_for_each(|byte| {
-            if Self::CHARACTER_SET.contains(&(*byte as u32)) {
-                Ok(())
-            } else {
-                Err(InvalidIso646Character { character: *byte })
-            }
-        })?;
+    pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
+        // bytes.iter().try_for_each(|byte| {
+        //     if Self::CHARACTER_SET.contains(&(*byte as u32)) {
+        //         Ok(())
+        //     } else {
+        //         Err(InvalidIso646Character { character: *byte })
+        //     }
+        // })?;
 
-        Ok(Self(bytes.to_owned()))
+        Ok(Self(Self::try_from_slice(bytes)?))
     }
     /// Converts the `VisibleString` into ISO 646 bytes (also known as US-ASCII/IA5/IRA5).
     #[must_use]
@@ -43,6 +47,7 @@ impl VisibleString {
 }
 
 impl StaticPermittedAlphabet for VisibleString {
+    type T = u8;
     /// Includes Space (0x20) and all graphically visible characters (0x21-0x7E).
     const CHARACTER_SET: &'static [u32] = &[
         0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2A, 0x2B, 0x2C, 0x2D, 0x2E,
@@ -62,11 +67,6 @@ impl StaticPermittedAlphabet for VisibleString {
 
     #[track_caller]
     fn push_char(&mut self, ch: u32) {
-        debug_assert!(
-            Self::CHARACTER_SET.contains(&ch),
-            "{} not in character set",
-            ch
-        );
         self.0.push(ch as u8);
     }
 
@@ -113,15 +113,16 @@ impl Decode for VisibleString {
 }
 
 impl TryFrom<alloc::string::String> for VisibleString {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: alloc::string::String) -> Result<Self, Self::Error> {
-        Self::from_iso646_bytes(value.as_bytes())
+        // Self::from_iso646_bytes(value.as_bytes())
+        Ok(Self(Self::try_from_slice(value.as_bytes())?))
     }
 }
 
 impl TryFrom<&'_ str> for VisibleString {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
         Self::from_iso646_bytes(value.as_bytes())
@@ -129,15 +130,14 @@ impl TryFrom<&'_ str> for VisibleString {
 }
 
 impl TryFrom<alloc::vec::Vec<u8>> for VisibleString {
-    type Error = InvalidIso646Character;
-
+    type Error = PermittedAlphabetError;
     fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
         Self::from_iso646_bytes(&value)
     }
 }
 
 impl TryFrom<&'_ [u8]> for VisibleString {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
         Self::from_iso646_bytes(value)
@@ -145,7 +145,7 @@ impl TryFrom<&'_ [u8]> for VisibleString {
 }
 
 impl TryFrom<bytes::Bytes> for VisibleString {
-    type Error = InvalidIso646Character;
+    type Error = PermittedAlphabetError;
 
     fn try_from(value: bytes::Bytes) -> Result<Self, Self::Error> {
         Self::try_from(&*value)

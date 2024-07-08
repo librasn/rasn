@@ -1,11 +1,11 @@
 use core::fmt;
 
 use alloc::collections::BTreeMap;
+use num_traits::{AsPrimitive, FromBytes, FromPrimitive, PrimInt, ToPrimitive, Unsigned};
 
-use crate::error::strings::PermittedAlphabetError;
+use crate::error::strings::{InvalidRestrictedString, PermittedAlphabetError};
 use alloc::{boxed::Box, vec::Vec};
 use bitvec::prelude::*;
-use num_traits::PrimInt;
 
 use crate::types;
 pub(crate) enum CharacterSetName {
@@ -31,29 +31,101 @@ impl fmt::Display for CharacterSetName {
     }
 }
 
-pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
-    type CharacterSlice: AsRef<[T]>;
-    const CHARACTER_SET: &'static [T];
-    const CHARACTER_WIDTH: u32 = crate::num::log2(Self::CHARACTER_SET.len() as i128);
+pub(crate) trait StaticPermittedAlphabet: Sized + Default {
+    type T: PrimInt
+        + Unsigned
+        + ToPrimitive
+        + FromPrimitive
+        + AsPrimitive<u8>
+        + AsPrimitive<u16>
+        + AsPrimitive<u32>;
+    const CHARACTER_SET: &'static [u32];
+    /// Bits needed to represent a character in the character set so that every character can be represented
+    /// Encoding specific requirement
+    const CHARACTER_SET_WIDTH: usize = crate::num::log2(Self::CHARACTER_SET.len() as i128) as usize;
     const CHARACTER_SET_NAME: CharacterSetName;
 
-    fn push_char(&mut self, ch: T);
-    fn as_slice(&self) -> &Self::CharacterSlice;
-    // fn chars(&self) -> impl Iterator<Item = u32> + '_;
-    fn chars(&self) -> impl Iterator<Item = T> + '_ {
-        self.as_slice().as_ref().iter().map(|&byte| byte as T)
+    fn push_char(&mut self, ch: u32);
+    fn chars(&self) -> impl Iterator<Item = u32> + '_;
+    fn contains_char(ch: u32) -> bool {
+        Self::CHARACTER_SET.contains(&ch)
+    }
+    fn invalid_restricted_string(ch: u32) -> InvalidRestrictedString {
+        match Self::CHARACTER_SET_NAME {
+            CharacterSetName::Bmp => InvalidRestrictedString::InvalidBmpString(ch.into()),
+            CharacterSetName::General => InvalidRestrictedString::InvalidGeneralString(ch.into()),
+            CharacterSetName::IA5 => InvalidRestrictedString::InvalidIA5String(ch.into()),
+            CharacterSetName::Numeric => InvalidRestrictedString::InvalidNumericString(ch.into()),
+            CharacterSetName::Printable => {
+                InvalidRestrictedString::InvalidPrintableString(ch.into())
+            }
+            CharacterSetName::Teletex => InvalidRestrictedString::InvalidTeletexString(ch.into()),
+            CharacterSetName::Visible => InvalidRestrictedString::InvalidVisibleString(ch.into()),
+        }
+    }
+    fn try_from_slice(input: impl AsRef<[u8]>) -> Result<Vec<Self::T>, PermittedAlphabetError> {
+        Self::try_from_slice_with_width(input, core::mem::size_of::<Self::T>())
+    }
+    fn try_from_slice_with_width(
+        input: impl AsRef<[u8]>,
+        width: usize,
+    ) -> Result<Vec<Self::T>, PermittedAlphabetError> {
+        let input = input.as_ref();
+        // We currently only support character widths up to 4 bytes on error logic
+        debug_assert!(width <= 4);
+        if width == 0 {
+            return Err(PermittedAlphabetError::Other {
+                message: alloc::format!(
+                    "Character set width set to zero when parsing string {}",
+                    Self::CHARACTER_SET_NAME
+                ),
+            });
+        }
+        // Input must be aligned with character encoding width to be valid input
+        if input.len() % width != 0 {
+            return Err(PermittedAlphabetError::InvalidData {
+                length: input.len(),
+                width,
+            });
+        }
+        let num_elements = input.len() / width;
+        let mut vec = Vec::with_capacity(num_elements);
+        // Character width can be more than 1 byte, and combined bytes define the character encoding width
+        let process_chunk: fn(&[u8]) -> Option<Self::T> = match width {
+            1 => |chunk: &[u8]| Self::T::from_u8(chunk[0]),
+            2 => |chunk: &[u8]| Self::T::from_u16(u16::from_be_bytes(chunk.try_into().unwrap())),
+            3 | 4 => |chunk: &[u8]| {
+                Self::T::from_u32(u32::from_be_bytes(chunk.try_into().unwrap_or_default()))
+            },
+            _ => unreachable!(),
+        };
+
+        for chunk in input.chunks_exact(width) {
+            if let Some(character) = process_chunk(chunk) {
+                if Self::contains_char(character.as_()) {
+                    vec.push(character);
+                } else {
+                    return Err(PermittedAlphabetError::InvalidRestrictedString {
+                        source: Self::invalid_restricted_string(
+                            character.to_u32().unwrap_or_default(),
+                        ),
+                    });
+                }
+            }
+        }
+        Ok(vec)
     }
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
     fn char_range_to_bit_range(mut range: core::ops::Range<usize>) -> core::ops::Range<usize> {
-        let width = Self::CHARACTER_WIDTH as usize;
+        let width = Self::CHARACTER_SET_WIDTH;
         range.start *= width;
         range.end *= width;
         range
     }
 
     fn to_index_or_value_bitstring(&self) -> types::BitString {
-        if should_be_indexed(Self::CHARACTER_WIDTH, Self::CHARACTER_SET) {
+        if should_be_indexed(Self::CHARACTER_SET_WIDTH as u32, Self::CHARACTER_SET) {
             self.to_index_string()
         } else {
             self.to_bit_string()
@@ -63,11 +135,11 @@ pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
     fn to_index_string(&self) -> types::BitString {
         let index_map = Self::index_map();
         let mut index_string = types::BitString::new();
-        let width = Self::CHARACTER_WIDTH;
+        let width = Self::CHARACTER_SET_WIDTH;
         for ch in self.chars() {
-            let index = index_map[&ch];
+            let index = index_map.get(&ch).unwrap();
             index_string
-                .extend_from_bitslice(&index.view_bits::<Msb0>()[(u32::BITS - width) as usize..]);
+                .extend_from_bitslice(&index.view_bits::<Msb0>()[(u32::BITS as usize - width)..]);
         }
         index_string
     }
@@ -75,13 +147,13 @@ pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
     fn to_octet_aligned_index_string(&self) -> Vec<u8> {
         let index_map = Self::index_map();
         let mut index_string = types::BitString::new();
-        let width = Self::CHARACTER_WIDTH;
-        let new_width = self.octet_aligned_char_width() as usize;
+        let width = Self::CHARACTER_SET_WIDTH;
+        let new_width = self.octet_aligned_char_width();
 
         for ch in self.chars() {
-            let ch = &index_map[&ch].view_bits::<Msb0>()[(u32::BITS - width) as usize..];
+            let ch = &index_map[&ch].view_bits::<Msb0>()[(u32::BITS as usize - width)..];
             let mut padding = types::BitString::new();
-            for _ in 0..(new_width - width as usize) {
+            for _ in 0..(new_width - width) {
                 padding.push(false);
             }
             padding.extend_from_bitslice(ch);
@@ -91,20 +163,20 @@ pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
         crate::bits::to_vec(&index_string)
     }
 
-    fn octet_aligned_char_width(&self) -> u32 {
-        Self::CHARACTER_WIDTH
+    fn octet_aligned_char_width(&self) -> usize {
+        Self::CHARACTER_SET_WIDTH
             .is_power_of_two()
-            .then_some(Self::CHARACTER_WIDTH)
-            .unwrap_or_else(|| Self::CHARACTER_WIDTH.next_power_of_two())
+            .then_some(Self::CHARACTER_SET_WIDTH)
+            .unwrap_or_else(|| Self::CHARACTER_SET_WIDTH.next_power_of_two())
     }
 
     fn to_bit_string(&self) -> types::BitString {
         let mut octet_string = types::BitString::new();
-        let width = Self::CHARACTER_WIDTH;
+        let width = Self::CHARACTER_SET_WIDTH;
 
         for ch in self.chars() {
             octet_string
-                .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS - width) as usize..]);
+                .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS as usize - width)..]);
         }
         octet_string
     }
@@ -115,7 +187,7 @@ pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
 
         for ch in self.chars() {
             octet_string
-                .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS - width) as usize..]);
+                .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS as usize - width)..]);
         }
         crate::bits::to_vec(&octet_string)
     }
@@ -135,7 +207,7 @@ pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
                 .iter()
                 .copied()
                 .enumerate()
-                .map(|(i, e)| (e, i as u32))
+                .map(|(i, e)| (e, u32::from_usize(i).unwrap_or_default()))
                 .collect(),
         )
     }
@@ -147,13 +219,13 @@ pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
                 .iter()
                 .copied()
                 .enumerate()
-                .map(|(i, e)| (i as u32, e))
+                .map(|(i, e)| (u32::from_usize(i).unwrap_or_default(), e))
                 .collect(),
         )
     }
 
     fn try_from_permitted_alphabet(
-        input: &types::BitStr,
+        input: crate::types::BitString,
         alphabet: Option<&BTreeMap<u32, u32>>,
     ) -> Result<Self, PermittedAlphabetError> {
         let alphabet = alphabet.unwrap_or_else(|| Self::character_map());
@@ -166,49 +238,50 @@ pub(crate) trait StaticPermittedAlphabet<T: PrimInt>: Sized + Default {
         character_width: usize,
     ) -> Result<Self, PermittedAlphabetError> {
         let mut string = Self::default();
-        if bits.len() % character_width != 0 {
+        if character_width == 0 || bits.len() % character_width != 0 {
             return Err(PermittedAlphabetError::InvalidData {
                 length: bits.len(),
                 width: character_width,
             });
         }
-
         for ch in bits.chunks_exact(character_width) {
-            string.push_char(ch.load_be());
+            let ch = ch.load_be::<u32>();
+            if Self::contains_char(ch) {
+                string.push_char(ch);
+            } else {
+                return Err(PermittedAlphabetError::InvalidRestrictedString {
+                    source: Self::invalid_restricted_string(ch),
+                });
+            }
         }
-
         Ok(string)
     }
 }
 
 pub(crate) fn try_from_permitted_alphabet<S: StaticPermittedAlphabet>(
-    input: &types::BitStr,
+    input: crate::types::BitString,
     alphabet: &BTreeMap<u32, u32>,
 ) -> Result<S, PermittedAlphabetError> {
     let mut string = S::default();
-    let permitted_alphabet_char_width = crate::num::log2(alphabet.len() as i128);
+    let permitted_alphabet_char_width = crate::num::log2(alphabet.len() as i128) as usize;
     // Alphabet should be always indexed key-alphabetvalue pairs at this point
     let values_only = alphabet.values().copied().collect::<Vec<u32>>();
-    if should_be_indexed(permitted_alphabet_char_width, &values_only) {
+    if should_be_indexed(permitted_alphabet_char_width as u32, &values_only) {
         for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
-            let index = ch.load_be();
-            string.push_char(
-                *alphabet
-                    .get(&index)
-                    .ok_or(PermittedAlphabetError::IndexNotFound { index })?,
-            );
+            let index = ch.load_be::<u32>();
+            string.push_char(*alphabet.get(&index).ok_or(
+                PermittedAlphabetError::IndexNotFound {
+                    index: index.to_usize().unwrap_or_default(),
+                },
+            )?);
         }
     } else {
-        for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
-            let value = ch.load_be();
-            string.push_char(value);
-        }
+        string = S::try_from_bits(input, permitted_alphabet_char_width)?
     }
-
     Ok(string)
 }
 pub(crate) fn should_be_indexed(width: u32, character_set: &[u32]) -> bool {
-    let largest_value = character_set.iter().copied().max().unwrap_or(0);
+    let largest_value = character_set.iter().copied().max().unwrap_or_default();
     2u32.pow(width) <= largest_value
 }
 

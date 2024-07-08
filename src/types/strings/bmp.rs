@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::error::strings::InvalidBmpString;
+use crate::error::strings::PermittedAlphabetError;
 use alloc::{string::String, vec::Vec};
 use once_cell::race::OnceBox;
 
@@ -12,6 +12,10 @@ static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox:
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl BmpString {
+    /// `new` function is restricted for internal use only with `TryFrom` and `From` traits.
+    pub(crate) fn new(data: Vec<u16>) -> Self {
+        Self(data)
+    }
     /// Converts the string into a set of big endian bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.iter().flat_map(|ch| ch.to_be_bytes()).collect()
@@ -19,7 +23,7 @@ impl BmpString {
 }
 
 impl StaticPermittedAlphabet for BmpString {
-    type CharacterSlice = &'static [u32];
+    type T = u16;
     const CHARACTER_SET: &'static [u32] = &{
         let mut array = [0u32; 0xFFFE];
         let mut i = 0;
@@ -32,20 +36,11 @@ impl StaticPermittedAlphabet for BmpString {
     const CHARACTER_SET_NAME: constrained::CharacterSetName = constrained::CharacterSetName::Bmp;
 
     fn push_char(&mut self, ch: u32) {
-        debug_assert!(
-            Self::CHARACTER_SET.contains(&ch),
-            "{} not in character set",
-            ch
-        );
         self.0.push(ch as u16);
     }
-    fn as_slice(&self) -> &Self::CharacterSlice {
-        self.0.as_ref()
+    fn chars(&self) -> impl Iterator<Item = u32> + '_ {
+        self.0.iter().map(|&byte| byte as u32)
     }
-
-    // fn chars(&self) -> impl Iterator<Item = u32> + '_ {
-    //     self.0.iter().map(|&byte| byte as u32)
-    // }
 
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         INDEX_MAP.get_or_init(Self::build_index_map)
@@ -57,36 +52,34 @@ impl StaticPermittedAlphabet for BmpString {
 }
 
 impl TryFrom<String> for BmpString {
-    type Error = InvalidBmpString;
-
+    type Error = PermittedAlphabetError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::try_from(&*value)
+        Ok(Self(Self::try_from_slice(&value)?))
     }
 }
 
 impl TryFrom<Vec<u8>> for BmpString {
-    type Error = InvalidBmpString;
+    type Error = PermittedAlphabetError;
     fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        let mut vec = Vec::with_capacity(value.len());
-        for ch in value {
-            if matches!(ch as u16, 0x0..=0xFFFF) {
-                vec.push(ch as u16);
-            } else {
-                return Err(InvalidBmpString {
-                    character: ch as u16,
-                });
-            }
-        }
+        let vec = Self::try_from_slice(value.as_slice())?;
         Ok(Self(vec))
     }
 }
 
 impl TryFrom<&'_ str> for BmpString {
-    type Error = InvalidBmpString;
+    type Error = PermittedAlphabetError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::try_from(value.as_bytes().to_vec())
+        Ok(Self(Self::try_from_slice(value)?))
     }
 }
+
+// impl TryFrom<&'_ [u8]> for BmpString {
+//     type Error = PermittedAlphabetError;
+
+//     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+//         Ok(Self(Self::try_from_slice(value)?))
+//     }
+// }
 
 impl AsnType for BmpString {
     const TAG: Tag = Tag::BMP_STRING;

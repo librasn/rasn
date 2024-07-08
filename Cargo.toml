@@ -72,5 +72,5 @@ criterion = "0.5.1"
 iai = "0.1.1"
 once_cell = "1.18.0"
 pretty_assertions.workspace = true
-# rasn-pkix = { path = "standards/pkix" }
+rasn-pkix = { path = "standards/pkix" }
 x509-parser = "0.15.0"
