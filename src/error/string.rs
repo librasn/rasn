@@ -1,17 +1,5 @@
 use alloc::string::String;
 
-// pub trait InvalidRestrictedString:
-//     From<u32> + core::fmt::Debug + core::fmt::Display + snafu::AsErrorSource + Sized
-// // + Send
-// // + Sync
-// // + 'static
-// // + snafu::Error
-// {
-//     fn error(character: u32) -> Self {
-//         character.into()
-//     }
-// }
-
 #[derive(snafu::Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[snafu(display("Invalid BMP string, character decimal value: {}", character))]
@@ -66,7 +54,6 @@ macro_rules! from_u32 {
                     $type { character }
                 }
             }
-            // impl InvalidRestrictedString for $type {}
         )*
     };
 }
@@ -77,7 +64,7 @@ from_u32!(
     InvalidNumericString,
     InvalidPrintableString,
     InvalidTeletexString,
-    InvalidVisibleString // InvalidConstrainedString
+    InvalidVisibleString
 );
 
 #[derive(Debug)]
@@ -105,21 +92,6 @@ impl core::fmt::Display for InvalidRestrictedString {
     }
 }
 impl snafu::Error for InvalidRestrictedString {}
-
-#[derive(snafu::Snafu, Debug)]
-#[snafu(visibility(pub))]
-#[snafu(display(
-    "Invalid byte slice size, not divisible by {} with zero remainder",
-    modulus
-))]
-pub struct InvalidStringSize {
-    pub modulus: u32,
-}
-impl From<u32> for InvalidStringSize {
-    fn from(modulus: u32) -> Self {
-        InvalidStringSize { modulus }
-    }
-}
 
 #[derive(Debug, snafu::Snafu)]
 #[snafu(visibility(pub))]

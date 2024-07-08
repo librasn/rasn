@@ -747,7 +747,7 @@ mod tests {
         round_trip!(
             coer,
             TeletexString,
-            TeletexString::from("123".as_bytes().to_vec()),
+            TeletexString::from_bytes("123".as_bytes()).unwrap(),
             &[0x03, 0x31, 0x32, 0x33]
         );
     }

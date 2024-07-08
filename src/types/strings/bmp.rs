@@ -11,6 +11,7 @@ static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new
 
 impl BmpString {
     /// Converts the string into a set of big endian bytes.
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.iter().flat_map(|ch| ch.to_be_bytes()).collect()
     }

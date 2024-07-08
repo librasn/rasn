@@ -15,6 +15,7 @@ impl NumericString {
         Ok(Self(Self::try_from_slice(bytes)?))
     }
 
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }

@@ -10,6 +10,9 @@ static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox:
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl Ia5String {
+    pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
+        Ok(Self(Self::try_from_slice(bytes)?))
+    }
     pub fn as_iso646_bytes(&self) -> &[u8] {
         &self.0
     }

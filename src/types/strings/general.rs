@@ -16,6 +16,9 @@ impl GeneralString {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
         Ok(Self(Self::try_from_slice(bytes)?))
     }
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
 }
 
 impl StaticPermittedAlphabet for GeneralString {

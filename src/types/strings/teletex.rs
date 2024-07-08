@@ -11,8 +11,12 @@ static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new
 
 impl TeletexString {
     /// Converts the string into a set of big endian bytes.
+    #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.iter().flat_map(|ch| ch.to_be_bytes()).collect()
+    }
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
+        Ok(Self(Self::try_from_slice(bytes)?))
     }
 }
 impl StaticPermittedAlphabet for TeletexString {
@@ -34,7 +38,7 @@ impl StaticPermittedAlphabet for TeletexString {
         self.0.push(ch);
     }
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
-        self.0.iter().map(|&byte| byte as u32)
+        self.0.iter().copied()
     }
 
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {

@@ -483,7 +483,7 @@ impl<'input> Decoder<'input> {
     }
 
     #[allow(clippy::too_many_lines)]
-    fn parse_fixed_width_string<'a, ALPHABET: StaticPermittedAlphabet>(
+    fn parse_fixed_width_string<ALPHABET: StaticPermittedAlphabet>(
         &mut self,
         constraints: Constraints,
     ) -> Result<ALPHABET> {
