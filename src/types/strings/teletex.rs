@@ -22,17 +22,13 @@ impl TeletexString {
 impl StaticPermittedAlphabet for TeletexString {
     type T = u32;
     // TODO add correct character set, see https://github.com/mouse07410/asn1c/blob/84d3a59c1bb89c59be6ca0625bb14ebea9084ba5/skeletons/TeletexString.c
-    const CHARACTER_SET: &'static [u32] = &{
-        let mut array = [0u32; 0xFFFF];
-        let mut i = 0;
-        while i < 0xFFFF {
-            array[i as usize] = i;
-            i += 1;
-        }
-        array
-    };
+    const CHARACTER_SET: &'static [u32] = &[0];
     const CHARACTER_SET_NAME: constrained::CharacterSetName =
         constrained::CharacterSetName::Teletex;
+    // TODO remove once correct character set is added
+    fn contains_char(_: u32) -> bool {
+        true
+    }
 
     fn push_char(&mut self, ch: u32) {
         self.0.push(ch);

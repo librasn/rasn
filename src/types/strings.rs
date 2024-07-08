@@ -43,8 +43,7 @@ const fn bytes_to_chars<const N: usize>(input: [u8; N]) -> [u32; N] {
 }
 
 macro_rules! impl_restricted_core_traits {
-    // ($($target:ty, $width:ty),*) => {
-        ($(($target:ty, $width:ty)),* $(,)?) => {
+    ($(($target:ty, $width:ty)),* $(,)?) => {
     $(
     impl TryFrom<&'_ [u8]> for $target {
         type Error = PermittedAlphabetError;
@@ -60,16 +59,16 @@ macro_rules! impl_restricted_core_traits {
         }
     }
 
-    impl TryFrom<Vec<u8>> for $target {
+    impl TryFrom<alloc::vec::Vec<u8>> for $target {
         type Error = PermittedAlphabetError;
-        fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
             Ok(Self(Self::try_from_slice(value.as_slice())?))
         }
     }
 
-    impl TryFrom<String> for $target {
+    impl TryFrom<alloc::string::String> for $target {
         type Error = PermittedAlphabetError;
-        fn try_from(value: String) -> Result<Self, Self::Error> {
+        fn try_from(value: alloc::string::String) -> Result<Self, Self::Error> {
             Ok(Self(Self::try_from_slice(&value)?))
         }
     }
@@ -90,14 +89,8 @@ macro_rules! impl_restricted_core_traits {
         }
     }
 
-    // impl From<$target> for bytes::Bytes {
-    //     fn from(value: $target) -> Self {
-    //         value.0.into()
-    //     }
-    // }
-
     impl core::ops::Deref for $target {
-        type Target = Vec<$width>;
+        type Target = alloc::vec::Vec<$width>;
 
         fn deref(&self) -> &Self::Target {
             &self.0
