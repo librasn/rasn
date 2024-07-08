@@ -584,7 +584,7 @@ impl<'input> Decoder<'input> {
                 if alphabet.constraint.len() == 1 {
                     let mut string = ALPHABET::default();
                     for _ in 0..total_length {
-                        string.push_char(alphabet.constraint[0] as u32);
+                        string.push_char(alphabet.constraint[0]);
                     }
                     Ok(string)
                 } else {
@@ -615,7 +615,7 @@ impl<'input> Decoder<'input> {
                             .then_some(ALPHABET::CHARACTER_SET_WIDTH)
                             .unwrap_or_else(|| ALPHABET::CHARACTER_SET_WIDTH.next_power_of_two())
                     })
-                    .unwrap_or(ALPHABET::CHARACTER_SET_WIDTH) as usize,
+                    .unwrap_or(ALPHABET::CHARACTER_SET_WIDTH),
             )
             .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec())),
         }

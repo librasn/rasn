@@ -527,9 +527,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::TeletexString> {
-        Ok(types::TeletexString::from(
-            self.decode_octet_string(tag, constraints)?,
-        ))
+        types::TeletexString::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                types::Tag::NUMERIC_STRING,
+                e.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     fn decode_bmp_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::BmpString> {

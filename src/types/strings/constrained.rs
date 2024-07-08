@@ -1,7 +1,7 @@
 use core::fmt;
 
 use alloc::collections::BTreeMap;
-use num_traits::{AsPrimitive, FromBytes, FromPrimitive, PrimInt, ToPrimitive, Unsigned};
+use num_traits::{AsPrimitive, FromPrimitive, PrimInt, ToPrimitive, Unsigned};
 
 use crate::error::strings::{InvalidRestrictedString, PermittedAlphabetError};
 use alloc::{boxed::Box, vec::Vec};

@@ -1,7 +1,7 @@
 use super::*;
 
-use crate::error::strings::{InvalidPrintableString, PermittedAlphabetError};
-use alloc::{string::String, vec::Vec};
+use crate::error::strings::PermittedAlphabetError;
+use alloc::vec::Vec;
 use once_cell::race::OnceBox;
 
 /// A string, which contains the characters defined in X.680 41.4 Section, Table 10.
@@ -9,14 +9,11 @@ use once_cell::race::OnceBox;
 /// You must use `try_from` or `from_*` to construct a `PrintableString`.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(clippy::module_name_repetitions)]
-pub struct PrintableString(Vec<u8>);
+pub struct PrintableString(pub(super) Vec<u8>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl PrintableString {
-    pub(crate) fn new(data: Vec<u8>) -> Self {
-        Self(data)
-    }
     /// Construct a new `PrintableString` from a byte array.
     ///
     /// # Errors
@@ -60,36 +57,6 @@ impl StaticPermittedAlphabet for PrintableString {
 
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         CHARACTER_MAP.get_or_init(Self::build_character_map)
-    }
-}
-
-impl TryFrom<String> for PrintableString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_bytes())?))
-    }
-}
-
-impl TryFrom<alloc::vec::Vec<u8>> for PrintableString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_slice())?))
-    }
-}
-
-impl TryFrom<&'_ [u8]> for PrintableString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value)?))
-    }
-}
-impl TryFrom<&'_ str> for PrintableString {
-    type Error = PermittedAlphabetError;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_bytes())?))
     }
 }
 

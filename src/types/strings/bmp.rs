@@ -1,21 +1,15 @@
 use super::*;
-
-use crate::error::strings::PermittedAlphabetError;
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 use once_cell::race::OnceBox;
 
 /// A Basic Multilingual Plane (BMP) string, which is a subtype of [`UniversalString`]
 /// containing only the BMP set of characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct BmpString(Vec<u16>);
+pub struct BmpString(pub(super) Vec<u16>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl BmpString {
-    /// `new` function is restricted for internal use only with `TryFrom` and `From` traits.
-    pub(crate) fn new(data: Vec<u16>) -> Self {
-        Self(data)
-    }
     /// Converts the string into a set of big endian bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.iter().flat_map(|ch| ch.to_be_bytes()).collect()
@@ -50,36 +44,6 @@ impl StaticPermittedAlphabet for BmpString {
         CHARACTER_MAP.get_or_init(Self::build_character_map)
     }
 }
-
-impl TryFrom<String> for BmpString {
-    type Error = PermittedAlphabetError;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(&value)?))
-    }
-}
-
-impl TryFrom<Vec<u8>> for BmpString {
-    type Error = PermittedAlphabetError;
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        let vec = Self::try_from_slice(value.as_slice())?;
-        Ok(Self(vec))
-    }
-}
-
-impl TryFrom<&'_ str> for BmpString {
-    type Error = PermittedAlphabetError;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value)?))
-    }
-}
-
-// impl TryFrom<&'_ [u8]> for BmpString {
-//     type Error = PermittedAlphabetError;
-
-//     fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-//         Ok(Self(Self::try_from_slice(value)?))
-//     }
-// }
 
 impl AsnType for BmpString {
     const TAG: Tag = Tag::BMP_STRING;

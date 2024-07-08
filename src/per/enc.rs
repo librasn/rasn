@@ -188,7 +188,7 @@ impl Encoder {
             .unwrap_or_default()
     }
 
-    fn encode_known_multiplier_string<'a, S: StaticPermittedAlphabet>(
+    fn encode_known_multiplier_string<S: StaticPermittedAlphabet>(
         &mut self,
         tag: Tag,
         constraints: &Constraints,
@@ -928,11 +928,11 @@ impl crate::Encoder for Encoder {
     fn encode_teletex_string(
         &mut self,
         tag: Tag,
-        _: Constraints,
+        constraints: Constraints,
         value: &types::TeletexString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(tag, <_>::default(), value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_bmp_string(

@@ -1,20 +1,15 @@
 use super::*;
 
-use crate::error::strings::{InvalidIA5String, PermittedAlphabetError};
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
-use nom::AsBytes;
 use once_cell::race::OnceBox;
 
 /// An string which only contains ASCII characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Ia5String(Vec<u8>);
+pub struct Ia5String(pub(super) Vec<u8>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl Ia5String {
-    pub(crate) fn new(data: Vec<u8>) -> Self {
-        Self(data)
-    }
     pub fn as_iso646_bytes(&self) -> &[u8] {
         &self.0
     }
@@ -23,83 +18,6 @@ impl Ia5String {
 impl core::fmt::Display for Ia5String {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str(&String::from_utf8(self.as_iso646_bytes().to_owned()).unwrap())
-    }
-}
-
-impl AsnType for Ia5String {
-    const TAG: Tag = Tag::IA5_STRING;
-}
-
-impl Encode for Ia5String {
-    fn encode_with_tag_and_constraints<E: Encoder>(
-        &self,
-        encoder: &mut E,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<(), E::Error> {
-        encoder.encode_ia5_string(tag, constraints, self).map(drop)
-    }
-}
-
-impl Decode for Ia5String {
-    fn decode_with_tag_and_constraints<D: Decoder>(
-        decoder: &mut D,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<Self, D::Error> {
-        decoder.decode_ia5_string(tag, constraints)
-    }
-}
-
-impl TryFrom<alloc::string::String> for Ia5String {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: alloc::string::String) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_bytes())?))
-    }
-}
-
-impl TryFrom<&'_ str> for Ia5String {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_bytes())?))
-    }
-}
-
-impl TryFrom<alloc::vec::Vec<u8>> for Ia5String {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_slice())?))
-    }
-}
-
-impl TryFrom<&'_ [u8]> for Ia5String {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value)?))
-    }
-}
-
-impl TryFrom<bytes::Bytes> for Ia5String {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: bytes::Bytes) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_ref().as_bytes())?))
-    }
-}
-
-impl From<Ia5String> for bytes::Bytes {
-    fn from(value: Ia5String) -> Self {
-        value.0.into()
-    }
-}
-
-impl From<Ia5String> for alloc::string::String {
-    fn from(value: Ia5String) -> Self {
-        Self::from_utf8(value.as_iso646_bytes().to_owned()).unwrap()
     }
 }
 
@@ -132,5 +50,42 @@ impl super::StaticPermittedAlphabet for Ia5String {
 
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         CHARACTER_MAP.get_or_init(Self::build_character_map)
+    }
+}
+
+impl AsnType for Ia5String {
+    const TAG: Tag = Tag::IA5_STRING;
+}
+
+impl Encode for Ia5String {
+    fn encode_with_tag_and_constraints<E: Encoder>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<(), E::Error> {
+        encoder.encode_ia5_string(tag, constraints, self).map(drop)
+    }
+}
+
+impl Decode for Ia5String {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Self, D::Error> {
+        decoder.decode_ia5_string(tag, constraints)
+    }
+}
+
+impl From<Ia5String> for bytes::Bytes {
+    fn from(value: Ia5String) -> Self {
+        value.0.into()
+    }
+}
+
+impl From<Ia5String> for alloc::string::String {
+    fn from(value: Ia5String) -> Self {
+        Self::from_utf8(value.as_iso646_bytes().to_owned()).unwrap()
     }
 }

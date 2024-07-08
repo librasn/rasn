@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::error::strings::{InvalidVisibleString, PermittedAlphabetError};
+use crate::error::strings::PermittedAlphabetError;
 use alloc::{borrow::ToOwned, string::String, vec::Vec};
 use once_cell::race::OnceBox;
 
@@ -14,29 +14,17 @@ use once_cell::race::OnceBox;
 /// Graphical restrictions (registration 6.) are defined freely and publicly in sister standard ITU-T T.50, section 6.4.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[allow(clippy::module_name_repetitions)]
-pub struct VisibleString(Vec<u8>);
+pub struct VisibleString(pub(super) Vec<u8>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl VisibleString {
-    /// `new` function is restricted for internal use only with `TryFrom` and `From` traits.
-    pub(crate) fn new(data: Vec<u8>) -> Self {
-        Self(data)
-    }
     /// Create a new `VisibleString` from ISO 646 bytes (also known as US-ASCII/IA5/IRA5).
     ///
     /// # Errors
     ///
     /// Error of type `InvalidIso646Bytes` is raised if the restriction is not met.
     pub fn from_iso646_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
-        // bytes.iter().try_for_each(|byte| {
-        //     if Self::CHARACTER_SET.contains(&(*byte as u32)) {
-        //         Ok(())
-        //     } else {
-        //         Err(InvalidIso646Character { character: *byte })
-        //     }
-        // })?;
-
         Ok(Self(Self::try_from_slice(bytes)?))
     }
     /// Converts the `VisibleString` into ISO 646 bytes (also known as US-ASCII/IA5/IRA5).
@@ -109,46 +97,6 @@ impl Decode for VisibleString {
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_visible_string(tag, constraints)
-    }
-}
-
-impl TryFrom<alloc::string::String> for VisibleString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: alloc::string::String) -> Result<Self, Self::Error> {
-        // Self::from_iso646_bytes(value.as_bytes())
-        Ok(Self(Self::try_from_slice(value.as_bytes())?))
-    }
-}
-
-impl TryFrom<&'_ str> for VisibleString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_iso646_bytes(value.as_bytes())
-    }
-}
-
-impl TryFrom<alloc::vec::Vec<u8>> for VisibleString {
-    type Error = PermittedAlphabetError;
-    fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {
-        Self::from_iso646_bytes(&value)
-    }
-}
-
-impl TryFrom<&'_ [u8]> for VisibleString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Self::from_iso646_bytes(value)
-    }
-}
-
-impl TryFrom<bytes::Bytes> for VisibleString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: bytes::Bytes) -> Result<Self, Self::Error> {
-        Self::try_from(&*value)
     }
 }
 

@@ -1,21 +1,18 @@
 use super::*;
 
-use crate::error::strings::{InvalidGeneralString, PermittedAlphabetError};
-use alloc::{string::String, vec::Vec};
+use crate::error::strings::PermittedAlphabetError;
+use alloc::vec::Vec;
 use once_cell::race::OnceBox;
 
 /// A "general" string containing the `C0` Controls plane, `SPACE`,
 /// Basic Latin, `DELETE`, and Latin-1 Supplement characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct GeneralString(Vec<u8>);
+pub struct GeneralString(pub(super) Vec<u8>);
 
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl GeneralString {
-    pub(crate) fn new(data: Vec<u8>) -> Self {
-        Self(data)
-    }
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
         Ok(Self(Self::try_from_slice(bytes)?))
     }
@@ -59,51 +56,6 @@ impl StaticPermittedAlphabet for GeneralString {
 
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         CHARACTER_MAP.get_or_init(Self::build_character_map)
-    }
-}
-
-impl TryFrom<Vec<u8>> for GeneralString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_slice())?))
-    }
-}
-
-impl TryFrom<&'_ str> for GeneralString {
-    type Error = PermittedAlphabetError;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value)?))
-    }
-}
-
-impl TryFrom<&'_ [u8]> for GeneralString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value)?))
-    }
-}
-
-impl TryFrom<String> for GeneralString {
-    type Error = PermittedAlphabetError;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        Ok(Self(Self::try_from_slice(value.as_bytes())?))
-    }
-}
-
-impl core::ops::Deref for GeneralString {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl core::ops::DerefMut for GeneralString {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

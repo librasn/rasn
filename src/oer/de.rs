@@ -725,13 +725,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_teletex_string(
         &mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<TeletexString, Self::Error> {
-        // Teletex conversion cannot fail
-        Ok(TeletexString::from(
-            self.decode_octet_string(tag, constraints)?,
-        ))
+        self.parse_known_multiplier_string(&constraints)
     }
 
     fn decode_bmp_string(
