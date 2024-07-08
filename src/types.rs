@@ -46,6 +46,9 @@ pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
 pub type UtcTime = chrono::DateTime<chrono::Utc>;
 ///  The `GeneralizedTime` type.
 pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
+/// The `Date` type.
+pub type Date =  Implicit<tag::DATE, UtcTime>;
+
 ///  The `SEQUENCE OF` type.
 /// ## Usage
 /// ASN1 declaration such as ...

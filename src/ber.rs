@@ -373,4 +373,21 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(dt1, result.unwrap());
     }
+
+    #[test]
+    fn test_date() {
+        use chrono::{DateTime, NaiveDate, Utc};
+
+        let naive_date = NaiveDate::from_ymd_opt(2012, 12, 21).unwrap();
+        let naive_datetime = naive_date.and_hms_opt(0, 0, 0).unwrap();
+        let dt1: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive_datetime, Utc);
+
+        //expected 1F1F 08 32 30 31 32 31 32 32 31
+        let act = round_trip!(
+            ber,
+            Date,
+            dt1.into(),
+            &[0x1f, 0x1f, 0x08, 0x32, 0x30, 0x31, 0x32, 0x31, 0x32, 0x32, 0x31]
+        );
+    }
 }
