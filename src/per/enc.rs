@@ -965,6 +965,15 @@ impl crate::Encoder for Encoder {
         self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
     }
 
+    fn encode_date(
+        &mut self,
+        tag: Tag,
+        value: &types::Date
+    ) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true)?;
+        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
+    }
+
     fn encode_sequence_of<E: Encode>(
         &mut self,
         tag: Tag,

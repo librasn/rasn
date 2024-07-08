@@ -828,6 +828,14 @@ impl crate::Encoder for Encoder {
         )
     }
 
+    fn encode_date(&mut self, tag: Tag, value: &Date) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag,true);
+        self.encode_octet_string(
+            tag,
+            Constraints::default(),
+            &crate::der::enc::Encoder::naivedate_to_date_bytes(value),
+        )
+    }
     fn encode_explicit_prefix<V: Encode>(
         &mut self,
         tag: Tag,

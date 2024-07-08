@@ -771,6 +771,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
         crate::der::de::Decoder::parse_canonical_generalized_time_string(string)
     }
 
+    fn decode_date(&mut self, tag: Tag) -> Result<Date, Self::Error> {
+        let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
+            .map_err(|_| {
+                DecodeError::string_conversion_failed(
+                    Tag::UTF8_STRING,
+                    "DATE should be UTF8 encoded".to_string(),
+                    self.codec(),
+                )
+            })?;
+        crate::der::de::Decoder::parse_date_string(&string)
+    }
+
     fn decode_set<FIELDS, SET, D, F>(
         &mut self,
         _: Tag,

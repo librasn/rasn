@@ -15,6 +15,7 @@ pub mod variants;
 
 pub(crate) mod oid;
 pub(crate) mod strings;
+pub(crate) mod date;
 
 use alloc::boxed::Box;
 use num_bigint::BigUint;
@@ -47,7 +48,7 @@ pub type UtcTime = chrono::DateTime<chrono::Utc>;
 ///  The `GeneralizedTime` type.
 pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
 /// The `Date` type.
-pub type Date =  Implicit<tag::DATE, UtcTime>;
+pub type Date = chrono::NaiveDate;
 
 ///  The `SEQUENCE OF` type.
 /// ## Usage

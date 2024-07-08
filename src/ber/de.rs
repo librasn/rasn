@@ -13,7 +13,7 @@ use crate::{
     Decode,
 };
 use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
-use chrono::{DateTime, FixedOffset, NaiveDateTime, TimeZone};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, TimeZone};
 use parser::ParseNumberError;
 
 pub use self::config::DecoderOptions;
@@ -321,6 +321,14 @@ impl<'input> Decoder<'input> {
             Err(BerDecodeErrorKind::invalid_date(string.to_string()).into())
         }
     }
+
+    /// X.690 8.26.2 and 11.9 -> YYYYMMDD
+    pub fn parse_date_string(string: &str) -> Result<types::Date, DecodeError> {
+        let date = NaiveDate::parse_from_str(string, "%Y%m%d")
+          .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
+
+        Ok(date)
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -582,6 +590,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         } else {
             Self::parse_canonical_utc_time_string(&string)
         }
+    }
+
+    fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
+        let string = self.decode_utf8_string(tag, <_>::default())?;
+        Self::parse_date_string(&string)
     }
 
     fn decode_sequence_of<D: Decode>(

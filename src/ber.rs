@@ -376,13 +376,9 @@ mod tests {
 
     #[test]
     fn test_date() {
-        use chrono::{DateTime, NaiveDate, Utc};
 
-        let naive_date = NaiveDate::from_ymd_opt(2012, 12, 21).unwrap();
-        let naive_datetime = naive_date.and_hms_opt(0, 0, 0).unwrap();
-        let dt1: DateTime<Utc> = DateTime::from_naive_utc_and_offset(naive_datetime, Utc);
+        let dt1 = chrono::NaiveDate::from_ymd_opt(2012, 12, 21).unwrap();
 
-        //expected 1F1F 08 32 30 31 32 31 32 32 31
         let act = round_trip!(
             ber,
             Date,

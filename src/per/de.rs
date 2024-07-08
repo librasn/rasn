@@ -791,6 +791,12 @@ impl<'input> crate::Decoder for Decoder<'input> {
         crate::ber::decode(&bytes)
     }
 
+    fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
+        let bytes = self.decode_octet_string(tag, <_>::default())?;
+
+        crate::ber::decode(&bytes)
+    }
+
     fn decode_sequence_of<D: Decode>(
         &mut self,
         _: Tag,

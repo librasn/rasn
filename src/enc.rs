@@ -176,6 +176,13 @@ pub trait Encoder {
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error>;
 
+    /// Encode a 'Date' value.
+    fn encode_date(
+        &mut self,
+        tag: Tag,
+        value: &types::Date,
+    ) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a explicitly tagged value.
     fn encode_explicit_prefix<V: Encode>(
         &mut self,

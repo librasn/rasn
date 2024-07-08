@@ -304,6 +304,16 @@ impl Encoder {
             .to_string()
             .into_bytes()
     }
+
+    #[must_use]
+    /// Canonical byte presentation for CER/DER DATE as defined in X.690 section 8.26.2
+    /// Also used for BER on this crate.
+    pub fn naivedate_to_date_bytes(value: &chrono::NaiveDate) -> Vec<u8> {
+        value
+            .format("%Y%m%d")
+            .to_string()
+            .into_bytes()
+    }
 }
 
 impl crate::Encoder for Encoder {
@@ -496,6 +506,19 @@ impl crate::Encoder for Encoder {
         self.encode_primitive(
             tag,
             Self::datetime_to_canonical_generalized_time_bytes(value).as_slice(),
+        );
+
+        Ok(())
+    }
+
+    fn encode_date(
+        &mut self,
+        tag: Tag,
+        value: &types::Date
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_primitive(
+            tag,
+            Self::naivedate_to_date_bytes(value).as_slice(),
         );
 
         Ok(())
