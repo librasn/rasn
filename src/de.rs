@@ -55,7 +55,7 @@ pub trait Decoder: Sized {
     #[must_use]
     fn codec(&self) -> crate::Codec;
 
-    /// Decode a unknown ASN.1 value identified by `tag` from the available input.
+    /// Decode an unknown ASN.1 value identified by `tag` from the available input.
     fn decode_any(&mut self) -> Result<types::Any, Self::Error>;
     /// Decode a `BIT STRING` identified by `tag` from the available input.
     fn decode_bit_string(
