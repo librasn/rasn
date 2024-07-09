@@ -559,9 +559,12 @@ impl<'input> Decoder<'input> {
 
         match (
             constraints.permitted_alphabet(),
-            should_be_indexed(ALPHABET::CHARACTER_WIDTH, ALPHABET::CHARACTER_SET),
+            should_be_indexed(
+                ALPHABET::CHARACTER_SET_WIDTH as u32,
+                ALPHABET::CHARACTER_SET,
+            ),
             constraints.permitted_alphabet().map(|alphabet| {
-                ALPHABET::CHARACTER_WIDTH
+                ALPHABET::CHARACTER_SET_WIDTH
                     > self
                         .options
                         .aligned
@@ -574,6 +577,7 @@ impl<'input> Decoder<'input> {
                                 .unwrap_or_else(|| alphabet_width.next_power_of_two())
                         })
                         .unwrap_or(crate::num::log2(alphabet.constraint.len() as i128))
+                        as usize
             }),
         ) {
             (Some(alphabet), true, _) | (Some(alphabet), _, Some(true)) => {
@@ -591,30 +595,29 @@ impl<'input> Decoder<'input> {
                         .enumerate()
                         .map(|(i, e)| (i as u32, e))
                         .collect();
-                    ALPHABET::try_from_permitted_alphabet(&bit_string, Some(&map)).map_err(|e| {
-                        DecodeError::alphabet_constraint_not_satisfied(e, self.codec())
-                    })
+                    ALPHABET::try_from_permitted_alphabet(bit_string, Some(&map))
+                        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
                 }
             }
-            (None, true, _) => ALPHABET::try_from_permitted_alphabet(&bit_string, None)
-                .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec())),
+            (None, true, _) => ALPHABET::try_from_permitted_alphabet(bit_string, None)
+                .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec())),
             (None, false, _) if !self.options.aligned => {
-                ALPHABET::try_from_permitted_alphabet(&bit_string, None)
-                    .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec()))
+                ALPHABET::try_from_permitted_alphabet(bit_string, None)
+                    .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
             }
             _ => ALPHABET::try_from_bits(
                 bit_string,
                 self.options
                     .aligned
                     .then(|| {
-                        ALPHABET::CHARACTER_WIDTH
+                        ALPHABET::CHARACTER_SET_WIDTH
                             .is_power_of_two()
-                            .then_some(ALPHABET::CHARACTER_WIDTH)
-                            .unwrap_or_else(|| ALPHABET::CHARACTER_WIDTH.next_power_of_two())
+                            .then_some(ALPHABET::CHARACTER_SET_WIDTH)
+                            .unwrap_or_else(|| ALPHABET::CHARACTER_SET_WIDTH.next_power_of_two())
                     })
-                    .unwrap_or(ALPHABET::CHARACTER_WIDTH) as usize,
+                    .unwrap_or(ALPHABET::CHARACTER_SET_WIDTH),
             )
-            .map_err(|e| DecodeError::alphabet_constraint_not_satisfied(e, self.codec())),
+            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec())),
         }
     }
 }
