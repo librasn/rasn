@@ -694,11 +694,12 @@ mod tests {
             ))
         );
 
+        // DATE Tag Rec. ITU-T X.680 (02/2021) section 8 Table 1
         assert_eq!(
             &[0x1F, 0x1F,][..],
             ident_to_bytes(
                 Identifier::from_tag(
-                    Tag::new(crate::types::Class::Universal,31),
+                    Tag::DATE,
                     false,
                 ))
         );
