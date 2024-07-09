@@ -693,6 +693,15 @@ mod tests {
                 true,
             ))
         );
+
+        assert_eq!(
+            &[0x1F, 0x1F,][..],
+            ident_to_bytes(
+                Identifier::from_tag(
+                    Tag::new(crate::types::Class::Universal,31),
+                    false,
+                ))
+        );
     }
 
     #[test]
