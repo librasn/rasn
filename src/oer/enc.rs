@@ -10,6 +10,7 @@ use bitvec::prelude::*;
 use num_traits::{Signed, ToPrimitive};
 
 use crate::types::{fields::FieldPresence, BitString, Constraints, Integer};
+use crate::types;
 use crate::{Encode, Tag};
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
@@ -828,7 +829,7 @@ impl crate::Encoder for Encoder {
         )
     }
 
-    fn encode_date(&mut self, tag: Tag, value: &Date) -> Result<Self::Ok, Self::Error> {
+    fn encode_date(&mut self, tag: Tag, value: &types::Date) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag,true);
         self.encode_octet_string(
             tag,
