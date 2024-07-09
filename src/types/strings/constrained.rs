@@ -72,6 +72,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
     ) -> Result<Vec<Self::T>, PermittedAlphabetError> {
         let input = input.as_ref();
         // We currently only support character widths up to 4 bytes on error logic
+        // Width can be larger than 4 only if we create new types with larger character widths
         debug_assert!(width <= 4);
         if width == 0 {
             return Err(PermittedAlphabetError::Other {
@@ -93,7 +94,9 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         // Character width can be more than 1 byte, and combined bytes define the character encoding width
         let process_chunk: fn(&[u8]) -> Option<Self::T> = match width {
             1 => |chunk: &[u8]| Self::T::from_u8(chunk[0]),
-            2 => |chunk: &[u8]| Self::T::from_u16(u16::from_be_bytes(chunk.try_into().unwrap())),
+            2 => |chunk: &[u8]| {
+                Self::T::from_u16(u16::from_be_bytes(chunk.try_into().unwrap_or_default()))
+            },
             3 | 4 => |chunk: &[u8]| {
                 Self::T::from_u32(u32::from_be_bytes(chunk.try_into().unwrap_or_default()))
             },

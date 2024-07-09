@@ -4,7 +4,8 @@
 fn test_error_imports() {
     use rasn::error::strings::{
         InvalidBmpString, InvalidGeneralString, InvalidIA5String, InvalidNumericString,
-        InvalidPrintableString, InvalidRestrictedString, PermittedAlphabetError,
+        InvalidPrintableString, InvalidRestrictedString, InvalidTeletexString,
+        InvalidVisibleString, PermittedAlphabetError,
     };
     _ = PermittedAlphabetError::Other {
         message: String::from("Test"),
