@@ -207,10 +207,9 @@ impl Encoder {
 
         let is_large_string = if let Some(size) = constraints.size() {
             let width = match constraints.permitted_alphabet() {
-                Some(alphabet) => {
-                    self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
-                }
-                None => self.character_width(S::CHARACTER_WIDTH),
+                Some(alphabet) => self
+                    .character_width(crate::num::log2(alphabet.constraint.len() as i128) as usize),
+                None => self.character_width(S::CHARACTER_SET_WIDTH),
             };
 
             match *size.constraint {
@@ -237,10 +236,12 @@ impl Encoder {
 
         match (
             constraints.permitted_alphabet(),
-            should_be_indexed(S::CHARACTER_WIDTH, S::CHARACTER_SET),
+            should_be_indexed(S::CHARACTER_SET_WIDTH as u32, S::CHARACTER_SET),
             constraints.permitted_alphabet().map(|alphabet| {
-                S::CHARACTER_WIDTH
-                    > self.character_width(crate::num::log2(alphabet.constraint.len() as i128))
+                S::CHARACTER_SET_WIDTH
+                    > self.character_width(
+                        crate::num::log2(alphabet.constraint.len() as i128) as usize
+                    )
             }),
         ) {
             (Some(alphabet), _, Some(true)) | (Some(alphabet), true, _) => {
@@ -276,7 +277,7 @@ impl Encoder {
             _ => {
                 let char_length = value.len();
                 let octet_aligned_value = self.options.aligned.then(|| {
-                    if S::CHARACTER_WIDTH <= self.character_width(S::CHARACTER_WIDTH) {
+                    if S::CHARACTER_SET_WIDTH <= self.character_width(S::CHARACTER_SET_WIDTH) {
                         value.to_octet_aligned_string()
                     } else {
                         value.to_octet_aligned_index_string()
@@ -308,7 +309,7 @@ impl Encoder {
         Ok(())
     }
 
-    fn character_width(&self, width: u32) -> u32 {
+    fn character_width(&self, width: usize) -> usize {
         self.options
             .aligned
             .then(|| {
@@ -920,11 +921,11 @@ impl crate::Encoder for Encoder {
     fn encode_teletex_string(
         &mut self,
         tag: Tag,
-        _: Constraints,
+        constraints: Constraints,
         value: &types::TeletexString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(tag, <_>::default(), value)
+        self.encode_known_multiplier_string(tag, &constraints, value)
     }
 
     fn encode_bmp_string(

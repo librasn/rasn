@@ -464,7 +464,7 @@ impl crate::Encoder for Encoder {
         _: Constraints,
         value: &types::TeletexString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string_(tag, value)
+        self.encode_octet_string_(tag, &value.to_bytes())
     }
 
     fn encode_bmp_string(

@@ -794,7 +794,7 @@ impl crate::Encoder for Encoder {
         // TODO the octets specified in ISO/IEC 2022 for encodings in an 8-bit environment, using
         // the escape sequence and character codings registered in accordance with ISO/IEC 2375.
         self.set_bit(tag, true);
-        self.encode_octet_string(tag, constraints, value)
+        self.encode_octet_string(tag, constraints, &value.to_bytes())
     }
 
     fn encode_bmp_string(
