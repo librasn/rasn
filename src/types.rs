@@ -13,9 +13,9 @@ pub mod constraints;
 pub mod fields;
 pub mod variants;
 
+pub(crate) mod date;
 pub(crate) mod oid;
 pub(crate) mod strings;
-pub(crate) mod date;
 
 use alloc::boxed::Box;
 use num_bigint::BigUint;

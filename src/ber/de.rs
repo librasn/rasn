@@ -325,7 +325,7 @@ impl<'input> Decoder<'input> {
     /// X.690 8.26.2 and 11.9 -> YYYYMMDD
     pub fn parse_date_string(string: &str) -> Result<types::Date, DecodeError> {
         let date = NaiveDate::parse_from_str(string, "%Y%m%d")
-          .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
+            .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
 
         Ok(date)
     }

@@ -309,10 +309,7 @@ impl Encoder {
     /// Canonical byte presentation for CER/DER DATE as defined in X.690 section 8.26.2
     /// Also used for BER on this crate.
     pub fn naivedate_to_date_bytes(value: &chrono::NaiveDate) -> Vec<u8> {
-        value
-            .format("%Y%m%d")
-            .to_string()
-            .into_bytes()
+        value.format("%Y%m%d").to_string().into_bytes()
     }
 }
 
@@ -511,15 +508,8 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_date(
-        &mut self,
-        tag: Tag,
-        value: &types::Date
-    ) -> Result<Self::Ok, Self::Error> {
-        self.encode_primitive(
-            tag,
-            Self::naivedate_to_date_bytes(value).as_slice(),
-        );
+    fn encode_date(&mut self, tag: Tag, value: &types::Date) -> Result<Self::Ok, Self::Error> {
+        self.encode_primitive(tag, Self::naivedate_to_date_bytes(value).as_slice());
 
         Ok(())
     }
@@ -697,11 +687,7 @@ mod tests {
         // DATE Tag Rec. ITU-T X.680 (02/2021) section 8 Table 1
         assert_eq!(
             &[0x1F, 0x1F,][..],
-            ident_to_bytes(
-                Identifier::from_tag(
-                    Tag::DATE,
-                    false,
-                ))
+            ident_to_bytes(Identifier::from_tag(Tag::DATE, false,))
         );
     }
 
