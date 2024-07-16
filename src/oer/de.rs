@@ -11,7 +11,7 @@ use crate::prelude::{
     TeletexString, UtcTime, VisibleString,
 };
 use crate::types::fields::{Field, Fields};
-use crate::{Codec, Decode, Tag, types};
+use crate::{types, Codec, Decode, Tag};
 use alloc::{
     collections::VecDeque,
     string::{String, ToString},

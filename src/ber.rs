@@ -376,7 +376,6 @@ mod tests {
 
     #[test]
     fn test_date() {
-
         let dt1 = chrono::NaiveDate::from_ymd_opt(2012, 12, 21).unwrap();
 
         let act = round_trip!(

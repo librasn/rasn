@@ -630,9 +630,7 @@ impl Decoder {
         )
     }
 
-    fn date_from_value(
-        value: JsonValue,
-    ) -> Result<chrono::NaiveDate, DecodeError> {
+    fn date_from_value(value: JsonValue) -> Result<chrono::NaiveDate, DecodeError> {
         crate::ber::de::Decoder::parse_date_string(
             value
                 .as_str()

@@ -282,12 +282,12 @@ impl crate::Encoder for Encoder {
     fn encode_date(
         &mut self,
         _t: crate::Tag,
-        value: &crate::types::Date
+        value: &crate::types::Date,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(JsonValue::String(
-            alloc::string::String::from_utf8(
-                crate::ber::enc::Encoder::naivedate_to_date_bytes(value),
-            )
+            alloc::string::String::from_utf8(crate::ber::enc::Encoder::naivedate_to_date_bytes(
+                value,
+            ))
             .map_err(|e| JerEncodeErrorKind::InvalidCharacter { error: e })?,
         ))
     }
