@@ -109,7 +109,7 @@ impl From<CodecDecodeError> for DecodeError {
 ///                             Needed::Size(n) => {
 ///                                 let missing_bytes = n.get() / 7;
 ///                                 missing_bytes
-///                                
+///
 ///                             }
 ///                             _ => {
 ///                                 #[cfg(feature = "backtraces")]
@@ -255,13 +255,7 @@ impl DecodeError {
     pub fn required_extension_not_present(tag: Tag, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::RequiredExtensionNotPresent { tag }, codec)
     }
-    #[must_use]
-    pub fn extension_present_but_not_required(tag: crate::types::Tag, codec: Codec) -> Self {
-        Self::from_kind(
-            DecodeErrorKind::ExtensionPresentButNotRequired { tag },
-            codec,
-        )
-    }
+
     #[must_use]
     pub fn enumeration_index_not_found(index: usize, extended_list: bool, codec: Codec) -> Self {
         Self::from_kind(
@@ -511,8 +505,8 @@ pub enum DecodeErrorKind {
     },
     #[snafu(display("Extension with class `{}` and tag `{}` required, but not present", tag.class, tag.value))]
     RequiredExtensionNotPresent { tag: crate::types::Tag },
-    #[snafu(display("Extension {} present but but not required", tag.class))]
-    ExtensionPresentButNotRequired { tag: crate::types::Tag },
+    #[snafu(display("Extension {} required but not present", tag.class))]
+    ExtensionRequiredButNotPresent { tag: crate::types::Tag },
     #[snafu(display("Error in Parser: {}", msg))]
     Parser {
         /// The error's message.

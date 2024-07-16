@@ -973,7 +973,8 @@ impl<'a> FieldConfig<'a> {
         let tag = self.tag(context);
         let constraints = self.constraints.const_expr(crate_root);
         let handle_extension = if self.is_not_option_or_default_type() {
-            quote!(.ok_or_else(|| #crate_root::de::Error::field_error(#ident, crate::error::DecodeError::extension_present_but_not_required(#tag, decoder.codec()), decoder.codec()))?)
+            quote!(.ok_or_else(|| {
+                #crate_root::de::Error::field_error(#ident, #crate_root::error::DecodeError::required_extension_not_present(#tag, decoder.codec()), decoder.codec())})?)
         } else if self.is_default_type() {
             quote!(.unwrap_or_else(#default_fn))
         } else {
