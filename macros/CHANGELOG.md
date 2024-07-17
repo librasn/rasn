@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0](https://github.com/librasn/rasn/compare/rasn-derive-v0.15.3...rasn-derive-v0.16.0) - 2024-07-17
+
+### Other
+- Fix error name regression introduced in a75b26b ([#285](https://github.com/librasn/rasn/pull/285))
+
 ## [0.15.3](https://github.com/librasn/rasn/compare/rasn-derive-v0.15.2...rasn-derive-v0.15.3) - 2024-06-14
 
 ### Other
