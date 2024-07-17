@@ -9,5 +9,5 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-smi = { path = "../smi", package = "rasn-smi", version = "0.15" }
-rasn = { path = "../..", version = "0.15" }
+smi = { path = "../smi", package = "rasn-smi", version = "0.16" }
+rasn = { path = "../..", version = "0.16" }

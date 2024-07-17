@@ -6,6 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0](https://github.com/librasn/rasn/compare/rasn-v0.15.3...rasn-v0.16.0) - 2024-07-17
+
+### Fixed
+- pass constraints correctly when encoding optional type ([#276](https://github.com/librasn/rasn/pull/276))
+- Hide `jer` behind feature (implying `std`). ([#266](https://github.com/librasn/rasn/pull/266))
+
+### Other
+- Fix error name regression introduced in a75b26b ([#285](https://github.com/librasn/rasn/pull/285))
+- Unify and Improve error handling of restricted strings ([#269](https://github.com/librasn/rasn/pull/269))
+- fix untagged sequence bitfield bits ([#279](https://github.com/librasn/rasn/pull/279))
+- fix encoding of empty extension values ([#278](https://github.com/librasn/rasn/pull/278))
+- correctly encode null in option in extensions ([#277](https://github.com/librasn/rasn/pull/277))
+- fix empty length decoding, no zero padding allowed ([#274](https://github.com/librasn/rasn/pull/274))
+- decode error when unused preamble bits are not zero ([#273](https://github.com/librasn/rasn/pull/273))
+- check quantity data size on sequence of ([#275](https://github.com/librasn/rasn/pull/275))
+- Fix invalid handling of zero padding on length of length on COER ([#268](https://github.com/librasn/rasn/pull/268))
+- Hide `snafu` backtraces behind `std`. ([#265](https://github.com/librasn/rasn/pull/265))
+
 ## [0.15.3](https://github.com/librasn/rasn/compare/rasn-v0.15.2...rasn-v0.15.3) - 2024-06-14
 
 ### Other
