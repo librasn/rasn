@@ -10,7 +10,7 @@ impl Decode for Date {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        _constraints: Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_date(tag)
     }
@@ -21,7 +21,7 @@ impl Encode for Date {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        _constraints: Constraints,
     ) -> Result<(), E::Error> {
         encoder.encode_date(tag, self).map(drop)
     }
