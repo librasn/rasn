@@ -1,9 +1,9 @@
 use super::*;
 
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, vec::Vec};
 use once_cell::race::OnceBox;
 
-/// An string which only contains ASCII characters.
+/// A string which only contains ASCII characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ia5String(pub(super) Vec<u8>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
@@ -20,7 +20,7 @@ impl Ia5String {
 
 impl core::fmt::Display for Ia5String {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(&String::from_utf8(self.as_iso646_bytes().to_owned()).unwrap())
+        f.write_str(core::str::from_utf8(self.as_iso646_bytes()).unwrap())
     }
 }
 
