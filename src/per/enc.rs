@@ -632,6 +632,14 @@ impl Encoder {
             constraints.value().unwrap()
         };
 
+        if !value_range.constraint.bigint_contains(value) && !is_extended_value {
+            return Err(Error::value_constraint_not_satisfied(
+                value.clone(),
+                &value_range.constraint,
+                self.codec(),
+            ));
+        }
+
         let bytes = match value_range.constraint.effective_bigint_value(value.clone()) {
             either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
             either::Right(value) => value.to_signed_bytes_be(),
