@@ -101,7 +101,7 @@ Next is the `Decode` and `Encode` traits. These are mirrors of each other and bo
 # impl Constructed for Person {
 #     const FIELDS: Fields = Fields::from_static(&[
 #          Field::new_required(Utf8String::TAG, Utf8String::TAG_TREE, "age"),
-#          Field::new_required(Integer::<i128>::TAG, Integer::TAG_TREE, "name"),
+#          Field::new_required(Integer::<i128>::TAG, Integer::<i128>::TAG_TREE, "name"),
 #     ]);
 # }
 use rasn::{prelude::*, types::{Integer, Utf8String}};
