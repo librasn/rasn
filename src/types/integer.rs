@@ -259,12 +259,16 @@ pub trait IntegerType:
         codec: crate::Codec,
     ) -> Result<Self, crate::error::DecodeError>;
 
+    /// Finds the minimum number of bytes needed to present the unsigned integer. (drops leading zeros or ones)
     fn unsigned_bytes_needed(&self) -> usize;
 
+    /// Finds the minimum number of bytes needed to present the signed integer. (drops leading zeros or ones)
     fn signed_bytes_needed(&self) -> usize;
 
+    /// Returns minimum number defined by `usize` of signed Big-endian bytes needed to encode the integer.
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize);
 
+    /// Returns minimum number defined by `usize` of unsigned Big-endian bytes needed to encode the integer.
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize);
 
     // `num_traits::WrappingAdd` is not implemented for `BigInt`
@@ -274,6 +278,8 @@ pub trait IntegerType:
     fn is_negative(&self) -> bool;
 }
 
+/// Encode the given `N` sized integer as big-endian bytes and determine the number of bytes needed.
+/// Needed bytes drops unnecessary leading zeros or ones.
 fn needed_as_be_bytes<T: ToBytes + IntegerType, const N: usize>(
     value: T,
     signed: bool,
@@ -515,12 +521,14 @@ impl IntegerType for BigInt {
 
         Ok(BigUint::from_bytes_be(input).into())
     }
+    // Not needed for BigInt
     fn unsigned_bytes_needed(&self) -> usize {
-        todo!()
+        unreachable!()
     }
 
+    // Not needed for BigInt
     fn signed_bytes_needed(&self) -> usize {
-        todo!()
+        unreachable!()
     }
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         let bytes = self.to_signed_bytes_be();

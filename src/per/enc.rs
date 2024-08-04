@@ -667,7 +667,7 @@ impl Encoder {
 
         let effective_range = value_range
             .constraint
-            .effective_integer_value(value.to_i128().unwrap());
+            .effective_integer_value(value.to_i128().unwrap_or_default());
         let unsigned_ref;
         let signed_ref;
         let needed: usize;
@@ -684,7 +684,7 @@ impl Encoder {
 
         let effective_value: i128 = value_range
             .constraint
-            .effective_value(value.to_i128().unwrap())
+            .effective_value(value.to_i128().unwrap_or_default())
             .either_into();
 
         const K64: i128 = SIXTY_FOUR_K as i128;
