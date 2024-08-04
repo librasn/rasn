@@ -1027,4 +1027,45 @@ mod tests {
             &[192, 192, 0, 64, 128, 64, 0]
         );
     }
+    #[test]
+    // https://github.com/librasn/rasn/issues/271
+    fn test_untagged_duplicate_type_option_on_sequence() {
+        use crate as rasn;
+        #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
+        pub struct SequenceOptionals {
+            pub it: Integer,
+            pub is: Option<OctetString>,
+            pub late: Option<Integer>,
+        }
+        round_trip!(
+            uper,
+            SequenceOptionals,
+            SequenceOptionals {
+                it: 1.into(),
+                is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
+                late: None
+            },
+            &[0b10000000, 0x40, 0x40, 0xc0, 0x40, 0x80, 0xc0]
+        );
+        #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
+        #[non_exhaustive]
+        pub struct SequenceDuplicatesExtended {
+            pub it: Integer,
+            pub is: Option<OctetString>,
+            pub late: Option<Integer>,
+            #[rasn(extension_addition)]
+            pub today: OctetString,
+        }
+        round_trip!(
+            uper,
+            SequenceDuplicatesExtended,
+            SequenceDuplicatesExtended {
+                it: 1.into(),
+                is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
+                late: None,
+                today: OctetString::from_static(&[0x01, 0x02, 0x03])
+            },
+            &[0b11000000, 0x20, 0x20, 0x60, 0x20, 0x40, 0x60, 0x20, 0x80, 0x60, 0x20, 0x40, 0x60]
+        );
+    }
 }
