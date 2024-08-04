@@ -1,13 +1,14 @@
-use alloc::{string::ToString, vec::Vec};
+use alloc::vec::Vec;
 
 use crate::oer::ranges;
 use crate::prelude::{
     Any, BitStr, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime,
     Ia5String, NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
 };
+use crate::types::IntegerType;
 use crate::Codec;
 use bitvec::prelude::*;
-use num_traits::{Signed, ToPrimitive};
+use num_traits::ToPrimitive;
 
 use crate::types;
 use crate::types::{fields::FieldPresence, BitString, Constraints, Integer};
@@ -219,14 +220,8 @@ impl Encoder {
         buffer: &mut Vec<u8>,
         value: isize,
     ) -> Result<(), EncodeError> {
-        let bytes =
-            crate::bits::integer_to_bytes(&Integer::from(value), true).ok_or_else(|| {
-                EncodeError::integer_type_conversion_failed(
-                    "Unconstrained enumerated index conversion failed".to_string(),
-                    self.codec(),
-                )
-            })?;
-        let mut length = u8::try_from(bytes.len()).map_err(|err| {
+        let (bytes, needed) = value.to_signed_bytes_be();
+        let mut length = u8::try_from(needed).map_err(|err| {
             EncodeError::integer_type_conversion_failed(
                 alloc::format!(
                     "Length of length conversion failed when encoding enumerated index.\
@@ -239,7 +234,7 @@ impl Encoder {
             // There seems to be an error in standard. It states that enumerated index can be
             // between –2^1015 and 2^1015 – 1, but then it limits the amount of subsequent bytes to 127
             return Err(CoerEncodeErrorKind::TooLongValue {
-                length: bytes.len() as u128,
+                length: needed as u128,
             }
             .into());
         }
@@ -247,7 +242,7 @@ impl Encoder {
         // It is always zero by default with u8 type when value being < 128
         length |= 0b_1000_0000;
         buffer.extend(&length.to_be_bytes());
-        buffer.extend(&bytes);
+        buffer.extend(&bytes.as_ref()[..needed]);
         Ok(())
     }
     /// Encode the length of the value to output.
@@ -255,20 +250,13 @@ impl Encoder {
     ///
     /// COER tries to use the shortest possible encoding and avoids leading zeros.
     fn encode_length(&mut self, buffer: &mut Vec<u8>, length: usize) -> Result<(), EncodeError> {
-        let bytes =
-            crate::bits::integer_to_bytes(&Integer::from(length), false).ok_or_else(|| {
-                EncodeError::integer_type_conversion_failed(
-                    "For unknown reason, length conversion failed when encoding length".to_string(),
-                    self.codec(),
-                )
-            })?;
-
+        let (bytes, needed) = length.to_unsigned_bytes_be();
         if length < 128 {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
-            buffer.extend(&bytes);
+            buffer.extend(&bytes.as_ref()[..needed]);
             return Ok(());
         }
-        let mut length_of_length = u8::try_from(bytes.len()).map_err(|err| {
+        let mut length_of_length = u8::try_from(needed).map_err(|err| {
             EncodeError::integer_type_conversion_failed(
                 alloc::format!("Length of length conversion failed: {err}"),
                 self.codec(),
@@ -284,26 +272,26 @@ impl Encoder {
         // It is always zero by default with u8 type when value being < 128
         length_of_length |= 0b_1000_0000;
         buffer.extend(&length_of_length.to_be_bytes());
-        buffer.extend(&bytes);
+        buffer.extend(&bytes.as_ref()[..needed]);
         Ok(())
     }
     /// Encode integer `value_to_enc` with length determinant
     /// Either as signed or unsigned, set by `signed`
-    fn encode_unconstrained_integer(
+    fn encode_unconstrained_integer<I: IntegerType>(
         &mut self,
-        value_to_enc: &Integer,
+        value_to_enc: &Integer<I>,
         signed: bool,
     ) -> Result<Vec<u8>, EncodeError> {
         let mut buffer = Vec::new();
-        let bytes = crate::bits::integer_to_bytes(value_to_enc, signed).ok_or_else(|| {
-            EncodeError::integer_type_conversion_failed(
-                "Negative integer value has been provided to be converted into unsigned bytes"
-                    .to_string(),
-                self.codec(),
-            )
-        })?;
-        self.encode_length(&mut buffer, bytes.len())?;
-        buffer.extend(bytes);
+        if signed {
+            let (bytes, needed) = value_to_enc.to_signed_bytes_be();
+            self.encode_length(&mut buffer, needed)?;
+            buffer.extend(&bytes.as_ref()[..needed]);
+        } else {
+            let (bytes, needed) = value_to_enc.to_unsigned_bytes_be();
+            self.encode_length(&mut buffer, needed)?;
+            buffer.extend(&bytes.as_ref()[..needed]);
+        };
         Ok(buffer)
     }
 
@@ -317,18 +305,18 @@ impl Encoder {
     /// type with an extensible OER-visible constraint. Such a type is encoded as an integer type with no bounds.
     ///
     /// If the Integer is not bound or outside of range, we encode with the smallest number of octets possible.
-    fn encode_integer_with_constraints(
+    fn encode_integer_with_constraints<I: IntegerType>(
         &mut self,
         tag: Tag,
         constraints: &Constraints,
-        value_to_enc: &Integer,
+        value_to_enc: &Integer<I>,
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::new();
 
         if let Some(value) = constraints.value() {
-            if !value.constraint.0.bigint_contains(value_to_enc) && value.extensible.is_none() {
+            if !value.constraint.0.in_bound(value_to_enc) && value.extensible.is_none() {
                 return Err(EncodeError::value_constraint_not_satisfied(
-                    value_to_enc.clone(),
+                    value_to_enc.to_bigint().unwrap_or_default().into(),
                     &value.constraint.0,
                     self.codec(),
                 ));
@@ -361,36 +349,40 @@ impl Encoder {
 
     /// When range constraints are present, the integer is encoded as a fixed-size number.
     /// This means that the zero padding is possible even with COER encoding.
-    fn encode_constrained_integer_with_padding(
+    fn encode_constrained_integer_with_padding<I: IntegerType>(
         &mut self,
         octets: usize,
-        value: &Integer,
+        value: &Integer<I>,
         signed: bool,
     ) -> Result<Vec<u8>, EncodeError> {
         use core::cmp::Ordering;
         if octets > 8 {
             return Err(CoerEncodeErrorKind::InvalidConstrainedIntegerOctetSize.into());
         }
+        let signed_ref;
+        let unsigned_ref;
+        let needed: usize;
         let bytes = if signed {
-            value.to_signed_bytes_be()
+            (signed_ref, needed) = value.to_signed_bytes_be();
+            signed_ref.as_ref()
         } else {
-            value.to_biguint().unwrap().to_bytes_be()
+            (unsigned_ref, needed) = value.to_unsigned_bytes_be();
+            unsigned_ref.as_ref()
         };
         let mut buffer: Vec<u8> = Vec::new();
-
-        match octets.cmp(&bytes.len()) {
+        match octets.cmp(&needed) {
             Ordering::Greater => {
                 if signed && value.is_negative() {
                     // 2's complement
-                    buffer.extend(core::iter::repeat(0xff).take(octets - bytes.len()));
+                    buffer.extend(core::iter::repeat(0xff).take(octets - needed));
                 } else {
-                    buffer.extend(core::iter::repeat(0x00).take(octets - bytes.len()));
+                    buffer.extend(core::iter::repeat(0x00).take(octets - needed));
                 }
             }
             Ordering::Less => {
                 return Err(EncodeError::from_kind(
                     EncodeErrorKind::MoreBytesThanExpected {
-                        value: bytes.len(),
+                        value: needed,
                         expected: octets,
                     },
                     self.codec(),
@@ -399,7 +391,7 @@ impl Encoder {
             // As is
             Ordering::Equal => {}
         };
-        buffer.extend(bytes);
+        buffer.extend(&bytes[..needed]);
         Ok(buffer)
     }
     fn check_fixed_size_constraint<T>(
@@ -661,7 +653,8 @@ impl crate::Encoder for Encoder {
         let number = value.discriminant();
         let mut buffer = Vec::new();
         if 0isize <= number && number <= i8::MAX.into() {
-            let bytes = self.encode_constrained_integer_with_padding(1, &number.into(), false)?;
+            let bytes =
+                self.encode_constrained_integer_with_padding(1, &Integer::<isize>(number), false)?;
             buffer.extend(bytes);
         } else {
             // Value is signed here as defined in section 11.4
@@ -687,11 +680,11 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_integer(
+    fn encode_integer<I: IntegerType>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &Integer,
+        value: &Integer<I>,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true);
         self.encode_integer_with_constraints(tag, &constraints, value)
@@ -874,7 +867,8 @@ impl crate::Encoder for Encoder {
         // It seems that constraints here are not C/OER visible? No mention in standard...
         self.set_bit(tag, true);
         let mut buffer = Vec::new();
-        let value_len_bytes = self.encode_unconstrained_integer(&value.len().into(), false)?;
+        let value_len_bytes =
+            self.encode_unconstrained_integer(&Integer::<usize>(value.len()), false)?;
         buffer.extend(value_len_bytes);
         for one in value {
             let mut encoder = Self::new(self.options);
@@ -1029,14 +1023,17 @@ mod tests {
         let value_range = &[Constraint::Value(Extensible::new(Value::new(range_bound)))];
         let consts = Constraints::new(value_range);
         let mut encoder = Encoder::default();
-        let result =
-            encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &BigInt::from(244));
+        let result = encoder.encode_integer_with_constraints(
+            Tag::INTEGER,
+            &consts,
+            &BigInt::from(244).into(),
+        );
         assert!(result.is_ok());
         let v = vec![244u8];
         assert_eq!(encoder.output, v);
         encoder.output.clear();
         let value = BigInt::from(256);
-        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &value);
+        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &value.into());
         assert!(result.is_err());
     }
     #[test]
@@ -1044,8 +1041,11 @@ mod tests {
         // Using defaults, no limits
         let constraints = Constraints::default();
         let mut encoder = Encoder::default();
-        let result =
-            encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &BigInt::from(244));
+        let result = encoder.encode_integer_with_constraints(
+            Tag::INTEGER,
+            &constraints,
+            &BigInt::from(244).into(),
+        );
         assert!(result.is_ok());
         let v = vec![2u8, 0, 244];
         assert_eq!(encoder.output, v);
@@ -1053,7 +1053,7 @@ mod tests {
         let result = encoder.encode_integer_with_constraints(
             Tag::INTEGER,
             &constraints,
-            &BigInt::from(-1_234_567),
+            &BigInt::from(-1_234_567).into(),
         );
         assert!(result.is_ok());
         let v = vec![0x03u8, 0xED, 0x29, 0x79];
@@ -1066,8 +1066,9 @@ mod tests {
 
         // Signed integer with byte length of 128
         // Needs long form to represent
-        let number = BigInt::from(256).pow(127) - 1;
-        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &number);
+        let number: BigInt = BigInt::from(256).pow(127) - 1;
+        let result =
+            encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &number.into());
         assert!(result.is_ok());
         let vc = [
             0x81, 0x80, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,

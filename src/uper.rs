@@ -79,7 +79,7 @@ mod tests {
         round_trip!(uper, C, 1.into(), &[0x58]);
         round_trip!(uper, C, 10.into(), &[0xa0]);
         // round_trip!(uper, D, 99, &[0x5e]);
-        round_trip!(uper, E, Integer::from(1000).into(), &[]);
+        round_trip!(uper, E, Integer::<i128>::from(1000).into(), &[]);
     }
 
     #[test]

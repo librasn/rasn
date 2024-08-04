@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
+use alloc::{borrow::ToOwned, vec::Vec};
 
 use bitvec::prelude::*;
 
@@ -11,7 +11,7 @@ use crate::{
         strings::{
             should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
         },
-        BitString, Constraints, Enumerated, Tag,
+        BitString, Constraints, Enumerated, Integer, IntegerType, Tag,
     },
     Encode,
 };
@@ -426,7 +426,7 @@ impl Encoder {
             constraints::Value::new(constraints::Bounded::new(0, 63)).into()
         };
 
-        self.encode_integer_into_buffer(
+        self.encode_integer_into_buffer::<usize>(
             Constraints::new(&[size_constraints]),
             &value.into(),
             buffer,
@@ -635,50 +635,57 @@ impl Encoder {
         Ok(())
     }
 
-    fn encode_integer_into_buffer(
+    fn encode_integer_into_buffer<I: IntegerType>(
         &mut self,
         constraints: Constraints,
-        value: &num_bigint::BigInt,
+        value: &Integer<I>,
         buffer: &mut BitString,
     ) -> Result<()> {
         let is_extended_value = self.encode_extensible_bit(&constraints, buffer, || {
             constraints.value().map_or(false, |value_range| {
-                value_range.extensible.is_some() && value_range.constraint.bigint_contains(value)
+                value_range.extensible.is_some() && value_range.constraint.in_bound(value)
             })
         });
 
         let value_range = if is_extended_value || constraints.value().is_none() {
-            let bytes = value.to_signed_bytes_be();
-            self.encode_length(buffer, bytes.len(), constraints.size(), |range| {
-                Ok(BitString::from_slice(&bytes[range]))
+            let (bytes, needed) = value.to_signed_bytes_be();
+            self.encode_length(buffer, needed, constraints.size(), |range| {
+                Ok(BitString::from_slice(&bytes.as_ref()[..needed][range]))
             })?;
             return Ok(());
         } else {
             constraints.value().unwrap()
         };
 
-        if !value_range.constraint.bigint_contains(value) && !is_extended_value {
+        if !value_range.constraint.in_bound(value) && !is_extended_value {
             return Err(Error::value_constraint_not_satisfied(
-                value.clone(),
+                value.to_bigint().unwrap_or_default().into(),
                 &value_range.constraint,
                 self.codec(),
             ));
         }
 
-        let bytes = match value_range.constraint.effective_bigint_value(value.clone()) {
-            either::Left(offset) => offset.to_biguint().unwrap().to_bytes_be(),
-            either::Right(value) => value.to_signed_bytes_be(),
+        let effective_range = value_range
+            .constraint
+            .effective_integer_value(value.to_i128().unwrap());
+        let unsigned_ref;
+        let signed_ref;
+        let needed: usize;
+        let bytes = match &effective_range {
+            either::Left(offset) => {
+                (unsigned_ref, needed) = offset.to_unsigned_bytes_be();
+                unsigned_ref.as_ref()
+            }
+            either::Right(value) => {
+                (signed_ref, needed) = value.to_signed_bytes_be();
+                signed_ref.as_ref()
+            }
         };
 
-        let effective_value: i128 =
-            value_range
-                .constraint
-                .effective_value(value.try_into().map_err(
-                    |e: num_bigint::TryFromBigIntError<()>| {
-                        Error::integer_type_conversion_failed(e.to_string(), self.codec())
-                    },
-                )?)
-                .either_into();
+        let effective_value: i128 = value_range
+            .constraint
+            .effective_value(value.to_i128().unwrap())
+            .either_into();
 
         const K64: i128 = SIXTY_FOUR_K as i128;
         const OVER_K64: i128 = K64 + 1;
@@ -687,11 +694,11 @@ impl Encoder {
             match (self.options.aligned, range) {
                 (true, 256) => {
                     self.pad_to_alignment(buffer);
-                    self.encode_non_negative_binary_integer(buffer, range, &bytes)
+                    self.encode_non_negative_binary_integer(buffer, range, &bytes[..needed])
                 }
                 (true, 257..=K64) => {
                     self.pad_to_alignment(buffer);
-                    self.encode_non_negative_binary_integer(buffer, K64, &bytes);
+                    self.encode_non_negative_binary_integer(buffer, K64, &bytes[..needed]);
                 }
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
@@ -704,7 +711,11 @@ impl Encoder {
                             &[0],
                         );
                         self.pad_to_alignment(&mut *buffer);
-                        self.encode_non_negative_binary_integer(&mut *buffer, 255, &bytes);
+                        self.encode_non_negative_binary_integer(
+                            &mut *buffer,
+                            255,
+                            &bytes[..needed],
+                        );
                     } else {
                         let range_value_in_bytes =
                             num_integer::div_ceil(crate::num::log2(effective_value + 1), 8) as i128;
@@ -717,15 +728,15 @@ impl Encoder {
                         self.encode_non_negative_binary_integer(
                             &mut *buffer,
                             crate::bits::range_from_len(range_value_in_bytes as u32 * 8),
-                            &bytes,
+                            &bytes[..needed],
                         );
                     }
                 }
-                (_, _) => self.encode_non_negative_binary_integer(buffer, range, &bytes),
+                (_, _) => self.encode_non_negative_binary_integer(buffer, range, &bytes[..needed]),
             }
         } else {
-            self.encode_length(buffer, bytes.len(), <_>::default(), |range| {
-                Ok(BitString::from_slice(&bytes[range]))
+            self.encode_length(buffer, needed, <_>::default(), |range| {
+                Ok(BitString::from_slice(&bytes[..needed][range]))
             })?;
         }
 
@@ -863,11 +874,11 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_integer(
+    fn encode_integer<I: IntegerType>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &num_bigint::BigInt,
+        value: &Integer<I>,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         let mut buffer = BitString::new();
@@ -1185,7 +1196,7 @@ impl crate::Encoder for Encoder {
                     (variance - 1) as i128,
                 ))
                 .into()];
-                self.encode_integer_into_buffer(
+                self.encode_integer_into_buffer::<usize>(
                     Constraints::from(choice_range),
                     &index.into(),
                     &mut buffer,
@@ -1376,7 +1387,7 @@ mod tests {
     fn unconstrained_integer() {
         assert_eq!(
             &[0b00000010, 0b00010000, 0],
-            &*crate::uper::encode(&types::Integer::from(4096)).unwrap()
+            &*crate::uper::encode(&types::Integer::<i128>::from(4096)).unwrap()
         );
         struct CustomInt(i32);
 
@@ -1398,7 +1409,7 @@ mod tests {
                 constraints: Constraints,
             ) -> Result<(), E::Error> {
                 encoder
-                    .encode_integer(tag, constraints, &self.0.into())
+                    .encode_integer::<i128>(tag, constraints, &self.0.into())
                     .map(drop)
             }
         }
@@ -1421,7 +1432,7 @@ mod tests {
     fn semi_constrained_integer() {
         let mut encoder = Encoder::new(EncoderOptions::unaligned());
         encoder
-            .encode_integer(
+            .encode_integer::<i128>(
                 Tag::INTEGER,
                 Constraints::from(&[constraints::Value::from(constraints::Bounded::start_from(
                     -1,
@@ -1434,7 +1445,7 @@ mod tests {
         assert_eq!(&[2, 0b00010000, 1], &*encoder.output.clone().into_vec());
         encoder.output.clear();
         encoder
-            .encode_integer(
+            .encode_integer::<i128>(
                 Tag::INTEGER,
                 Constraints::from(&[
                     constraints::Value::from(constraints::Bounded::start_from(1)).into(),
@@ -1445,7 +1456,7 @@ mod tests {
         assert_eq!(&[1, 0b01111110], &*encoder.output.clone().into_vec());
         encoder.output.clear();
         encoder
-            .encode_integer(
+            .encode_integer::<i128>(
                 Tag::INTEGER,
                 Constraints::from(&[
                     constraints::Value::from(constraints::Bounded::start_from(0)).into(),

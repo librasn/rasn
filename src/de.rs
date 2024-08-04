@@ -3,7 +3,7 @@
 use alloc::{boxed::Box, vec::Vec};
 
 use crate::error::DecodeError;
-use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, IntegerType, Tag};
 
 pub use nom::Needed;
 pub use rasn_derive::Decode;
@@ -396,33 +396,40 @@ impl_integers! {
     i16,
     i32,
     i64,
+    i128,
     isize,
     u8,
     u16,
     u32,
     u64,
+    // TODO cannot support u128 as it is constrained type by default and current constraints uses i128 for bounds
+    // u128,
     usize,
 }
 
-impl<const START: i128, const END: i128> Decode for types::ConstrainedInteger<START, END> {
+impl<I: IntegerType, const START: i128, const END: i128> Decode
+    for types::ConstrainedInteger<START, END, I>
+{
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
         decoder
-            .decode_integer::<types::Integer>(tag, constraints)
-            .map(Self)
+            .decode_integer::<I>(tag, constraints)
+            .map(|value| types::ConstrainedInteger::<START, END, I>(types::Integer::<I>(value)))
     }
 }
 
-impl Decode for types::Integer {
+impl<I: IntegerType> Decode for types::Integer<I> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder.decode_integer(tag, constraints)
+        decoder
+            .decode_integer::<I>(tag, constraints)
+            .map(types::Integer::<I>)
     }
 }
 

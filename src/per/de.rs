@@ -2,6 +2,7 @@ use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
+use crate::types::IntegerType;
 use crate::{
     de::Error as _,
     types::{
@@ -345,15 +346,15 @@ impl<'input> Decoder<'input> {
         Ok(boolean[0])
     }
 
-    fn parse_normally_small_integer(&mut self) -> Result<types::Integer> {
+    fn parse_normally_small_integer<I: IntegerType>(&mut self) -> Result<types::Integer<I>> {
         let is_large = self.parse_one_bit()?;
         let constraints = if is_large {
             constraints::Value::new(constraints::Bounded::start_from(0)).into()
         } else {
             constraints::Value::new(constraints::Bounded::new(0, 63)).into()
         };
-
-        self.parse_integer(Constraints::new(&[constraints]))
+        self.parse_integer::<I>(Constraints::new(&[constraints]))
+            .map(types::Integer::<I>)
     }
 
     fn parse_non_negative_binary_integer<I: types::IntegerType>(
@@ -461,13 +462,8 @@ impl<'input> Decoder<'input> {
         }
 
         // The length bitfield has a lower bound of `1..`
-        let extensions_length = self.parse_normally_small_integer()? + 1;
-        let (input, bitfield) =
-            nom::bytes::streaming::take(usize::try_from(extensions_length).map_err(
-                |e: num_bigint::TryFromBigIntError<types::Integer>| {
-                    DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
-                },
-            )?)(self.input)
+        let extensions_length = *self.parse_normally_small_integer::<usize>()? + 1;
+        let (input, bitfield) = nom::bytes::streaming::take(extensions_length)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
 
@@ -665,11 +661,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .unwrap_or_default();
 
         if extensible {
-            let index: usize = self.parse_normally_small_integer()?.try_into().map_err(
-                |e: num_bigint::TryFromBigIntError<types::Integer>| {
-                    DecodeError::integer_type_conversion_failed(e.to_string(), self.codec())
-                },
-            )?;
+            let index: usize = *self.parse_normally_small_integer()?;
             E::from_extended_enumeration_index(index)
                 .ok_or_else(|| DecodeError::enumeration_index_not_found(index, true, self.codec()))
         } else {
@@ -1006,8 +998,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
         });
 
         let index = if variants.len() != 1 || is_extensible {
-            usize::try_from(if is_extensible {
-                self.parse_normally_small_integer()?
+            if is_extensible {
+                *self.parse_normally_small_integer().map_err(|error| {
+                    DecodeError::choice_index_exceeds_platform_width(
+                        usize::BITS,
+                        error,
+                        self.codec(),
+                    )
+                })?
             } else {
                 let variance = variants.len();
                 debug_assert!(variance > 0);
@@ -1016,15 +1014,22 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 let choice_range =
                     constraints::Value::new(constraints::Bounded::new(0, (variance - 1) as i128))
                         .into();
-                self.parse_integer(Constraints::new(&[choice_range]))?
-            })
-            .map_err(|error| {
-                DecodeError::choice_index_exceeds_platform_width(
-                    usize::BITS,
-                    error.into_original().bits(),
-                    self.codec(),
-                )
-            })?
+                self.parse_integer(Constraints::new(&[choice_range]))
+                    .map_err(|error| {
+                        DecodeError::choice_index_exceeds_platform_width(
+                            usize::BITS,
+                            error,
+                            self.codec(),
+                        )
+                    })?
+            }
+            // .map_err(|error| {
+            //     DecodeError::choice_index_exceeds_platform_width(
+            //         usize::BITS,
+            //         error.into_original().bits(),
+            //         self.codec(),
+            //     )
+            // })?
         } else {
             0
         };

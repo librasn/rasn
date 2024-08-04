@@ -60,6 +60,7 @@ mod tests {
     use crate::prelude::*;
     use crate::types::constraints::{Bounded, Size, Value};
     use bitvec::prelude::*;
+    use num_bigint::BigInt;
     #[test]
     fn bool() {
         round_trip!(coer, bool, true, &[0xff]);
@@ -157,7 +158,7 @@ mod tests {
         );
         round_trip!(
             coer,
-            Integer,
+            Integer::<BigInt>,
             Integer::from(i128::MAX) + 1,
             &[
                 0x11u8, 0x00, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -166,7 +167,7 @@ mod tests {
         );
         round_trip!(
             coer,
-            Integer,
+            Integer::<BigInt>,
             Integer::from(i128::MIN) - 1,
             &[
                 0x11u8, 0xff, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,

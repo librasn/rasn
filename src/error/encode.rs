@@ -1,5 +1,6 @@
 use crate::prelude::Integer;
 use crate::types::constraints::{Bounded, Size};
+use num_bigint::BigInt;
 use snafu::Snafu;
 #[cfg(feature = "backtraces")]
 use snafu::{Backtrace, GenerateImplicitData};
@@ -147,7 +148,7 @@ impl EncodeError {
     }
     #[must_use]
     pub fn value_constraint_not_satisfied(
-        value: Integer,
+        value: Integer<BigInt>,
         expected: &Bounded<i128>,
         codec: crate::Codec,
     ) -> Self {
@@ -258,7 +259,7 @@ pub enum EncodeErrorKind {
     #[snafu(display("Value constraint not satisfied: expected: {expected}; actual: {value}"))]
     ValueConstraintNotSatisfied {
         /// Actual value of the data
-        value: Integer,
+        value: Integer<BigInt>,
         /// Expected value by the constraint
         expected: Bounded<i128>,
     },

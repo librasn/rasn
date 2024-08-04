@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, Integer, IntegerType, Tag};
 
 pub use rasn_derive::Encode;
 
@@ -80,11 +80,11 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `INTEGER` value.
-    fn encode_integer(
+    fn encode_integer<T: IntegerType>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &num_bigint::BigInt,
+        value: &Integer<T>,
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `NULL` value.
@@ -461,7 +461,7 @@ macro_rules! impl_integers {
                     encoder.encode_integer(
                         tag,
                         constraints,
-                        &(*self).into()
+                        &Integer::<$int>(*self)
                     ).map(drop)
                 }
             }
@@ -474,15 +474,20 @@ impl_integers! {
     i16,
     i32,
     i64,
+    i128,
     isize,
     u8,
     u16,
     u32,
     u64,
+    // TODO cannot support u128 as it is constrained type by default and current constraints uses i128 for bounds
+    u128,
     usize
 }
 
-impl<const START: i128, const END: i128> Encode for types::ConstrainedInteger<START, END> {
+impl<I: IntegerType, const START: i128, const END: i128> Encode
+    for types::ConstrainedInteger<START, END, I>
+{
     fn encode_with_tag_and_constraints<E: Encoder>(
         &self,
         encoder: &mut E,
@@ -493,7 +498,7 @@ impl<const START: i128, const END: i128> Encode for types::ConstrainedInteger<ST
     }
 }
 
-impl Encode for types::Integer {
+impl<I: IntegerType> Encode for types::Integer<I> {
     fn encode_with_tag_and_constraints<E: Encoder>(
         &self,
         encoder: &mut E,

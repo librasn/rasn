@@ -13,6 +13,7 @@ use snafu::{Backtrace, GenerateImplicitData};
 use crate::de::Error;
 use crate::types::{constraints::Bounded, variants::Variants, Integer, Tag};
 use crate::Codec;
+use num_bigint::BigInt;
 
 /// Variants for every codec-specific `DecodeError` kind.
 #[derive(Debug)]
@@ -172,7 +173,7 @@ impl DecodeError {
     }
     #[must_use]
     pub fn value_constraint_not_satisfied(
-        value: Integer,
+        value: Integer<BigInt>,
         expected: Bounded<i128>,
         codec: Codec,
     ) -> Self {
@@ -267,7 +268,11 @@ impl DecodeError {
         )
     }
     #[must_use]
-    pub fn choice_index_exceeds_platform_width(needed: u32, present: u64, codec: Codec) -> Self {
+    pub fn choice_index_exceeds_platform_width(
+        needed: u32,
+        present: DecodeError,
+        codec: Codec,
+    ) -> Self {
         Self::from_kind(
             DecodeErrorKind::ChoiceIndexExceedsPlatformWidth { needed, present },
             codec,
@@ -372,7 +377,7 @@ pub enum DecodeErrorKind {
     #[snafu(display("Value constraint not satisfied: expected: {expected}; actual: {value}"))]
     ValueConstraintNotSatisfied {
         /// Actual value of the data
-        value: Integer,
+        value: Integer<BigInt>,
         /// Expected value by the constraint
         expected: Bounded<i128>,
     },
@@ -401,8 +406,8 @@ pub enum DecodeErrorKind {
     ChoiceIndexExceedsPlatformWidth {
         /// Amount of bytes needed.
         needed: u32,
-        /// Amount of bytes needed.
-        present: u64,
+        /// Inner error
+        present: DecodeError,
     },
     #[snafu(display("Custom: {}", msg))]
     Custom {
