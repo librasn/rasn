@@ -217,10 +217,10 @@ mod tests {
 
     #[test]
     fn integer() {
-        round_trip(&Integer::new(89));
-        round_trip(&Integer::new(256));
-        round_trip(&Integer::<u64>::new(u64::MAX));
-        round_trip(&Integer::<i64>::new(i64::MIN));
+        round_trip(&Integer(89));
+        round_trip(&Integer(256));
+        round_trip(&Integer(u64::MAX));
+        round_trip(&Integer(i64::MIN));
     }
 
     #[test]
