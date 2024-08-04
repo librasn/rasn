@@ -8,12 +8,12 @@ use num_traits::{identities::Zero, Signed, ToBytes};
 #[non_exhaustive]
 pub struct Integer<I: IntegerType = i128>(pub I);
 
-impl<I: IntegerType> Integer<I> {
-    /// Create a new `Integer` from the given value.
-    pub fn new(value: I) -> Self {
-        Self(value)
-    }
-}
+// impl<I: IntegerType> Integer<I> {
+//     /// Create a new `Integer` from the given value.
+//     pub fn new(value: I) -> Self {
+//         Self(value)
+//     }
+// }
 
 impl<I: IntegerType> core::ops::Deref for Integer<I> {
     type Target = I;
@@ -69,7 +69,6 @@ macro_rules! impl_add_for_integer {
     };
 }
 
-// // Use the macro to implement Add for various integer types
 impl_add_for_integer!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, usize, isize, BigInt);
 
 macro_rules! impl_sub_for_integer {
@@ -165,12 +164,17 @@ macro_rules! impl_try_into_integer {
                     value.0.clone().try_into().map_err(|_| TryFromIntegerError::new(value.0))
                 }
             }
+            impl<I : IntegerType> core::convert::TryFrom<&Integer<I>> for $t {
+                type Error = TryFromIntegerError<I>;
+                fn try_from(value: &Integer<I>) -> Result<Self, Self::Error> {
+                    value.0.clone().try_into().map_err(|_| TryFromIntegerError::new(value.0.clone()))
+                }
+            }
         )*
     };
 }
 
 impl_try_into_integer!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
-// impl_try_into_integer2!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 /// An integer which has encoded constraint range between `START` and `END`.
 #[derive(Debug, Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
