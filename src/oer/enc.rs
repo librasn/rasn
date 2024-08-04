@@ -279,20 +279,20 @@ impl Encoder {
     /// Either as signed or unsigned, set by `signed`
     fn encode_unconstrained_integer<I: IntegerType>(
         &mut self,
+        buffer: &mut Vec<u8>,
         value_to_enc: &Integer<I>,
         signed: bool,
-    ) -> Result<Vec<u8>, EncodeError> {
-        let mut buffer = Vec::new();
+    ) -> Result<(), EncodeError> {
         if signed {
             let (bytes, needed) = value_to_enc.to_signed_bytes_be();
-            self.encode_length(&mut buffer, needed)?;
+            self.encode_length(buffer, needed)?;
             buffer.extend(&bytes.as_ref()[..needed]);
         } else {
             let (bytes, needed) = value_to_enc.to_unsigned_bytes_be();
-            self.encode_length(&mut buffer, needed)?;
+            self.encode_length(buffer, needed)?;
             buffer.extend(&bytes.as_ref()[..needed]);
         };
-        Ok(buffer)
+        Ok(())
     }
 
     /// Encode an integer value with constraints.
@@ -311,7 +311,7 @@ impl Encoder {
         constraints: &Constraints,
         value_to_enc: &Integer<I>,
     ) -> Result<(), EncodeError> {
-        let mut buffer = Vec::new();
+        let mut buffer = Vec::with_capacity(10);
 
         if let Some(value) = constraints.value() {
             if !value.constraint.0.in_bound(value_to_enc) && value.extensible.is_none() {
@@ -325,23 +325,21 @@ impl Encoder {
                 &value,
                 value_to_enc,
                 |value_to_enc, sign, octets| -> Result<(), EncodeError> {
-                    let bytes: Vec<u8>;
                     if let Some(octets) = octets {
-                        bytes = self.encode_constrained_integer_with_padding(
+                        self.encode_constrained_integer_with_padding(
+                            &mut buffer,
                             usize::from(octets),
                             value_to_enc,
                             sign,
                         )?;
                     } else {
-                        bytes = self.encode_unconstrained_integer(value_to_enc, sign)?;
+                        self.encode_unconstrained_integer(&mut buffer, value_to_enc, sign)?;
                     }
-                    buffer.extend(bytes);
                     Ok(())
                 },
             )?;
         } else {
-            let bytes = self.encode_unconstrained_integer(value_to_enc, true)?;
-            buffer.extend(bytes);
+            self.encode_unconstrained_integer(&mut buffer, value_to_enc, true)?;
         }
         self.extend(tag, buffer)?;
         Ok(())
@@ -351,10 +349,11 @@ impl Encoder {
     /// This means that the zero padding is possible even with COER encoding.
     fn encode_constrained_integer_with_padding<I: IntegerType>(
         &mut self,
+        buffer: &mut Vec<u8>,
         octets: usize,
         value: &Integer<I>,
         signed: bool,
-    ) -> Result<Vec<u8>, EncodeError> {
+    ) -> Result<(), EncodeError> {
         use core::cmp::Ordering;
         if octets > 8 {
             return Err(CoerEncodeErrorKind::InvalidConstrainedIntegerOctetSize.into());
@@ -369,7 +368,6 @@ impl Encoder {
             (unsigned_ref, needed) = value.to_unsigned_bytes_be();
             unsigned_ref.as_ref()
         };
-        let mut buffer: Vec<u8> = Vec::new();
         match octets.cmp(&needed) {
             Ordering::Greater => {
                 if signed && value.is_negative() {
@@ -392,7 +390,7 @@ impl Encoder {
             Ordering::Equal => {}
         };
         buffer.extend(&bytes[..needed]);
-        Ok(buffer)
+        Ok(())
     }
     fn check_fixed_size_constraint<T>(
         &self,
@@ -653,9 +651,12 @@ impl crate::Encoder for Encoder {
         let number = value.discriminant();
         let mut buffer = Vec::new();
         if 0isize <= number && number <= i8::MAX.into() {
-            let bytes =
-                self.encode_constrained_integer_with_padding(1, &Integer::<isize>(number), false)?;
-            buffer.extend(bytes);
+            self.encode_constrained_integer_with_padding(
+                &mut buffer,
+                1,
+                &Integer::<isize>(number),
+                false,
+            )?;
         } else {
             // Value is signed here as defined in section 11.4
             // Long form but different from regular length determinant encoding
@@ -867,9 +868,7 @@ impl crate::Encoder for Encoder {
         // It seems that constraints here are not C/OER visible? No mention in standard...
         self.set_bit(tag, true);
         let mut buffer = Vec::new();
-        let value_len_bytes =
-            self.encode_unconstrained_integer(&Integer::<usize>(value.len()), false)?;
-        buffer.extend(value_len_bytes);
+        self.encode_unconstrained_integer(&mut buffer, &Integer::<usize>(value.len()), false)?;
         for one in value {
             let mut encoder = Self::new(self.options);
             E::encode(one, &mut encoder)?;
