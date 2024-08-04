@@ -45,6 +45,12 @@ name = "iai"
 path = "benches/iai.rs"
 harness = false
 
+[[bench]]
+name = "criterion_integer"
+path = "benches/integer.rs"
+harness = false
+test = true
+
 [dependencies]
 nom = { version = "7.1.3", default-features = false, features = ["alloc"] }
 num-bigint = { version = "0.4.3", default-features = false }
@@ -59,11 +65,11 @@ nom-bitvec = { package = "bitvec-nom2", version = "0.2.0" }
 arrayvec = { version = "0.7.4", default-features = false }
 either = { version = "1.9.0", default-features = false }
 once_cell = { version = "1.18.0", default-features = false, features = [
-    "race",
-    "alloc",
+  "race",
+  "alloc",
 ] }
 num-integer = { version = "0.1.45", default-features = false, features = [
-    "i128",
+  "i128",
 ] }
 jzon = { version = "0.12.5", optional = true }
 
