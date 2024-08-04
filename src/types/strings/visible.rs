@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::error::strings::PermittedAlphabetError;
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use alloc::{borrow::ToOwned, vec::Vec};
 use once_cell::race::OnceBox;
 
 /// A string which contains a subset of the ISO 646 character set.
@@ -69,7 +69,7 @@ impl StaticPermittedAlphabet for VisibleString {
 
 impl core::fmt::Display for VisibleString {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(&String::from_utf8(self.as_iso646_bytes().to_owned()).unwrap())
+        f.write_str(core::str::from_utf8(self.as_iso646_bytes()).unwrap())
     }
 }
 
