@@ -301,7 +301,7 @@ fn needed_as_be_bytes<T: ToBytes + IntegerType, const N: usize>(
     }
     (slice_reversed, needed)
 }
-macro_rules! integer_type_decode {
+macro_rules! integer_type_impl {
     ((signed $t1:ty, $t2:ty), $($ts:tt)*) => {
         impl IntegerType for $t1 {
             const WIDTH: u32 = <$t1>::BITS;
@@ -352,12 +352,8 @@ macro_rules! integer_type_decode {
                 Ok(<$t2>::try_from_bytes(input, codec)? as $t1)
             }
             fn unsigned_bytes_needed(&self) -> usize {
-                if self.is_zero() {
-                        1
-                    } else {
-                        Self::WIDTH as usize - (self.leading_zeros() / 8) as usize
-                    }
-                }
+                (*self as $t2).unsigned_bytes_needed()
+            }
             fn signed_bytes_needed(&self) -> usize {
                 let leading_bits = if Signed::is_negative(self) {
                     self.leading_ones() as usize
@@ -387,7 +383,7 @@ macro_rules! integer_type_decode {
             }
         }
 
-        integer_type_decode!($($ts)*);
+        integer_type_impl!($($ts)*);
     };
     ((unsigned $t1:ty, $t2:ty), $($ts:tt)*) => {
 
@@ -445,20 +441,12 @@ macro_rules! integer_type_decode {
                 }
             }
             fn signed_bytes_needed(&self) -> usize {
-                (Self::BYTE_WIDTH - self.leading_zeros() as usize + 7) / 8
-                // let leading_bits =  self.leading_zeros() as usize ;
-                // let full_bytes = Self::BYTE_WIDTH - leading_bits / 8;
-                // let extra_byte = (leading_bits % 8 == 0) as usize;
-                // full_bytes + extra_byte
+                (*self as $t2).signed_bytes_needed()
             }
 
             fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-
-                // const N: usize = core::mem::size_of::<$t2>();
-                // needed_as_be_bytes::<$t2, N>(*self as $t2, true)
-                // TODO no need to make type conversion to $t2 here?
-                const N: usize = core::mem::size_of::<$t1>();
-                needed_as_be_bytes::<$t1, N>(*self, false)
+                const N: usize = core::mem::size_of::<$t2>();
+                needed_as_be_bytes::<$t2, N>(*self as $t2, true)
             }
             fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
                 const N: usize = core::mem::size_of::<$t1>();
@@ -473,24 +461,25 @@ macro_rules! integer_type_decode {
             }
         }
 
-        integer_type_decode!($($ts)*);
+        integer_type_impl!($($ts)*);
     };
     (,) => {};
     () => {};
 }
 
-integer_type_decode!(
-    (unsigned u8, i8),
+integer_type_impl!(
+    (unsigned u8, i16),
     (signed i8, u8),
-    (unsigned u16, i16),
+    (unsigned u16, i32),
     (signed i16, u16),
-    (unsigned u32, i32),
+    (unsigned u32, i64),
     (signed i32, u32),
-    (unsigned u64, i64),
+    (unsigned u64, i128),
     (signed i64, u64),
+    // Will truncate on i128 on large numbers
     (unsigned u128, i128),
     (signed i128, u128),
-    (unsigned usize, isize),
+    (unsigned usize, i128),
     (signed isize, usize),
 );
 

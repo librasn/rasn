@@ -491,22 +491,18 @@ impl Bounded<i128> {
                 start.as_ref().map_or(true, |&start| {
                     if let Some(e) = element.to_i128() {
                         e >= start
+                    } else if let Some(e) = element.to_bigint() {
+                        e >= BigInt::from(start)
                     } else {
-                        if let Some(e) = element.to_bigint() {
-                            e >= BigInt::from(start)
-                        } else {
-                            false
-                        }
+                        false
                     }
                 }) && end.as_ref().map_or(true, |&end| {
                     if let Some(e) = element.to_i128() {
                         e <= end
+                    } else if let Some(e) = element.to_bigint() {
+                        e <= BigInt::from(end)
                     } else {
-                        if let Some(e) = element.to_bigint() {
-                            e <= BigInt::from(end)
-                        } else {
-                            false
-                        }
+                        false
                     }
                 })
             }
