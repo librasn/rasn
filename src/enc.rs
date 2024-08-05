@@ -236,7 +236,7 @@ pub trait Encoder {
         if value != &E::default() {
             self.encode_some_with_tag(tag, value)
         } else {
-            self.encode_none::<E>()
+            self.encode_none_with_tag(tag)
         }
     }
 
@@ -405,7 +405,7 @@ impl<E: Encode> Encode for Option<E> {
     fn encode_with_tag<EN: Encoder>(&self, encoder: &mut EN, tag: Tag) -> Result<(), EN::Error> {
         match self {
             Some(value) => encoder.encode_some_with_tag(tag, value),
-            None => encoder.encode_none::<E>(),
+            None => encoder.encode_none_with_tag(tag),
         }
         .map(drop)
     }
@@ -419,7 +419,7 @@ impl<E: Encode> Encode for Option<E> {
             Some(value) => {
                 encoder.encode_some_with_tag_and_constraints(Self::TAG, constraints, value)
             }
-            None => encoder.encode_none::<E>(),
+            None => encoder.encode_none_with_tag(Self::TAG),
         }
         .map(drop)
     }
@@ -433,7 +433,7 @@ impl<E: Encode> Encode for Option<E> {
         match self {
             Some(value) => encoder.encode_some_with_tag_and_constraints(tag, constraints, value),
 
-            None => encoder.encode_none::<E>(),
+            None => encoder.encode_none_with_tag(tag),
         }
         .map(drop)
     }
