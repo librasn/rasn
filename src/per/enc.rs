@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
 
 use bitvec::prelude::*;
 
@@ -654,7 +654,8 @@ impl Encoder {
             })?;
             return Ok(());
         } else {
-            constraints.value().unwrap()
+            // Safe to unwrap because we checked for None above
+            constraints.value().unwrap_or_default()
         };
 
         if !value_range.constraint.in_bound(value) && !is_extended_value {
@@ -665,9 +666,15 @@ impl Encoder {
             ));
         }
 
-        let effective_range = value_range
-            .constraint
-            .effective_integer_value(value.to_i128().unwrap_or_default());
+        let effective_range =
+            value_range
+                .constraint
+                .effective_integer_value(value.to_i128().ok_or_else(|| {
+                    Error::integer_type_conversion_failed(
+                        "Value too large for i128 type - outside of type constraint".to_string(),
+                        self.codec(),
+                    )
+                })?);
         let unsigned_ref;
         let signed_ref;
         let needed: usize;
@@ -684,7 +691,12 @@ impl Encoder {
 
         let effective_value: i128 = value_range
             .constraint
-            .effective_value(value.to_i128().unwrap_or_default())
+            .effective_value(value.to_i128().ok_or_else(|| {
+                Error::integer_type_conversion_failed(
+                    "Value too large for i128 type - outside of type constraint".to_string(),
+                    self.codec(),
+                )
+            })?)
             .either_into();
 
         const K64: i128 = SIXTY_FOUR_K as i128;
