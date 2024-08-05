@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.2](https://github.com/librasn/rasn/compare/rasn-v0.16.1...rasn-v0.16.2) - 2024-08-05
+
+### Other
+- call correct  method for Default and Optional types when value is None. ([#290](https://github.com/librasn/rasn/pull/290))
+
 ## [0.16.1](https://github.com/librasn/rasn/compare/rasn-v0.16.0...rasn-v0.16.1) - 2024-08-04
 
 ### Other
