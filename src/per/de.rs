@@ -1023,13 +1023,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
                         )
                     })?
             }
-            // .map_err(|error| {
-            //     DecodeError::choice_index_exceeds_platform_width(
-            //         usize::BITS,
-            //         error.into_original().bits(),
-            //         self.codec(),
-            //     )
-            // })?
         } else {
             0
         };

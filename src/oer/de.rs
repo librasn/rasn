@@ -251,20 +251,20 @@ impl<'input> Decoder<'input> {
                 // if the value is too large for a i128, the constraint isn't satisfied
                 if let Some(constraint_integer) = integer.to_i128() {
                     if value.constraint.contains(&constraint_integer) {
-                        return Ok(integer);
+                        Ok(integer)
                     } else {
-                        return Err(DecodeError::value_constraint_not_satisfied(
+                        Err(DecodeError::value_constraint_not_satisfied(
                             integer.to_bigint().unwrap_or_default().into(),
                             value.constraint.0,
                             self.codec(),
-                        ));
+                        ))
                     }
                 } else {
-                    return Err(DecodeError::value_constraint_not_satisfied(
+                    Err(DecodeError::value_constraint_not_satisfied(
                         integer.to_bigint().unwrap_or_default().into(),
                         value.constraint.0,
                         self.codec(),
-                    ));
+                    ))
                 }
             })
         } else {
