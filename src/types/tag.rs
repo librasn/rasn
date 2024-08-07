@@ -127,7 +127,8 @@ consts! {
     GENERAL_STRING = 27,
     UNIVERSAL_STRING = 28,
     CHARACTER_STRING = 29,
-    BMP_STRING = 30
+    BMP_STRING = 30,
+    DATE = 31
 }
 
 impl Tag {

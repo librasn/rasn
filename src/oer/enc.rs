@@ -9,6 +9,7 @@ use crate::Codec;
 use bitvec::prelude::*;
 use num_traits::{Signed, ToPrimitive};
 
+use crate::types;
 use crate::types::{fields::FieldPresence, BitString, Constraints, Integer};
 use crate::{Encode, Tag};
 
@@ -828,6 +829,14 @@ impl crate::Encoder for Encoder {
         )
     }
 
+    fn encode_date(&mut self, tag: Tag, value: &types::Date) -> Result<Self::Ok, Self::Error> {
+        self.set_bit(tag, true);
+        self.encode_octet_string(
+            tag,
+            Constraints::default(),
+            &crate::der::enc::Encoder::naivedate_to_date_bytes(value),
+        )
+    }
     fn encode_explicit_prefix<V: Encode>(
         &mut self,
         tag: Tag,
