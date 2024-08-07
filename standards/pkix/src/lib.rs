@@ -37,7 +37,7 @@ pub type RdnSequence = SequenceOf<RelativeDistinguishedName>;
 pub type X520DnQualifier = PrintableString;
 pub type DomainComponent = Ia5String;
 pub type EmailAddress = Ia5String;
-pub type CertificateSerialNumber = Integer;
+pub type CertificateSerialNumber = Integer<u128>;
 pub type UniqueIdentifier = BitString;
 pub type NetworkAddress = X121Address;
 pub type X121Address = NumericString;
@@ -49,7 +49,7 @@ pub type KeyIdentifier = OctetString;
 pub type SubjectKeyIdentifier = KeyIdentifier;
 pub type PolicyQualifierId = ObjectIdentifier;
 pub type TrustAnchorTitle = Utf8String;
-pub type TrustAnchorInfoVersion = Integer;
+pub type TrustAnchorInfoVersion = Integer<i128>;
 pub type TrustAnchorList = SequenceOf<TrustAnchorChoice>;
 pub type CertPolicyFlags = BitString;
 
