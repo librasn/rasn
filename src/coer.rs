@@ -1269,5 +1269,28 @@ mod tests {
             },
             &[0b10000000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03]
         );
+        #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
+        #[non_exhaustive]
+        pub struct SequenceDuplicatesExtended {
+            pub it: Integer,
+            pub is: Option<OctetString>,
+            pub late: Option<Integer>,
+            #[rasn(extension_addition)]
+            pub today: OctetString,
+        }
+        round_trip!(
+            coer,
+            SequenceDuplicatesExtended,
+            SequenceDuplicatesExtended {
+                it: 1.into(),
+                is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
+                late: None,
+                today: OctetString::from_static(&[0x01, 0x02, 0x03])
+            },
+            &[
+                0b11000000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03, 0x02, 0x07, 0b10000000, 0x04, 0x03,
+                0x01, 0x02, 0x03
+            ]
+        );
     }
 }

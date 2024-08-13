@@ -62,7 +62,9 @@ pub struct Encoder {
     options: EncoderOptions,
     output: BitString,
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
-    field_bitfield: alloc::collections::BTreeMap<Tag, (FieldPresence, bool)>,
+    // usize a.k.a. field index defines the order for Sequence
+    field_bitfield: alloc::collections::BTreeMap<(usize, Tag), (FieldPresence, bool)>,
+    current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
@@ -75,6 +77,7 @@ impl Encoder {
             output: <_>::default(),
             set_output: <_>::default(),
             field_bitfield: <_>::default(),
+            current_field_index: <_>::default(),
             is_extension_sequence: <_>::default(),
             extension_fields: <_>::default(),
             parent_output_length: <_>::default(),
@@ -90,7 +93,12 @@ impl Encoder {
         encoder.field_bitfield = C::FIELDS
             .canonised()
             .iter()
-            .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
+            .map(|field| {
+                (
+                    (usize::default(), field.tag_tree.smallest_tag()),
+                    (field.presence, false),
+                )
+            })
             .collect();
         encoder.is_extension_sequence = C::EXTENDED_FIELDS.is_some();
         encoder.parent_output_length = Some(self.output_length());
@@ -102,7 +110,8 @@ impl Encoder {
         encoder.is_extension_sequence = C::EXTENDED_FIELDS.is_some();
         encoder.field_bitfield = C::FIELDS
             .iter()
-            .map(|field| (field.tag_tree.smallest_tag(), (field.presence, false)))
+            .enumerate()
+            .map(|(i, field)| ((i, field.tag_tree.smallest_tag()), (field.presence, false)))
             .collect();
         encoder.parent_output_length = Some(self.output_length());
         encoder
@@ -122,7 +131,23 @@ impl Encoder {
     }
 
     pub fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
-        self.field_bitfield.entry(tag).and_modify(|(_, b)| *b = bit);
+        // In set encoding, field index does not matter
+        // Tags need to be unique
+        if self.options.set_encoding {
+            self.field_bitfield
+                .entry((usize::default(), tag))
+                .and_modify(|(_, b)| *b = bit);
+        } else {
+            match self.field_bitfield.entry((self.current_field_index, tag)) {
+                alloc::collections::btree_map::Entry::Occupied(mut occupied) => {
+                    occupied.get_mut().1 = bit;
+                    self.current_field_index += 1;
+                }
+                alloc::collections::btree_map::Entry::Vacant(_) => {
+                    // Key does not exist, do nothing
+                }
+            }
+        }
         Ok(())
     }
 
@@ -1031,9 +1056,12 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        if let Some((_, true)) = self.field_bitfield.get(&tag) {
+        if let Some((_, true)) = self.field_bitfield.get(&(self.current_field_index, tag)) {
             value.encode(self)
-        } else if !self.field_bitfield.contains_key(&tag) {
+        } else if !self
+            .field_bitfield
+            .contains_key(&(self.current_field_index, tag))
+        {
             // There is no bitfield if none of the parent objects is struct/set
             // But we still need to handle nested choices explicitly
             value.encode(self)
@@ -1190,10 +1218,18 @@ impl crate::Encoder for Encoder {
         value: E,
     ) -> Result<Self::Ok, Self::Error> {
         let mut encoder = Self::new(self.options.without_set_encoding());
-        encoder.field_bitfield = <_>::from([(tag, (FieldPresence::Optional, false))]);
+        encoder.current_field_index = self.current_field_index;
+        encoder.field_bitfield = <_>::from([(
+            (self.current_field_index, tag),
+            (FieldPresence::Optional, false),
+        )]);
         E::encode_with_tag_and_constraints(&value, &mut encoder, tag, constraints)?;
 
-        if encoder.field_bitfield.get(&tag).map_or(false, |(_, b)| *b) {
+        if encoder
+            .field_bitfield
+            .get(&(self.current_field_index, tag))
+            .map_or(false, |(_, b)| *b)
+        {
             self.set_bit(tag, true)?;
             self.extension_fields.push(Some(encoder.output()));
         } else {
