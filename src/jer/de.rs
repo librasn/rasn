@@ -317,6 +317,10 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(Self::general_time_from_value, self.stack)
     }
 
+    fn decode_date(&mut self, _t: crate::Tag) -> Result<Date, Self::Error> {
+        decode_jer_value!(Self::date_from_value, self.stack)
+    }
+
     fn decode_set<FIELDS, SET, D, F>(
         &mut self,
         _t: crate::Tag,
@@ -620,6 +624,18 @@ impl Decoder {
                 .as_str()
                 .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                     needed: "time string",
+                    found: alloc::format!("{value}"),
+                })?
+                .into(),
+        )
+    }
+
+    fn date_from_value(value: JsonValue) -> Result<chrono::NaiveDate, DecodeError> {
+        crate::ber::de::Decoder::parse_date_string(
+            value
+                .as_str()
+                .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
+                    needed: "date string",
                     found: alloc::format!("{value}"),
                 })?
                 .into(),

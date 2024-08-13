@@ -373,4 +373,14 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(dt1, result.unwrap());
     }
+
+    #[test]
+    fn test_date() {
+        round_trip!(
+            ber,
+            Date,
+            NaiveDate::from_ymd_opt(2012, 12, 21).unwrap(),
+            &[0x1f, 0x1f, 0x08, 0x32, 0x30, 0x31, 0x32, 0x31, 0x32, 0x32, 0x31]
+        );
+    }
 }

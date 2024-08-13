@@ -13,6 +13,7 @@ pub mod constraints;
 pub mod fields;
 pub mod variants;
 
+pub(crate) mod date;
 pub(crate) mod oid;
 pub(crate) mod strings;
 
@@ -46,6 +47,9 @@ pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
 pub type UtcTime = chrono::DateTime<chrono::Utc>;
 ///  The `GeneralizedTime` type.
 pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
+/// The `Date` type.
+pub type Date = chrono::NaiveDate;
+
 ///  The `SEQUENCE OF` type.
 /// ## Usage
 /// ASN1 declaration such as ...

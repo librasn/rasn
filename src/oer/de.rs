@@ -2,6 +2,7 @@
 // In OER, without knowledge of the type of the value encoded, it is not possible to determine
 // the structure of the encoding. In particular, the end of the encoding cannot be determined from
 // the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
+
 use super::enc::EncodingRules;
 use crate::oer::ranges;
 use crate::prelude::{
@@ -10,7 +11,7 @@ use crate::prelude::{
     TeletexString, UtcTime, VisibleString,
 };
 use crate::types::fields::{Field, Fields};
-use crate::{Codec, Decode, Tag};
+use crate::{types, Codec, Decode, Tag};
 use alloc::{
     collections::VecDeque,
     string::{String, ToString},
@@ -765,6 +766,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 )
             })?;
         crate::der::de::Decoder::parse_canonical_generalized_time_string(string)
+    }
+
+    fn decode_date(&mut self, tag: Tag) -> Result<types::Date, Self::Error> {
+        let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
+            .map_err(|_| {
+                DecodeError::string_conversion_failed(
+                    Tag::UTF8_STRING,
+                    "DATE should be UTF8 encoded".to_string(),
+                    self.codec(),
+                )
+            })?;
+        crate::der::de::Decoder::parse_date_string(&string)
     }
 
     fn decode_set<FIELDS, SET, D, F>(

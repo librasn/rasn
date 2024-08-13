@@ -55,7 +55,7 @@ pub trait Decoder: Sized {
     #[must_use]
     fn codec(&self) -> crate::Codec;
 
-    /// Decode a unknown ASN.1 value identified by `tag` from the available input.
+    /// Decode an unknown ASN.1 value identified by `tag` from the available input.
     fn decode_any(&mut self) -> Result<types::Any, Self::Error>;
     /// Decode a `BIT STRING` identified by `tag` from the available input.
     fn decode_bit_string(
@@ -172,6 +172,8 @@ pub trait Decoder: Sized {
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime, Self::Error>;
     /// Decode a `GeneralizedTime` identified by `tag` from the available input.
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime, Self::Error>;
+    /// Decode a 'DATE' identified by 'tag' from the available input
+    fn decode_date(&mut self, tag: Tag) -> Result<types::Date, Self::Error>;
 
     /// Decode a `SET` identified by `tag` from the available input. Decoding
     /// `SET`s works a little different than other methods, as you need to
