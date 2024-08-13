@@ -2,5 +2,4 @@
 **/*.rs.bk
 /.vscode
 .DS_Store
-/Cargo.lock
 .idea
