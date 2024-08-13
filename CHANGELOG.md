@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.3](https://github.com/librasn/rasn/compare/rasn-v0.16.2...rasn-v0.16.3) - 2024-08-13
+
+### Other
+- Remove Cargo.lock from gitignore ([#294](https://github.com/librasn/rasn/pull/294))
+- fix untagged sequence bitfield ([#280](https://github.com/librasn/rasn/pull/280))
+
 ## [0.16.2](https://github.com/librasn/rasn/compare/rasn-v0.16.1...rasn-v0.16.2) - 2024-08-05
 
 ### Other
