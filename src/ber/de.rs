@@ -383,7 +383,26 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_integer<I: types::IntegerType>(&mut self, tag: Tag, _: Constraints) -> Result<I> {
-        I::try_from_bytes(self.parse_primitive_value(tag)?.1, self.codec())
+        let primitive_bytes = self.parse_primitive_value(tag)?.1;
+        let integer_width = I::WIDTH as usize / 8;
+        if primitive_bytes.len() > integer_width {
+            let leading_byte = if primitive_bytes[0] & 0x80 == 0x80 {
+                0xFF
+            } else {
+                0x00
+            };
+            let input_iter = primitive_bytes
+                .iter()
+                .copied()
+                .skip_while(|n| *n == leading_byte);
+            let data_length = input_iter.clone().count();
+            I::try_from_bytes(
+                &primitive_bytes[primitive_bytes.len() - data_length..primitive_bytes.len()],
+                self.codec(),
+            )
+        } else {
+            I::try_from_bytes(primitive_bytes, self.codec())
+        }
     }
 
     fn decode_octet_string(&mut self, tag: Tag, _: Constraints) -> Result<Vec<u8>> {

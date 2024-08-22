@@ -69,7 +69,7 @@ pub type Date = chrono::NaiveDate;
 /// #[derive(AsnType, Decode, Encode)]
 /// #[rasn(delegate, value("1", extensible))]
 /// struct InnerTestTypeB(pub Integer);
-///  
+///
 /// #[derive(AsnType, Decode, Encode)]
 /// #[rasn(delegate)]
 /// struct TestTypeB(pub SequenceOf<InnerTestTypeB>);
@@ -373,28 +373,15 @@ macro_rules! integer_type_decode {
                 if input.is_empty() {
                     return Err(crate::error::DecodeError::unexpected_empty_input(codec));
                 }
-
-                // in the case of superfluous leading bytes (especially zeroes),
-                // we may still want to try to decode the integer even though
-                // the length is >BYTE_SIZE ...
-                let leading_byte = if input[0] & 0x80 == 0x80 { 0xFF } else { 0x00 };
-                let input_iter = input.iter().copied().skip_while(|n| *n == leading_byte);
-                let data_length = input_iter.clone().count();
-
-                // ... but if its still too large after skipping leading bytes,
-                // there's no way to decode this without overflowing
-                if data_length > BYTE_SIZE {
+                if input.len() > BYTE_SIZE {
                     return Err(crate::error::DecodeError::integer_overflow(<$t1>::BITS, codec));
                 }
 
-                let mut bytes = [leading_byte; BYTE_SIZE];
-                let start = bytes.len() - data_length;
-
-                for (b, d) in bytes[start..].iter_mut().zip(input_iter) {
-                    *b = d;
-                }
-
-                Ok(Self::from_be_bytes(bytes))
+                let mut array = [0u8; BYTE_SIZE];
+                let pad = if input[0] & 0x80 == 0 { 0 } else { 0xff };
+                array[..BYTE_SIZE - input.len()].fill(pad);
+                array[BYTE_SIZE - input.len()..].copy_from_slice(input);
+                Ok(Self::from_be_bytes(array))
             }
 
             fn try_from_unsigned_bytes(
@@ -437,23 +424,13 @@ macro_rules! integer_type_decode {
                 if input.is_empty() {
                     return Err(crate::error::DecodeError::unexpected_empty_input(codec));
                 }
-
-                let input_iter = input.iter().copied().skip_while(|n| *n == 0x00);
-                let data_length = input_iter.clone().count();
-
-                if data_length > BYTE_SIZE {
+                if input.len() > BYTE_SIZE {
                     return Err(crate::error::DecodeError::integer_overflow(<$t1>::BITS, codec));
                 }
 
-                let mut bytes = [0x00; BYTE_SIZE];
-                let start = bytes.len() - data_length;
-
-                for (b, d) in bytes[start..].iter_mut().zip(input_iter) {
-                    *b = d;
-                }
-
-
-                Ok(Self::from_be_bytes(bytes))
+                let mut array = [0u8; BYTE_SIZE];
+                array[BYTE_SIZE - input.len()..].copy_from_slice(input);
+                Ok(Self::from_be_bytes(array))
             }
 
             fn wrapping_add(self, other: Self) -> Self {
