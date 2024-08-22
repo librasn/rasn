@@ -389,7 +389,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
             // in the case of superfluous leading bytes (especially zeroes),
             // we may still want to try to decode the integer even though
             // the length is > integer width ...
-
             let leading_byte = if primitive_bytes[0] & 0x80 == 0x80 {
                 0xFF
             } else {
