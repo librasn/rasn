@@ -132,7 +132,7 @@ fn list_in_single_attr() {
     pub struct Bar(pub u8);
 
     assert_eq!(Foo::TAG, Tag::new(Class::Context, 0));
-    assert_eq!(Bar::TAG, Integer::<u8>::TAG);
+    assert_eq!(Bar::TAG, Integer::TAG);
 }
 
 #[derive(AsnType, Decode, Encode)]

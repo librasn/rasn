@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, AsnType, Constraints, Enumerated, Integer, IntegerType, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, IntegerType, Tag};
 
 pub use rasn_derive::Encode;
 
@@ -80,11 +80,11 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `INTEGER` value.
-    fn encode_integer<T: IntegerType>(
+    fn encode_integer<I: IntegerType>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &Integer<T>,
+        value: &I,
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `NULL` value.
@@ -461,7 +461,7 @@ macro_rules! impl_integers {
                     encoder.encode_integer(
                         tag,
                         constraints,
-                        &Integer::<$int>(*self)
+                        self
                     ).map(drop)
                 }
             }
@@ -485,20 +485,18 @@ impl_integers! {
     usize
 }
 
-impl<I: IntegerType, const START: i128, const END: i128> Encode
-    for types::ConstrainedInteger<START, END, I>
-{
+impl<const START: i128, const END: i128> Encode for types::ConstrainedInteger<START, END> {
     fn encode_with_tag_and_constraints<E: Encoder>(
         &self,
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<(), E::Error> {
-        encoder.encode_integer(tag, constraints, self).map(drop)
+        encoder.encode_integer(tag, constraints, &**self).map(drop)
     }
 }
 
-impl<I: IntegerType> Encode for types::Integer<I> {
+impl Encode for types::Integer {
     fn encode_with_tag_and_constraints<E: Encoder>(
         &self,
         encoder: &mut E,

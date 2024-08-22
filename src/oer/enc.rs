@@ -10,8 +10,7 @@ use crate::Codec;
 use bitvec::prelude::*;
 use num_traits::ToPrimitive;
 
-use crate::types;
-use crate::types::{fields::FieldPresence, BitString, Constraints, Integer};
+use crate::types::{fields::FieldPresence, BitString, Constraints, Date};
 use crate::{Encode, Tag};
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
@@ -280,7 +279,7 @@ impl Encoder {
     fn encode_unconstrained_integer<I: IntegerType>(
         &mut self,
         buffer: &mut Vec<u8>,
-        value_to_enc: &Integer<I>,
+        value_to_enc: &I,
         signed: bool,
     ) -> Result<(), EncodeError> {
         if signed {
@@ -309,7 +308,7 @@ impl Encoder {
         &mut self,
         tag: Tag,
         constraints: &Constraints,
-        value_to_enc: &Integer<I>,
+        value_to_enc: &I,
     ) -> Result<(), EncodeError> {
         let mut buffer = Vec::with_capacity(10);
 
@@ -351,7 +350,7 @@ impl Encoder {
         &mut self,
         buffer: &mut Vec<u8>,
         octets: usize,
-        value: &Integer<I>,
+        value: &I,
         signed: bool,
     ) -> Result<(), EncodeError> {
         use core::cmp::Ordering;
@@ -651,12 +650,7 @@ impl crate::Encoder for Encoder {
         let number = value.discriminant();
         let mut buffer = Vec::new();
         if 0isize <= number && number <= i8::MAX.into() {
-            self.encode_constrained_integer_with_padding(
-                &mut buffer,
-                1,
-                &Integer::<isize>(number),
-                false,
-            )?;
+            self.encode_constrained_integer_with_padding(&mut buffer, 1, &number, false)?;
         } else {
             // Value is signed here as defined in section 11.4
             // Long form but different from regular length determinant encoding
@@ -685,7 +679,7 @@ impl crate::Encoder for Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &Integer<I>,
+        value: &I,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true);
         self.encode_integer_with_constraints(tag, &constraints, value)
@@ -823,7 +817,7 @@ impl crate::Encoder for Encoder {
         )
     }
 
-    fn encode_date(&mut self, tag: Tag, value: &types::Date) -> Result<Self::Ok, Self::Error> {
+    fn encode_date(&mut self, tag: Tag, value: &Date) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true);
         self.encode_octet_string(
             tag,
@@ -868,7 +862,7 @@ impl crate::Encoder for Encoder {
         // It seems that constraints here are not C/OER visible? No mention in standard...
         self.set_bit(tag, true);
         let mut buffer = Vec::new();
-        self.encode_unconstrained_integer(&mut buffer, &Integer::<usize>(value.len()), false)?;
+        self.encode_unconstrained_integer(&mut buffer, &value.len(), false)?;
         for one in value {
             let mut encoder = Self::new(self.options);
             E::encode(one, &mut encoder)?;
@@ -1022,17 +1016,13 @@ mod tests {
         let value_range = &[Constraint::Value(Extensible::new(Value::new(range_bound)))];
         let consts = Constraints::new(value_range);
         let mut encoder = Encoder::default();
-        let result = encoder.encode_integer_with_constraints(
-            Tag::INTEGER,
-            &consts,
-            &BigInt::from(244).into(),
-        );
+        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &244);
         assert!(result.is_ok());
         let v = vec![244u8];
         assert_eq!(encoder.output, v);
         encoder.output.clear();
         let value = BigInt::from(256);
-        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &value.into());
+        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &consts, &value);
         assert!(result.is_err());
     }
     #[test]
@@ -1040,11 +1030,8 @@ mod tests {
         // Using defaults, no limits
         let constraints = Constraints::default();
         let mut encoder = Encoder::default();
-        let result = encoder.encode_integer_with_constraints(
-            Tag::INTEGER,
-            &constraints,
-            &BigInt::from(244).into(),
-        );
+        let result =
+            encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &BigInt::from(244));
         assert!(result.is_ok());
         let v = vec![2u8, 0, 244];
         assert_eq!(encoder.output, v);
@@ -1052,7 +1039,7 @@ mod tests {
         let result = encoder.encode_integer_with_constraints(
             Tag::INTEGER,
             &constraints,
-            &BigInt::from(-1_234_567).into(),
+            &BigInt::from(-1_234_567),
         );
         assert!(result.is_ok());
         let v = vec![0x03u8, 0xED, 0x29, 0x79];
@@ -1066,8 +1053,7 @@ mod tests {
         // Signed integer with byte length of 128
         // Needs long form to represent
         let number: BigInt = BigInt::from(256).pow(127) - 1;
-        let result =
-            encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &number.into());
+        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &number);
         assert!(result.is_ok());
         let vc = [
             0x81, 0x80, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
@@ -1086,6 +1072,7 @@ mod tests {
     #[test]
     fn test_choice() {
         use crate as rasn;
+        use crate::types::Integer;
         #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
         #[rasn(choice, automatic_tags)]
         #[non_exhaustive]

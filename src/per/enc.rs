@@ -11,7 +11,7 @@ use crate::{
         strings::{
             should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
         },
-        BitString, Constraints, Enumerated, Integer, IntegerType, Tag,
+        BitString, Constraints, Enumerated, IntegerType, Tag,
     },
     Encode,
 };
@@ -638,7 +638,7 @@ impl Encoder {
     fn encode_integer_into_buffer<I: IntegerType>(
         &mut self,
         constraints: Constraints,
-        value: &Integer<I>,
+        value: &I,
         buffer: &mut BitString,
     ) -> Result<()> {
         let is_extended_value = self.encode_extensible_bit(&constraints, buffer, || {
@@ -890,7 +890,7 @@ impl crate::Encoder for Encoder {
         &mut self,
         tag: Tag,
         constraints: Constraints,
-        value: &Integer<I>,
+        value: &I,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         let mut buffer = BitString::new();
@@ -1399,7 +1399,7 @@ mod tests {
     fn unconstrained_integer() {
         assert_eq!(
             &[0b00000010, 0b00010000, 0],
-            &*crate::uper::encode(&types::Integer::<i128>::from(4096)).unwrap()
+            &*crate::uper::encode(&types::Integer::from(4096)).unwrap()
         );
         struct CustomInt(i32);
 

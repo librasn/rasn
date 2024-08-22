@@ -51,7 +51,7 @@ pub struct AttributeCertificateInfo {
 
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(delegate)]
-pub struct AttributeCertificateVersion(pub Integer<u128>);
+pub struct AttributeCertificateVersion(pub Integer);
 
 impl AttributeCertificateVersion {
     pub const V2: u8 = 1;

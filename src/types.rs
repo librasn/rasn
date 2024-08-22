@@ -256,7 +256,7 @@ macro_rules! asn_type {
 
 asn_type! {
     bool: BOOL,
-    // Integer: INTEGER,
+    Integer: INTEGER,
     OctetString: OCTET_STRING,
     ObjectIdentifier: OBJECT_IDENTIFIER,
     Oid: OBJECT_IDENTIFIER,
@@ -266,9 +266,6 @@ asn_type! {
     (): NULL,
     &'_ str: UTF8_STRING
 
-}
-impl<I: IntegerType> AsnType for Integer<I> {
-    const TAG: Tag = Tag::INTEGER;
 }
 
 macro_rules! asn_integer_type {
@@ -295,8 +292,14 @@ asn_integer_type! {
     u16,
     u32,
     u64,
-    u128,
+    u128, // TODO upper constraint truncated
     usize,
+}
+impl AsnType for num_bigint::BigInt {
+    const TAG: Tag = Tag::INTEGER;
+    // const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
+    //     constraints::Constraint::Value(Extensible::new(constraints::Value::new(constraints::Bounded::const_new(<$int>::MIN as i128, <$int>::MAX as i128)))),
+    // ]);
 }
 
 impl AsnType for str {

@@ -11,7 +11,7 @@ use crate::{
     types::{
         self,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Constraints, Enumerated, Integer, IntegerType, Tag,
+        Constraints, Enumerated, IntegerType, Tag,
     },
     Codec, Encode,
 };
@@ -377,14 +377,14 @@ impl crate::Encoder for Encoder {
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
         let value = E::discriminant(value);
-        self.encode_integer(tag, <_>::default(), &Integer(value))
+        self.encode_integer(tag, <_>::default(), &value)
     }
 
     fn encode_integer<I: IntegerType>(
         &mut self,
         tag: Tag,
         _constraints: Constraints,
-        value: &Integer<I>,
+        value: &I,
     ) -> Result<Self::Ok, Self::Error> {
         let (bytes, needed) = value.to_signed_bytes_be();
         self.encode_primitive(tag, &bytes.as_ref()[..needed]);

@@ -346,7 +346,7 @@ impl<'input> Decoder<'input> {
         Ok(boolean[0])
     }
 
-    fn parse_normally_small_integer<I: IntegerType>(&mut self) -> Result<types::Integer<I>> {
+    fn parse_normally_small_integer<I: IntegerType>(&mut self) -> Result<I> {
         let is_large = self.parse_one_bit()?;
         let constraints = if is_large {
             constraints::Value::new(constraints::Bounded::start_from(0)).into()
@@ -354,7 +354,6 @@ impl<'input> Decoder<'input> {
             constraints::Value::new(constraints::Bounded::new(0, 63)).into()
         };
         self.parse_integer::<I>(Constraints::new(&[constraints]))
-            .map(types::Integer::<I>)
     }
 
     fn parse_non_negative_binary_integer<I: types::IntegerType>(
@@ -444,7 +443,6 @@ impl<'input> Decoder<'input> {
                 .map(|_| I::try_from_unsigned_bytes(&bytes.as_raw_slice(), self.codec()))
                 .unwrap_or_else(|| I::try_from_signed_bytes(&bytes.as_raw_slice(), self.codec()))?
         };
-
         let minimum: I = value_constraint
             .constraint
             .minimum()
@@ -462,7 +460,7 @@ impl<'input> Decoder<'input> {
         }
 
         // The length bitfield has a lower bound of `1..`
-        let extensions_length = *self.parse_normally_small_integer::<usize>()? + 1;
+        let extensions_length = self.parse_normally_small_integer::<usize>()? + 1;
         let (input, bitfield) = nom::bytes::streaming::take(extensions_length)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
@@ -661,7 +659,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .unwrap_or_default();
 
         if extensible {
-            let index: usize = *self.parse_normally_small_integer()?;
+            let index: usize = self.parse_normally_small_integer()?;
             E::from_extended_enumeration_index(index)
                 .ok_or_else(|| DecodeError::enumeration_index_not_found(index, true, self.codec()))
         } else {
@@ -999,7 +997,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         let index = if variants.len() != 1 || is_extensible {
             if is_extensible {
-                *self.parse_normally_small_integer().map_err(|error| {
+                self.parse_normally_small_integer().map_err(|error| {
                     DecodeError::choice_index_exceeds_platform_width(
                         usize::BITS,
                         error,

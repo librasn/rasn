@@ -835,10 +835,7 @@ mod tests {
         data[4] = 0x01;
         let mut bigint = num_bigint::BigInt::from(1);
         bigint <<= 2048;
-        assert_eq!(
-            Integer::from(bigint),
-            decode::<Integer<num_bigint::BigInt>>(&data).unwrap()
-        );
+        assert_eq!(bigint, decode::<num_bigint::BigInt>(&data).unwrap());
     }
 
     #[test]

@@ -11,7 +11,7 @@ use snafu::Snafu;
 use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::de::Error;
-use crate::types::{constraints::Bounded, variants::Variants, Integer, Tag};
+use crate::types::{constraints::Bounded, variants::Variants, Tag};
 use crate::Codec;
 use num_bigint::BigInt;
 
@@ -173,7 +173,7 @@ impl DecodeError {
     }
     #[must_use]
     pub fn value_constraint_not_satisfied(
-        value: Integer<BigInt>,
+        value: BigInt,
         expected: Bounded<i128>,
         codec: Codec,
     ) -> Self {
@@ -377,7 +377,7 @@ pub enum DecodeErrorKind {
     #[snafu(display("Value constraint not satisfied: expected: {expected}; actual: {value}"))]
     ValueConstraintNotSatisfied {
         /// Actual value of the data
-        value: Integer<BigInt>,
+        value: BigInt,
         /// Expected value by the constraint
         expected: Bounded<i128>,
     },

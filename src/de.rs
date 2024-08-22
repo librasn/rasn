@@ -1,9 +1,10 @@
 //! Generic ASN.1 decoding framework.
 
 use alloc::{boxed::Box, vec::Vec};
+use num_bigint::BigInt;
 
 use crate::error::DecodeError;
-use crate::types::{self, AsnType, Constraints, Enumerated, IntegerType, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
 
 pub use nom::Needed;
 pub use rasn_derive::Decode;
@@ -405,31 +406,28 @@ impl_integers! {
     // TODO cannot support u128 as it is constrained type by default and current constraints uses i128 for bounds
     // u128,
     usize,
+    BigInt
 }
 
-impl<I: IntegerType, const START: i128, const END: i128> Decode
-    for types::ConstrainedInteger<START, END, I>
-{
+impl<const START: i128, const END: i128> Decode for types::ConstrainedInteger<START, END> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
         decoder
-            .decode_integer::<I>(tag, constraints)
-            .map(|value| types::ConstrainedInteger::<START, END, I>(types::Integer::<I>(value)))
+            .decode_integer::<types::Integer>(tag, constraints)
+            .map(|value| types::ConstrainedInteger::<START, END>(value))
     }
 }
 
-impl<I: IntegerType> Decode for types::Integer<I> {
+impl Decode for types::Integer {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder
-            .decode_integer::<I>(tag, constraints)
-            .map(types::Integer::<I>)
+        decoder.decode_integer::<types::Integer>(tag, constraints)
     }
 }
 
