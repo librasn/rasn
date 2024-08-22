@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.4](https://github.com/librasn/rasn/compare/rasn-v0.16.3...rasn-v0.16.4) - 2024-08-22
+
+### Added
+- Impl Display for Oid ([#297](https://github.com/librasn/rasn/pull/297))
+
+### Fixed
+- Move BER integer leading byte handling to codec level ([#299](https://github.com/librasn/rasn/pull/299))
+
 ## [0.16.3](https://github.com/librasn/rasn/compare/rasn-v0.16.2...rasn-v0.16.3) - 2024-08-13
 
 ### Other
