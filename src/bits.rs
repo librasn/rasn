@@ -32,13 +32,3 @@ pub(crate) fn octet_string_ascending(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
     }
     a.len().cmp(&b.len())
 }
-
-pub fn integer_to_bytes(value: &crate::prelude::Integer, signed: bool) -> Option<Vec<u8>> {
-    if signed {
-        Some(value.to_signed_bytes_be())
-    } else if !signed && (value.is_positive() || value.is_zero()) {
-        Some(value.to_biguint()?.to_bytes_be())
-    } else {
-        None
-    }
-}

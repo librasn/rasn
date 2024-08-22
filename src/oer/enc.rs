@@ -310,7 +310,7 @@ impl Encoder {
         constraints: &Constraints,
         value_to_enc: &I,
     ) -> Result<(), EncodeError> {
-        let mut buffer = Vec::with_capacity(10);
+        let mut buffer = Vec::with_capacity(8);
 
         if let Some(value) = constraints.value() {
             if !value.constraint.0.in_bound(value_to_enc) && value.extensible.is_none() {
