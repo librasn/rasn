@@ -386,6 +386,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let primitive_bytes = self.parse_primitive_value(tag)?.1;
         let integer_width = I::WIDTH as usize / 8;
         if primitive_bytes.len() > integer_width {
+            // in the case of superfluous leading bytes (especially zeroes),
+            // we may still want to try to decode the integer even though
+            // the length is > integer width ...
+
             let leading_byte = if primitive_bytes[0] & 0x80 == 0x80 {
                 0xFF
             } else {
