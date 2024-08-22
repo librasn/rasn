@@ -78,6 +78,26 @@ impl Oid {
     }
 }
 
+impl core::fmt::Display for Oid {
+    /// Formats the object identifier as dot separated components.
+    /// ```
+    /// use rasn::types::Oid;
+    ///
+    /// let internet = Oid::new(&[1, 3, 6, 1]).unwrap();
+    /// assert_eq!(&format!("{internet}"), "1.3.6.1");
+    /// ```
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut oid_iter = self.0.iter();
+        if let Some(first) = oid_iter.next() {
+            write!(f, "{first}")?;
+            for sub_oid in oid_iter {
+                write!(f, ".{sub_oid}")?;
+            }
+        }
+        Ok(())
+    }
+}
+
 impl alloc::borrow::ToOwned for Oid {
     type Owned = ObjectIdentifier;
 
