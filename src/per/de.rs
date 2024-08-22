@@ -2,7 +2,6 @@ use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
 
 use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
-use crate::bits::{to_left_padded_vec, to_vec};
 use crate::{
     de::Error as _,
     types::{
@@ -370,10 +369,22 @@ impl<'input> Decoder<'input> {
             buffer.extend_from_bitslice(&data);
             buffer
         } else {
-            data.to_bitvec()
+            let remainder = data.len() % 8;
+            if remainder != 0 {
+                let mut buffer = types::BitString::repeat(false, 8 - remainder);
+                buffer.extend_from_bitslice(&data);
+                buffer
+            } else {
+                let mut vec_bytes = data.to_bitvec();
+                // See https://github.com/ferrilab/bitvec/issues/228
+                // At this point the data might be a result of indexing a slice (as a result of streaming::take), which might not be aligned in memory
+                // To fix this we force align the data
+                vec_bytes.force_align();
+                vec_bytes
+            }
         };
 
-        I::try_from_unsigned_bytes(&to_left_padded_vec(&data), self.codec())
+        I::try_from_unsigned_bytes(&data.as_raw_slice(), self.codec())
     }
 
     fn parse_integer<I: types::IntegerType>(&mut self, constraints: Constraints) -> Result<I> {
@@ -381,8 +392,8 @@ impl<'input> Decoder<'input> {
         let value_constraint = constraints.value();
 
         let Some(value_constraint) = value_constraint.filter(|_| !extensible) else {
-            let bytes = to_vec(&self.decode_octets()?);
-            return I::try_from_bytes(&bytes, self.codec());
+            let bytes = &self.decode_octets()?;
+            return I::try_from_bytes(bytes.as_raw_slice(), self.codec());
         };
 
         const K64: i128 = SIXTY_FOUR_K as i128;
@@ -424,13 +435,13 @@ impl<'input> Decoder<'input> {
                 (_, _) => self.parse_non_negative_binary_integer(range)?,
             }
         } else {
-            let bytes = to_vec(&self.decode_octets()?);
+            let bytes = &self.decode_octets()?;
 
             value_constraint
                 .constraint
                 .as_start()
-                .map(|_| I::try_from_unsigned_bytes(&bytes, self.codec()))
-                .unwrap_or_else(|| I::try_from_signed_bytes(&bytes, self.codec()))?
+                .map(|_| I::try_from_unsigned_bytes(&bytes.as_raw_slice(), self.codec()))
+                .unwrap_or_else(|| I::try_from_signed_bytes(&bytes.as_raw_slice(), self.codec()))?
         };
 
         let minimum: I = value_constraint
@@ -639,7 +650,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             Ok(input)
         })?;
 
-        Ok(types::Any::new(to_vec(&octet_string)))
+        Ok(types::Any::new(octet_string.as_raw_slice().to_vec()))
     }
 
     fn decode_bool(&mut self, _: Tag) -> Result<bool> {
@@ -1082,18 +1093,22 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn bitvec() {
         use bitvec::prelude::*;
         assert_eq!(
-            to_vec(bitvec::bits![u8, Msb0;       0, 0, 0, 1, 1, 1, 0, 1]),
+            bitvec::bits![u8, Msb0;       0, 0, 0, 1, 1, 1, 0, 1]
+                .to_bitvec()
+                .into_vec(),
             vec![29]
         );
-        assert_eq!(
-            to_vec(&bitvec::bits![u8, Msb0; 1, 1, 0, 0, 0, 1, 1, 1, 0, 1][2..]),
-            vec![29]
-        );
+        let bv = bitvec::bits![u8, Msb0; 1, 1, 0, 0, 0, 1, 1, 1, 0, 1];
+        let slice = &bv[2..];
+        let mut aligned = slice.to_bitvec();
+        // Indexing results to different internal memory layout than we would expect when converting to u8 vec
+        // We need to unify the layout as continuos bits after indexing to get the correct result
+        aligned.force_align();
+        assert_eq!(aligned.into_vec(), vec![29]);
     }
 }
