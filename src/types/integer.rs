@@ -50,12 +50,6 @@ impl num_traits::CheckedAdd for Integer {
         }
     }
 }
-// impl<I: IntegerType> core::ops::Add<I> for Integer {
-//     type Output = Self;
-//     fn add(self, rhs: I) -> Self::Output {
-//         <Self as CheckedAdd>::checked_add(&self, &rhs.into()).unwrap_or_default()
-//     }
-// }
 
 impl core::ops::Add for Integer {
     type Output = Self;
@@ -63,6 +57,7 @@ impl core::ops::Add for Integer {
         <Self as CheckedAdd>::checked_add(&self, &rhs).unwrap_or_default()
     }
 }
+
 macro_rules! impl_ops_integer {
     ($($t:ty),*) => {
         $(
@@ -284,7 +279,7 @@ impl alloc::fmt::Display for TryFromIntegerError {
         self.__description().fmt(f)
     }
 }
-macro_rules! impl_try_into_integer {
+macro_rules! impl_try_from_integer {
     ($($t:ty),*) => {
         $(
             impl core::convert::TryFrom<Integer> for $t {
@@ -305,7 +300,7 @@ macro_rules! impl_try_into_integer {
         )*
     };
 }
-impl_try_into_integer!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+impl_try_from_integer!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 
 /// An integer which has encoded constraint range between `START` and `END`.
 #[derive(Debug, Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
@@ -341,8 +336,10 @@ pub trait IntegerType:
     + core::fmt::Debug
     + core::fmt::Display
     + Default
+    + TryInto<i64>
     + TryInto<i128>
     + TryInto<isize>
+    + TryFrom<i64>
     + TryFrom<i128>
     + TryFrom<isize>
     + TryFrom<BigInt>
