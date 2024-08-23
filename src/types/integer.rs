@@ -106,7 +106,16 @@ macro_rules! impl_ops_integer_big {
                 fn add(self, rhs: $t) -> Self::Output {
                     match self {
                         Self::Primitive(lhs) => {
-                            Self::Variable(Box::new(BigInt::from(lhs) + rhs))
+                            let value = isize::try_from(rhs);
+                            if let Ok(rhs) = value {
+                                let result = lhs.checked_add(rhs);
+                                match result {
+                                    Some(value) => Self::Primitive(value),
+                                    None => Self::Variable(Box::new(BigInt::from(lhs) + rhs)),
+                                }
+                            } else {
+                                Self::Variable(Box::new(BigInt::from(lhs) + rhs))
+                            }
                         }
                         Self::Variable(lhs) => {
                             Self::Variable(Box::new(*lhs + rhs))
@@ -119,7 +128,16 @@ macro_rules! impl_ops_integer_big {
                 fn sub(self, rhs: $t) -> Self::Output {
                     match self {
                         Self::Primitive(lhs) => {
-                            Self::Variable(Box::new(BigInt::from(lhs) - rhs))
+                            let value = isize::try_from(rhs);
+                            if let Ok(rhs) = value {
+                                let result = lhs.checked_sub(rhs);
+                                match result {
+                                    Some(value) => Self::Primitive(value),
+                                    None => Self::Variable(Box::new(BigInt::from(lhs) - rhs)),
+                                }
+                            } else {
+                                Self::Variable(Box::new(BigInt::from(lhs) - rhs))
+                            }
                         }
                         Self::Variable(lhs) => {
                             Self::Variable(Box::new(*lhs - rhs))
@@ -131,14 +149,16 @@ macro_rules! impl_ops_integer_big {
     };
 }
 
+// Safely casted to isize without truncation, used on 32-bit targets
 #[cfg(target_pointer_width = "32")]
 impl_ops_integer!(u8, u16, i8, i16, i32, isize);
 #[cfg(target_pointer_width = "32")]
 impl_ops_integer_big!(u32, i64);
+// Safely casted to isize without truncation, used on 64-bit targets
 #[cfg(target_pointer_width = "64")]
 impl_ops_integer!(u8, u16, u32, i8, i16, i32, i64, isize);
 
-// Never fit for isize variant, used on all targets
+// Never safely casted for isize variant, used on all targets
 impl_ops_integer_big!(u64, u128, usize, i128);
 
 impl num_traits::CheckedSub for Integer {
@@ -181,7 +201,13 @@ impl ToPrimitive for Integer {
     }
     fn to_u64(&self) -> Option<u64> {
         match self {
-            Self::Primitive(value) => Some(*value as u64),
+            Self::Primitive(value) => {
+                if *value >= 0 {
+                    Some(*value as u64)
+                } else {
+                    None
+                }
+            }
             Self::Variable(value) => value.to_u64(),
         }
     }
@@ -192,16 +218,6 @@ impl ToPrimitive for Integer {
         }
     }
 }
-// impl core::cmp::PartialOrd for Integer {
-//     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-//         match (self, other) {
-//             (Self::Primitive(lhs), Self::Primitive(rhs)) => lhs.partial_cmp(rhs),
-//             (Self::Primitive(lhs), Self::Variable(rhs)) => BigInt::from(*lhs).partial_cmp(&**rhs),
-//             (Self::Variable(lhs), Self::Primitive(rhs)) => (**lhs).partial_cmp(&BigInt::from(*rhs)),
-//             (Self::Variable(lhs), Self::Variable(rhs)) => (**lhs).partial_cmp(&**rhs),
-//         }
-//     }
-// }
 
 macro_rules! impl_from_integer_as_prim {
     ($($t:ty),*) => {
@@ -367,16 +383,10 @@ pub trait IntegerType:
         codec: crate::Codec,
     ) -> Result<Self, crate::error::DecodeError>;
 
-    /// Finds the minimum number of bytes needed to present the unsigned integer. (drops leading zeros or ones)
-    fn unsigned_bytes_needed(&self) -> usize;
-
-    /// Finds the minimum number of bytes needed to present the signed integer. (drops leading zeros or ones)
-    fn signed_bytes_needed(&self) -> usize;
-
-    /// Returns minimum number defined by `usize` of signed Big-endian bytes needed to encode the integer.
+    /// Returns minimum number defined by `usize` of signed Big-endian bytes needed to present the the.
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize);
 
-    /// Returns minimum number defined by `usize` of unsigned Big-endian bytes needed to encode the integer.
+    /// Returns minimum number defined by `usize` of unsigned Big-endian bytes needed to present the the integer.
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize);
 
     // `num_traits::WrappingAdd` is not implemented for `BigInt`
@@ -386,25 +396,30 @@ pub trait IntegerType:
     fn is_negative(&self) -> bool;
 }
 
-/// Encode the given `N` sized integer as big-endian bytes and determine the number of bytes needed.
-/// Needed bytes drops unnecessary leading zeros or ones.
-fn needed_as_be_bytes<T: ToBytes + IntegerType, const N: usize>(
-    value: T,
-    signed: bool,
-) -> ([u8; N], usize) {
-    let bytes: [u8; N] = value.to_le_bytes().as_ref().try_into().unwrap_or([0; N]);
-    let needed = if signed {
-        value.signed_bytes_needed()
-    } else {
-        value.unsigned_bytes_needed()
-    };
-    let mut slice_reversed: [u8; N] = [0; N];
-    // About 2.5x speed when compared to `copy_from_slice` and `.reverse()`, since we don't need all bytes in most cases
-    for i in 0..needed {
-        slice_reversed[i] = bytes[needed - 1 - i];
+trait MinFixedSizeIntegerBytes: IntegerType + ToBytes {
+    /// Encode the given `N` sized integer as big-endian bytes and determine the number of bytes needed.
+    /// Needed bytes drops unnecessary leading zeros or ones.
+    fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
+        let bytes: [u8; N] = self.to_le_bytes().as_ref().try_into().unwrap_or([0; N]);
+        let needed = if signed {
+            self.signed_bytes_needed()
+        } else {
+            self.unsigned_bytes_needed()
+        };
+        let mut slice_reversed: [u8; N] = [0; N];
+        // About 2.5x speed when compared to `copy_from_slice` and `.reverse()`, since we don't need all bytes in most cases
+        for i in 0..needed {
+            slice_reversed[i] = bytes[needed - 1 - i];
+        }
+        (slice_reversed, needed)
     }
-    (slice_reversed, needed)
+    /// Finds the minimum number of bytes needed to present the unsigned integer. (drops leading zeros or ones)
+    fn unsigned_bytes_needed(&self) -> usize;
+
+    /// Finds the minimum number of bytes needed to present the signed integer. (drops leading zeros or ones)
+    fn signed_bytes_needed(&self) -> usize;
 }
+
 macro_rules! integer_type_impl {
     ((signed $t1:ty, $t2:ty), $($ts:tt)*) => {
         impl IntegerType for $t1 {
@@ -442,6 +457,24 @@ macro_rules! integer_type_impl {
             ) -> Result<Self, crate::error::DecodeError> {
                 Ok(<$t2>::try_from_bytes(input, codec)? as $t1)
             }
+
+            fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
+                const N: usize = core::mem::size_of::<$t1>();
+                self.needed_as_be_bytes::<N>( true)
+            }
+            fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
+                const N: usize = core::mem::size_of::<$t2>();
+                (*self as $t2).needed_as_be_bytes::<N>( false)
+            }
+
+            fn wrapping_add(self, other: Self) -> Self {
+                self.wrapping_add(other)
+            }
+            fn is_negative(&self) -> bool {
+                <Self as Signed>::is_negative(self)
+            }
+        }
+        impl MinFixedSizeIntegerBytes for $t1 {
             fn unsigned_bytes_needed(&self) -> usize {
                 (*self as $t2).unsigned_bytes_needed()
             }
@@ -455,22 +488,6 @@ macro_rules! integer_type_impl {
                 let extra_byte = (leading_bits % 8 == 0) as usize;
                 full_bytes + extra_byte
 
-            }
-
-            fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-                const N: usize = core::mem::size_of::<$t1>();
-                needed_as_be_bytes::<$t1, N>(*self, true)
-            }
-            fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-                const N: usize = core::mem::size_of::<$t2>();
-                needed_as_be_bytes::<$t2, N>(*self as $t2, false)
-            }
-
-            fn wrapping_add(self, other: Self) -> Self {
-                self.wrapping_add(other)
-            }
-            fn is_negative(&self) -> bool {
-                <Self as Signed>::is_negative(self)
             }
         }
 
@@ -513,6 +530,24 @@ macro_rules! integer_type_impl {
                 array[BYTE_SIZE - input.len()..].copy_from_slice(input);
                 Ok(Self::from_be_bytes(array))
             }
+
+            fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
+                const N: usize = core::mem::size_of::<$t2>();
+                (*self as $t2).needed_as_be_bytes::<N>(true)
+            }
+            fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
+                const N: usize = core::mem::size_of::<$t1>();
+                self.needed_as_be_bytes::<N>(false)
+            }
+
+            fn wrapping_add(self, other: Self) -> Self {
+                self.wrapping_add(other)
+            }
+            fn is_negative(&self) -> bool {
+                false
+            }
+        }
+        impl MinFixedSizeIntegerBytes for $t1 {
             fn unsigned_bytes_needed(&self) -> usize {
                 if self.is_zero() {
                     1
@@ -523,22 +558,6 @@ macro_rules! integer_type_impl {
             }
             fn signed_bytes_needed(&self) -> usize {
                 (*self as $t2).signed_bytes_needed()
-            }
-
-            fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-                const N: usize = core::mem::size_of::<$t2>();
-                needed_as_be_bytes::<$t2, N>(*self as $t2, true)
-            }
-            fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-                const N: usize = core::mem::size_of::<$t1>();
-                needed_as_be_bytes::<$t1, N>(*self, false)
-            }
-
-            fn wrapping_add(self, other: Self) -> Self {
-                self.wrapping_add(other)
-            }
-            fn is_negative(&self) -> bool {
-                false
             }
         }
 
@@ -595,15 +614,6 @@ impl IntegerType for BigInt {
 
         Ok(BigUint::from_bytes_be(input).into())
     }
-    // Not needed for BigInt
-    fn unsigned_bytes_needed(&self) -> usize {
-        unreachable!()
-    }
-
-    // Not needed for BigInt
-    fn signed_bytes_needed(&self) -> usize {
-        unreachable!()
-    }
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         let bytes = self.to_signed_bytes_be();
         let len = bytes.len();
@@ -622,17 +632,19 @@ impl IntegerType for BigInt {
         <Self as Signed>::is_negative(self)
     }
 }
-enum BytesRef {
+/// We cannot use `impl AsRef<[u8]>` as return type for function to return variants' byte presentation
+/// when enum variants are different opaque types, unless we use a wrapper.
+/// Only needed for our custom `Integer` type.
+enum IntegerBytesRef<T: AsRef<[u8]>> {
     Stack([u8; core::mem::size_of::<isize>()]),
-    // Heap(&'a [u8]),
-    Heap(alloc::vec::Vec<u8>),
+    Heap(T),
 }
 
-impl AsRef<[u8]> for BytesRef {
+impl<T: AsRef<[u8]>> AsRef<[u8]> for IntegerBytesRef<T> {
     fn as_ref(&self) -> &[u8] {
         match self {
-            BytesRef::Stack(arr) => arr,
-            BytesRef::Heap(slice) => slice,
+            IntegerBytesRef::Stack(arr) => arr,
+            IntegerBytesRef::Heap(slice) => slice.as_ref(),
         }
     }
 }
@@ -680,32 +692,18 @@ impl IntegerType for Integer {
             )))
         }
     }
-    // Not needed for Integer
-    fn unsigned_bytes_needed(&self) -> usize {
-        unreachable!()
-    }
-
-    // Not needed for Integer
-    fn signed_bytes_needed(&self) -> usize {
-        unreachable!()
-    }
-
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         match self {
             Integer::Primitive(value) => {
                 let (bytes, len) = <isize as IntegerType>::to_signed_bytes_be(value);
-                let mut arr = [0u8; core::mem::size_of::<isize>()];
-                // arr[..len].copy_from_slice(bytes.as_ref());
-                for i in 0..len {
-                    arr[i] = bytes.as_ref()[i];
-                }
-                (BytesRef::Stack(arr), len)
+                (
+                    IntegerBytesRef::Stack(bytes.as_ref().try_into().unwrap_or_default()),
+                    len,
+                )
             }
             Integer::Variable(value) => {
-                // let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
-                let bigint_bytes = value.to_signed_bytes_be();
-                let len = bigint_bytes.len();
-                (BytesRef::Heap(bigint_bytes), len)
+                let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
+                (IntegerBytesRef::Heap(bytes), len)
             }
         }
     }
@@ -713,17 +711,14 @@ impl IntegerType for Integer {
         match self {
             Integer::Primitive(value) => {
                 let (bytes, len) = <isize as IntegerType>::to_unsigned_bytes_be(value);
-                let mut arr = [0u8; core::mem::size_of::<isize>()];
-                for i in 0..len {
-                    arr[i] = bytes.as_ref()[i];
-                }
-                (BytesRef::Stack(arr), len)
+                (
+                    IntegerBytesRef::Stack(bytes.as_ref().try_into().unwrap_or_default()),
+                    len,
+                )
             }
             Integer::Variable(value) => {
-                // let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
-                let bigint_bytes = value.to_biguint().unwrap().to_bytes_be();
-                let len = bigint_bytes.len();
-                (BytesRef::Heap(bigint_bytes), len)
+                let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
+                (IntegerBytesRef::Heap(bytes), len)
             }
         }
     }

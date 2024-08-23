@@ -36,7 +36,6 @@ pub use {
         },
         tag::{Class, Tag, TagTree},
     },
-    // num_bigint::BigInt as Integer,
     rasn_derive::AsnType,
 };
 
@@ -297,9 +296,6 @@ asn_integer_type! {
 }
 impl AsnType for num_bigint::BigInt {
     const TAG: Tag = Tag::INTEGER;
-    // const CONSTRAINTS: Constraints<'static> = Constraints::new(&[
-    //     constraints::Constraint::Value(Extensible::new(constraints::Value::new(constraints::Bounded::const_new(<$int>::MIN as i128, <$int>::MAX as i128)))),
-    // ]);
 }
 
 impl AsnType for str {
