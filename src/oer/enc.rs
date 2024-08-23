@@ -75,7 +75,7 @@ impl Default for Encoder {
         Self::new(EncoderOptions::coer())
     }
 }
-/// COER encoder. A subset of OER to provide canonical and unique encoding.  
+/// COER encoder. A subset of OER to provide canonical and unique encoding.
 #[derive(Debug)]
 pub struct Encoder {
     options: EncoderOptions,
@@ -510,7 +510,7 @@ impl Encoder {
             preamble.extend(BitString::repeat(false, 8 - preamble.len() % 8));
         }
         debug_assert!(preamble.len() % 8 == 0);
-        buffer.extend(crate::bits::to_vec(&preamble));
+        buffer.extend(preamble.as_raw_slice());
         // Section 16.3 ### Encodings of the components in the extension root ###
         // Must copy before move...
         let extension_fields = core::mem::take(&mut encoder.extension_fields);
@@ -541,7 +541,7 @@ impl Encoder {
         }
         extension_bitmap_buffer.extend(BitString::repeat(false, missing_bits as usize));
         debug_assert!(extension_bitmap_buffer.len() % 8 == 0);
-        buffer.extend(crate::bits::to_vec(&extension_bitmap_buffer));
+        buffer.extend(extension_bitmap_buffer.as_raw_slice());
         // Section 16.5 # Encodings of the components in the extension addition group, as open type
         for field in extension_fields.iter().filter_map(Option::as_ref) {
             self.encode_length(&mut buffer, field.len())?;
@@ -606,7 +606,7 @@ impl crate::Encoder for Encoder {
                     } else {
                         bit_string_encoding.extend(value);
                     }
-                    buffer.extend(crate::bits::to_vec(&bit_string_encoding));
+                    buffer.extend(bit_string_encoding.as_raw_slice());
                 } else {
                     return Err(EncodeError::size_constraint_not_satisfied(
                         value.len(),
@@ -642,7 +642,7 @@ impl crate::Encoder for Encoder {
             bit_string_encoding.extend(value);
             bit_string_encoding.extend(trailing);
             self.encode_length(&mut buffer, bit_string_encoding.len() / 8)?;
-            buffer.extend(crate::bits::to_vec(&bit_string_encoding));
+            buffer.extend(bit_string_encoding.as_raw_slice());
         }
         self.extend(tag, buffer)?;
         Ok(())

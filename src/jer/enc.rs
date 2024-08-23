@@ -3,7 +3,6 @@
 use jzon::{object::Object, JsonValue};
 
 use crate::{
-    bits::to_vec,
     enc::Error,
     error::{EncodeError, JerEncodeErrorKind},
     types::{fields::Fields, variants},
@@ -81,7 +80,10 @@ impl crate::Encoder for Encoder {
         constraints: crate::types::Constraints,
         value: &crate::types::BitStr,
     ) -> Result<Self::Ok, Self::Error> {
-        let bytes = to_vec(value)
+        let mut bitvec = value.to_bitvec();
+        bitvec.force_align();
+        let bytes = bitvec
+            .into_vec()
             .iter()
             .fold(alloc::string::String::new(), |mut acc, bit| {
                 acc.push_str(&alloc::format!("{bit:02X?}"));

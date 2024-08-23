@@ -120,7 +120,7 @@ impl Encoder {
     pub fn output(self) -> Vec<u8> {
         let mut output = self.bitstring_output();
         Self::force_pad_to_alignment(&mut output);
-        crate::bits::to_vec(&output)
+        output.as_raw_slice().to_vec()
     }
 
     pub fn bitstring_output(self) -> BitString {

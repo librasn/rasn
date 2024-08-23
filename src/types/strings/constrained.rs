@@ -162,8 +162,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
             padding.extend_from_bitslice(ch);
             index_string.extend(padding);
         }
-
-        crate::bits::to_vec(&index_string)
+        index_string.as_raw_slice().to_vec()
     }
 
     fn octet_aligned_char_width(&self) -> usize {
@@ -192,7 +191,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
             octet_string
                 .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS as usize - width)..]);
         }
-        crate::bits::to_vec(&octet_string)
+        octet_string.as_raw_slice().to_vec()
     }
 
     fn character_width() -> u32 {
