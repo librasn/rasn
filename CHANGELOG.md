@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.5](https://github.com/librasn/rasn/compare/rasn-v0.16.4...rasn-v0.16.5) - 2024-08-23
+
+### Other
+- Remove `to_vec` and `to_left_padded_vec` as unnecessary ([#300](https://github.com/librasn/rasn/pull/300))
+
 ## [0.16.4](https://github.com/librasn/rasn/compare/rasn-v0.16.3...rasn-v0.16.4) - 2024-08-22
 
 ### Added
