@@ -193,6 +193,19 @@ impl ObjectIdentifier {
     }
 }
 
+impl core::fmt::Display for ObjectIdentifier {
+    /// Formats the object identifier as dot separated components.
+    /// ```
+    /// use rasn::types::ObjectIdentifier;
+    ///
+    /// let internet = ObjectIdentifier::new(&[1, 3, 6, 1]).unwrap();
+    /// assert_eq!(&format!("{internet}"), "1.3.6.1");
+    /// ```
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        ops::Deref::deref(self).fmt(f)
+    }
+}
+
 impl AsRef<[u32]> for ObjectIdentifier {
     fn as_ref(&self) -> &[u32] {
         self.0.as_ref()
