@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.6](https://github.com/librasn/rasn/compare/rasn-v0.16.5...rasn-v0.16.6) - 2024-08-31
+
+### Other
+- Impl Display for ObjectIdentifier ([#306](https://github.com/librasn/rasn/pull/306))
+
 ## [0.16.5](https://github.com/librasn/rasn/compare/rasn-v0.16.4...rasn-v0.16.5) - 2024-08-23
 
 ### Other
