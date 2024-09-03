@@ -2,6 +2,7 @@
 
 use crate::types::{self, AsnType, Constraints, Enumerated, IntegerType, Tag};
 
+use num_bigint::BigInt;
 pub use rasn_derive::Encode;
 
 /// A **data type** that can be encoded to a ASN.1 data format.
@@ -483,6 +484,17 @@ impl_integers! {
     // TODO cannot support u128 as it is constrained type by default and current constraints uses i128 for bounds
     u128,
     usize
+}
+
+impl Encode for BigInt {
+    fn encode_with_tag_and_constraints<E: Encoder>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<(), E::Error> {
+        encoder.encode_integer(tag, constraints, self).map(drop)
+    }
 }
 
 impl<const START: i128, const END: i128> Encode for types::ConstrainedInteger<START, END> {

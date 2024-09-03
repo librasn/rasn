@@ -254,14 +254,14 @@ impl<'input> Decoder<'input> {
                         Ok(integer)
                     } else {
                         Err(DecodeError::value_constraint_not_satisfied(
-                            integer.to_bigint().unwrap_or_default().into(),
+                            integer.to_bigint().unwrap_or_default(),
                             value.constraint.0,
                             self.codec(),
                         ))
                     }
                 } else {
                     Err(DecodeError::value_constraint_not_satisfied(
-                        integer.to_bigint().unwrap_or_default().into(),
+                        integer.to_bigint().unwrap_or_default(),
                         value.constraint.0,
                         self.codec(),
                     ))

@@ -1,12 +1,13 @@
 use crate::types::{constraints, AsnType, Constraints, Extensible};
 use crate::Tag;
 use alloc::boxed::Box;
+use core::hash::Hash;
 use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{identities::Zero, Signed, ToBytes, ToPrimitive};
 use num_traits::{CheckedAdd, CheckedSub};
 
-/// `Integer`` type is variable-sized non-constrained integer type which uses `isize` for lower values.
-#[derive(Debug, Clone, Ord, Hash, Eq, PartialEq, PartialOrd)]
+/// `Integer`` enum is variable-sized non-constrained integer type which uses `isize` for lower values to optimize performance.
+#[derive(Debug, Clone, Ord, PartialOrd)]
 pub enum Integer {
     Primitive(isize),
     Variable(Box<BigInt>),
@@ -27,19 +28,44 @@ impl core::fmt::Display for Integer {
     }
 }
 
+impl PartialEq for Integer {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Primitive(lhs), Self::Primitive(rhs)) => lhs == rhs,
+            (Self::Variable(lhs), Self::Variable(rhs)) => lhs == rhs,
+            (Self::Primitive(lhs), Self::Variable(rhs)) => {
+                lhs.to_bigint().unwrap_or_default() == **rhs
+            }
+            (Self::Variable(lhs), Self::Primitive(rhs)) => {
+                **lhs == rhs.to_bigint().unwrap_or_default()
+            }
+        }
+    }
+}
+impl Eq for Integer {}
+
+impl Hash for Integer {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Primitive(value) => value.hash(state),
+            Self::Variable(value) => value.hash(state),
+        }
+    }
+}
+
 impl num_traits::CheckedAdd for Integer {
     fn checked_add(&self, other: &Self) -> Option<Self> {
         match (self, other) {
             (Self::Primitive(lhs), Self::Primitive(rhs)) => {
                 let value = lhs.checked_add(rhs);
                 if value.is_some() {
-                    return value.map(|value| Integer::from(value));
+                    value.map(Integer::from)
                 } else {
                     Some(Self::Variable(Box::new(BigInt::from(*lhs) + *rhs)))
                 }
             }
             (Self::Primitive(lhs), Self::Variable(rhs)) => {
-                Some(Self::Variable(Box::new(BigInt::from(*lhs) + &**rhs)))
+                Some(Self::Variable(Box::new(&**rhs + lhs)))
             }
             (Self::Variable(lhs), Self::Primitive(rhs)) => {
                 Some(Self::Variable(Box::new(&**lhs + *rhs)))
@@ -167,7 +193,7 @@ impl num_traits::CheckedSub for Integer {
             (Self::Primitive(lhs), Self::Primitive(rhs)) => {
                 let value = lhs.checked_sub(rhs);
                 if value.is_some() {
-                    return value.map(|value| Integer::from(value));
+                    value.map(Integer::from)
                 } else {
                     Some(Self::Variable(Box::new(BigInt::from(*lhs) - *rhs)))
                 }
@@ -258,7 +284,7 @@ impl_from_integer_as_big!(u64, u128, i128, usize, BigInt);
 impl From<Integer> for BigInt {
     fn from(value: Integer) -> Self {
         match value {
-            Integer::Primitive(value) => value.to_bigint().unwrap(),
+            Integer::Primitive(value) => value.to_bigint().unwrap_or_default(),
             Integer::Variable(value) => *value,
         }
     }
@@ -398,7 +424,9 @@ pub trait IntegerType:
 
 trait MinFixedSizeIntegerBytes: IntegerType + ToBytes {
     /// Encode the given `N` sized integer as big-endian bytes and determine the number of bytes needed.
-    /// Needed bytes drops unnecessary leading zeros or ones.
+    /// We know the maximum size of the integer bytes in compile time, but we don't know the actual size.
+    /// "Needed"" value defines unnecessary leading zeros or ones on runtime to provide useful integer byte presentation.
+    /// We can use the same returned value to use only required bytes for encoding.
     fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
         let bytes: [u8; N] = self.to_le_bytes().as_ref().try_into().unwrap_or([0; N]);
         let needed = if signed {
@@ -413,10 +441,10 @@ trait MinFixedSizeIntegerBytes: IntegerType + ToBytes {
         }
         (slice_reversed, needed)
     }
-    /// Finds the minimum number of bytes needed to present the unsigned integer. (drops leading zeros or ones)
+    /// Finds the minimum number of bytes needed to present the unsigned integer. (in order to drop unecessary leading zeros or ones)
     fn unsigned_bytes_needed(&self) -> usize;
 
-    /// Finds the minimum number of bytes needed to present the signed integer. (drops leading zeros or ones)
+    /// Finds the minimum number of bytes needed to present the signed integer. (in order to drop unecessary leading zeros or ones)
     fn signed_bytes_needed(&self) -> usize;
 }
 
@@ -531,6 +559,9 @@ macro_rules! integer_type_impl {
                 Ok(Self::from_be_bytes(array))
             }
 
+            // Getting signed bytes of an unsigned integer is challenging, because we don't want to truncate the value
+            // Signed bytes of u8::MAX for example takes more bytes than unsigned bytes.
+            // As a result, we cast the type to next fitting signed type if possible and use the size of its to define the sign bytes.
             fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
                 const N: usize = core::mem::size_of::<$t2>();
                 (*self as $t2).needed_as_be_bytes::<N>(true)
@@ -585,7 +616,6 @@ integer_type_impl!(
 
 impl IntegerType for BigInt {
     const WIDTH: u32 = u32::MAX;
-
     fn try_from_bytes(
         input: &[u8],
         codec: crate::Codec,
@@ -688,7 +718,7 @@ impl IntegerType for Integer {
             Ok(Integer::Primitive(value))
         } else {
             Ok(Integer::Variable(Box::new(
-                BigInt::try_from_unsigned_bytes(input, codec)?.into(),
+                BigInt::try_from_unsigned_bytes(input, codec)?,
             )))
         }
     }
