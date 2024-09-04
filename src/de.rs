@@ -417,7 +417,7 @@ impl<const START: i128, const END: i128> Decode for types::ConstrainedInteger<ST
     ) -> Result<Self, D::Error> {
         decoder
             .decode_integer::<types::Integer>(tag, constraints)
-            .map(types::ConstrainedInteger::<START, END>)
+            .map(Self)
     }
 }
 
