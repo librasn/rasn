@@ -1,7 +1,7 @@
-use alloc::borrow::Cow;
-
 use super::IntegerType;
+use alloc::borrow::Cow;
 use num_bigint::BigInt;
+use once_cell::race::OnceBox;
 
 #[derive(Debug, Default, Clone)]
 pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
@@ -369,7 +369,7 @@ impl<T> Bounded<T> {
     }
 }
 
-impl<T: Default + Clone> Bounded<T> {
+impl<T: Default + Copy> Bounded<T> {
     pub fn as_minimum(&self) -> Option<&T> {
         match self {
             Self::Single(value) => Some(value),
@@ -381,7 +381,7 @@ impl<T: Default + Clone> Bounded<T> {
     }
 
     pub fn minimum(&self) -> T {
-        self.as_minimum().cloned().unwrap_or_default()
+        self.as_minimum().copied().unwrap_or_default()
     }
 }
 
