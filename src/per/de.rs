@@ -1001,13 +1001,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
         let index = if variants.len() != 1 || is_extensible {
             if is_extensible {
-                self.parse_normally_small_integer().map_err(|error| {
-                    DecodeError::choice_index_exceeds_platform_width(
-                        usize::BITS,
-                        error,
-                        self.codec(),
-                    )
-                })?
+                self.parse_normally_small_integer::<usize>()
+                    .map_err(|error| {
+                        DecodeError::choice_index_exceeds_platform_width(
+                            usize::BITS,
+                            error,
+                            self.codec(),
+                        )
+                    })?
             } else {
                 let variance = variants.len();
                 debug_assert!(variance > 0);
