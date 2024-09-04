@@ -400,18 +400,21 @@ impl<T: num_traits::WrappingSub<Output = T> + num_traits::SaturatingAdd<Output =
     }
 }
 
-impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd> Bounded<T> {
+impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + core::cmp::PartialOrd> Bounded<T>
+where
+    for<'a> &'a T: core::ops::Sub<Output = T>,
+{
     /// Returns the effective value which is either the number, or the positive
     /// offset of that number from the start of the value range. `Either::Left`
     /// represents the positive offset, and `Either::Right` represents
     /// the number.
     pub fn effective_value(&self, value: T) -> either::Either<T, T> {
-        match &self {
+        match self {
             Self::Range {
                 start: Some(start), ..
             } => {
                 debug_assert!(&value >= start);
-                either::Left(value - start.clone())
+                either::Left(&value - start)
             }
             _ => either::Right(value),
         }
