@@ -133,11 +133,11 @@ fn ber_rasn_dec(c: &mut Criterion) {
 
 criterion_group!(
     benches,
-    // uper_rasn_enc,
-    // uper_rasn_dec,
+    uper_rasn_enc,
+    uper_rasn_dec,
     oer_rasn_enc,
     oer_rasn_dec,
-    // ber_rasn_enc,
-    // ber_rasn_dec
+    ber_rasn_enc,
+    ber_rasn_dec
 );
 criterion_main!(benches);
