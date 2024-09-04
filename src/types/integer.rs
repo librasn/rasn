@@ -437,6 +437,7 @@ trait MinFixedSizeIntegerBytes: IntegerType + ToBytes {
     /// We know the maximum size of the integer bytes in compile time, but we don't know the actual size.
     /// "Needed"" value defines unnecessary leading zeros or ones on runtime to provide useful integer byte presentation.
     /// We can use the same returned value to use only required bytes for encoding.
+    #[inline(always)]
     fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
         let bytes: [u8; N] = self.to_le_bytes().as_ref().try_into().unwrap_or([0; N]);
         let needed = if signed {
@@ -465,6 +466,7 @@ macro_rules! integer_type_impl {
             type UnsignedPair = $t2;
             type SignedPair = $t1;
 
+            #[inline(always)]
             fn try_from_bytes(
                 input: &[u8],
                 codec: crate::Codec,
@@ -472,6 +474,7 @@ macro_rules! integer_type_impl {
                 Self::try_from_signed_bytes(input, codec)
             }
 
+            #[inline(always)]
             fn try_from_signed_bytes(
                 input: &[u8],
                 codec: crate::Codec,
@@ -491,22 +494,23 @@ macro_rules! integer_type_impl {
                 Ok(Self::from_be_bytes(array))
             }
 
+            #[inline(always)]
             fn try_from_unsigned_bytes(
                 input: &[u8],
                 codec: crate::Codec,
             ) -> Result<Self, crate::error::DecodeError> {
-                // Ok(<$t2>::try_from_bytes(input, codec)? as $t1)
                 <$t1>::try_from(<$t2>::try_from_bytes(input, codec)?)
                     .map_err(|_| {
                     crate::error::DecodeError::integer_type_conversion_failed(alloc::format!("Failed to create signed integer from unsigned bytes, target bit-size {}, with bytes {:?}", <$t1>::BITS, input).into(), codec)
                 })
 
             }
-
+            #[inline(always)]
             fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
                 const N: usize = core::mem::size_of::<$t1>();
                 self.needed_as_be_bytes::<N>( true)
             }
+            #[inline(always)]
             fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
                 const N: usize = core::mem::size_of::<$t2>();
                 (*self as $t2).needed_as_be_bytes::<N>( false)
@@ -531,9 +535,12 @@ macro_rules! integer_type_impl {
             }
         }
         impl MinFixedSizeIntegerBytes for $t1 {
+
+            #[inline(always)]
             fn unsigned_bytes_needed(&self) -> usize {
                 (*self as $t2).unsigned_bytes_needed()
             }
+            #[inline(always)]
             fn signed_bytes_needed(&self) -> usize {
                 let leading_bits = if Signed::is_negative(self) {
                     self.leading_ones() as usize
@@ -558,6 +565,7 @@ macro_rules! integer_type_impl {
             type UnsignedPair = $t1;
             type SignedPair = $t2;
 
+            #[inline(always)]
             fn try_from_bytes(
                 input: &[u8],
                 codec: crate::Codec,
@@ -565,6 +573,7 @@ macro_rules! integer_type_impl {
                 Self::try_from_unsigned_bytes(input, codec)
             }
 
+            #[inline(always)]
             fn try_from_signed_bytes(
                 input: &[u8],
                 codec: crate::Codec,
@@ -575,6 +584,7 @@ macro_rules! integer_type_impl {
                 })
             }
 
+            #[inline(always)]
             fn try_from_unsigned_bytes(
                 input: &[u8],
                 codec: crate::Codec,
@@ -595,10 +605,12 @@ macro_rules! integer_type_impl {
             // Getting signed bytes of an unsigned integer is challenging, because we don't want to truncate the value
             // Signed bytes of u8::MAX for example takes more bytes than unsigned bytes.
             // As a result, we cast the type to next fitting signed type if possible and use the size of its to define the sign bytes.
+            #[inline(always)]
             fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
                 const N: usize = core::mem::size_of::<$t2>();
                 (*self as $t2).needed_as_be_bytes::<N>(true)
             }
+            #[inline(always)]
             fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
                 const N: usize = core::mem::size_of::<$t1>();
                 self.needed_as_be_bytes::<N>(false)
@@ -622,6 +634,7 @@ macro_rules! integer_type_impl {
             }
         }
         impl MinFixedSizeIntegerBytes for $t1 {
+            #[inline(always)]
             fn unsigned_bytes_needed(&self) -> usize {
                 if self.is_zero() {
                     1
@@ -630,6 +643,7 @@ macro_rules! integer_type_impl {
                     (significant_bits + 7) / 8
                 }
             }
+            #[inline(always)]
             fn signed_bytes_needed(&self) -> usize {
                 (*self as $t2).signed_bytes_needed()
             }
@@ -662,6 +676,7 @@ impl IntegerType for BigInt {
     type UnsignedPair = Self;
     type SignedPair = Self;
 
+    #[inline(always)]
     fn try_from_bytes(
         input: &[u8],
         codec: crate::Codec,
@@ -673,6 +688,7 @@ impl IntegerType for BigInt {
         Ok(BigInt::from_signed_bytes_be(input))
     }
 
+    #[inline(always)]
     fn try_from_signed_bytes(
         input: &[u8],
         codec: crate::Codec,
@@ -680,6 +696,7 @@ impl IntegerType for BigInt {
         Self::try_from_bytes(input, codec)
     }
 
+    #[inline(always)]
     fn try_from_unsigned_bytes(
         input: &[u8],
         codec: crate::Codec,
@@ -690,11 +707,13 @@ impl IntegerType for BigInt {
 
         Ok(BigUint::from_bytes_be(input).into())
     }
+    #[inline(always)]
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         let bytes = self.to_signed_bytes_be();
         let len = bytes.len();
         (bytes, len)
     }
+    #[inline(always)]
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         let bytes = self.to_biguint().unwrap_or_default().to_bytes_be();
         let len = bytes.len();
@@ -736,6 +755,7 @@ impl IntegerType for Integer {
     type UnsignedPair = Self;
     type SignedPair = Self;
 
+    #[inline(always)]
     fn try_from_bytes(
         input: &[u8],
         codec: crate::Codec,
@@ -753,6 +773,7 @@ impl IntegerType for Integer {
         }
     }
 
+    #[inline(always)]
     fn try_from_signed_bytes(
         input: &[u8],
         codec: crate::Codec,
@@ -760,6 +781,7 @@ impl IntegerType for Integer {
         Self::try_from_bytes(input, codec)
     }
 
+    #[inline(always)]
     fn try_from_unsigned_bytes(
         input: &[u8],
         codec: crate::Codec,
@@ -776,6 +798,7 @@ impl IntegerType for Integer {
             )))
         }
     }
+    #[inline(always)]
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         match self {
             Integer::Primitive(value) => {
@@ -791,6 +814,7 @@ impl IntegerType for Integer {
             }
         }
     }
+    #[inline(always)]
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         match self {
             Integer::Primitive(value) => {
