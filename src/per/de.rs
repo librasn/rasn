@@ -398,21 +398,16 @@ impl<'input> Decoder<'input> {
         const K64: i128 = SIXTY_FOUR_K as i128;
         const OVER_K64: i128 = K64 + 1;
 
-        let minimum: I = value_constraint
-            .constraint
-            .minimum()
-            .try_into()
-            .map_err(|_| DecodeError::integer_overflow(I::WIDTH, self.codec()))?;
+        // Doing .map_error here causes 5% performance regression for unknown reason
+        // It would make code cleaner though
+        let minimum: I = match value_constraint.constraint.minimum().try_into() {
+            Ok(value) => value,
+            Err(_) => return Err(DecodeError::integer_overflow(I::WIDTH, self.codec())),
+        };
 
         let number = if let Some(range) = value_constraint.constraint.range() {
             match (self.options.aligned, range) {
-                (_, 0) => {
-                    return value_constraint
-                        .constraint
-                        .minimum()
-                        .try_into()
-                        .map_err(|_| DecodeError::integer_overflow(I::WIDTH, self.codec()))
-                }
+                (_, 0) => return Ok(minimum),
                 (true, 256) => {
                     self.input = self.parse_padding(self.input)?;
                     self.parse_non_negative_binary_integer::<I::UnsignedPair>(range)?
