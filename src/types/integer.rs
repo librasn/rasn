@@ -513,7 +513,7 @@ macro_rules! integer_type_impl {
             }
 
             fn wrapping_unsigned_add(self, other: $t2) -> Self {
-                self.wrapping_add((other as $t1))
+                self.wrapping_add(other as $t1)
             }
             fn is_negative(&self) -> bool {
                 <Self as Signed>::is_negative(self)
