@@ -397,7 +397,8 @@ pub trait IntegerType:
     const BYTE_WIDTH: usize = Self::WIDTH as usize / 8;
     /// `Self` as an unsigned type with the same width.
     type UnsignedPair: IntegerType;
-    /// `Self` as a signed type with the same width.
+    /// `Self` as a signed type with one type size larger to prevent truncation, in case `Self` is unsigned. (e.g. u8 -> i16)
+    /// Truncation would happen if unsigned type is converted to signed bytes with the same size.
     type SignedPair: IntegerType;
 
     fn try_from_bytes(input: &[u8], codec: crate::Codec)
@@ -419,8 +420,9 @@ pub trait IntegerType:
     /// Returns minimum number defined by `usize` of unsigned Big-endian bytes needed to present the the integer.
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize);
 
-    // `num_traits::WrappingAdd` is not implemented for `BigInt` and we can't do that ourselves.
-    #[doc(hidden)]
+    /// Makes it possible to add unsigned integer to signed integer
+    /// This is mainly used on UPER, in order to add unsigned offset into signed constrained minimum to get the resulting value as correct type.
+    /// Casting will change the "value", but same width makes the result ending to be correct.
     fn wrapping_unsigned_add(self, other: Self::UnsignedPair) -> Self;
     /// Whether the integer value is negative or not.
     fn is_negative(&self) -> bool;
