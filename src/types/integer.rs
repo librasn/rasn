@@ -273,9 +273,9 @@ macro_rules! impl_from_integer_as_big {
     };
 }
 #[cfg(target_pointer_width = "32")]
-impl_from_integer_as_prim!(u8, u16, u32, i8, i16, i32, isize);
+impl_from_integer_as_prim!(u8, u16, i8, i16, i32, isize);
 #[cfg(target_pointer_width = "32")]
-impl_from_integer_as_big!(i64);
+impl_from_integer_as_big!(u32, i64);
 #[cfg(target_pointer_width = "64")]
 impl_from_integer_as_prim!(u8, u16, u32, i8, i16, i32, i64, isize);
 // Never fit for isize variant, used on all targets
@@ -395,6 +395,10 @@ pub trait IntegerType:
 {
     const WIDTH: u32;
     const BYTE_WIDTH: usize = Self::WIDTH as usize / 8;
+    /// `Self` as an unsigned type with the same width.
+    type UnsignedPair: IntegerType;
+    /// `Self` as a signed type with the same width.
+    type SignedPair: IntegerType;
 
     fn try_from_bytes(input: &[u8], codec: crate::Codec)
         -> Result<Self, crate::error::DecodeError>;
@@ -415,11 +419,15 @@ pub trait IntegerType:
     /// Returns minimum number defined by `usize` of unsigned Big-endian bytes needed to present the the integer.
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize);
 
-    // `num_traits::WrappingAdd` is not implemented for `BigInt`
+    // `num_traits::WrappingAdd` is not implemented for `BigInt` and we can't do that ourselves.
     #[doc(hidden)]
-    fn wrapping_add(self, other: Self) -> Self;
-
+    fn wrapping_unsigned_add(self, other: Self::UnsignedPair) -> Self;
+    /// Whether the integer value is negative or not.
     fn is_negative(&self) -> bool;
+    /// Whether the integer type is signed or not.
+    fn is_signed(&self) -> bool;
+    /// Convert the underlying integer type into rasn ASN.1 `Integer` type.
+    fn to_integer(self) -> Integer;
 }
 
 trait MinFixedSizeIntegerBytes: IntegerType + ToBytes {
@@ -452,6 +460,8 @@ macro_rules! integer_type_impl {
     ((signed $t1:ty, $t2:ty), $($ts:tt)*) => {
         impl IntegerType for $t1 {
             const WIDTH: u32 = <$t1>::BITS;
+            type UnsignedPair = $t2;
+            type SignedPair = $t1;
 
             fn try_from_bytes(
                 input: &[u8],
@@ -483,7 +493,12 @@ macro_rules! integer_type_impl {
                 input: &[u8],
                 codec: crate::Codec,
             ) -> Result<Self, crate::error::DecodeError> {
-                Ok(<$t2>::try_from_bytes(input, codec)? as $t1)
+                // Ok(<$t2>::try_from_bytes(input, codec)? as $t1)
+                <$t1>::try_from(<$t2>::try_from_bytes(input, codec)?)
+                    .map_err(|_| {
+                    crate::error::DecodeError::integer_type_conversion_failed(alloc::format!("Failed to create signed integer from unsigned bytes, target bit-size {}, with bytes {:?}", <$t1>::BITS, input).into(), codec)
+                })
+
             }
 
             fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
@@ -495,11 +510,22 @@ macro_rules! integer_type_impl {
                 (*self as $t2).needed_as_be_bytes::<N>( false)
             }
 
-            fn wrapping_add(self, other: Self) -> Self {
-                self.wrapping_add(other)
+            fn wrapping_unsigned_add(self, other: $t2) -> Self {
+                self.wrapping_add((other as $t1))
             }
             fn is_negative(&self) -> bool {
                 <Self as Signed>::is_negative(self)
+            }
+            fn is_signed(&self) -> bool {
+                true
+            }
+
+            fn to_integer(self) -> Integer {
+                if let Some(value) = self.to_isize() {
+                    Integer::Primitive(value)
+                } else {
+                    Integer::Variable(Box::new(self.to_bigint().unwrap_or_default()))
+                }
             }
         }
         impl MinFixedSizeIntegerBytes for $t1 {
@@ -527,6 +553,8 @@ macro_rules! integer_type_impl {
 
         impl IntegerType for $t1 {
             const WIDTH: u32 = <$t1>::BITS;
+            type UnsignedPair = $t1;
+            type SignedPair = $t2;
 
             fn try_from_bytes(
                 input: &[u8],
@@ -539,7 +567,10 @@ macro_rules! integer_type_impl {
                 input: &[u8],
                 codec: crate::Codec,
             ) -> Result<Self, crate::error::DecodeError> {
-                Ok(<$t2>::try_from_bytes(input, codec)? as $t1)
+                <$t1>::try_from(<$t2>::try_from_bytes(input, codec)?)
+                    .map_err(|_| {
+                    crate::error::DecodeError::integer_type_conversion_failed(alloc::format!("Failed to create unsigned integer from signed bytes, target bit-size {}, with bytes: {:?}", <$t1>::BITS, input).into(), codec)
+                })
             }
 
             fn try_from_unsigned_bytes(
@@ -571,11 +602,21 @@ macro_rules! integer_type_impl {
                 self.needed_as_be_bytes::<N>(false)
             }
 
-            fn wrapping_add(self, other: Self) -> Self {
+            fn wrapping_unsigned_add(self, other: $t1) -> Self {
                 self.wrapping_add(other)
             }
             fn is_negative(&self) -> bool {
                 false
+            }
+            fn is_signed(&self) -> bool {
+                false
+            }
+            fn to_integer(self) -> Integer {
+                if let Some(value) = self.to_isize() {
+                    Integer::Primitive(value)
+                } else {
+                    Integer::Variable(Box::new(self.to_bigint().unwrap_or_default()))
+                }
             }
         }
         impl MinFixedSizeIntegerBytes for $t1 {
@@ -616,6 +657,9 @@ integer_type_impl!(
 
 impl IntegerType for BigInt {
     const WIDTH: u32 = u32::MAX;
+    type UnsignedPair = Self;
+    type SignedPair = Self;
+
     fn try_from_bytes(
         input: &[u8],
         codec: crate::Codec,
@@ -655,11 +699,17 @@ impl IntegerType for BigInt {
         (bytes, len)
     }
 
-    fn wrapping_add(self, other: Self) -> Self {
+    fn wrapping_unsigned_add(self, other: Self) -> Self {
         self + other
     }
     fn is_negative(&self) -> bool {
         <Self as Signed>::is_negative(self)
+    }
+    fn is_signed(&self) -> bool {
+        true
+    }
+    fn to_integer(self) -> Integer {
+        Integer::Variable(Box::new(self))
     }
 }
 /// We cannot use `impl AsRef<[u8]>` as return type for function to return variants' byte presentation
@@ -681,6 +731,8 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for IntegerBytesRef<T> {
 
 impl IntegerType for Integer {
     const WIDTH: u32 = u32::MAX;
+    type UnsignedPair = Self;
+    type SignedPair = Self;
 
     fn try_from_bytes(
         input: &[u8],
@@ -753,7 +805,7 @@ impl IntegerType for Integer {
         }
     }
 
-    fn wrapping_add(self, other: Self) -> Self {
+    fn wrapping_unsigned_add(self, other: Self) -> Self {
         self + other
     }
     fn is_negative(&self) -> bool {
@@ -761,5 +813,11 @@ impl IntegerType for Integer {
             Integer::Primitive(value) => <isize as IntegerType>::is_negative(value),
             Integer::Variable(value) => <BigInt as IntegerType>::is_negative(value),
         }
+    }
+    fn is_signed(&self) -> bool {
+        true
+    }
+    fn to_integer(self) -> Integer {
+        self
     }
 }

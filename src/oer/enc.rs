@@ -315,7 +315,7 @@ impl Encoder {
         if let Some(value) = constraints.value() {
             if !value.constraint.0.in_bound(value_to_enc) && value.extensible.is_none() {
                 return Err(EncodeError::value_constraint_not_satisfied(
-                    value_to_enc.to_bigint().unwrap_or_default().into(),
+                    value_to_enc.to_bigint().unwrap_or_default(),
                     &value.constraint.0,
                     self.codec(),
                 ));

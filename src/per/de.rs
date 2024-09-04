@@ -383,8 +383,7 @@ impl<'input> Decoder<'input> {
                 vec_bytes
             }
         };
-
-        I::try_from_unsigned_bytes(&data.as_raw_slice(), self.codec())
+        I::try_from_unsigned_bytes(data.as_raw_slice(), self.codec())
     }
 
     fn parse_integer<I: types::IntegerType>(&mut self, constraints: Constraints) -> Result<I> {
@@ -399,6 +398,12 @@ impl<'input> Decoder<'input> {
         const K64: i128 = SIXTY_FOUR_K as i128;
         const OVER_K64: i128 = K64 + 1;
 
+        let minimum: I = value_constraint
+            .constraint
+            .minimum()
+            .try_into()
+            .map_err(|_| DecodeError::integer_overflow(I::WIDTH, self.codec()))?;
+
         let number = if let Some(range) = value_constraint.constraint.range() {
             match (self.options.aligned, range) {
                 (_, 0) => {
@@ -410,11 +415,11 @@ impl<'input> Decoder<'input> {
                 }
                 (true, 256) => {
                     self.input = self.parse_padding(self.input)?;
-                    self.parse_non_negative_binary_integer(range)?
+                    self.parse_non_negative_binary_integer::<I::UnsignedPair>(range)?
                 }
                 (true, 257..=K64) => {
                     self.input = self.parse_padding(self.input)?;
-                    self.parse_non_negative_binary_integer(K64)?
+                    self.parse_non_negative_binary_integer::<I::UnsignedPair>(K64)?
                 }
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
@@ -430,26 +435,25 @@ impl<'input> Decoder<'input> {
                         .ok_or_else(|| {
                             DecodeError::exceeds_max_length(u32::MAX.into(), self.codec())
                         })?;
-                    self.parse_non_negative_binary_integer(crate::bits::range_from_len(range))?
+                    self.parse_non_negative_binary_integer::<I::UnsignedPair>(
+                        crate::bits::range_from_len(range),
+                    )?
                 }
-                (_, _) => self.parse_non_negative_binary_integer(range)?,
+                (_, _) => self.parse_non_negative_binary_integer::<I::UnsignedPair>(range)?,
             }
         } else {
             let bytes = &self.decode_octets()?;
-
-            value_constraint
+            let number = value_constraint
                 .constraint
                 .as_start()
-                .map(|_| I::try_from_unsigned_bytes(&bytes.as_raw_slice(), self.codec()))
-                .unwrap_or_else(|| I::try_from_signed_bytes(&bytes.as_raw_slice(), self.codec()))?
-        };
-        let minimum: I = value_constraint
-            .constraint
-            .minimum()
-            .try_into()
-            .map_err(|_| DecodeError::integer_overflow(I::WIDTH, self.codec()))?;
+                .map(|_| I::try_from_unsigned_bytes(bytes.as_raw_slice(), self.codec()))
+                .unwrap_or_else(|| I::try_from_signed_bytes(bytes.as_raw_slice(), self.codec()))?;
 
-        Ok(minimum.wrapping_add(number))
+            return minimum
+                .checked_add(&number)
+                .ok_or_else(|| DecodeError::integer_overflow(I::WIDTH, self.codec()));
+        };
+        Ok(minimum.wrapping_unsigned_add(number))
     }
 
     fn parse_extension_header(&mut self) -> Result<bool> {

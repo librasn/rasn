@@ -428,7 +428,7 @@ impl Encoder {
 
         self.encode_integer_into_buffer::<usize>(
             Constraints::new(&[size_constraints]),
-            &value.into(),
+            &value,
             buffer,
         )
     }
@@ -660,7 +660,7 @@ impl Encoder {
 
         if !value_range.constraint.in_bound(value) && !is_extended_value {
             return Err(Error::value_constraint_not_satisfied(
-                value.to_bigint().unwrap_or_default().into(),
+                value.to_bigint().unwrap_or_default(),
                 &value_range.constraint,
                 self.codec(),
             ));
