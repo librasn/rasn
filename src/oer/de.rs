@@ -248,21 +248,20 @@ impl<'input> Decoder<'input> {
         if let Some(value) = constraints.value() {
             ranges::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
                 let integer = self.decode_integer_from_bytes::<I>(sign, octets.map(usize::from))?;
-
                 // if the value is too large for a i128, the constraint isn't satisfied
-                let constraint_integer = integer.clone().try_into().map_err(|_| {
-                    DecodeError::value_constraint_not_satisfied(
-                        integer.clone().into(),
-                        value.constraint.0,
-                        self.codec(),
-                    )
-                })?;
-
-                if value.constraint.contains(&constraint_integer) {
-                    Ok(integer)
+                if let Some(constraint_integer) = integer.to_i128() {
+                    if value.constraint.contains(&constraint_integer) {
+                        Ok(integer)
+                    } else {
+                        Err(DecodeError::value_constraint_not_satisfied(
+                            integer.to_bigint().unwrap_or_default(),
+                            value.constraint.0,
+                            self.codec(),
+                        ))
+                    }
                 } else {
                     Err(DecodeError::value_constraint_not_satisfied(
-                        integer.into(),
+                        integer.to_bigint().unwrap_or_default(),
                         value.constraint.0,
                         self.codec(),
                     ))

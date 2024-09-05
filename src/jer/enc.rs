@@ -5,7 +5,7 @@ use jzon::{object::Object, JsonValue};
 use crate::{
     enc::Error,
     error::{EncodeError, JerEncodeErrorKind},
-    types::{fields::Fields, variants},
+    types::{fields::Fields, variants, IntegerType},
 };
 
 pub struct Encoder {
@@ -131,19 +131,20 @@ impl crate::Encoder for Encoder {
         ))
     }
 
-    fn encode_integer(
+    fn encode_integer<I: IntegerType>(
         &mut self,
         _t: crate::Tag,
         _c: crate::types::Constraints,
-        value: &num_bigint::BigInt,
+        value: &I,
     ) -> Result<Self::Ok, Self::Error> {
-        let as_i64: i64 =
-            value
-                .try_into()
-                .map_err(|_| JerEncodeErrorKind::ExceedsSupportedIntSize {
-                    value: value.clone(),
-                })?;
-        self.update_root_or_constructed(JsonValue::Number(as_i64.into()))
+        if let Some(as_i64) = value.to_i64() {
+            self.update_root_or_constructed(JsonValue::Number(as_i64.into()))
+        } else {
+            Err(JerEncodeErrorKind::ExceedsSupportedIntSize {
+                value: value.to_bigint().unwrap_or_default().into(),
+            }
+            .into())
+        }
     }
 
     fn encode_null(&mut self, _: crate::Tag) -> Result<Self::Ok, Self::Error> {

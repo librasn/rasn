@@ -1,6 +1,7 @@
 //! Generic ASN.1 decoding framework.
 
 use alloc::{boxed::Box, vec::Vec};
+use num_bigint::BigInt;
 
 use crate::error::DecodeError;
 use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
@@ -396,12 +397,16 @@ impl_integers! {
     i16,
     i32,
     i64,
+    i128,
     isize,
     u8,
     u16,
     u32,
     u64,
+    // TODO cannot support u128 as it is constrained type by default and current constraints uses i128 for bounds
+    // u128,
     usize,
+    BigInt
 }
 
 impl<const START: i128, const END: i128> Decode for types::ConstrainedInteger<START, END> {
@@ -422,7 +427,7 @@ impl Decode for types::Integer {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder.decode_integer(tag, constraints)
+        decoder.decode_integer::<types::Integer>(tag, constraints)
     }
 }
 

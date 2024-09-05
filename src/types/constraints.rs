@@ -1,4 +1,7 @@
+use super::IntegerType;
 use alloc::borrow::Cow;
+use num_bigint::BigInt;
+use once_cell::race::OnceBox;
 
 #[derive(Debug, Default, Clone)]
 pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
@@ -366,7 +369,7 @@ impl<T> Bounded<T> {
     }
 }
 
-impl<T: Default + Clone> Bounded<T> {
+impl<T: Default + Copy> Bounded<T> {
     pub fn as_minimum(&self) -> Option<&T> {
         match self {
             Self::Single(value) => Some(value),
@@ -378,7 +381,7 @@ impl<T: Default + Clone> Bounded<T> {
     }
 
     pub fn minimum(&self) -> T {
-        self.as_minimum().cloned().unwrap_or_default()
+        self.as_minimum().copied().unwrap_or_default()
     }
 }
 
@@ -397,38 +400,42 @@ impl<T: num_traits::WrappingSub<Output = T> + num_traits::SaturatingAdd<Output =
     }
 }
 
-impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd> Bounded<T> {
+impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + core::cmp::PartialOrd> Bounded<T>
+where
+    for<'a> &'a T: core::ops::Sub<Output = T>,
+{
     /// Returns the effective value which is either the number, or the positive
     /// offset of that number from the start of the value range. `Either::Left`
     /// represents the positive offset, and `Either::Right` represents
     /// the number.
     pub fn effective_value(&self, value: T) -> either::Either<T, T> {
-        match &self {
+        match self {
             Self::Range {
                 start: Some(start), ..
             } => {
                 debug_assert!(&value >= start);
-                either::Left(value - start.clone())
+                either::Left(&value - start)
             }
             _ => either::Right(value),
         }
     }
 }
 
-impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd<T>> Bounded<T>
+impl<T> Bounded<T>
 where
-    crate::types::Integer: From<T>,
+    T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd<T>,
 {
-    /// The same as [`effective_value`] except using [`crate::types::Integer`].
-    pub fn effective_bigint_value(
-        &self,
-        value: crate::types::Integer,
-    ) -> either::Either<crate::types::Integer, crate::types::Integer> {
+    /// The same as [`effective_value`] except using [`crate::types::Integer<I>`].
+    pub fn effective_integer_value<I>(&self, value: I) -> either::Either<I, I>
+    where
+        I: IntegerType + core::ops::Sub<Output = I>,
+        I: From<T> + PartialOrd,
+    {
         if let Bounded::Range {
             start: Some(start), ..
         } = self
         {
-            let start = crate::types::Integer::from(start.clone());
+            let start = I::from(start.clone());
             debug_assert!(value >= start);
             either::Left(value - start)
         } else {
@@ -474,14 +481,35 @@ impl From<Extensible<PermittedAlphabet>> for Constraint {
 }
 
 impl Bounded<i128> {
-    pub fn bigint_contains(&self, element: &crate::types::Integer) -> bool {
+    /// Returns `true` if the given element is within the bounds of the constraint.
+    /// Constraint type is `i128` here, so we can make checks based on that.
+    pub fn in_bound<I: IntegerType>(&self, element: &I) -> bool {
         match &self {
-            Self::Single(value) => crate::types::Integer::from(*value) == *element,
+            Self::Single(value) => {
+                if let Some(e) = element.to_i128() {
+                    e == *value
+                } else {
+                    false
+                }
+            }
             Self::Range { start, end } => {
-                start
-                    .as_ref()
-                    .map_or(true, |&start| element >= &start.into())
-                    && end.as_ref().map_or(true, |&end| element <= &end.into())
+                start.as_ref().map_or(true, |&start| {
+                    if let Some(e) = element.to_i128() {
+                        e >= start
+                    } else if let Some(e) = element.to_bigint() {
+                        e >= BigInt::from(start)
+                    } else {
+                        false
+                    }
+                }) && end.as_ref().map_or(true, |&end| {
+                    if let Some(e) = element.to_i128() {
+                        e <= end
+                    } else if let Some(e) = element.to_bigint() {
+                        e <= BigInt::from(end)
+                    } else {
+                        false
+                    }
+                })
             }
             Self::None => true,
         }

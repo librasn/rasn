@@ -243,7 +243,7 @@ type TestTypeB = bool;
 type TestTypeA = TestTypeB;
 ```
 ```rust
-// or 
+// or
 use rasn::prelude::*;
 
 #[derive(AsnType, Decode, Encode)]
@@ -621,11 +621,11 @@ Test-type-a ::= CHOICE {
     raisin OCTET STRING
 }
 
-Test-type-b ::= CHOICE { 
-    juice INTEGER (0..3,...), 
+Test-type-b ::= CHOICE {
+    juice INTEGER (0..3,...),
     wine OCTET STRING,
     ...,
-    grappa INTEGER 
+    grappa INTEGER
 }
 ```
 
@@ -663,8 +663,8 @@ enum TestTypeB {
 <td>
 
 ```asn
-Test-type-a ::= SEQUENCE { 
-    juice INTEGER (0..3,...), 
+Test-type-a ::= SEQUENCE {
+    juice INTEGER (0..3,...),
     wine OCTET STRING,
     ...,
     grappa INTEGER OPTIONAL,
@@ -699,7 +699,7 @@ struct TestTypeA {
 <td>
 
 ```asn
-Test-type-a ::= SET { 
+Test-type-a ::= SET {
     seed NULL,
     grape BOOLEAN,
     raisin INTEGER
@@ -711,7 +711,7 @@ Test-type-a ::= SET {
 
 ```rust
 use rasn::prelude::*;
-/// the SET declaration is basically identical to a SEQUENCE declaration, 
+/// the SET declaration is basically identical to a SEQUENCE declaration,
 /// except for the `set` annotation
 #[derive(AsnType, Decode, Encode)]
 #[rasn(set, automatic_tags)]
@@ -730,7 +730,7 @@ struct TestTypeA {
 <td>
 
 ```asn
-Test-type-a ::= SEQUENCE { 
+Test-type-a ::= SEQUENCE {
     notQuiteRustCase INTEGER
 }
 ```
@@ -757,7 +757,7 @@ struct TestTypeA {
 <td>
 
 ```asn
-Test-type-a ::= SEQUENCE { 
+Test-type-a ::= SEQUENCE {
     seed BOOLEAN DEFAULT TRUE,
     grape INTEGER OPTIONAL,
     raisin INTEGER DEFAULT 1
@@ -773,7 +773,7 @@ use rasn::prelude::*;
 #[derive(AsnType, Decode, Encode)]
 #[rasn(automatic_tags)]
 struct TestTypeA {
-    #[rasn(default = "default_seed")] 
+    #[rasn(default = "default_seed")]
     seed: bool,
     grape: Option<Integer>,
     #[rasn(default = "default_raisin")]

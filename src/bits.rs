@@ -1,9 +1,7 @@
 //! Module for different bit modification functions which are used in the library.
 
-use core::cmp::Ordering;
-
 use alloc::vec::Vec;
-use num_traits::{Signed, Zero};
+use core::cmp::Ordering;
 
 pub(crate) fn range_from_len(bit_length: u32) -> i128 {
     2i128.pow(bit_length) - 1
@@ -33,14 +31,4 @@ pub(crate) fn octet_string_ascending(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
         }
     }
     a.len().cmp(&b.len())
-}
-
-pub fn integer_to_bytes(value: &crate::prelude::Integer, signed: bool) -> Option<Vec<u8>> {
-    if signed {
-        Some(value.to_signed_bytes_be())
-    } else if !signed && (value.is_positive() || value.is_zero()) {
-        Some(value.to_biguint()?.to_bytes_be())
-    } else {
-        None
-    }
 }

@@ -166,7 +166,7 @@ mod tests {
             }
         }
 
-        codecs!(uper, aper);
+        codecs!(uper, aper, oer, coer, ber);
     }
 
     #[test]
@@ -204,20 +204,23 @@ mod tests {
         i16,
         i32,
         i64,
+        // i128, TODO i128 does not work for UPER/APER
         isize,
         u8,
         u16,
         u32,
         u64,
+        // TODO cannot support u128 as it is constrained type by default and current constraints uses i128 for bounds
+        // u128,
         usize
     }
 
     #[test]
     fn integer() {
-        round_trip(&Integer::from(89));
-        round_trip(&Integer::from(256));
-        round_trip(&Integer::from(u64::MAX));
-        round_trip(&Integer::from(i64::MIN));
+        round_trip(&89);
+        round_trip(&256);
+        round_trip(&u64::MAX);
+        round_trip(&i64::MIN);
     }
 
     #[test]
@@ -241,7 +244,7 @@ mod tests {
                 constraints: Constraints,
             ) -> Result<(), E::Error> {
                 encoder
-                    .encode_integer(tag, constraints, &self.0.into())
+                    .encode_integer::<i128>(tag, constraints, &self.0.into())
                     .map(drop)
             }
         }
