@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0](https://github.com/librasn/rasn/compare/rasn-v0.16.6...rasn-v0.17.0) - 2024-09-05
+
+### Added
+- [**breaking**] `Integer` as enum type and optimized constrained and variable-sized integer encoding ([#289](https://github.com/librasn/rasn/pull/289))
+
 ## [0.16.6](https://github.com/librasn/rasn/compare/rasn-v0.16.5...rasn-v0.16.6) - 2024-08-31
 
 ### Other
