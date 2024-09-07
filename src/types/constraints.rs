@@ -1,7 +1,6 @@
 use super::IntegerType;
 use alloc::borrow::Cow;
 use num_bigint::BigInt;
-use once_cell::race::OnceBox;
 
 #[derive(Debug, Default, Clone)]
 pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
@@ -14,13 +13,18 @@ impl<'r> Constraints<'r> {
     }
 
     /// Overrides a set of constraints with another set.
-    pub fn override_constraints(self, mut rhs: Constraints) -> Constraints {
-        for parent in self.0.iter() {
-            if !rhs.0.iter().any(|child| child.kind() == parent.kind()) {
-                rhs.0.to_mut().push(parent.clone());
+    #[inline(always)]
+    pub fn override_constraints(mut self, mut rhs: Constraints) -> Constraints {
+        let mut i = 0;
+        while i < self.0.len() {
+            if !rhs.0.iter().any(|child| child.kind() == self.0[i].kind()) {
+                // No matching constraint in rhs, so move it
+                let parent = self.0.to_mut().swap_remove(i);
+                rhs.0.to_mut().push(parent);
+            } else {
+                i += 1;
             }
         }
-
         rhs
     }
 
@@ -423,10 +427,10 @@ where
 
 impl<T> Bounded<T>
 where
-    T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + Clone + PartialOrd<T>,
+    T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + PartialOrd<T>,
 {
     /// The same as [`effective_value`] except using [`crate::types::Integer<I>`].
-    pub fn effective_integer_value<I>(&self, value: I) -> either::Either<I, I>
+    pub fn effective_integer_value<I>(self, value: I) -> either::Either<I, I>
     where
         I: IntegerType + core::ops::Sub<Output = I>,
         I: From<T> + PartialOrd,
@@ -435,7 +439,7 @@ where
             start: Some(start), ..
         } = self
         {
-            let start = I::from(start.clone());
+            let start = I::from(start);
             debug_assert!(value >= start);
             either::Left(value - start)
         } else {
