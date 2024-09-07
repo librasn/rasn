@@ -24,6 +24,11 @@ type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
 const EOC: &[u8] = &[0, 0];
 
+/// Number of typical re-allocations follows approximately R = ⌈log_g(n/c)⌉ if n > c, else 0
+/// We can assume that in most cases the number of elements is non-zero.
+/// We can reduce re-allocations with larger initial capacity.
+const VEC_BASE_CAPACITY: usize = 4;
+
 /// A BER and variants decoder. Capable of decoding BER, CER, and DER.
 pub struct Decoder<'input> {
     input: &'input [u8],
@@ -419,7 +424,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
             Err(DerDecodeErrorKind::ConstructedEncodingNotAllowed.into())
         } else {
-            let mut buffer = Vec::new();
+            let mut buffer = Vec::with_capacity(VEC_BASE_CAPACITY * 2);
 
             if let Some(mut contents) = contents {
                 while !contents.is_empty() {
@@ -468,7 +473,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let (input, bs) =
             self::parser::parse_encoded_value(&self.config, self.input, tag, |input, codec| {
                 let Some(unused_bits) = input.first().copied() else {
-                    return Ok(types::BitString::new());
+                    return Ok(types::BitString::with_capacity(VEC_BASE_CAPACITY * 2));
                 };
 
                 match unused_bits {
@@ -604,7 +609,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Constraints,
     ) -> Result<Vec<D>, Self::Error> {
         self.parse_constructed_contents(tag, true, |decoder| {
-            let mut items = Vec::new();
+            let mut items = Vec::with_capacity(VEC_BASE_CAPACITY);
 
             if decoder.input.is_empty() {
                 return Ok(items);
@@ -622,16 +627,16 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_set_of<D: Decode + Ord>(
+    fn decode_set_of<D: Decode>(
         &mut self,
         tag: Tag,
         _: Constraints,
     ) -> Result<types::SetOf<D>, Self::Error> {
         self.parse_constructed_contents(tag, true, |decoder| {
-            let mut items = types::SetOf::new();
+            let mut items = types::SetOf::with_capacity(VEC_BASE_CAPACITY);
 
             while let Ok(item) = D::decode(decoder) {
-                items.insert(item);
+                items.add(item);
             }
 
             Ok(items)
@@ -685,7 +690,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
         self.parse_constructed_contents(tag, true, |decoder| {
-            let mut fields = Vec::new();
+            let mut fields = Vec::with_capacity(VEC_BASE_CAPACITY);
 
             while let Ok(value) = FIELDS::decode(decoder) {
                 fields.push(value);

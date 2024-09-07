@@ -637,13 +637,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         Ok(sequence_of)
     }
 
-    fn decode_set_of<D: Decode + Ord>(
+    fn decode_set_of<D: Decode>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<SetOf<D>, Self::Error> {
         self.decode_sequence_of(tag, constraints)
-            .map(|seq| seq.into_iter().collect())
+            .map(|seq| SetOf::from_vec(seq))
     }
 
     fn decode_octet_string(

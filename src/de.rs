@@ -4,7 +4,7 @@ use alloc::{boxed::Box, vec::Vec};
 use num_bigint::BigInt;
 
 use crate::error::DecodeError;
-use crate::types::{self, AsnType, Constraints, Enumerated, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, SetOf, Tag};
 
 pub use nom::Needed;
 pub use rasn_derive::Decode;
@@ -100,7 +100,7 @@ pub trait Decoder: Sized {
         constraints: Constraints,
     ) -> Result<Vec<D>, Self::Error>;
     /// Decode a `SET OF D` where `D: Decode` identified by `tag` from the available input.
-    fn decode_set_of<D: Decode + Ord>(
+    fn decode_set_of<D: Decode>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
@@ -528,7 +528,7 @@ impl<T: Decode> Decode for alloc::vec::Vec<T> {
     }
 }
 
-impl<T: Decode + Ord> Decode for alloc::collections::BTreeSet<T> {
+impl<T: Decode> Decode for SetOf<T> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,

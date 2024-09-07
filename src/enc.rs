@@ -1,6 +1,6 @@
 //! Generic ASN.1 encoding framework.
 
-use crate::types::{self, AsnType, Constraints, Enumerated, IntegerType, Tag};
+use crate::types::{self, AsnType, Constraints, Enumerated, IntegerType, SetOf, Tag};
 
 use num_bigint::BigInt;
 pub use rasn_derive::Encode;
@@ -647,7 +647,7 @@ impl<E: Encode> Encode for alloc::vec::Vec<E> {
     }
 }
 
-impl<E: Encode> Encode for alloc::collections::BTreeSet<E> {
+impl<E: Encode> Encode for SetOf<E> {
     fn encode_with_tag_and_constraints<EN: Encoder>(
         &self,
         encoder: &mut EN,

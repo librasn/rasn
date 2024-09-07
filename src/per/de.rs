@@ -5,7 +5,7 @@ use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
     THIRTY_TWO_K,
 };
-use crate::types::IntegerType;
+use crate::types::{IntegerType, SetOf};
 use crate::{
     de::Error as _,
     types::{
@@ -827,13 +827,13 @@ impl<'input> crate::Decoder for Decoder<'input> {
         Ok(sequence_of)
     }
 
-    fn decode_set_of<D: Decode + Ord>(
+    fn decode_set_of<D: Decode>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::SetOf<D>, Self::Error> {
         self.decode_sequence_of(tag, constraints)
-            .map(|seq| seq.into_iter().collect())
+            .map(|seq| SetOf::from_vec(seq))
     }
 
     fn decode_sequence<D, DF, F>(
