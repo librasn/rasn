@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.1](https://github.com/librasn/rasn/compare/rasn-v0.17.0...rasn-v0.17.1) - 2024-09-07
+
+### Other
+
+- Reduce cloning in constraints ([#311](https://github.com/librasn/rasn/pull/311))
+
 ## [0.17.0](https://github.com/librasn/rasn/compare/rasn-v0.16.6...rasn-v0.17.0) - 2024-09-05
 
 ### Added
