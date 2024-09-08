@@ -50,7 +50,7 @@ impl core::fmt::Display for Class {
 
 /// An abstract representation of an ASN.1 tag that uniquely identifies a type
 /// within a ASN.1 module for codecs.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Tag {
     /// The class of the tag.
     pub class: Class,

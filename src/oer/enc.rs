@@ -8,6 +8,7 @@ use crate::prelude::{
 use crate::types::IntegerType;
 use crate::Codec;
 use bitvec::prelude::*;
+use hashbrown::HashMap;
 use num_traits::ToPrimitive;
 
 use crate::types::{fields::FieldPresence, BitString, Constraints, Date};
@@ -82,7 +83,7 @@ pub struct Encoder {
     output: Vec<u8>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
-    field_bitfield: alloc::collections::BTreeMap<(usize, Tag), (FieldPresence, bool)>,
+    field_bitfield: HashMap<(usize, Tag), (FieldPresence, bool)>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
@@ -143,16 +144,12 @@ impl Encoder {
             self.field_bitfield
                 .entry((usize::default(), tag))
                 .and_modify(|(_, b)| *b = bit);
-        } else {
-            match self.field_bitfield.entry((self.current_field_index, tag)) {
-                alloc::collections::btree_map::Entry::Occupied(mut occupied) => {
-                    occupied.get_mut().1 = bit;
-                    self.current_field_index += 1;
-                }
-                alloc::collections::btree_map::Entry::Vacant(_) => {
-                    // Key does not exist, do nothing
-                }
-            }
+        } else if let Some((_, b)) = self
+            .field_bitfield
+            .get_mut(&(self.current_field_index, tag))
+        {
+            *b = bit;
+            self.current_field_index += 1;
         }
     }
     fn extend(&mut self, tag: Tag, bytes: Vec<u8>) -> Result<(), EncodeError> {
