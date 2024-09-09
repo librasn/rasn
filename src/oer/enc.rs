@@ -6,7 +6,6 @@ use core::cell::RefCell;
 use num_traits::ToPrimitive;
 
 use crate::{
-    oer::{ranges, EncodingRules},
     types::{
         Any, BitStr, BmpString, Choice, Constraints, Constructed, Date, Enumerated, GeneralString,
         GeneralizedTime, Ia5String, IntegerType, NumericString, PrintableString, SetOf, Tag,
@@ -358,29 +357,27 @@ impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
         value_to_enc: &I,
     ) -> Result<(), EncodeError> {
         if let Some(value) = constraints.value() {
-            if !value.constraint.0.in_bound(value_to_enc) && value.extensible.is_none() {
+            if !value.constraint.value.in_bound(value_to_enc) && value.extensible.is_none() {
                 return Err(EncodeError::value_constraint_not_satisfied(
                     value_to_enc.to_bigint().unwrap_or_default(),
-                    &value.constraint.0,
+                    &value.constraint.value,
                     self.codec(),
                 ));
             }
-            ranges::determine_integer_size_and_sign(
-                value,
-                value_to_enc,
-                |value_to_enc, sign, octets| -> Result<(), EncodeError> {
-                    if let Some(octets) = octets {
-                        self.encode_constrained_integer_with_padding(
-                            usize::from(octets),
-                            value_to_enc,
-                            sign,
-                        )?;
-                    } else {
-                        self.encode_unconstrained_integer(value_to_enc, sign)?;
-                    }
-                    Ok(())
-                },
-            )?;
+            let (sign, octets) = if value.extensible.is_some() {
+                (true, None)
+            } else {
+                (value.constraint.get_sign(), value.constraint.get_range())
+            };
+            if let Some(octets) = octets {
+                self.encode_constrained_integer_with_padding(
+                    usize::from(octets),
+                    value_to_enc,
+                    sign,
+                )?;
+            } else {
+                self.encode_unconstrained_integer(value_to_enc, sign)?;
+            }
         } else {
             self.encode_unconstrained_integer(value_to_enc, true)?;
         }

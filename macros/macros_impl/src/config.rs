@@ -751,6 +751,7 @@ impl<'a> FieldConfig<'a> {
     pub fn encode(&self, context: usize, use_self: bool) -> proc_macro2::TokenStream {
         let this = use_self.then(|| quote!(self.));
         let tag = self.tag(context);
+        let constraint_name = format_ident!("CONSTRAINT_{}", context);
         let i = syn::Index::from(context);
         let field = self
             .field
@@ -773,9 +774,10 @@ impl<'a> FieldConfig<'a> {
                     .const_expr(&self.container_config.crate_root)
                     .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
                 quote!(
+                    const #constraint_name : #crate_root::types::Constraints = #constraints;
                     encoder.encode_extension_addition(
                         #tag,
-                        <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                        <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         &#this #field
                     )?;
                 )
@@ -789,9 +791,10 @@ impl<'a> FieldConfig<'a> {
                 match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
                         quote!(
+                            const #constraint_name : #crate_root::types::Constraints = #constraints;
                             encoder.encode_default_with_tag_and_constraints(
                                 #tag,
-                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                                 &#this #field,
                                 #default_fn
                             )?;
@@ -799,10 +802,11 @@ impl<'a> FieldConfig<'a> {
                     }
                     (true, false) => {
                         quote!(
+                            const #constraint_name : #crate_root::types::Constraints = #constraints;
                             #this #field.encode_with_tag_and_constraints(
                                 encoder,
                                 #tag,
-                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                                 #default_fn
                             )?;
                         )
@@ -819,9 +823,10 @@ impl<'a> FieldConfig<'a> {
                 .const_expr(&self.container_config.crate_root)
                 .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
             quote!(
+                const #constraint_name : #crate_root::types::Constraints = #constraints;
                 encoder.encode_extension_addition(
                     #tag,
-                    <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                    <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                     &#this #field
                 )?;
             )
@@ -834,8 +839,9 @@ impl<'a> FieldConfig<'a> {
                         .constraints
                         .const_expr(&self.container_config.crate_root);
                     quote!(
+                        const #constraint_name : #crate_root::types::Constraints = #constraints;
                         encoder.encode_default_with_constraints(
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                             &#this #field,
                             #default_fn
                         )?;
@@ -846,9 +852,10 @@ impl<'a> FieldConfig<'a> {
                         .constraints
                         .const_expr(&self.container_config.crate_root);
                     quote!(
+                        const #constraint_name : rasn::types::Constraints = #constraints;
                         #this #field.encode_with_constraints(
                             encoder,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         )?;
                     )
                 }
@@ -885,6 +892,7 @@ impl<'a> FieldConfig<'a> {
         let default_fn = self.default_fn();
 
         let tag = self.tag(context);
+        let constraint_name = format_ident!("CONSTRAINT_{}", context);
         let constraints = self.constraints.const_expr(crate_root);
         let handle_extension = if self.is_not_option_or_default_type() {
             quote!(.ok_or_else(|| {
@@ -923,10 +931,11 @@ impl<'a> FieldConfig<'a> {
                 }
                 (Some(false), Some(path), true) => {
                     quote!(
+                        const #constraint_name : #crate_root::types::Constraints = #constraints;
                         decoder.decode_default_with_tag_and_constraints(
                             #tag,
                             #path,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         ) #or_else
                     )
                 }
@@ -935,10 +944,11 @@ impl<'a> FieldConfig<'a> {
                 }
                 (Some(false), None, true) => {
                     quote!(
+                        const #constraint_name : #crate_root::types::Constraints = #constraints;
                         <_>::decode_with_tag_and_constraints(
                             decoder,
                             #tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         ) #or_else
                     )
                 }
@@ -947,9 +957,10 @@ impl<'a> FieldConfig<'a> {
                 }
                 (None, Some(path), true) => {
                     quote!(
+                        const #constraint_name : #crate_root::types::Constraints = #constraints;
                         decoder.decode_default_with_constraints(
                             #path,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         ) #or_else
                     )
                 }
@@ -958,9 +969,10 @@ impl<'a> FieldConfig<'a> {
                 }
                 (None, None, true) => {
                     quote!(
+                        const #constraint_name : #crate_root::types::Constraints = #constraints;
                         <_>::decode_with_constraints(
                             decoder,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         ) #or_else
                     )
                 }
@@ -1028,9 +1040,10 @@ impl<'a> FieldConfig<'a> {
                 }
                 (None, Some(path), true) => {
                     quote!(
+                        const #constraint_name : #crate_root::types::Constraints = #constraints;
                         decoder.decode_extension_addition_with_default_and_constraints(
                             #path,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         ) #or_else
                     )
                 }
@@ -1043,8 +1056,9 @@ impl<'a> FieldConfig<'a> {
                 }
                 (None, None, true) => {
                     quote!(
+                        const #constraint_name : #crate_root::types::Constraints = #constraints;
                         decoder.decode_extension_addition_with_constraints(
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         ) #or_else
                     )
                 }

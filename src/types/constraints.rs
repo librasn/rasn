@@ -234,12 +234,30 @@ impl From<PermittedAlphabet> for Extensible<PermittedAlphabet> {
 
 /// A single or range of numeric values a type can be.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Value(pub(crate) Bounded<i128>);
+pub struct Value {
+    /// Bound of the value
+    pub(crate) value: Bounded<i128>,
+    /// Sign of the bound, used for numeric values
+    pub(crate) signed: bool,
+    /// Range of the bound in bytes, used for numeric values
+    pub(crate) range: Option<u8>,
+}
 
 impl Value {
     /// Creates a new value constraint from a given bound.
     pub const fn new(value: Bounded<i128>) -> Self {
-        Self(value)
+        let (signed, range) = value.range_in_bytes();
+        Self {
+            value,
+            signed,
+            range,
+        }
+    }
+    pub const fn get_sign(&self) -> bool {
+        self.signed
+    }
+    pub const fn get_range(&self) -> Option<u8> {
+        self.range
     }
 }
 
@@ -247,22 +265,22 @@ impl core::ops::Deref for Value {
     type Target = Bounded<i128>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.value
     }
 }
 
-impl core::ops::DerefMut for Value {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
+// impl core::ops::DerefMut for Value {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         &mut self.value
+//     }
+// }
 
 macro_rules! from_primitives {
     ($($int:ty),+ $(,)?) => {
         $(
             impl From<Bounded<$int>> for Value {
                 fn from(bounded: Bounded<$int>) -> Self {
-                    Self(match bounded {
+                    Self::new(match bounded {
                         Bounded::Range { start, end } => Bounded::Range {
                             start: start.map(From::from),
                             end: end.map(From::from),
@@ -285,7 +303,7 @@ impl TryFrom<Bounded<usize>> for Value {
     type Error = <i128 as TryFrom<usize>>::Error;
 
     fn try_from(bounded: Bounded<usize>) -> Result<Self, Self::Error> {
-        Ok(Self(match bounded {
+        Ok(Self::new(match bounded {
             Bounded::Range { start, end } => Bounded::Range {
                 start: start.map(TryFrom::try_from).transpose()?,
                 end: end.map(TryFrom::try_from).transpose()?,
@@ -381,6 +399,23 @@ pub enum Bounded<T> {
 }
 
 impl<T> Bounded<T> {
+    /// Calculates the the amount of bytes that are required to represent integer `value`.
+    /// Particularly useful for OER codec
+    #[inline(always)]
+    const fn octet_size_by_range(value: i128) -> Option<u8> {
+        let abs_value = value.unsigned_abs();
+        Some(if abs_value <= u8::MAX as u128 {
+            1
+        } else if abs_value <= u16::MAX as u128 {
+            2
+        } else if abs_value <= u32::MAX as u128 {
+            4
+        } else if abs_value <= u64::MAX as u128 {
+            8
+        } else {
+            return None;
+        })
+    }
     /// Creates a bounded range that starts from value and has no end.
     pub const fn start_from(value: T) -> Self {
         Self::Range {
@@ -538,6 +573,30 @@ impl From<Extensible<PermittedAlphabet>> for Constraint {
 }
 
 impl Bounded<i128> {
+    const fn max(&self, a: u128, b: u128) -> u128 {
+        [a, b][(a < b) as usize]
+    }
+    pub const fn range_in_bytes(&self) -> (bool, Option<u8>) {
+        match self {
+            Self::Single(value) => (*value < 0, Self::octet_size_by_range(*value)),
+            Self::Range {
+                start: Some(start),
+                end: Some(end),
+            } => {
+                let is_signed = *start < 0;
+                let end_abs = end.unsigned_abs();
+                let start_abs = start.unsigned_abs();
+                let max = self.max(start_abs, end_abs);
+                let octets = Self::octet_size_by_range(max as i128);
+                (is_signed, octets)
+            }
+            Self::Range {
+                start: Some(start),
+                end: None,
+            } => (*start < 0, None),
+            Self::Range { start: None, .. } | Self::None => (true, None),
+        }
+    }
     /// Returns `true` if the given element is within the bounds of the constraint.
     /// Constraint type is `i128` here, so we can make checks based on that.
     pub fn in_bound<I: IntegerType>(&self, element: &I) -> bool {
@@ -647,5 +706,16 @@ mod tests {
     fn range() {
         let constraints = Bounded::new(0, 255);
         assert_eq!(256, constraints.range().unwrap());
+    }
+    #[test]
+    fn check_const_validity() {
+        const MY_CONST: Constraints = Constraints::new(&[Constraint::Value(
+            Extensible::new(Value::new(Bounded::const_new(
+                0i128 as i128,
+                255i128 as i128,
+            )))
+            .set_extensible(false),
+        )]);
+        dbg!(MY_CONST);
     }
 }
