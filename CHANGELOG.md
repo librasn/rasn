@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.2](https://github.com/librasn/rasn/compare/rasn-v0.17.1...rasn-v0.17.2) - 2024-09-09
+
+### Other
+
+- Replace BTreeMap with HashMap in field_bitfield ([#314](https://github.com/librasn/rasn/pull/314))
+- Two custom bench profiles for lto and debug ([#313](https://github.com/librasn/rasn/pull/313))
+
 ## [0.17.1](https://github.com/librasn/rasn/compare/rasn-v0.17.0...rasn-v0.17.1) - 2024-09-07
 
 ### Other
