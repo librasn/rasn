@@ -13,6 +13,10 @@ pub enum Integer {
     Variable(Box<BigInt>),
 }
 
+impl Integer {
+    pub const ZERO: Self = Self::Primitive(0);
+}
+
 impl Default for Integer {
     fn default() -> Self {
         Self::Primitive(isize::default())
