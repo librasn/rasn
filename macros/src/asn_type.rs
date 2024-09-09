@@ -35,7 +35,7 @@ pub fn derive_struct_impl(
         .collect::<Vec<_>>();
 
     let all_optional_tags_are_unique: Vec<_> = field_groups
-        .group_by(|(_, config)| config.is_option_or_default_type())
+        .chunk_by(|(_, config)| config.is_option_or_default_type())
         .into_iter()
         .filter_map(|(key, fields)| key.then_some(fields))
         .map(|fields| {
