@@ -34,6 +34,16 @@ std = []
 backtraces = ["std", "snafu/backtraces"]
 jer = ["std", "jzon"]
 
+[profile.bench-lto]
+inherits = "bench"
+opt-level = 3
+codegen-units = 1
+lto = "fat"
+
+[profile.bench-debug]
+inherits = "dev"
+opt-level = 1
+
 [[bench]]
 name = "criterion"
 path = "benches/criterion.rs"
