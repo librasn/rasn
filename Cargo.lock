@@ -690,7 +690,7 @@ checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
 
 [[package]]
 name = "rasn"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "arrayvec",
  "bitvec",
@@ -717,14 +717,14 @@ dependencies = [
 
 [[package]]
 name = "rasn-cap"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-cms"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "rasn",
  "rasn-pkix",
@@ -732,7 +732,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-derive"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "either",
  "itertools",
@@ -745,7 +745,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-kerberos"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "pretty_assertions",
  "rasn",
@@ -754,14 +754,14 @@ dependencies = [
 
 [[package]]
 name = "rasn-ldap"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-mib"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "rasn",
  "rasn-smi",
@@ -769,7 +769,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-ocsp"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "rasn",
  "rasn-pkix",
@@ -777,7 +777,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-pkix"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "base64",
  "bitvec",
@@ -789,7 +789,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-smi"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "chrono",
  "rasn",
@@ -797,7 +797,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-smime"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "rasn",
  "rasn-cms",
@@ -806,7 +806,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-snmp"
-version = "0.17.1"
+version = "0.17.2"
 dependencies = [
  "hex",
  "pretty_assertions",
