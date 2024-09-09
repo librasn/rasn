@@ -10,7 +10,6 @@ use alloc::{
 };
 
 use crate::{
-    oer::ranges,
     types::{
         self,
         fields::{Field, Fields},
@@ -252,27 +251,31 @@ impl<'input> Decoder<'input> {
     ) -> Result<I, DecodeError> {
         // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
-            ranges::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
-                let integer = self.decode_integer_from_bytes::<I>(sign, octets.map(usize::from))?;
-                // if the value is too large for a i128, the constraint isn't satisfied
-                if let Some(constraint_integer) = integer.to_i128() {
-                    if value.constraint.contains(&constraint_integer) {
-                        Ok(integer)
-                    } else {
-                        Err(DecodeError::value_constraint_not_satisfied(
-                            integer.to_bigint().unwrap_or_default(),
-                            value.constraint.0,
-                            self.codec(),
-                        ))
-                    }
+            let (sign, octets) = if value.extensible.is_some() {
+                (true, None)
+            } else {
+                (value.constraint.get_sign(), value.constraint.get_range())
+            };
+            let integer = self.decode_integer_from_bytes::<I>(sign, octets.map(usize::from))?;
+            // if the value is too large for a i128, the constraint isn't satisfied
+            if let Some(constraint_integer) = integer.to_i128() {
+                if value.constraint.contains(&constraint_integer) {
+                    Ok(integer)
                 } else {
                     Err(DecodeError::value_constraint_not_satisfied(
                         integer.to_bigint().unwrap_or_default(),
-                        value.constraint.0,
+                        value.constraint.value,
                         self.codec(),
                     ))
                 }
-            })
+            } else {
+                Err(DecodeError::value_constraint_not_satisfied(
+                    integer.to_bigint().unwrap_or_default(),
+                    value.constraint.value,
+                    self.codec(),
+                ))
+            }
+            // })
         } else {
             // No constraints
             self.decode_integer_from_bytes::<I>(true, None)
