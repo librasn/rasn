@@ -1,4 +1,5 @@
 use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
+use hashbrown::HashMap;
 
 use bitvec::prelude::*;
 
@@ -63,7 +64,7 @@ pub struct Encoder {
     output: BitString,
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
     // usize a.k.a. field index defines the order for Sequence
-    field_bitfield: alloc::collections::BTreeMap<(usize, Tag), (FieldPresence, bool)>,
+    field_bitfield: HashMap<(usize, Tag), (FieldPresence, bool)>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
@@ -137,16 +138,12 @@ impl Encoder {
             self.field_bitfield
                 .entry((usize::default(), tag))
                 .and_modify(|(_, b)| *b = bit);
-        } else {
-            match self.field_bitfield.entry((self.current_field_index, tag)) {
-                alloc::collections::btree_map::Entry::Occupied(mut occupied) => {
-                    occupied.get_mut().1 = bit;
-                    self.current_field_index += 1;
-                }
-                alloc::collections::btree_map::Entry::Vacant(_) => {
-                    // Key does not exist, do nothing
-                }
-            }
+        } else if let Some((_, b)) = self
+            .field_bitfield
+            .get_mut(&(self.current_field_index, tag))
+        {
+            *b = bit;
+            self.current_field_index += 1;
         }
         Ok(())
     }
@@ -1210,7 +1207,7 @@ impl crate::Encoder for Encoder {
                 .into()];
                 self.encode_integer_into_buffer::<usize>(
                     Constraints::from(choice_range),
-                    &index.into(),
+                    &index,
                     &mut buffer,
                 )?;
 
