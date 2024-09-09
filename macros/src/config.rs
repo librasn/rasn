@@ -884,7 +884,7 @@ impl<'a> FieldConfig<'a> {
                         .constraints
                         .const_expr(&self.container_config.crate_root);
                     quote!(
-                        const #constraint_name : rasn::types::Constraints = #constraints;
+                        const #constraint_name : #crate_root::types::Constraints = #constraints;
                         #this #field.encode_with_constraints(
                             encoder,
                             <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
@@ -1023,11 +1023,13 @@ impl<'a> FieldConfig<'a> {
             ) {
                 (Some(path), true) => {
                     quote!(
+                        {
                         const #constraint_name : #crate_root::types::Constraints = #constraints;
                         decoder.decode_extension_addition_with_default_and_constraints(
                             #path,
                             <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraint_name),
                         ) #or_else
+                    }
                     )
                 }
                 (Some(path), false) => {
