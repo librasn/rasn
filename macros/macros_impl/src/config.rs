@@ -15,9 +15,8 @@ pub struct Constraints {
 
 impl Constraints {
     pub fn const_static_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
-        self.const_expr(crate_root).map(
-            |expr| quote!(const CONSTRAINTS: #crate_root::types::Constraints<'static> = #expr;),
-        )
+        self.const_expr(crate_root)
+            .map(|expr| quote!(const CONSTRAINTS: #crate_root::types::Constraints = #expr;))
     }
 
     pub fn attribute_tokens(&self) -> Option<proc_macro2::TokenStream> {
@@ -505,6 +504,8 @@ impl<'config> VariantConfig<'config> {
         let tag_tree = self.tag_tree(context);
         let ident = &self.variant.ident;
         let is_explicit = self.has_explicit_tag();
+        let constraint_name = format_ident!("DECODE_CONSTRAINT_{}", context);
+        let mut const_constraint = quote! {};
 
         let decode_op = match &self.variant.fields {
             syn::Fields::Unit => {
@@ -536,12 +537,18 @@ impl<'config> VariantConfig<'config> {
                             .map(|path| quote!(#path))
                             .unwrap_or_else(|| quote!(<_>::default));
                         if let Some(constraints) = constraints {
-                            quote!(decoder.decode_default_with_tag_and_constraints(tag, #path, #constraints))
+                            const_constraint = quote! {
+                                const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
+                            };
+                            quote!(decoder.decode_default_with_tag_and_constraints(tag, #path, #constraint_name))
                         } else {
                             quote!(decoder.decode_default_with_tag(tag, #path))
                         }
                     } else if let Some(constraints) = constraints {
-                        quote!(<_>::decode_with_tag_and_constraints(decoder, tag, #constraints))
+                        const_constraint = quote! {
+                            const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
+                        };
+                        quote!(<_>::decode_with_tag_and_constraints(decoder, tag, #constraint_name))
                     } else {
                         quote!(<_>::decode_with_tag(decoder, tag))
                     }
@@ -587,6 +594,7 @@ impl<'config> VariantConfig<'config> {
 
         quote! {
             if #crate_root::types::TagTree::tag_contains(&tag, &[#tag_tree]) {
+                #const_constraint
                 return #decode_op
             }
         }
@@ -751,7 +759,7 @@ impl<'a> FieldConfig<'a> {
     pub fn encode(&self, context: usize, use_self: bool) -> proc_macro2::TokenStream {
         let this = use_self.then(|| quote!(self.));
         let tag = self.tag(context);
-        let constraint_name = format_ident!("CONSTRAINT_{}", context);
+        let constraint_name = format_ident!("FIELD_CONSTRAINT_{}", context);
         let i = syn::Index::from(context);
         let field = self
             .field
