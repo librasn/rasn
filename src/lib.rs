@@ -47,6 +47,7 @@ pub mod prelude {
     pub use crate::{
         de::{Decode, Decoder},
         enc::{Encode, Encoder},
+        macros,
         types::*,
     };
 }

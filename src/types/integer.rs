@@ -355,7 +355,7 @@ pub struct ConstrainedInteger<const START: i128, const END: i128>(pub(crate) Int
 
 impl<const START: i128, const END: i128> AsnType for ConstrainedInteger<START, END> {
     const TAG: Tag = Tag::INTEGER;
-    const CONSTRAINTS: Constraints<'static> =
+    const CONSTRAINTS: Constraints =
         Constraints::new(&[constraints::Constraint::Value(Extensible::new(
             constraints::Value::new(constraints::Bounded::const_new(START, END)),
         ))]);
