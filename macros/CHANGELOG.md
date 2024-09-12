@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3](https://github.com/librasn/rasn/compare/rasn-derive-v0.17.2...rasn-derive-v0.17.3) - 2024-09-12
+
+### Other
+
+- Update itertools to 0.13, update Cargo.lock
+
 ## [0.16.0](https://github.com/librasn/rasn/compare/rasn-derive-v0.15.3...rasn-derive-v0.16.0) - 2024-07-17
 
 ### Other

@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3](https://github.com/librasn/rasn/compare/rasn-v0.17.2...rasn-v0.17.3) - 2024-09-12
+
+### Other
+
+- Add new field constructors that accept generics
+- Clippy fixes and CI artifact upload/download update ([#319](https://github.com/librasn/rasn/pull/319))
+- Update itertools to 0.13, update Cargo.lock
+- Add ZERO constant to integer, fix warnings
+
 ## [0.17.2](https://github.com/librasn/rasn/compare/rasn-v0.17.1...rasn-v0.17.2) - 2024-09-09
 
 ### Other

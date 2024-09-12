@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3](https://github.com/librasn/rasn/compare/rasn-pkix-v0.17.2...rasn-pkix-v0.17.3) - 2024-09-12
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.17.0](https://github.com/librasn/rasn/compare/rasn-pkix-v0.16.6...rasn-pkix-v0.17.0) - 2024-09-05
 
 ### Added
