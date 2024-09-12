@@ -3,6 +3,9 @@
 use super::IntegerType;
 use num_bigint::BigInt;
 
+const SUPPORTED_CONSTRAINTS_COUNT: usize = 5;
+pub const DEFAULT_CONSTRAINTS: Constraints = Constraints::NONE;
+
 /// A set of constraints for a given type on what kinds of values are allowed.
 /// Used in certain codecs to optimise encoding and decoding values.
 #[derive(Debug, Clone)]
@@ -15,54 +18,69 @@ impl Constraints {
         Self(constraints)
     }
 
+    pub const fn inner(&self) -> &'static [Constraint] {
+        self.0
+    }
+    /// We currently only support 5 different constraint types, which includes the empty constraint.
+    /// `usize` is used to drop the empty ones, which are needed to initialize the array.
+    pub const fn from_fixed_size(
+        merged: &'static ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize),
+    ) -> Self {
+        struct ConstraintArray<const N: usize>(&'static [Constraint; N]);
+
+        impl<const N: usize> ConstraintArray<N> {
+            const fn as_slice(&self) -> &'static [Constraint] {
+                self.0
+            }
+        }
+        let array = ConstraintArray(&merged.0);
+        Self::new(array.as_slice())
+    }
+
     /// A const variant of the default function.
     pub const fn default() -> Self {
         Self::NONE
     }
 
-    /// Overrides a set of constraints with another set.
+    /// Merges a set of constraints with another set, if they don't exist.
     /// This function should be only used on compile-time.
     #[inline(always)]
-    pub(crate) const fn merge(self, rhs: Self) -> ([Constraint; 5], usize) {
+    pub const fn merge(self, rhs: Self) -> ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize) {
         let mut si = 0;
+        let rhs = rhs.0;
         let mut ri = 0;
-        // Count of the variants in Constraint
-        const N: usize = 5;
-        let mut array: [Constraint; N] = [Constraint::Empty; N];
-        if rhs.0.len() > N || rhs.0.is_empty() {
-            panic!("rhs is smaller than N or rhs is empty")
+        let mut array: [Constraint; SUPPORTED_CONSTRAINTS_COUNT] =
+            [Constraint::Empty; SUPPORTED_CONSTRAINTS_COUNT];
+        if rhs.len() > SUPPORTED_CONSTRAINTS_COUNT {
+            panic!("Overriding constraint is larger than we have different constraint types")
         }
         // Copy rhs first to the array
         let mut copy_index = 0;
-        while copy_index < rhs.0.len() {
-            unsafe {
-                let data: Constraint = core::mem::transmute_copy(&rhs.0[copy_index]);
-                array[copy_index] = data;
-            }
+        while copy_index < rhs.len() {
+            array[copy_index] = rhs[copy_index];
             copy_index += 1;
         }
         while si < self.0.len() {
-            while ri < rhs.0.len() {
-                if !self.0[si].kind().eq(&rhs.0[ri].kind()) {
-                    if copy_index > N {
-                        panic!("copy_index is greater than N")
+            while ri < rhs.len() {
+                if !self.0[si].kind().eq(&rhs[ri].kind()) {
+                    if copy_index > SUPPORTED_CONSTRAINTS_COUNT {
+                        panic!("attempting to copy into greater index than we have different constraint types")
                     }
-                    unsafe {
-                        let data: Constraint = core::mem::transmute_copy(&self.0[si]);
-                        array[copy_index] = data;
-                    }
+                    array[copy_index] = self.0[si];
                     copy_index += 1;
                     ri += 1;
                 } else {
                     ri += 1;
                 }
-                si += 1;
             }
+            si += 1;
         }
         (array, copy_index)
     }
-
+    /// Overrides a set of constraints with another set.
+    #[inline(always)]
     pub fn override_constraints(self, rhs: Constraints) -> Constraints {
+        // self.merge(rhs)
         rhs
     }
 
@@ -128,6 +146,8 @@ impl<const N: usize> From<&'static [Constraint; N]> for Constraints {
 }
 
 /// The set of possible constraints a given value can have.
+///
+/// Do not change the amount of variants in this enum without changing the `SUPPORTED_CONSTRAINTS_COUNT` constant.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Constraint {
     /// A set of possible values which the type can be.
