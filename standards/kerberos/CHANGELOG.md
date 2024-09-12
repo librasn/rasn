@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3](https://github.com/librasn/rasn/compare/rasn-kerberos-v0.17.2...rasn-kerberos-v0.17.3) - 2024-09-12
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.9.3](https://github.com/XAMPPRocky/rasn/compare/rasn-kerberos-v0.9.2...rasn-kerberos-v0.9.3) - 2023-08-06
 
 ### Other

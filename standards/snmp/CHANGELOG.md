@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.3](https://github.com/librasn/rasn/compare/rasn-snmp-v0.17.2...rasn-snmp-v0.17.3) - 2024-09-12
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.12.0](https://github.com/XAMPPRocky/rasn/compare/rasn-snmp-v0.11.1...rasn-snmp-v0.12.0) - 2023-11-12
 
 ### Other
