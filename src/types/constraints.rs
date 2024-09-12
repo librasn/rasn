@@ -21,7 +21,7 @@ impl Constraints {
     }
 
     /// Overrides a set of constraints with another set.
-    /// This function is used only on compile-time.
+    /// This function should be only used on compile-time.
     #[inline(always)]
     pub(crate) const fn merge(self, rhs: Self) -> ([Constraint; 5], usize) {
         let mut si = 0;
