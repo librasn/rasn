@@ -88,6 +88,15 @@ impl Field {
         }
     }
 
+    pub const fn new_required_type<T: crate::types::AsnType>(name: &'static str) -> Self {
+        Self {
+            tag: T::TAG,
+            tag_tree: T::TAG_TREE,
+            presence: FieldPresence::Required,
+            name,
+        }
+    }
+
     pub const fn new_optional(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
         Self {
             tag,
@@ -97,10 +106,28 @@ impl Field {
         }
     }
 
+    pub const fn new_optional_type<T: crate::types::AsnType>(name: &'static str) -> Self {
+        Self {
+            tag: T::TAG,
+            tag_tree: T::TAG_TREE,
+            presence: FieldPresence::Optional,
+            name,
+        }
+    }
+
     pub const fn new_default(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
         Self {
             tag,
             tag_tree,
+            presence: FieldPresence::Default,
+            name,
+        }
+    }
+
+    pub const fn new_default_type<T: crate::types::AsnType>(name: &'static str) -> Self {
+        Self {
+            tag: T::TAG,
+            tag_tree: T::TAG_TREE,
             presence: FieldPresence::Default,
             name,
         }
