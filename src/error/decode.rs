@@ -341,9 +341,12 @@ impl DecodeError {
     fn from_codec_kind(inner: CodecDecodeError) -> Self {
         let codec = match inner {
             CodecDecodeError::Ber(_) => crate::Codec::Ber,
+            #[allow(unreachable_patterns)]
             CodecDecodeError::Cer(_) => crate::Codec::Cer,
             CodecDecodeError::Der(_) => crate::Codec::Der,
+            #[allow(unreachable_patterns)]
             CodecDecodeError::Uper(_) => crate::Codec::Uper,
+            #[allow(unreachable_patterns)]
             CodecDecodeError::Aper(_) => crate::Codec::Aper,
             #[cfg(feature = "jer")]
             CodecDecodeError::Jer(_) => crate::Codec::Jer,

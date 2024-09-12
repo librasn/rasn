@@ -652,12 +652,6 @@ mod tests {
     use alloc::borrow::ToOwned;
     use alloc::vec;
 
-    #[derive(Clone, Copy, Hash, Debug, PartialEq)]
-    struct C0;
-    impl crate::AsnType for C0 {
-        const TAG: Tag = Tag::new(crate::types::Class::Context, 0);
-    }
-
     #[test]
     fn bit_string() {
         let bitstring =
