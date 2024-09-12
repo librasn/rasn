@@ -429,7 +429,7 @@ pub struct BuiltInDomainDefinedAttribute {
     pub value: PrintableString,
 }
 
-#[derive(AsnType, Clone, Debug, Encode, Decode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(explicit(application, 1)))]
 #[rasn(choice)]
 pub enum CountryName {
