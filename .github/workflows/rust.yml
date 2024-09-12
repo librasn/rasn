@@ -73,7 +73,7 @@ jobs:
         with:
           depth: 50
 
-      - uses: actions/download-artifact@v1
+      - uses: actions/download-artifact@v4
         with:
           name: cross-apple-darwin
           path: /usr/local/bin/
@@ -111,7 +111,7 @@ jobs:
           depth: 50
 
       - name: Download Cross
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v4
         with:
           name: cross-linux-musl
           path: /tmp/
