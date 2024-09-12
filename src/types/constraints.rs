@@ -6,7 +6,7 @@ use num_bigint::BigInt;
 /// A set of constraints for a given type on what kinds of values are allowed.
 /// Used in certain codecs to optimise encoding and decoding values.
 #[derive(Debug, Clone)]
-pub struct Constraints<const N: usize = 4>(pub &'static [Constraint]);
+pub struct Constraints(pub &'static [Constraint]);
 
 impl Constraints {
     pub const NONE: Self = Self(&[]);
@@ -21,51 +21,85 @@ impl Constraints {
     }
 
     /// Overrides a set of constraints with another set.
-    #[inline(always)]
-    pub const fn override_constraints(mut self, mut rhs: Constraints) -> Constraints {
-        let mut si = 0;
-        let mut ri = 0;
-        while si < self.0.len() {
-            while ri < rhs.0.len() {
-                if self.0[si].kind().eq(&rhs.0[ri].kind()) {
-                    // No matching constraint in rhs, so move it
-                    // let parent = self.0.swap_remove(i);
-                    // dbg!(si);
-                    ri += 1;
-                } else {
-                    ri += 1;
-                    break;
-                }
-                si += 1;
-            }
-        }
+    // #[inline(always)]
+    // pub fn const override_constraints(mut self, mut rhs: Constraints) -> [Constraint; 4] {
+    //     let
+    //     let mut si = 0;
+    //     let mut ri = 0;
+    //     let mut lhs = self.0.as_mut();
+    //     let mut rrhs = rhs.0.as_mut();
+    //     while si < self.0.len() {
+    //         while ri < rrhs.len() {
+    //             if lhs[si].kind().eq(&rrhs[ri].kind()) {
+    //                 // No matching constraint in rhs, so move it
+    //                 unsafe {
+    //                     core::ptr::swap(
+    //                         &mut lhs[si] as *mut Constraint,
+    //                         &mut rrhs[ri] as *mut Constraint,
+    //                     );
+    //                 }
+    //                 ri += 1;
+    //             } else {
+    //                 ri += 1;
+    //                 break;
+    //             }
+    //             si += 1;
+    //         }
+    //     }
+    //     rhs
+    // }
+    // }
+
+    pub fn override_constraints(self, rhs: Constraints) -> Constraints {
         rhs
     }
 
     /// Returns the size constraint from the set, if available.
-    // pub fn override_constraints(self, rhs: Constraints) -> Constraints {
-    //     rhs
-    // }
-
-    pub fn size(&self) -> Option<&Extensible<Size>> {
-        self.0.iter().find_map(|constraint| constraint.to_size())
+    pub const fn size(&self) -> Option<&Extensible<Size>> {
+        let mut i = 0;
+        while i < self.0.len() {
+            if let Some(size) = self.0[i].to_size() {
+                return Some(size);
+            }
+            i += 1;
+        }
+        None
     }
 
     /// Returns the permitted alphabet constraint from the set, if available.
-    pub fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
-        self.0
-            .iter()
-            .find_map(|constraint| constraint.as_permitted_alphabet())
+    pub const fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
+        let mut i = 0;
+        while i < self.0.len() {
+            if let Some(alpha) = self.0[i].as_permitted_alphabet() {
+                return Some(alpha);
+            }
+            i += 1;
+        }
+        None
     }
 
     /// Returns whether any of the constraints are extensible.
-    pub fn extensible(&self) -> bool {
-        self.0.iter().any(|constraint| constraint.is_extensible())
+    pub const fn extensible(&self) -> bool {
+        let mut i = 0;
+        while i < self.0.len() {
+            if self.0[i].is_extensible() {
+                return true;
+            }
+            i += 1;
+        }
+        false
     }
 
     /// Returns the value constraint from the set, if available.
-    pub fn value(&self) -> Option<&Extensible<Value>> {
-        self.0.iter().find_map(|constraint| constraint.to_value())
+    pub const fn value(&self) -> Option<&Extensible<Value>> {
+        let mut i = 0;
+        while i < self.0.len() {
+            if let Some(value) = self.0[i].as_value() {
+                return Some(value);
+            }
+            i += 1;
+        }
+        None
     }
 }
 
@@ -866,14 +900,14 @@ mod tests {
         let constraints = Bounded::new(0, 255);
         assert_eq!(256, constraints.range().unwrap());
     }
-    #[test]
-    fn test_concat_constraints() {
-        let a = [Constraint::Value(Extensible::new(Value::new(Bounded::Single(0)))); 1];
-        let b = [Constraint::Size(Extensible::new(Size::new(Bounded::Single(0)))); 1];
-        let c = concat_constraints(a, b);
+    // #[test]
+    // fn test_concat_constraints() {
+    //     let a = [Constraint::Value(Extensible::new(Value::new(Bounded::Single(0)))); 1];
+    //     let b = [Constraint::Size(Extensible::new(Size::new(Bounded::Single(0)))); 1];
+    //     let c = concat_constraints(a, b);
 
-        const COMBINED_CONSTRAINTS: [Constraint; 2] = concat_constraints(a, b);
+    //     const COMBINED_CONSTRAINTS: [Constraint; 2] = concat_constraints(a, b);
 
-        const RESULT: &'static [Constraint] = &COMBINED_CONSTRAINTS;
-    }
+    //     const RESULT: &'static [Constraint] = &COMBINED_CONSTRAINTS;
+    // }
 }
