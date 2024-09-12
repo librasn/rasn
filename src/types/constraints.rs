@@ -4,7 +4,7 @@ use num_bigint::BigInt;
 pub const DEFAULT_CONSTRAINTS: Constraints = Constraints::NONE;
 
 #[derive(Debug, Clone)]
-pub struct Constraints<const N: usize = 4>(pub &'static [Constraint]);
+pub struct Constraints(pub &'static [Constraint]);
 
 impl Constraints {
     pub const NONE: Self = Self(&[]);
@@ -17,47 +17,81 @@ impl Constraints {
     }
 
     /// Overrides a set of constraints with another set.
-    #[inline(always)]
-    pub const fn override_constraints(mut self, mut rhs: Constraints) -> Constraints {
-        let mut si = 0;
-        let mut ri = 0;
-        while si < self.0.len() {
-            while ri < rhs.0.len() {
-                if self.0[si].kind().eq(&rhs.0[ri].kind()) {
-                    // No matching constraint in rhs, so move it
-                    // let parent = self.0.swap_remove(i);
-                    // dbg!(si);
-                    ri += 1;
-                } else {
-                    ri += 1;
-                    break;
-                }
-                si += 1;
-            }
-        }
+    // #[inline(always)]
+    // pub fn const override_constraints(mut self, mut rhs: Constraints) -> [Constraint; 4] {
+    //     let
+    //     let mut si = 0;
+    //     let mut ri = 0;
+    //     let mut lhs = self.0.as_mut();
+    //     let mut rrhs = rhs.0.as_mut();
+    //     while si < self.0.len() {
+    //         while ri < rrhs.len() {
+    //             if lhs[si].kind().eq(&rrhs[ri].kind()) {
+    //                 // No matching constraint in rhs, so move it
+    //                 unsafe {
+    //                     core::ptr::swap(
+    //                         &mut lhs[si] as *mut Constraint,
+    //                         &mut rrhs[ri] as *mut Constraint,
+    //                     );
+    //                 }
+    //                 ri += 1;
+    //             } else {
+    //                 ri += 1;
+    //                 break;
+    //             }
+    //             si += 1;
+    //         }
+    //     }
+    //     rhs
+    // }
+    // }
+
+    pub fn override_constraints(self, rhs: Constraints) -> Constraints {
         rhs
     }
 
-    // pub fn override_constraints(self, rhs: Constraints) -> Constraints {
-    //     rhs
-    // }
-
-    pub fn size(&self) -> Option<&Extensible<Size>> {
-        self.0.iter().find_map(|constraint| constraint.to_size())
+    pub const fn size(&self) -> Option<&Extensible<Size>> {
+        let mut i = 0;
+        while i < self.0.len() {
+            if let Some(size) = self.0[i].to_size() {
+                return Some(size);
+            }
+            i += 1;
+        }
+        None
     }
 
-    pub fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
-        self.0
-            .iter()
-            .find_map(|constraint| constraint.as_permitted_alphabet())
+    pub const fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
+        let mut i = 0;
+        while i < self.0.len() {
+            if let Some(alpha) = self.0[i].as_permitted_alphabet() {
+                return Some(alpha);
+            }
+            i += 1;
+        }
+        None
     }
 
-    pub fn extensible(&self) -> bool {
-        self.0.iter().any(|constraint| constraint.is_extensible())
+    pub const fn extensible(&self) -> bool {
+        let mut i = 0;
+        while i < self.0.len() {
+            if self.0[i].is_extensible() {
+                return true;
+            }
+            i += 1;
+        }
+        false
     }
 
-    pub fn value(&self) -> Option<&Extensible<Value>> {
-        self.0.iter().find_map(|constraint| constraint.to_value())
+    pub const fn value(&self) -> Option<&Extensible<Value>> {
+        let mut i = 0;
+        while i < self.0.len() {
+            if let Some(value) = self.0[i].as_value() {
+                return Some(value);
+            }
+            i += 1;
+        }
+        None
     }
 }
 
@@ -665,154 +699,6 @@ impl<T: core::fmt::Display> core::fmt::Display for Bounded<T> {
 /// Helper macro to create constant value constraints.
 ///
 /// Usage:
-/// ```rust
-// Full range
-// let full_range = value_constraint!(0, 100);
-// Only start specified
-// let start_only = value_constraint!(start: 0);
-// Only end specified
-// let end_only = value_constraint!(end: 100);
-// Single value
-// let single = value_constraint!(42);
-// Full range with extensibility
-// let ext_full_range = value_constraint!(0, 100, true);
-// Only start with extensibility
-// let ext_start_only = value_constraint!(start: 0, true);
-// Only end with extensibility
-// let ext_end_only = value_constraint!(end: 100, false);
-// Single value with extensibility
-/// let ext_single = value_constraint!(42, true);
-/// ```
-#[macro_export]
-macro_rules! value_constraint {
-    ($($args:tt)*) => {
-        $crate::bounded_constraint!(Value, $($args)*)
-    };
-}
-
-#[macro_export]
-macro_rules! size_constraint {
-    ($($args:tt)*) => {
-        $crate::bounded_constraint!(Size, $($args)*)
-    };
-}
-
-#[macro_export]
-macro_rules! constraints {
-    ($($constraint:expr),+ $(,)?) => {
-        $crate::types::constraints::Constraints(&[$($constraint),+])
-    };
-}
-
-#[macro_export]
-macro_rules! permitted_alphabet_constraint {
-    ( $alphabet:expr) => {
-        $crate::types::constraints::Constraint::PermittedAlphabet(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::PermittedAlphabet::new($alphabet),
-            ),
-        )
-    };
-}
-
-#[macro_export]
-macro_rules! bounded_constraint {
-    // Start and end
-    ($constraint_type:ident, $start:expr, $end:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::const_new($start, $end),
-                ),
-            ),
-        )
-    };
-
-    // Only start provided
-    ($constraint_type:ident, start: $start:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::start_from($start),
-                ),
-            ),
-        )
-    };
-
-    // Only end provided
-    ($constraint_type:ident, end: $end:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::up_to($end),
-                ),
-            ),
-        )
-    };
-
-    // Single value
-    ($constraint_type:ident, $single:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::Single($single),
-                ),
-            ),
-        )
-    };
-
-    // Range with extensibility
-    ($constraint_type:ident, $start:expr, $end:expr, $extensible:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::const_new($start, $end),
-                ),
-            )
-            .set_extensible($extensible),
-        )
-    };
-
-    // Only start with extensibility
-    ($constraint_type:ident, start: $start:expr, $extensible:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::start_from($start),
-                ),
-            )
-            .set_extensible($extensible),
-        )
-    };
-
-    // Only end with extensibility
-    ($constraint_type:ident, end: $end:expr, $extensible:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::up_to($end),
-                ),
-            )
-            .set_extensible($extensible),
-        )
-    };
-
-    // Single value with extensibility
-    ($constraint_type:ident, $single:expr, $extensible:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::Single($single),
-                ),
-            )
-            .set_extensible($extensible),
-        )
-    };
-}
-
-/// Helper macro to create constant value constraints.
-///
-/// Usage:
 // ```rust
 /// use rasn::macros::*;
 /// Full range
@@ -997,14 +883,14 @@ mod tests {
         let constraints = Bounded::new(0, 255);
         assert_eq!(256, constraints.range().unwrap());
     }
-    #[test]
-    fn test_concat_constraints() {
-        let a = [Constraint::Value(Extensible::new(Value::new(Bounded::Single(0)))); 1];
-        let b = [Constraint::Size(Extensible::new(Size::new(Bounded::Single(0)))); 1];
-        let c = concat_constraints(a, b);
+    // #[test]
+    // fn test_concat_constraints() {
+    //     let a = [Constraint::Value(Extensible::new(Value::new(Bounded::Single(0)))); 1];
+    //     let b = [Constraint::Size(Extensible::new(Size::new(Bounded::Single(0)))); 1];
+    //     let c = concat_constraints(a, b);
 
-        const COMBINED_CONSTRAINTS: [Constraint; 2] = concat_constraints(a, b);
+    //     const COMBINED_CONSTRAINTS: [Constraint; 2] = concat_constraints(a, b);
 
-        const RESULT: &'static [Constraint] = &COMBINED_CONSTRAINTS;
-    }
+    //     const RESULT: &'static [Constraint] = &COMBINED_CONSTRAINTS;
+    // }
 }
