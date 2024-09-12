@@ -1551,11 +1551,6 @@ mod tests {
         struct ExtSizeRangeBitStr(pub BitString);
 
         #[derive(AsnType, Encode, Clone, PartialEq)]
-        #[rasn(delegate, size("2"))]
-        #[rasn(crate_root = "crate")]
-        struct StrictSizeBitStr(pub BitString);
-
-        #[derive(AsnType, Encode, Clone, PartialEq)]
         #[rasn(delegate, size("2", extensible))]
         #[rasn(crate_root = "crate")]
         struct ExtStrictSizeBitStr(pub BitString);

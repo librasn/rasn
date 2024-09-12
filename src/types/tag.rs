@@ -179,6 +179,7 @@ impl Tag {
 }
 
 /// The root or node in tree representing all of potential tags in a ASN.1 type.
+///
 /// For most types this is only ever one level deep, except for CHOICE enums
 /// which will contain a set of nodes, that either point to a `Leaf` or another
 /// level of `Choice`.

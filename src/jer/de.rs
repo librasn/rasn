@@ -631,14 +631,11 @@ impl Decoder {
     }
 
     fn date_from_value(value: JsonValue) -> Result<chrono::NaiveDate, DecodeError> {
-        crate::ber::de::Decoder::parse_date_string(
-            value
-                .as_str()
-                .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
-                    needed: "date string",
-                    found: alloc::format!("{value}"),
-                })?
-                .into(),
-        )
+        crate::ber::de::Decoder::parse_date_string(value.as_str().ok_or_else(|| {
+            JerDecodeErrorKind::TypeMismatch {
+                needed: "date string",
+                found: alloc::format!("{value}"),
+            }
+        })?)
     }
 }

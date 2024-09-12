@@ -1,4 +1,5 @@
 //! Error module includes all encode and decode errors among all codecs.
+//!
 //! Encoding can result to `EncodeError` and decoding can result to `DecodeError`.
 //! Backtraces are enabled by default with `backtraces` feature.
 //! See submodules for other error types.

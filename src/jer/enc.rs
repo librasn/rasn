@@ -141,7 +141,7 @@ impl crate::Encoder for Encoder {
             self.update_root_or_constructed(JsonValue::Number(as_i64.into()))
         } else {
             Err(JerEncodeErrorKind::ExceedsSupportedIntSize {
-                value: value.to_bigint().unwrap_or_default().into(),
+                value: value.to_bigint().unwrap_or_default(),
             }
             .into())
         }

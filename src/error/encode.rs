@@ -204,9 +204,13 @@ impl EncodeError {
     fn from_codec_kind(inner: CodecEncodeError) -> Self {
         let codec = match inner {
             CodecEncodeError::Ber(_) => crate::Codec::Ber,
+            #[allow(unreachable_patterns)]
             CodecEncodeError::Cer(_) => crate::Codec::Cer,
+            #[allow(unreachable_patterns)]
             CodecEncodeError::Der(_) => crate::Codec::Der,
+            #[allow(unreachable_patterns)]
             CodecEncodeError::Uper(_) => crate::Codec::Uper,
+            #[allow(unreachable_patterns)]
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
             #[cfg(feature = "jer")]
             CodecEncodeError::Jer(_) => crate::Codec::Jer,
