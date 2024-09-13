@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use bitvec::prelude::*;
 use core::cell::RefCell;
 use hashbrown::HashMap;
+// use heapless::LinearMap;
 use num_traits::ToPrimitive;
 
 use crate::{
@@ -87,6 +88,7 @@ pub struct Encoder<'a> {
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
     field_bitfield: HashMap<(usize, Tag), (FieldPresence, bool)>,
+    // field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), 5>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
@@ -115,8 +117,9 @@ impl<'a> Encoder<'a> {
             options,
             output: Cow::Owned(RefCell::new(Vec::with_capacity(32))),
             set_output: <_>::default(),
-            // field_bitfield: LinearMap::<_, _, N>::default(),
             field_bitfield: <_>::default(),
+            // field_bitfield: LinearMap::<_, _, 5>::default(),
+            // field_bitfield: <_>::default(),
             current_field_index: <_>::default(),
             extension_fields: <_>::default(),
             is_extension_sequence: bool::default(),
@@ -152,13 +155,23 @@ impl<'a> Encoder<'a> {
             })
             .unwrap_or(core::mem::take(&mut *self.output.borrow_mut()))
     }
+    fn collect_set(&self) {
+        self.output.borrow_mut().append(
+            self.set_output
+                .values()
+                .flatten()
+                .copied()
+                .collect::<Vec<u8>>()
+                .as_mut(),
+        )
+    }
     pub fn set_bit(&mut self, tag: Tag, bit: bool) {
         // In set encoding, field index does not matter
         // Tags need to be unique
         if self.options.set_encoding {
-            self.field_bitfield
-                .entry((usize::default(), tag))
-                .and_modify(|(_, b)| *b = bit);
+            if let Some((_, b)) = self.field_bitfield.get_mut(&(usize::default(), tag)) {
+                *b = bit
+            }
         } else if let Some((_, b)) = self
             .field_bitfield
             .get_mut(&(self.current_field_index, tag))
@@ -167,34 +180,13 @@ impl<'a> Encoder<'a> {
             self.current_field_index += 1;
         }
     }
+    // Take data as param, same as vec.extend()
+
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
-        // if let Some(output) = self.output.as_mut() {
-        // match output.len().checked_add(bytes.len()) {
-        // Some(_) => {
         if self.options.set_encoding {
             self.set_output
                 .insert(tag, core::mem::take(&mut self.output.borrow_mut()));
-        } else {
-            // output.extend(bytes);
         }
-        // }
-        // _ => Err(EncodeError::length_exceeds_platform_size(self.codec()))?,
-        // }
-        // Ok(())
-        // } else {
-        //     // Err(EncodeError::output_buffer_not_set())
-        //     Err(EncodeError::length_exceeds_platform_size(self.codec()))?
-        // }
-        // match self.output.len().checked_add(bytes.len()) {
-        //     Some(_) => {
-        //         if self.options.set_encoding {
-        //             self.set_output.insert(tag, bytes);
-        //         } else {
-        //             self.output.extend(bytes);
-        //         }
-        //     }
-        //     _ => Err(EncodeError::length_exceeds_platform_size(self.codec()))?,
-        // }
         Ok(())
     }
     /// Encode a tag as specified in ITU-T X.696 8.7
@@ -526,7 +518,7 @@ impl<'a> Encoder<'a> {
         // Must copy before move...
         let extension_fields = core::mem::take(&mut encoder.extension_fields);
         if encoder.field_bitfield.values().any(|(_, b)| *b) {
-            self.output.borrow_mut().extend(encoder.output());
+            self.output.borrow_mut().append(&mut encoder.output());
         }
         if !extensions_defined || !extensions_present {
             self.extend(tag)?;
@@ -693,9 +685,9 @@ impl<'a> crate::Encoder for Encoder<'a> {
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true);
         let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
-        let octets = enc.object_identifier_as_bytes(value)?;
+        let mut octets = enc.object_identifier_as_bytes(value)?;
         self.encode_length(octets.len())?;
-        self.output.borrow_mut().extend(&octets);
+        self.output.borrow_mut().append(&mut octets);
         self.extend(tag)?;
         Ok(())
     }
@@ -901,7 +893,9 @@ impl<'a> crate::Encoder for Encoder<'a> {
     {
         let mut set = self.new_set_encoder::<C>();
         encoder_scope(&mut set)?;
-        self.encode_constructed::<C>(tag, set)
+        self.encode_constructed::<C>(tag, set)?;
+        self.collect_set();
+        Ok(())
     }
 
     fn encode_set_of<E: Encode>(
@@ -948,13 +942,17 @@ impl<'a> crate::Encoder for Encoder<'a> {
         let tag = encode_fn(&mut choice_encoder)?;
 
         let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
-        let tag_bytes: Vec<u8> = Self::encode_tag(tag);
-        self.output.borrow_mut().extend(tag_bytes);
+        let mut tag_bytes: Vec<u8> = Self::encode_tag(tag);
+        self.output.borrow_mut().append(&mut tag_bytes);
         if is_root_extension {
-            self.output.borrow_mut().extend(choice_encoder.output());
+            self.output
+                .borrow_mut()
+                .append(&mut choice_encoder.output());
         } else {
             self.encode_length(choice_encoder.output.borrow().len())?;
-            self.output.borrow_mut().extend(choice_encoder.output());
+            self.output
+                .borrow_mut()
+                .append(&mut choice_encoder.output());
         }
         self.extend(tag)?;
         Ok(())
