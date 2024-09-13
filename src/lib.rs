@@ -141,8 +141,8 @@ mod tests {
 
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
-            const CONSTRAINTS: Constraints<'static> =
-                crate::macros::constraints!(crate::macros::value_constraint!(start: 127));
+            const CONSTRAINTS: Constraints =
+                macros::constraints!(macros::value_constraint!(start: 127));
         }
 
         impl crate::Encode for CustomInt {

@@ -27,7 +27,15 @@ pub fn derive_struct_impl(
                 decoder.decode_explicit_prefix::<#ty>(tag).map(Self)
             }
         } else {
+            let constraint_name = format_ident!("DELEGATE_DECODE_CONSTRAINT");
+            let constraints = config
+                .constraints
+                .const_expr(crate_root)
+                .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
             quote! {
+                const #constraint_name : #crate_root::types::Constraints = #constraints;
+                let merged = #constraint_name.merge(constraints);
+                let constraints : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&merged);
                 match tag {
                     #crate_root::types::Tag::EOC => {
                         Ok(Self(<#ty>::decode(decoder)?))
@@ -36,7 +44,7 @@ pub fn derive_struct_impl(
                         <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
                             decoder,
                             tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints),
+                            constraints
                         ).map(Self)
                     }
                 }

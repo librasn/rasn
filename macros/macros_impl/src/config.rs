@@ -15,8 +15,9 @@ pub struct Constraints {
 
 impl Constraints {
     pub fn const_static_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
-        self.const_expr(crate_root)
-            .map(|expr| quote!(const CONSTRAINTS: #crate_root::types::Constraints = #expr;))
+        self.const_expr(crate_root).map(
+            |expr| quote!(const CONSTRAINTS: #crate_root::types::Constraints<'static> = #expr;),
+        )
     }
 
     pub fn attribute_tokens(&self) -> Option<proc_macro2::TokenStream> {
@@ -950,7 +951,7 @@ impl<'a> FieldConfig<'a> {
                     }
                 }
                 (Some(false), Some(path), true) => {
-                    quote!(
+                    quote!({
                         const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
                             #constraints
                         ));
@@ -958,14 +959,14 @@ impl<'a> FieldConfig<'a> {
                             #tag,
                             #path,
                             #constraint_name,
-                        ) #or_else
+                        ) #or_else }
                     )
                 }
                 (Some(false), Some(path), false) => {
                     quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
                 }
                 (Some(false), None, true) => {
-                    quote!(
+                    quote!({
                         const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
                             #constraints
                         ));
@@ -973,35 +974,35 @@ impl<'a> FieldConfig<'a> {
                             decoder,
                             #tag,
                             #constraint_name,
-                        ) #or_else
+                        ) #or_else }
                     )
                 }
                 (Some(false), None, false) => {
                     quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
                 }
                 (None, Some(path), true) => {
-                    quote!(
+                    quote!({
                         const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
                             #constraints
                         ));
                         decoder.decode_default_with_constraints(
                             #path,
                             #constraint_name,
-                        ) #or_else
+                        ) #or_else }
                     )
                 }
                 (None, Some(path), false) => {
                     quote!(decoder.decode_default(#path) #or_else)
                 }
                 (None, None, true) => {
-                    quote!(
+                    quote!({
                         const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
                             #constraints
                         ));
                         <_>::decode_with_constraints(
                             decoder,
                             #constraint_name,
-                        ) #or_else
+                        ) #or_else }
                     )
                 }
                 (None, None, false) => {
@@ -1075,8 +1076,7 @@ impl<'a> FieldConfig<'a> {
                         decoder.decode_extension_addition_with_default_and_constraints(
                             #path,
                             #constraint_name,
-                        ) #or_else
-                    }
+                        ) #or_else }
                     )
                 }
                 (None, Some(path), false) => {
@@ -1087,13 +1087,13 @@ impl<'a> FieldConfig<'a> {
                     )
                 }
                 (None, None, true) => {
-                    quote!(
+                    quote!({
                         const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
                             #constraints
                         ));
                         decoder.decode_extension_addition_with_constraints(
                             #constraint_name,
-                        ) #or_else
+                        ) #or_else }
                     )
                 }
                 (None, None, false) => {

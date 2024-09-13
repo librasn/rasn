@@ -518,6 +518,8 @@ test! {
     constrained_uper_initial(uper): InitialString = InitialString {
         initial: VisibleString::try_from("P").unwrap().into(),
     } => &[0x44];
+    constrained_uper_number(uper): ExtensibleEmployeeNumber = ExtensibleEmployeeNumber(51.into())
+     => &[0x0, 0x66];
 
     constrained_uper(uper): PersonnelRecordWithConstraints = <_>::default() => &[
         0x86, 0x5D, 0x51, 0xD2, 0x88, 0x8A, 0x51, 0x25, 0xF1, 0x80, 0x99, 0x84,
