@@ -23,6 +23,5 @@ pub use decode::{
     JerDecodeErrorKind, OerDecodeErrorKind,
 };
 pub use encode::EncodeErrorKind;
-#[cfg(feature = "jer")]
 pub use encode::JerEncodeErrorKind;
 pub use encode::{BerEncodeErrorKind, CodecEncodeError, CoerEncodeErrorKind, EncodeError};

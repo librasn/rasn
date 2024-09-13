@@ -1,6 +1,6 @@
 //! # Decoding JER
 
-use jzon::JsonValue;
+use serde_json::Value;
 
 use crate::{
     de::Error,
@@ -19,12 +19,12 @@ macro_rules! decode_jer_value {
 }
 
 pub struct Decoder {
-    stack: alloc::vec::Vec<JsonValue>,
+    stack: alloc::vec::Vec<Value>,
 }
 
 impl Decoder {
     pub fn new(input: &str) -> Result<Self, <Decoder as crate::de::Decoder>::Error> {
-        let root = jzon::parse(input).map_err(|e| {
+        let root = serde_json::from_str(input).map_err(|e| {
             DecodeError::parser_fail(
                 alloc::format!("Error parsing JER JSON {e:?}"),
                 crate::Codec::Jer,
@@ -36,8 +36,8 @@ impl Decoder {
     }
 }
 
-impl From<JsonValue> for Decoder {
-    fn from(value: JsonValue) -> Self {
+impl From<Value> for Decoder {
+    fn from(value: Value) -> Self {
         Self {
             stack: alloc::vec![value],
         }
@@ -71,7 +71,7 @@ impl crate::Decoder for Decoder {
                     self.codec(),
                 )
             })?;
-            (value, *size)
+            (value, *size as u64)
         } else {
             let last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
             let value_map = last
@@ -83,7 +83,12 @@ impl crate::Decoder for Decoder {
             let (value, length) = value_map
                 .get("value")
                 .and_then(|v| v.as_str())
-                .zip(value_map.get("length").and_then(|l| l.as_usize()))
+                .zip(
+                    value_map
+                        .get("length")
+                        .and_then(|l| l.as_number())
+                        .and_then(|i| i.as_u64()),
+                )
                 .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                     needed: "JSON object containing 'value' and 'length' properties.",
                     found: alloc::format!("{value_map:#?}"),
@@ -157,7 +162,7 @@ impl crate::Decoder for Decoder {
         field_names.reverse();
         for name in field_names {
             self.stack
-                .push(value_map.remove(name).unwrap_or(JsonValue::Null));
+                .push(value_map.remove(name).unwrap_or(Value::Null));
         }
 
         (decode_fn)(self)
@@ -331,7 +336,7 @@ impl crate::Decoder for Decoder {
             .sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
         for (index, field) in field_indices.into_iter() {
             self.stack
-                .push(value_map.remove(field.name).unwrap_or(JsonValue::Null));
+                .push(value_map.remove(field.name).unwrap_or(Value::Null));
             fields.push((decode_fn)(self, index, field.tag)?);
         }
 
@@ -341,7 +346,7 @@ impl crate::Decoder for Decoder {
             .enumerate()
         {
             self.stack
-                .push(value_map.remove(field.name).unwrap_or(JsonValue::Null));
+                .push(value_map.remove(field.name).unwrap_or(Value::Null));
             fields.push((decode_fn)(self, index + SET::FIELDS.len(), field.tag)?)
         }
 
@@ -358,7 +363,7 @@ impl crate::Decoder for Decoder {
     fn decode_optional<D: crate::Decode>(&mut self) -> Result<Option<D>, Self::Error> {
         let last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
         match last {
-            JsonValue::Null => Ok(None),
+            Value::Null => Ok(None),
             v => {
                 self.stack.push(v);
                 Some(D::decode(self)).transpose()
@@ -416,11 +421,11 @@ impl crate::Decoder for Decoder {
 // -------------------------------------------------------------------
 
 impl Decoder {
-    fn any_from_value(value: JsonValue) -> Result<Any, <Self as crate::de::Decoder>::Error> {
+    fn any_from_value(value: Value) -> Result<Any, <Self as crate::de::Decoder>::Error> {
         Ok(Any::new(alloc::format!("{value}").as_bytes().to_vec()))
     }
 
-    fn boolean_from_value(value: JsonValue) -> Result<bool, DecodeError> {
+    fn boolean_from_value(value: Value) -> Result<bool, DecodeError> {
         Ok(value
             .as_bool()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -429,7 +434,7 @@ impl Decoder {
             })?)
     }
 
-    fn enumerated_from_value<E: Enumerated>(value: JsonValue) -> Result<E, DecodeError> {
+    fn enumerated_from_value<E: Enumerated>(value: Value) -> Result<E, DecodeError> {
         let identifier = value
             .as_str()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -443,9 +448,7 @@ impl Decoder {
         })?)
     }
 
-    fn integer_from_value<I: crate::types::IntegerType>(
-        value: JsonValue,
-    ) -> Result<I, DecodeError> {
+    fn integer_from_value<I: crate::types::IntegerType>(value: Value) -> Result<I, DecodeError> {
         value
             .as_i64()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -456,7 +459,7 @@ impl Decoder {
             .map_err(|_| DecodeError::integer_overflow(I::WIDTH, crate::Codec::Jer))
     }
 
-    fn null_from_value(value: JsonValue) -> Result<(), DecodeError> {
+    fn null_from_value(value: Value) -> Result<(), DecodeError> {
         Ok(value
             .is_null()
             .then_some(())
@@ -466,7 +469,7 @@ impl Decoder {
             })?)
     }
 
-    fn object_identifier_from_value(value: JsonValue) -> Result<ObjectIdentifier, DecodeError> {
+    fn object_identifier_from_value(value: Value) -> Result<ObjectIdentifier, DecodeError> {
         // For performance reasons, sometimes it is better to use lazy one
         #[allow(clippy::unnecessary_lazy_evaluations)]
         Ok(value
@@ -491,7 +494,7 @@ impl Decoder {
 
     fn sequence_of_from_value<D: Decode>(
         &mut self,
-        value: JsonValue,
+        value: Value,
     ) -> Result<SequenceOf<D>, DecodeError> {
         value
             .as_array()
@@ -510,7 +513,7 @@ impl Decoder {
 
     fn set_of_from_value<D: Decode + Ord>(
         &mut self,
-        value: JsonValue,
+        value: Value,
     ) -> Result<SetOf<D>, DecodeError> {
         value
             .as_array()
@@ -527,7 +530,7 @@ impl Decoder {
             })
     }
 
-    fn string_from_value(value: JsonValue) -> Result<alloc::string::String, DecodeError> {
+    fn string_from_value(value: Value) -> Result<alloc::string::String, DecodeError> {
         Ok(value
             .as_str()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -537,7 +540,7 @@ impl Decoder {
             .map(|n| n.into())?)
     }
 
-    fn choice_from_value<D>(&mut self, value: JsonValue) -> Result<D, DecodeError>
+    fn choice_from_value<D>(&mut self, value: Value) -> Result<D, DecodeError>
     where
         D: DecodeChoice,
     {
@@ -572,7 +575,7 @@ impl Decoder {
         D::from_tag(self, tag)
     }
 
-    fn octet_string_from_value(value: JsonValue) -> Result<alloc::vec::Vec<u8>, DecodeError> {
+    fn octet_string_from_value(value: Value) -> Result<alloc::vec::Vec<u8>, DecodeError> {
         let octet_string = value
             .as_str()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -586,7 +589,7 @@ impl Decoder {
             .map_err(|_| JerDecodeErrorKind::InvalidJerOctetString {})?)
     }
 
-    fn utc_time_from_value(value: JsonValue) -> Result<chrono::DateTime<chrono::Utc>, DecodeError> {
+    fn utc_time_from_value(value: Value) -> Result<chrono::DateTime<chrono::Utc>, DecodeError> {
         crate::ber::de::Decoder::parse_any_utc_time_string(
             value
                 .as_str()
@@ -599,7 +602,7 @@ impl Decoder {
     }
 
     fn general_time_from_value(
-        value: JsonValue,
+        value: Value,
     ) -> Result<chrono::DateTime<chrono::FixedOffset>, DecodeError> {
         crate::ber::de::Decoder::parse_any_generalized_time_string(
             value
@@ -612,7 +615,7 @@ impl Decoder {
         )
     }
 
-    fn date_from_value(value: JsonValue) -> Result<chrono::NaiveDate, DecodeError> {
+    fn date_from_value(value: Value) -> Result<chrono::NaiveDate, DecodeError> {
         crate::ber::de::Decoder::parse_date_string(value.as_str().ok_or_else(|| {
             JerDecodeErrorKind::TypeMismatch {
                 needed: "date string",

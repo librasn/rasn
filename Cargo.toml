@@ -32,7 +32,6 @@ default = ["macros"]
 macros = ["rasn-derive"]
 std = []
 backtraces = ["std", "snafu/backtraces"]
-jer = ["std", "jzon"]
 
 [profile.bench-lto]
 inherits = "bench"
@@ -81,7 +80,7 @@ once_cell = { version = "1.19.0", default-features = false, features = [
 num-integer = { version = "0.1.46", default-features = false, features = [
     "i128",
 ] }
-jzon = { version = "0.12.5", optional = true }
+serde_json = { version = "1", default-features = false, features = ["alloc"] }
 
 hashbrown = { version = "0.14.5", default-features = false, features = [
     "ahash",

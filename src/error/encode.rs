@@ -15,7 +15,6 @@ pub enum CodecEncodeError {
     Der(DerEncodeErrorKind),
     Uper(UperEncodeErrorKind),
     Aper(AperEncodeErrorKind),
-    #[cfg(feature = "jer")]
     Jer(JerEncodeErrorKind),
     Coer(CoerEncodeErrorKind),
 }
@@ -35,7 +34,6 @@ impl_from!(Cer, CerEncodeErrorKind);
 impl_from!(Der, DerEncodeErrorKind);
 impl_from!(Uper, UperEncodeErrorKind);
 impl_from!(Aper, AperEncodeErrorKind);
-#[cfg(feature = "jer")]
 impl_from!(Jer, JerEncodeErrorKind);
 impl_from!(Coer, CoerEncodeErrorKind);
 
@@ -209,7 +207,6 @@ impl EncodeError {
             CodecEncodeError::Uper(_) => crate::Codec::Uper,
             #[allow(unreachable_patterns)]
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
-            #[cfg(feature = "jer")]
             CodecEncodeError::Jer(_) => crate::Codec::Jer,
             CodecEncodeError::Coer(_) => crate::Codec::Coer,
         };
@@ -304,7 +301,6 @@ pub enum CerEncodeErrorKind {}
 pub enum DerEncodeErrorKind {}
 
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for UPER.
-#[cfg(feature = "jer")]
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]

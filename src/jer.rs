@@ -190,7 +190,7 @@ mod tests {
         round_trip_jer!(
             BitString,
             BitString::from_iter([true, false].into_iter()),
-            r#"{"value":"80","length":2}"#
+            r#"{"length":2,"value":"80"}"#
         );
         round_trip_jer!(
             ConstrainedBitString,
@@ -294,7 +294,7 @@ mod tests {
                 wine: Inner::Wine(4),
                 grappa: BitString::from_iter([true, false].iter())
             },
-            r#"{"juice":0,"wine":{"Wine":4},"grappa":{"value":"80","length":2}}"#
+            r#"{"grappa":{"length":2,"value":"80"},"juice":0,"wine":{"Wine":4}}"#
         );
         round_trip_jer!(
             Very,
@@ -304,7 +304,7 @@ mod tests {
                     nested: Some(false)
                 })
             },
-            "{\"a\":{\"very\":{},\"nested\":false}}"
+            r#"{"a":{"nested":false,"very":{}}}"#
         );
     }
 
@@ -316,7 +316,7 @@ mod tests {
                 very: 1.into(),
                 renamed: Some(true),
             },
-            r#"{"so-very":1,"re_named":true}"#
+            r#"{"re_named":true,"so-very":1}"#
         );
 
         round_trip_jer!(Renumed, Renumed::Test1("hel".into()), r#"{"test-1":"hel"}"#);
