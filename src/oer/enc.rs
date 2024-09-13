@@ -81,7 +81,6 @@ impl Default for Encoder<'_> {
 #[derive(Debug)]
 pub struct Encoder<'a> {
     options: EncoderOptions,
-    // output: Buffer<'a>,
     output: alloc::borrow::Cow<'a, RefCell<Vec<u8>>>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
