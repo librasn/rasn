@@ -1,18 +1,17 @@
 use alloc::vec::Vec;
-
-use crate::oer::ranges;
-use crate::prelude::{
-    Any, BitStr, BmpString, Choice, Constructed, Enumerated, GeneralString, GeneralizedTime,
-    Ia5String, NumericString, PrintableString, SetOf, TeletexString, UtcTime, VisibleString,
-};
-use crate::types::IntegerType;
-use crate::Codec;
 use bitvec::prelude::*;
 use hashbrown::HashMap;
 use num_traits::ToPrimitive;
 
-use crate::types::{fields::FieldPresence, BitString, Constraints, Date};
-use crate::{Encode, Tag};
+use crate::{
+    oer::ranges,
+    types::{
+        fields::FieldPresence, Any, BitStr, BitString, BmpString, Choice, Constraints, Constructed,
+        Date, Enumerated, GeneralString, GeneralizedTime, Ia5String, IntegerType, NumericString,
+        PrintableString, SetOf, Tag, TeletexString, UtcTime, VisibleString,
+    },
+    Codec, Encode,
+};
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding
 /// On this crate, only canonical version will be used to provide unique and reproducible encodings.
@@ -921,7 +920,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         let mut choice_encoder = Self::new(self.options.without_set_encoding());
         let tag = encode_fn(&mut choice_encoder)?;
-        let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
+        let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
         let tag_bytes: Vec<u8> = Self::encode_tag(tag);
         let mut buffer = Vec::new();
         buffer.extend(tag_bytes);

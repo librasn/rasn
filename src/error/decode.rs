@@ -70,9 +70,7 @@ impl From<CodecDecodeError> for DecodeError {
 /// # Example
 /// ```rust
 /// use nom::Needed;
-/// use rasn::codec::Codec;
-/// use rasn::error::DecodeErrorKind;
-/// use rasn::prelude::*;
+/// use rasn::{Codec, error::DecodeErrorKind, prelude::*};
 ///
 /// #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
 /// #[rasn(delegate)]

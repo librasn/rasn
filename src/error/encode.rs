@@ -57,10 +57,7 @@ impl From<CodecEncodeError> for EncodeError {
 ///
 /// # Example
 /// ```
-///
-/// use rasn::prelude::*;
-/// use rasn::error::{EncodeErrorKind, strings::PermittedAlphabetError};
-/// use rasn::codec::Codec;
+/// use rasn::{Codec, error::{EncodeErrorKind, strings::PermittedAlphabetError}, prelude::*};
 ///
 /// #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
 /// #[rasn(delegate, from("a..z"))]

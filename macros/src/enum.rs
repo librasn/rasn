@@ -19,8 +19,8 @@ impl Enum {
             || {
                 self.config
                     .enumerated
-                    .then(|| quote!(#crate_root::Tag::ENUMERATED))
-                    .unwrap_or(quote!(#crate_root::Tag::EOC))
+                    .then(|| quote!(#crate_root::types::Tag::ENUMERATED))
+                    .unwrap_or(quote!(#crate_root::types::Tag::EOC))
             },
             |t| t.to_tokens(crate_root),
         );
@@ -39,14 +39,14 @@ impl Enum {
 
             quote! {
                 {
-                    const VARIANT_LIST: &'static [#crate_root::TagTree] = &[#(#field_tags),*];
-                    const VARIANT_TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(VARIANT_LIST);
+                    const VARIANT_LIST: &'static [#crate_root::types::TagTree] = &[#(#field_tags),*];
+                    const VARIANT_TAG_TREE: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(VARIANT_LIST);
                     const _: () = assert!(VARIANT_TAG_TREE.is_unique(), #error_message);
                     VARIANT_TAG_TREE
                 }
             }
         } else {
-            quote!(#crate_root::TagTree::Leaf(#tag))
+            quote!(#crate_root::types::TagTree::Leaf(#tag))
         };
 
         let name = &self.name;
@@ -150,12 +150,12 @@ impl Enum {
 
         quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
-                const TAG: #crate_root::Tag = {
+                const TAG: #crate_root::types::Tag = {
                     #tag
                 };
-                const TAG_TREE: #crate_root::TagTree = {
-                    const LIST: &'static [#crate_root::TagTree] = &[#tag_tree];
-                    const TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(LIST);
+                const TAG_TREE: #crate_root::types::TagTree = {
+                    const LIST: &'static [#crate_root::types::TagTree] = &[#tag_tree];
+                    const TAG_TREE: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(LIST);
                     const _: () = assert!(TAG_TREE.is_unique(), #error_message);
                     #return_val
                 };
@@ -275,7 +275,7 @@ impl Enum {
             quote! {
                 #[automatically_derived]
                 impl #impl_generics #crate_root::types::DecodeChoice for #name #ty_generics #where_clause {
-                    fn from_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag) -> core::result::Result<Self, D::Error> {
+                    fn from_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag) -> core::result::Result<Self, D::Error> {
                         use #crate_root::de::Decode;
                         #from_tag
                     }
@@ -288,7 +288,7 @@ impl Enum {
 
             #[automatically_derived]
             impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-                fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
+                fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
                     #decode_with_tag
                 }
 
@@ -310,7 +310,7 @@ impl Enum {
         };
 
         quote! {
-            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
                 #operation
             }
         }

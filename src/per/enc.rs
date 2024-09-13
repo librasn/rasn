@@ -1155,7 +1155,7 @@ impl crate::Encoder for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::new();
 
-        let is_root_extension = crate::TagTree::tag_contains(&tag, E::VARIANTS);
+        let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
         self.encode_extensible_bit(&constraints, &mut buffer, || is_root_extension);
         let variants = crate::types::variants::Variants::from_static(if is_root_extension {
             E::VARIANTS

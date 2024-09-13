@@ -42,7 +42,7 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
             impl #crate_root::Decode for #name {
                 fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(
                     decoder: &mut D,
-                    tag: #crate_root::Tag,
+                    tag: #crate_root::types::Tag,
                     _: #crate_root::prelude::Constraints,
                 ) -> Result<Self, D::Error> {
                     decoder.decode_null(tag).map(|_| #name)
@@ -87,7 +87,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
                 fn encode_with_tag_and_constraints<E: #crate_root::Encoder>(
                     &self,
                     encoder: &mut E,
-                    tag: #crate_root::Tag,
+                    tag: #crate_root::types::Tag,
                     _: #crate_root::prelude::Constraints,
                 ) -> Result<(), E::Error> {
                     encoder.encode_null(tag).map(drop)

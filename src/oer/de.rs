@@ -3,20 +3,26 @@
 // the structure of the encoding. In particular, the end of the encoding cannot be determined from
 // the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
 
-use super::enc::EncodingRules;
-use crate::oer::ranges;
-use crate::prelude::{
-    Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated, GeneralString,
-    GeneralizedTime, Ia5String, NumericString, ObjectIdentifier, PrintableString, SetOf,
-    TeletexString, UtcTime, VisibleString,
-};
-use crate::types::fields::{Field, Fields};
-use crate::{types, Codec, Decode, Tag};
 use alloc::{
     collections::VecDeque,
     string::{String, ToString},
     vec::Vec,
 };
+
+use crate::{
+    oer::ranges,
+    types::{
+        self,
+        fields::{Field, Fields},
+        Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated,
+        GeneralString, GeneralizedTime, Ia5String, NumericString, ObjectIdentifier,
+        PrintableString, SetOf, Tag, TeletexString, UtcTime, VisibleString,
+    },
+    Codec, Decode,
+};
+
+use super::enc::EncodingRules;
+
 use bitvec::field::BitField;
 use nom::{AsBytes, Slice};
 use num_integer::div_ceil;
@@ -847,9 +853,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
     {
         let is_extensible = constraints.extensible();
         let tag: Tag = self.parse_tag()?;
-        let is_root_extension = crate::TagTree::tag_contains(&tag, D::VARIANTS);
+        let is_root_extension = crate::types::TagTree::tag_contains(&tag, D::VARIANTS);
         let is_extended_extension =
-            crate::TagTree::tag_contains(&tag, D::EXTENDED_VARIANTS.unwrap_or(&[]));
+            crate::types::TagTree::tag_contains(&tag, D::EXTENDED_VARIANTS.unwrap_or(&[]));
         if is_root_extension {
             D::from_tag(self, tag)
         } else if is_extensible && is_extended_extension {

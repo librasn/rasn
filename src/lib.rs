@@ -103,11 +103,11 @@ macro_rules! encode_error_with_constraints {
 
 mod bits;
 mod codec;
-mod num;
-mod per;
 pub mod de;
 pub mod enc;
 pub mod error;
+mod num;
+mod per;
 pub mod types;
 
 // Data Formats
@@ -127,7 +127,7 @@ pub use self::{
     codec::Codec,
     de::{Decode, Decoder},
     enc::{Encode, Encoder},
-    types::{AsnType, Tag, TagTree},
+    types::AsnType,
 };
 
 /// A prelude containing the codec traits and all types defined in the [`types`]

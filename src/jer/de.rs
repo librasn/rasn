@@ -53,7 +53,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_bit_string(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         constraints: Constraints,
     ) -> Result<BitString, Self::Error> {
         let (mut padded, bitstring_length) = if let Some(size) = constraints
@@ -108,36 +108,33 @@ impl crate::Decoder for Decoder {
         Ok(padded)
     }
 
-    fn decode_bool(&mut self, _t: crate::Tag) -> Result<bool, Self::Error> {
+    fn decode_bool(&mut self, _t: Tag) -> Result<bool, Self::Error> {
         decode_jer_value!(Self::boolean_from_value, self.stack)
     }
 
-    fn decode_enumerated<E: Enumerated>(&mut self, _t: crate::Tag) -> Result<E, Self::Error> {
+    fn decode_enumerated<E: Enumerated>(&mut self, _t: Tag) -> Result<E, Self::Error> {
         decode_jer_value!(Self::enumerated_from_value, self.stack)
     }
 
     fn decode_integer<I: crate::types::IntegerType>(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<I, Self::Error> {
         decode_jer_value!(Self::integer_from_value::<I>, self.stack)
     }
 
-    fn decode_null(&mut self, _t: crate::Tag) -> Result<(), Self::Error> {
+    fn decode_null(&mut self, _t: Tag) -> Result<(), Self::Error> {
         decode_jer_value!(Self::null_from_value, self.stack)
     }
 
-    fn decode_object_identifier(
-        &mut self,
-        _t: crate::Tag,
-    ) -> Result<ObjectIdentifier, Self::Error> {
+    fn decode_object_identifier(&mut self, _t: Tag) -> Result<ObjectIdentifier, Self::Error> {
         decode_jer_value!(Self::object_identifier_from_value, self.stack)
     }
 
     fn decode_sequence<D, DF, F>(
         &mut self,
-        _: crate::Tag,
+        _: Tag,
         _: Option<DF>,
         decode_fn: F,
     ) -> Result<D, Self::Error>
@@ -168,7 +165,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_sequence_of<D: crate::Decode>(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<SequenceOf<D>, Self::Error> {
         decode_jer_value!(|v| self.sequence_of_from_value(v), self.stack)
@@ -176,7 +173,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_set_of<D: crate::Decode + Ord>(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<SetOf<D>, Self::Error> {
         decode_jer_value!(|v| self.set_of_from_value(v), self.stack)
@@ -184,23 +181,19 @@ impl crate::Decoder for Decoder {
 
     fn decode_octet_string(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<alloc::vec::Vec<u8>, Self::Error> {
         decode_jer_value!(Self::octet_string_from_value, self.stack)
     }
 
-    fn decode_utf8_string(
-        &mut self,
-        _t: crate::Tag,
-        _c: Constraints,
-    ) -> Result<Utf8String, Self::Error> {
+    fn decode_utf8_string(&mut self, _t: Tag, _c: Constraints) -> Result<Utf8String, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)
     }
 
     fn decode_visible_string(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<VisibleString, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)?
@@ -216,7 +209,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_general_string(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<GeneralString, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)?
@@ -230,11 +223,7 @@ impl crate::Decoder for Decoder {
             })
     }
 
-    fn decode_ia5_string(
-        &mut self,
-        _t: crate::Tag,
-        _c: Constraints,
-    ) -> Result<Ia5String, Self::Error> {
+    fn decode_ia5_string(&mut self, _t: Tag, _c: Constraints) -> Result<Ia5String, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)?
             .try_into()
             .map_err(|e| {
@@ -248,7 +237,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_printable_string(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<PrintableString, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)?
@@ -264,7 +253,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_numeric_string(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<NumericString, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)?
@@ -280,17 +269,13 @@ impl crate::Decoder for Decoder {
 
     fn decode_teletex_string(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<TeletexString, Self::Error> {
         todo!()
     }
 
-    fn decode_bmp_string(
-        &mut self,
-        _t: crate::Tag,
-        _c: Constraints,
-    ) -> Result<BmpString, Self::Error> {
+    fn decode_bmp_string(&mut self, _t: Tag, _c: Constraints) -> Result<BmpString, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)?
             .try_into()
             .map_err(|e| {
@@ -302,35 +287,32 @@ impl crate::Decoder for Decoder {
             })
     }
 
-    fn decode_explicit_prefix<D: crate::Decode>(
-        &mut self,
-        _t: crate::Tag,
-    ) -> Result<D, Self::Error> {
+    fn decode_explicit_prefix<D: crate::Decode>(&mut self, _t: Tag) -> Result<D, Self::Error> {
         D::decode(self)
     }
 
-    fn decode_utc_time(&mut self, _t: crate::Tag) -> Result<UtcTime, Self::Error> {
+    fn decode_utc_time(&mut self, _t: Tag) -> Result<UtcTime, Self::Error> {
         decode_jer_value!(Self::utc_time_from_value, self.stack)
     }
 
-    fn decode_generalized_time(&mut self, _t: crate::Tag) -> Result<GeneralizedTime, Self::Error> {
+    fn decode_generalized_time(&mut self, _t: Tag) -> Result<GeneralizedTime, Self::Error> {
         decode_jer_value!(Self::general_time_from_value, self.stack)
     }
 
-    fn decode_date(&mut self, _t: crate::Tag) -> Result<Date, Self::Error> {
+    fn decode_date(&mut self, _t: Tag) -> Result<Date, Self::Error> {
         decode_jer_value!(Self::date_from_value, self.stack)
     }
 
     fn decode_set<FIELDS, SET, D, F>(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
     where
         SET: crate::Decode + Constructed,
         FIELDS: crate::Decode,
-        D: Fn(&mut Self, usize, crate::Tag) -> Result<FIELDS, Self::Error>,
+        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
         let mut last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
@@ -386,7 +368,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_optional_with_tag<D: crate::Decode>(
         &mut self,
-        _: crate::Tag,
+        _: Tag,
     ) -> Result<Option<D>, Self::Error> {
         self.decode_optional()
     }
@@ -400,7 +382,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_optional_with_tag_and_constraints<D: crate::Decode>(
         &mut self,
-        _t: crate::Tag,
+        _t: Tag,
         _c: Constraints,
     ) -> Result<Option<D>, Self::Error> {
         self.decode_optional()

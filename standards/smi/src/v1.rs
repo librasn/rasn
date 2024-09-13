@@ -2,8 +2,8 @@
 
 use rasn::{
     error::EncodeError,
-    types::{Constraints, FixedOctetString, Integer, ObjectIdentifier, OctetString, Oid},
-    AsnType, Decode, Encode, Tag,
+    types::{Constraints, FixedOctetString, Integer, ObjectIdentifier, OctetString, Oid, Tag},
+    AsnType, Decode, Encode,
 };
 
 pub const INTERNET: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET;

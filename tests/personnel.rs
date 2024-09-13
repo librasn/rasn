@@ -20,7 +20,7 @@ impl rasn::Encode for PersonnelRecord {
     fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
         &self,
         encoder: &mut EN,
-        tag: rasn::Tag,
+        tag: rasn::types::Tag,
         _: rasn::types::Constraints,
     ) -> core::result::Result<(), EN::Error> {
         #[allow(unused)]
@@ -39,20 +39,20 @@ impl rasn::Encode for PersonnelRecord {
             .encode_set::<Self, _>(tag, |encoder| {
                 self.name.encode(encoder)?;
                 encoder.encode_explicit_prefix(
-                    rasn::Tag::new(rasn::types::Class::Context, 0),
+                    rasn::types::Tag::new(rasn::types::Class::Context, 0),
                     &self.title,
                 )?;
                 self.number.encode(encoder)?;
                 encoder.encode_explicit_prefix(
-                    rasn::Tag::new(rasn::types::Class::Context, 1),
+                    rasn::types::Tag::new(rasn::types::Class::Context, 1),
                     &self.date_of_hire,
                 )?;
                 encoder.encode_explicit_prefix(
-                    rasn::Tag::new(rasn::types::Class::Context, 2),
+                    rasn::types::Tag::new(rasn::types::Class::Context, 2),
                     &self.name_of_spouse,
                 )?;
                 encoder.encode_default_with_tag(
-                    rasn::Tag::new(rasn::types::Class::Context, 3),
+                    rasn::types::Tag::new(rasn::types::Class::Context, 3),
                     &self.children,
                     <Vec<ChildInformation>>::default,
                 )?;

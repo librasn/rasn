@@ -84,7 +84,7 @@ When modelling an ASN.1 data type, there are three traits we'll need to implemen
 
 ```rust
 # struct Person;
-use rasn::{AsnType, Tag};
+use rasn::{AsnType, types::Tag};
 
 impl AsnType for Person {
     // Default tag for sequences.

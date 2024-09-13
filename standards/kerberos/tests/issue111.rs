@@ -1,4 +1,8 @@
-use rasn::{ber, types::Class, Decoder, Encoder, Tag};
+use rasn::{
+    ber,
+    types::{Class, Tag},
+    Decoder, Encoder,
+};
 use rasn_kerberos::KerberosFlags;
 
 #[test]

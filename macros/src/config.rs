@@ -411,9 +411,11 @@ impl Config {
                     quote!(<#ty as #crate_root::AsnType>::TAG)
                 })
             })
-            .or_else(|| (fields == &syn::Fields::Unit).then(|| quote!(#crate_root::Tag::NULL)))
-            .or_else(|| self.set.then(|| quote!(#crate_root::Tag::SET)))
-            .unwrap_or(quote!(#crate_root::Tag::SEQUENCE))
+            .or_else(|| {
+                (fields == &syn::Fields::Unit).then(|| quote!(#crate_root::types::Tag::NULL))
+            })
+            .or_else(|| self.set.then(|| quote!(#crate_root::types::Tag::SET)))
+            .unwrap_or(quote!(#crate_root::types::Tag::SEQUENCE))
     }
 }
 
@@ -633,7 +635,7 @@ impl<'config> VariantConfig<'config> {
                     .tag
                     .as_ref()
                     .map(|t| t.to_tokens(crate_root))
-                    .unwrap_or(quote!(#crate_root::Tag::SEQUENCE));
+                    .unwrap_or(quote!(#crate_root::types::Tag::SEQUENCE));
 
                 let decode_impl = super::decode::map_from_inner_type(
                     tag,
@@ -657,7 +659,7 @@ impl<'config> VariantConfig<'config> {
         };
 
         quote! {
-            if #crate_root::TagTree::tag_contains(&tag, &[#tag_tree]) {
+            if #crate_root::types::TagTree::tag_contains(&tag, &[#tag_tree]) {
                 return #decode_op
             }
         }
@@ -682,7 +684,7 @@ impl<'config> VariantConfig<'config> {
         let crate_root = &self.container_config.crate_root;
         if self.tag.is_some() || self.container_config.automatic_tags {
             let tag = self.tag(context).to_tokens(crate_root);
-            quote!(#crate_root::TagTree::Leaf(#tag))
+            quote!(#crate_root::types::TagTree::Leaf(#tag))
         } else {
             let field_tags = self
                 .variant
@@ -694,7 +696,7 @@ impl<'config> VariantConfig<'config> {
 
             match self.variant.fields {
                 syn::Fields::Unit => {
-                    quote!(#crate_root::TagTree::Leaf(<() as #crate_root::AsnType>::TAG))
+                    quote!(#crate_root::types::TagTree::Leaf(<() as #crate_root::AsnType>::TAG))
                 }
                 syn::Fields::Named(_) => {
                     let error_message = format!(
@@ -705,10 +707,10 @@ impl<'config> VariantConfig<'config> {
                     );
 
                     quote!({
-                        const FIELD_LIST: &'static [#crate_root::TagTree] = &[#(#field_tags),*];
-                        const FIELD_TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(FIELD_LIST);
+                        const FIELD_LIST: &'static [#crate_root::types::TagTree] = &[#(#field_tags),*];
+                        const FIELD_TAG_TREE: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(FIELD_LIST);
                         const _: () = assert!(FIELD_TAG_TREE.is_unique(), #error_message);
-                        #crate_root::TagTree::Leaf(#crate_root::Tag::SEQUENCE)
+                        #crate_root::types::TagTree::Leaf(#crate_root::types::Tag::SEQUENCE)
                     })
                 }
                 syn::Fields::Unnamed(_) => {
@@ -1130,7 +1132,7 @@ impl<'a> FieldConfig<'a> {
             let tag = tag.to_tokens(crate_root);
             quote!(#tag)
         } else if self.container_config.automatic_tags {
-            quote!(#crate_root::Tag::new(#crate_root::types::Class::Context, #context as u32))
+            quote!(#crate_root::types::Tag::new(#crate_root::types::Class::Context, #context as u32))
         } else {
             let mut ty = self.field.ty.clone();
             ty.strip_lifetimes();
@@ -1144,7 +1146,7 @@ impl<'a> FieldConfig<'a> {
 
         if self.tag.is_some() || self.container_config.automatic_tags {
             let tag = self.tag(context);
-            quote!(#crate_root::TagTree::Leaf(#tag))
+            quote!(#crate_root::types::TagTree::Leaf(#tag))
         } else {
             self.container_config.tag_tree_for_ty(ty)
         }

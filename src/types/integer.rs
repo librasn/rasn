@@ -1,5 +1,4 @@
-use crate::types::{constraints, AsnType, Constraints, Extensible};
-use crate::Tag;
+use crate::types::{constraints, AsnType, Constraints, Extensible, Tag};
 use alloc::boxed::Box;
 use core::hash::Hash;
 use num_bigint::{BigInt, BigUint, ToBigInt};

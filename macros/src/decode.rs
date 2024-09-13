@@ -29,7 +29,7 @@ pub fn derive_struct_impl(
         } else {
             quote! {
                 match tag {
-                    #crate_root::Tag::EOC => {
+                    #crate_root::types::Tag::EOC => {
                         Ok(Self(<#ty>::decode(decoder)?))
                     }
                     _ => {
@@ -132,7 +132,7 @@ pub fn derive_struct_impl(
                 };
 
                 (
-                    quote!(const #const_name: #crate_root::Tag = #tag;),
+                    quote!(const #const_name: #crate_root::types::Tag = #tag;),
                     quote!((#context, #const_name) => { #choice_name::#field_name(#decode_impl) }),
                     quote!(#choice_name::#field_name(value) => { #set_field_impl })
                 )
@@ -243,7 +243,7 @@ pub fn derive_struct_impl(
 
     quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-            fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
                 #decode_impl
             }
         }

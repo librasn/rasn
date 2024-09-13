@@ -230,7 +230,7 @@ mod tests {
             fn encode_with_tag_and_constraints<EN: crate::Encoder>(
                 &self,
                 encoder: &mut EN,
-                tag: crate::Tag,
+                tag: crate::types::Tag,
                 _: Constraints,
             ) -> Result<(), EN::Error> {
                 encoder.encode_set::<Self, _>(tag, |encoder| {

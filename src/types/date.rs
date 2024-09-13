@@ -1,6 +1,6 @@
 use crate::prelude::Constraints;
 use crate::types::Date;
-use crate::{AsnType, Decode, Decoder, Encode, Encoder, Tag};
+use crate::{types::Tag, AsnType, Decode, Decoder, Encode, Encoder};
 
 impl AsnType for Date {
     const TAG: Tag = Tag::DATE;

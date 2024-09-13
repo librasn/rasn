@@ -48,8 +48,8 @@ pub fn derive_struct_impl(
             );
 
             quote!({
-                const LIST: &'static [#crate_root::TagTree] = &[#(#tag_tree),*];
-                const TAG_TREE: #crate_root::TagTree = #crate_root::TagTree::Choice(LIST);
+                const LIST: &'static [#crate_root::types::TagTree] = &[#(#tag_tree),*];
+                const TAG_TREE: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(LIST);
                 const _: () = assert!(TAG_TREE.is_unique(), #error_message);
             })
         })
@@ -104,7 +104,7 @@ pub fn derive_struct_impl(
 
         #[automatically_derived]
         impl #impl_generics  #crate_root::AsnType for #name #ty_generics #where_clause {
-            const TAG: #crate_root::Tag = {
+            const TAG: #crate_root::types::Tag = {
                 #(#all_optional_tags_are_unique)*
 
                 #tag
