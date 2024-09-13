@@ -1,9 +1,7 @@
-use alloc::borrow::Cow;
-use alloc::vec::Vec;
+use alloc::{borrow::Cow, vec::Vec};
 use bitvec::prelude::*;
 use core::cell::RefCell;
 use hashbrown::HashMap;
-// use heapless::LinearMap;
 use num_traits::ToPrimitive;
 
 use crate::{
@@ -88,7 +86,6 @@ pub struct Encoder<'a> {
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
     field_bitfield: HashMap<(usize, Tag), (FieldPresence, bool)>,
-    // field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), 5>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
@@ -118,8 +115,6 @@ impl<'a> Encoder<'a> {
             output: Cow::Owned(RefCell::new(Vec::with_capacity(32))),
             set_output: <_>::default(),
             field_bitfield: <_>::default(),
-            // field_bitfield: LinearMap::<_, _, 5>::default(),
-            // field_bitfield: <_>::default(),
             current_field_index: <_>::default(),
             extension_fields: <_>::default(),
             is_extension_sequence: bool::default(),
@@ -180,8 +175,6 @@ impl<'a> Encoder<'a> {
             self.current_field_index += 1;
         }
     }
-    // Take data as param, same as vec.extend()
-
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
         if self.options.set_encoding {
             self.set_output
@@ -957,24 +950,6 @@ impl<'a> crate::Encoder for Encoder<'a> {
         self.extend(tag)?;
         Ok(())
     }
-    // fn encode_choice<'b, E: Encode + Choice>(
-    //     &mut self,
-    //     _: Constraints,
-    //     _tag: Tag,
-    //     encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
-    // ) -> Result<Self::Ok, Self::Error> {
-    //     // Create a buffer for encoding the choice
-    //     let mut buffer = Vec::new();
-
-    //     // Create a new encoder that borrows the buffer
-    //     let tag = {
-    //         let mut choice_encoder = Encoder::new(self.options.without_set_encoding(), &mut buffer);
-    //         encode_fn(&mut choice_encoder)?
-    //     }; // choice_encoder is dropped here, releasing the borrow on buffer
-
-    //     // Proceed with buffer after choice_encoder is dropped
-    //     self.process_buffer::<E>(tag, buffer)
-    // }
 
     fn encode_extension_addition<E: Encode>(
         &mut self,
