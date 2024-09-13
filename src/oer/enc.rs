@@ -172,30 +172,14 @@ impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
             self.extension_bitfield.0 += 1;
         }
     }
+    // Take data as param, same as vec.extend()
+
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
         if self.options.set_encoding {
             // If not using mem::take here, remember to call output.clear() after encoding
             self.set_output
                 .insert(tag, core::mem::take(&mut self.output.borrow_mut()));
         }
-        // }
-        // _ => Err(EncodeError::length_exceeds_platform_size(self.codec()))?,
-        // }
-        // Ok(())
-        // } else {
-        //     // Err(EncodeError::output_buffer_not_set())
-        //     Err(EncodeError::length_exceeds_platform_size(self.codec()))?
-        // }
-        // match self.output.len().checked_add(bytes.len()) {
-        //     Some(_) => {
-        //         if self.options.set_encoding {
-        //             self.set_output.insert(tag, bytes);
-        //         } else {
-        //             self.output.extend(bytes);
-        //         }
-        //     }
-        //     _ => Err(EncodeError::length_exceeds_platform_size(self.codec()))?,
-        // }
         Ok(())
     }
     /// Encode a tag as specified in ITU-T X.696 8.7
