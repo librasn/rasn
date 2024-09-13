@@ -3,6 +3,7 @@
 use alloc::{borrow::Cow, vec::Vec};
 use bitvec::prelude::*;
 use core::cell::RefCell;
+use heapless::LinearMap;
 use num_traits::ToPrimitive;
 
 use crate::{
