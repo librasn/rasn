@@ -56,9 +56,8 @@ pub fn encode_with_constraints<T: crate::Encode>(
 #[cfg(test)]
 #[allow(clippy::items_after_statements)]
 mod tests {
-    use crate as rasn;
     use crate::prelude::*;
-    use crate::types::constraints::{Bounded, Size, Value};
+    use crate::{self as rasn, constraints, size_constraint, value_constraint};
     use bitvec::prelude::*;
     #[test]
     fn bool() {
@@ -302,13 +301,8 @@ mod tests {
     }
     #[test]
     fn test_integer_single_constraint() {
-        round_trip_with_constraints!(
-            coer,
-            Integer,
-            Constraints::new(&[Constraint::Value(Value::new(Bounded::Single(5)).into())]),
-            5.into(),
-            &[0x05]
-        );
+        const CONSTRAINTS: Constraints = constraints!(value_constraint!(5));
+        round_trip_with_constraints!(coer, Integer, CONSTRAINTS, 5.into(), &[0x05]);
     }
     #[test]
     fn test_enumerated() {
@@ -374,10 +368,11 @@ mod tests {
         bv.push(true);
         bv.extend([false; 4].iter());
         // bv should be 14 bits now
+        const CONSTRAINT_1: Constraints = constraints!(size_constraint!(14));
         round_trip_with_constraints!(
             coer,
             BitString,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(14)).into())]),
+            CONSTRAINT_1,
             BitString::from_bitslice(&bv),
             &[0b1111_1111, 0b0100_0000]
         );
@@ -387,10 +382,11 @@ mod tests {
             BitString::from_bitslice(&bv),
             &[0x03u8, 0x02, 0b1111_1111, 0b0100_0000]
         );
+        const CONSTRAINT_2: Constraints = constraints!(size_constraint!(15));
         encode_error_with_constraints!(
             coer,
             BitString,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(15)).into())]),
+            CONSTRAINT_2,
             BitString::from_bitslice(&bv)
         );
     }
@@ -402,54 +398,41 @@ mod tests {
             OctetString::from_static(&[0x01]),
             &[0x01, 0x01]
         );
+        const CONSTRAINT_1: Constraints = constraints!(size_constraint!(5));
         round_trip_with_constraints!(
             coer,
             OctetString,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(5)).into())]),
+            CONSTRAINT_1,
             OctetString::from_static(&[0x01u8, 0x02, 0x03, 0x04, 0x05]),
             &[0x01u8, 0x02, 0x03, 0x04, 0x05]
         );
+        const CONSTRAINT_2: Constraints = constraints!(size_constraint!(3, 6));
         round_trip_with_constraints!(
             coer,
             OctetString,
-            Constraints::new(&[Constraint::Size(
-                Size::new(Bounded::Range {
-                    start: Some(3),
-                    end: Some(6)
-                })
-                .into()
-            )]),
+            CONSTRAINT_2,
             OctetString::from_static(&[0x01u8, 0x02, 0x03, 0x04, 0x05]),
             &[0x05u8, 0x01, 0x02, 0x03, 0x04, 0x05]
         );
+        const CONSTRAINT_3: Constraints = constraints!(size_constraint!(5));
         encode_error_with_constraints!(
             coer,
             OctetString,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(5)).into())]),
+            CONSTRAINT_3,
             OctetString::from_static(&[0x01u8, 0x02, 0x03, 0x04])
         );
+        const CONSTRAINT_4: Constraints = constraints!(size_constraint!(3, 6));
         encode_error_with_constraints!(
             coer,
             OctetString,
-            Constraints::new(&[Constraint::Size(
-                Size::new(Bounded::Range {
-                    start: Some(3),
-                    end: Some(6)
-                })
-                .into()
-            )]),
+            CONSTRAINT_4,
             OctetString::from_static(&[0x01u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07])
         );
+        const CONSTRAINT_5: Constraints = constraints!(size_constraint!(3, 6));
         encode_error_with_constraints!(
             coer,
             OctetString,
-            Constraints::new(&[Constraint::Size(
-                Size::new(Bounded::Range {
-                    start: Some(3),
-                    end: Some(6)
-                })
-                .into()
-            )]),
+            CONSTRAINT_5,
             OctetString::from_static(&[0x01u8, 0x02])
         );
     }
@@ -576,23 +559,19 @@ mod tests {
             "123".try_into().unwrap(),
             &[0x03, 0x31, 0x32, 0x33]
         );
+        const CONSTRAINT_1: Constraints = constraints!(size_constraint!(3));
         round_trip_with_constraints!(
             coer,
             NumericString,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            CONSTRAINT_1,
             "123".try_into().unwrap(),
             &[0x31, 0x32, 0x33]
         );
+        const CONSTRAINT_2: Constraints = constraints!(size_constraint!(3, 7));
         round_trip_with_constraints!(
             coer,
             NumericString,
-            Constraints::new(&[Constraint::Size(
-                Size::new(Bounded::Range {
-                    start: Some(3),
-                    end: Some(7)
-                })
-                .into()
-            )]),
+            CONSTRAINT_2,
             "123".try_into().unwrap(),
             &[0x03, 0x31, 0x32, 0x33]
         );
@@ -611,23 +590,19 @@ mod tests {
             " '()+,-./:=?".try_into().unwrap(),
             &[0x0c, 0x20, 0x27, 0x28, 0x29, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x3a, 0x3d, 0x3f]
         );
+        const CONSTRAINT_1: Constraints = constraints!(size_constraint!(3));
         round_trip_with_constraints!(
             coer,
             PrintableString,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            CONSTRAINT_1,
             "foo".try_into().unwrap(),
             &[0x66, 0x6f, 0x6f]
         );
+        const CONSTRAINT_2: Constraints = constraints!(size_constraint!(3, 7));
         round_trip_with_constraints!(
             coer,
             PrintableString,
-            Constraints::new(&[Constraint::Size(
-                Size::new(Bounded::Range {
-                    start: Some(3),
-                    end: Some(7)
-                })
-                .into()
-            )]),
+            CONSTRAINT_2,
             "foo".try_into().unwrap(),
             &[0x03, 0x66, 0x6f, 0x6f]
         );
@@ -640,23 +615,19 @@ mod tests {
             "foo".try_into().unwrap(),
             &[0x03, 0x66, 0x6f, 0x6f]
         );
+        const CONSTRAINT_1: Constraints = constraints!(size_constraint!(3));
         round_trip_with_constraints!(
             coer,
             VisibleString,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            CONSTRAINT_1,
             "foo".try_into().unwrap(),
             &[0x66, 0x6f, 0x6f]
         );
+        const CONSTRAINT_2: Constraints = constraints!(size_constraint!(3, 7));
         round_trip_with_constraints!(
             coer,
             VisibleString,
-            Constraints::new(&[Constraint::Size(
-                Size::new(Bounded::Range {
-                    start: Some(3),
-                    end: Some(7)
-                })
-                .into()
-            )]),
+            CONSTRAINT_2,
             "foo".try_into().unwrap(),
             &[0x03, 0x66, 0x6f, 0x6f]
         );
@@ -669,23 +640,19 @@ mod tests {
             "foo".try_into().unwrap(),
             &[0x03, 0x66, 0x6f, 0x6f]
         );
+        const CONSTRAINT_1: Constraints = constraints!(size_constraint!(3));
         round_trip_with_constraints!(
             coer,
             Ia5String,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            CONSTRAINT_1,
             "foo".try_into().unwrap(),
             &[0x66, 0x6f, 0x6f]
         );
+        const CONSTRAINT_2: Constraints = constraints!(size_constraint!(3, 7));
         round_trip_with_constraints!(
             coer,
             Ia5String,
-            Constraints::new(&[Constraint::Size(
-                Size::new(Bounded::Range {
-                    start: Some(3),
-                    end: Some(7)
-                })
-                .into()
-            )]),
+            CONSTRAINT_2,
             "foo".try_into().unwrap(),
             &[0x03, 0x66, 0x6f, 0x6f]
         );
@@ -734,10 +701,11 @@ mod tests {
                 0x84, 0xc3, 0x96, 0x31, 0x32, 0x65, 0x34, 0xc3, 0x84
             ]
         );
+        const CONSTRAINT_1: Constraints = constraints!(size_constraint!(3));
         round_trip_with_constraints!(
             coer,
             Utf8String,
-            Constraints::new(&[Constraint::Size(Size::new(Bounded::Single(3)).into())]),
+            CONSTRAINT_1,
             "foo".into(),
             &[0x66, 0x6f, 0x6f]
         );

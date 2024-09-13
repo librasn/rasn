@@ -1,6 +1,7 @@
 pub mod de;
 pub mod enc;
 
+use crate::macros::{constraints, value_constraint};
 use crate::types::Constraints;
 
 pub use self::{de::Decoder, enc::Encoder};
@@ -9,6 +10,8 @@ const SIXTEEN_K: u16 = 16384;
 const THIRTY_TWO_K: u16 = 32768;
 const FOURTY_EIGHT_K: u16 = 49152;
 const SIXTY_FOUR_K: u32 = 65536;
+const SMALL_UNSIGNED_CONSTRAINT: Constraints = constraints!(value_constraint!(0, 63));
+const LARGE_UNSIGNED_CONSTRAINT: Constraints = constraints!(value_constraint!(start: 0));
 
 /// Attempts to decode `T` from `input` using PER.
 pub(crate) fn decode<T: crate::Decode>(

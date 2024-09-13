@@ -398,6 +398,7 @@ pub trait IntegerType:
 {
     const WIDTH: u32;
     const BYTE_WIDTH: usize = Self::WIDTH as usize / 8;
+    const ZERO: Self;
     /// `Self` as an unsigned type with the same width.
     type UnsignedPair: IntegerType;
     /// `Self` as a signed type with one type size larger to prevent truncation, in case `Self` is unsigned. (e.g. u8 -> i16)
@@ -466,6 +467,7 @@ macro_rules! integer_type_impl {
     ((signed $t1:ty, $t2:ty), $($ts:tt)*) => {
         impl IntegerType for $t1 {
             const WIDTH: u32 = <$t1>::BITS;
+            const ZERO: $t1 = 0 as $t1;
             type UnsignedPair = $t2;
             type SignedPair = $t1;
 
@@ -565,6 +567,7 @@ macro_rules! integer_type_impl {
 
         impl IntegerType for $t1 {
             const WIDTH: u32 = <$t1>::BITS;
+            const ZERO: $t1 = 0 as $t1;
             type UnsignedPair = $t1;
             type SignedPair = $t2;
 
@@ -676,6 +679,7 @@ integer_type_impl!(
 
 impl IntegerType for BigInt {
     const WIDTH: u32 = u32::MAX;
+    const ZERO: BigInt = BigInt::ZERO;
     type UnsignedPair = Self;
     type SignedPair = Self;
 
@@ -755,6 +759,7 @@ impl<T: AsRef<[u8]>> AsRef<[u8]> for IntegerBytesRef<T> {
 
 impl IntegerType for Integer {
     const WIDTH: u32 = u32::MAX;
+    const ZERO: Integer = Integer::ZERO;
     type UnsignedPair = Self;
     type SignedPair = Self;
 

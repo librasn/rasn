@@ -3,7 +3,10 @@ use hashbrown::HashMap;
 
 use bitvec::prelude::*;
 
-use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
+use super::{
+    FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
+    THIRTY_TWO_K,
+};
 use crate::{
     types::{
         self,
@@ -417,17 +420,11 @@ impl Encoder {
         let is_large = value >= 64;
         buffer.push(is_large);
 
-        let size_constraints = if is_large {
-            constraints::Value::new(constraints::Bounded::start_from(0)).into()
+        if is_large {
+            self.encode_integer_into_buffer::<usize>(LARGE_UNSIGNED_CONSTRAINT, &value, buffer)
         } else {
-            constraints::Value::new(constraints::Bounded::new(0, 63)).into()
-        };
-
-        self.encode_integer_into_buffer::<usize>(
-            Constraints::new(&[size_constraints]),
-            &value,
-            buffer,
-        )
+            self.encode_integer_into_buffer::<usize>(SMALL_UNSIGNED_CONSTRAINT, &value, buffer)
+        }
     }
 
     fn encode_string_length(
@@ -652,7 +649,7 @@ impl Encoder {
             return Ok(());
         } else {
             // Safe to unwrap because we checked for None above
-            constraints.value().unwrap_or_default()
+            constraints.value().unwrap()
         };
 
         if !value_range.constraint.in_bound(value) && !is_extended_value {
@@ -788,7 +785,7 @@ impl crate::Encoder for Encoder {
     }
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(tag, <_>::default(), &value.contents)
+        self.encode_octet_string(tag, Constraints::default(), &value.contents)
     }
 
     fn encode_bit_string(
@@ -905,7 +902,7 @@ impl crate::Encoder for Encoder {
         self.set_bit(tag, true)?;
         let mut encoder = crate::der::enc::Encoder::new(crate::der::enc::EncoderOptions::der());
         let der = encoder.object_identifier_as_bytes(oid)?;
-        self.encode_octet_string(tag, <_>::default(), &der)
+        self.encode_octet_string(tag, Constraints::default(), &der)
     }
 
     fn encode_octet_string(
@@ -948,7 +945,7 @@ impl crate::Encoder for Encoder {
         value: &types::GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(tag, <_>::default(), value)
+        self.encode_octet_string(tag, Constraints::default(), value)
     }
 
     fn encode_printable_string(
@@ -998,7 +995,7 @@ impl crate::Encoder for Encoder {
         value: &str,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(tag, <_>::default(), value.as_bytes())
+        self.encode_octet_string(tag, Constraints::default(), value.as_bytes())
     }
 
     fn encode_utc_time(
@@ -1007,7 +1004,7 @@ impl crate::Encoder for Encoder {
         value: &types::UtcTime,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
+        self.encode_octet_string(tag, Constraints::default(), &crate::der::encode(value)?)
     }
 
     fn encode_generalized_time(
@@ -1016,12 +1013,12 @@ impl crate::Encoder for Encoder {
         value: &types::GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
+        self.encode_octet_string(tag, Constraints::default(), &crate::der::encode(value)?)
     }
 
     fn encode_date(&mut self, tag: Tag, value: &types::Date) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
-        self.encode_octet_string(tag, <_>::default(), &crate::der::encode(value)?)
+        self.encode_octet_string(tag, Constraints::default(), &crate::der::encode(value)?)
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -1197,16 +1194,9 @@ impl crate::Encoder for Encoder {
         let _tag = (encode_fn)(&mut choice_encoder)?;
 
         match (index, bounds) {
-            (index, Some(Some(variance))) => {
-                // https://github.com/XAMPPRocky/rasn/issues/168
-                // Choice index starts from zero, so we need to reduce variance by one
-                let choice_range = &[constraints::Value::new(constraints::Bounded::new(
-                    0,
-                    (variance - 1) as i128,
-                ))
-                .into()];
+            (index, Some(Some(_))) => {
                 self.encode_integer_into_buffer::<usize>(
-                    Constraints::from(choice_range),
+                    E::VARIANCE_CONSTRAINT,
                     &index,
                     &mut buffer,
                 )?;
@@ -1220,7 +1210,7 @@ impl crate::Encoder for Encoder {
                 if output.is_empty() {
                     output.push(0);
                 }
-                self.encode_octet_string_into_buffer(<_>::default(), &output, &mut buffer)?;
+                self.encode_octet_string_into_buffer(Constraints::default(), &output, &mut buffer)?;
             }
             (_, None) => {
                 buffer.extend(choice_encoder.output);
@@ -1326,6 +1316,7 @@ impl<'input> From<u8> for Input<'input> {
 mod tests {
     use super::*;
 
+    use crate::macros::{constraints, value_constraint};
     use crate::Encoder as _;
 
     #[derive(crate::AsnType, Default, crate::Encode, Clone, Copy)]
@@ -1402,12 +1393,7 @@ mod tests {
 
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
-            const CONSTRAINTS: Constraints<'static> =
-                Constraints::new(&[constraints::Constraint::Value(
-                    constraints::Extensible::new(constraints::Value::new(
-                        constraints::Bounded::up_to(65535),
-                    )),
-                )]);
+            const CONSTRAINTS: Constraints<'static> = constraints!(value_constraint!(end: 65535));
         }
 
         impl crate::Encode for CustomInt {
@@ -1440,38 +1426,22 @@ mod tests {
     #[test]
     fn semi_constrained_integer() {
         let mut encoder = Encoder::new(EncoderOptions::unaligned());
+        const CONSTRAINT_1: Constraints = constraints!(value_constraint!(start: -1));
         encoder
-            .encode_integer::<i128>(
-                Tag::INTEGER,
-                Constraints::from(&[constraints::Value::from(constraints::Bounded::start_from(
-                    -1,
-                ))
-                .into()]),
-                &4096.into(),
-            )
+            .encode_integer::<i128>(Tag::INTEGER, CONSTRAINT_1, &4096.into())
             .unwrap();
 
         assert_eq!(&[2, 0b00010000, 1], &*encoder.output.clone().into_vec());
         encoder.output.clear();
+        const CONSTRAINT_2: Constraints = constraints!(value_constraint!(start: 1));
         encoder
-            .encode_integer::<i128>(
-                Tag::INTEGER,
-                Constraints::from(&[
-                    constraints::Value::from(constraints::Bounded::start_from(1)).into(),
-                ]),
-                &127.into(),
-            )
+            .encode_integer::<i128>(Tag::INTEGER, CONSTRAINT_2, &127.into())
             .unwrap();
         assert_eq!(&[1, 0b01111110], &*encoder.output.clone().into_vec());
         encoder.output.clear();
+        const CONSTRAINT_3: Constraints = constraints!(value_constraint!(start: 0));
         encoder
-            .encode_integer::<i128>(
-                Tag::INTEGER,
-                Constraints::from(&[
-                    constraints::Value::from(constraints::Bounded::start_from(0)).into(),
-                ]),
-                &128.into(),
-            )
+            .encode_integer::<i128>(Tag::INTEGER, CONSTRAINT_3, &128.into())
             .unwrap();
         assert_eq!(&[1, 0b10000000], &*encoder.output.into_vec());
     }

@@ -110,6 +110,14 @@ mod num;
 mod per;
 pub mod types;
 
+// Helper macros
+// Macros are in root anyway, but make them available in a separate module
+pub mod macros {
+    pub use crate::{
+        constraints, permitted_alphabet_constraint, size_constraint, value_constraint,
+    };
+}
+
 // Data Formats
 
 pub mod aper;
@@ -229,9 +237,7 @@ mod tests {
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
             const CONSTRAINTS: Constraints<'static> =
-                Constraints::new(&[Constraint::Value(constraints::Extensible::new(
-                    constraints::Value::new(constraints::Bounded::start_from(127)),
-                ))]);
+                crate::macros::constraints!(crate::macros::value_constraint!(start: 127));
         }
 
         impl crate::Encode for CustomInt {

@@ -1,7 +1,10 @@
 use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
 
-use super::{FOURTY_EIGHT_K, SIXTEEN_K, SIXTY_FOUR_K, THIRTY_TWO_K};
+use super::{
+    FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
+    THIRTY_TWO_K,
+};
 use crate::types::IntegerType;
 use crate::{
     de::Error as _,
@@ -142,7 +145,7 @@ impl<'input> Decoder<'input> {
 
     fn decode_extensible_string(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
         is_large_string: bool,
         mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<()> {
@@ -348,12 +351,11 @@ impl<'input> Decoder<'input> {
 
     fn parse_normally_small_integer<I: IntegerType>(&mut self) -> Result<I> {
         let is_large = self.parse_one_bit()?;
-        let constraints = if is_large {
-            constraints::Value::new(constraints::Bounded::start_from(0)).into()
+        if is_large {
+            self.parse_integer::<I>(LARGE_UNSIGNED_CONSTRAINT)
         } else {
-            constraints::Value::new(constraints::Bounded::new(0, 63)).into()
-        };
-        self.parse_integer::<I>(Constraints::new(&[constraints]))
+            self.parse_integer::<I>(SMALL_UNSIGNED_CONSTRAINT)
+        }
     }
 
     fn parse_non_negative_binary_integer<I: types::IntegerType>(
@@ -546,7 +548,7 @@ impl<'input> Decoder<'input> {
 
         let mut total_length = 0;
         let codec = self.codec();
-        self.decode_extensible_string(constraints.clone(), is_large_string, |input, length| {
+        self.decode_extensible_string(&constraints, is_large_string, |input, length| {
             total_length += length;
             if constraints
                 .permitted_alphabet()
@@ -636,7 +638,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let mut octet_string = types::BitString::default();
         let codec = self.codec();
 
-        self.decode_extensible_container(<_>::default(), |input, length| {
+        self.decode_extensible_container(Constraints::default(), |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
             octet_string.extend(&*part);
@@ -783,19 +785,19 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let bytes = self.decode_octet_string(tag, <_>::default())?;
+        let bytes = self.decode_octet_string(tag, Constraints::default())?;
 
         crate::ber::decode(&bytes)
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
-        let bytes = self.decode_octet_string(tag, <_>::default())?;
+        let bytes = self.decode_octet_string(tag, Constraints::default())?;
 
         crate::ber::decode(&bytes)
     }
 
     fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
-        let bytes = self.decode_octet_string(tag, <_>::default())?;
+        let bytes = self.decode_octet_string(tag, Constraints::default())?;
 
         crate::ber::decode(&bytes)
     }
@@ -1005,14 +1007,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
                         )
                     })?
             } else {
-                let variance = variants.len();
-                debug_assert!(variance > 0);
-                // https://github.com/XAMPPRocky/rasn/issues/168
-                // Choice index starts from zero, so we need to reduce variance by one
-                let choice_range =
-                    constraints::Value::new(constraints::Bounded::new(0, (variance - 1) as i128))
-                        .into();
-                self.parse_integer(Constraints::new(&[choice_range]))
+                debug_assert!(variants.len() > 0);
+                self.parse_integer(D::VARIANCE_CONSTRAINT)
                     .map_err(|error| {
                         DecodeError::choice_index_exceeds_platform_width(
                             usize::BITS,
