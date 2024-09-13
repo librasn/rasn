@@ -172,8 +172,6 @@ impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
             self.extension_bitfield.0 += 1;
         }
     }
-    // Take data as param, same as vec.extend()
-
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
         if self.options.set_encoding {
             // If not using mem::take here, remember to call output.clear() after encoding
