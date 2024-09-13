@@ -9,27 +9,29 @@ pub const DEFAULT_CONSTRAINTS: Constraints = Constraints::NONE;
 /// A set of constraints for a given type on what kinds of values are allowed.
 /// Used in certain codecs to optimise encoding and decoding values.
 #[derive(Debug, Clone)]
-pub struct Constraints(pub &'static [Constraint]);
+pub struct Constraints<'constraint>(pub &'constraint [Constraint]);
 
-impl Constraints {
+impl<'constraint> Constraints<'constraint> {
     pub const NONE: Self = Self(&[]);
 
-    pub const fn new(constraints: &'static [Constraint]) -> Self {
+    pub const fn new(constraints: &'constraint [Constraint]) -> Self {
         Self(constraints)
     }
-
-    pub const fn inner(&self) -> &'static [Constraint] {
+    pub const fn inner(&self) -> &'constraint [Constraint] {
         self.0
     }
     /// We currently only support 5 different constraint types, which includes the empty constraint.
     /// `usize` is used to drop the empty ones, which are needed to initialize the array.
     pub const fn from_fixed_size(
-        merged: &'static ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize),
+        merged: &'constraint ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize),
     ) -> Self {
-        struct ConstraintArray<const N: usize>(&'static [Constraint; N]);
+        if merged.1 == 0 {
+            return Self::NONE;
+        }
+        struct ConstraintArray<'a, const N: usize>(&'a [Constraint; N]);
 
-        impl<const N: usize> ConstraintArray<N> {
-            const fn as_slice(&self) -> &'static [Constraint] {
+        impl<'a, const N: usize> ConstraintArray<'a, N> {
+            const fn as_slice(&self) -> &'a [Constraint] {
                 self.0
             }
         }
@@ -46,42 +48,44 @@ impl Constraints {
     /// This function should be only used on compile-time.
     #[inline(always)]
     pub const fn merge(self, rhs: Self) -> ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize) {
-        let mut si = 0;
         let rhs = rhs.0;
-        let mut ri = 0;
         let mut array: [Constraint; SUPPORTED_CONSTRAINTS_COUNT] =
             [Constraint::Empty; SUPPORTED_CONSTRAINTS_COUNT];
+
         if rhs.len() > SUPPORTED_CONSTRAINTS_COUNT {
             panic!("Overriding constraint is larger than we have different constraint types")
         }
+
         // Copy rhs first to the array
         let mut copy_index = 0;
         while copy_index < rhs.len() {
             array[copy_index] = rhs[copy_index];
             copy_index += 1;
         }
+        let mut si = 0;
         while si < self.0.len() {
+            let mut found = false;
+            let mut ri = 0;
             while ri < rhs.len() {
-                if !self.0[si].kind().eq(&rhs[ri].kind()) {
-                    if copy_index > SUPPORTED_CONSTRAINTS_COUNT {
-                        panic!("attempting to copy into greater index than we have different constraint types")
-                    }
-                    array[copy_index] = self.0[si];
-                    copy_index += 1;
-                    ri += 1;
-                } else {
-                    ri += 1;
+                if self.0[si].kind().eq(&rhs[ri].kind()) {
+                    found = true;
+                    break;
                 }
+                ri += 1;
             }
+
+            if !found {
+                if copy_index >= SUPPORTED_CONSTRAINTS_COUNT {
+                    panic!("attempting to copy into greater index than we have different constraint types")
+                }
+                array[copy_index] = self.0[si];
+                copy_index += 1;
+            }
+
             si += 1;
         }
+
         (array, copy_index)
-    }
-    /// Overrides a set of constraints with another set.
-    #[inline(always)]
-    pub fn override_constraints(self, rhs: Constraints) -> Constraints {
-        // self.merge(rhs)
-        rhs
     }
 
     /// Returns the size constraint from the set, if available.
@@ -362,12 +366,6 @@ impl core::ops::Deref for Value {
         &self.value
     }
 }
-
-// impl core::ops::DerefMut for Value {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         &mut self.value
-//     }
-// }
 
 macro_rules! from_primitives {
     ($($int:ty),+ $(,)?) => {
@@ -942,20 +940,119 @@ macro_rules! bounded_constraint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate as rasn;
+    use crate::prelude::*;
 
     #[test]
     fn range() {
         let constraints = Bounded::new(0, 255);
         assert_eq!(256, constraints.range().unwrap());
     }
+    #[test]
+    fn test_merge_constraints() {
+        #[derive(AsnType, Decode, Debug, PartialEq)]
+        #[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64"))]
+        pub struct NameString(pub VisibleString);
+
+        #[derive(AsnType, Decode, Debug, PartialEq)]
+        #[rasn(tag(application, 1))]
+        pub struct InitialString {
+            #[rasn(size(1))]
+            pub initial: NameString,
+        }
+        const INNER: Constraint = rasn::types::Constraint::Size(
+            rasn::types::constraints::Extensible::new(rasn::types::constraints::Size::new(
+                rasn::types::constraints::Bounded::single_value(1i128 as usize),
+            ))
+            .set_extensible(false),
+        );
+        const LESS_INNER: Constraints = rasn::types::Constraints::new(&[INNER]);
+        dbg!(LESS_INNER);
+        dbg!(<NameString as rasn::AsnType>::CONSTRAINTS);
+        const MERGED: ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize) =
+            <NameString as rasn::AsnType>::CONSTRAINTS.merge(rasn::types::Constraints::new(&[
+                rasn::types::Constraint::Size(
+                    rasn::types::constraints::Extensible::new(rasn::types::constraints::Size::new(
+                        rasn::types::constraints::Bounded::single_value(1i128 as usize),
+                    ))
+                    .set_extensible(false),
+                ),
+            ]));
+        dbg!(MERGED);
+
+        const FIELD_CONSTRAINT_0: rasn::types::Constraints =
+            rasn::types::Constraints::from_fixed_size(
+                &<NameString as rasn::AsnType>::CONSTRAINTS.merge(rasn::types::Constraints::new(
+                    &[rasn::types::Constraint::Size(
+                        rasn::types::constraints::Extensible::new(
+                            rasn::types::constraints::Size::new(
+                                rasn::types::constraints::Bounded::single_value(1i128 as usize),
+                            ),
+                        )
+                        .set_extensible(false),
+                    )],
+                )),
+            );
+        dbg!(FIELD_CONSTRAINT_0);
+    }
     // #[test]
-    // fn test_concat_constraints() {
-    //     let a = [Constraint::Value(Extensible::new(Value::new(Bounded::Single(0)))); 1];
-    //     let b = [Constraint::Size(Extensible::new(Size::new(Bounded::Single(0)))); 1];
-    //     let c = concat_constraints(a, b);
+    // fn test_nested_extensible() {
+    //     #[derive(AsnType, Encode, Decode, Debug, PartialEq)]
+    //     #[rasn(tag(application, 2), delegate, value("0..=9999", extensible))]
+    //     pub struct ExtensibleEmployeeNumber(pub Integer);
 
-    //     const COMBINED_CONSTRAINTS: [Constraint; 2] = concat_constraints(a, b);
+    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    //     #[rasn(
+    //         tag(application, 3),
+    //         delegate,
+    //         from("0..=9"),
+    //         size(8, extensible, "9..=20")
+    //     )]
+    //     pub struct ExtensibleDate(pub VisibleString);
 
-    //     const RESULT: &'static [Constraint] = &COMBINED_CONSTRAINTS;
+    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    //     #[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64", extensible))]
+    //     pub struct ExtensibleNameString(pub VisibleString);
+
+    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    //     #[rasn(tag(application, 1))]
+    //     #[non_exhaustive]
+    //     pub struct ExtensibleName {
+    //         pub given_name: ExtensibleNameString,
+    //         #[rasn(size(1))]
+    //         pub initial: ExtensibleNameString,
+    //         pub family_name: ExtensibleNameString,
+    //     }
+    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    //     #[rasn(set)]
+    //     #[non_exhaustive]
+    //     pub struct ExtensibleChildInformation {
+    //         name: ExtensibleName,
+    //         #[rasn(tag(explicit(0)))]
+    //         date_of_birth: ExtensibleDate,
+    //     }
+
+    //     #[derive(AsnType, Encode, Decode, Debug, PartialEq)]
+    //     #[rasn(set, tag(application, 0))]
+    //     #[non_exhaustive]
+    //     pub struct ExtensiblePersonnelRecord {
+    //         pub name: ExtensibleName,
+    //         #[rasn(tag(explicit(0)))]
+    //         pub title: VisibleString,
+    //         pub number: ExtensibleEmployeeNumber,
+    //         #[rasn(tag(explicit(1)))]
+    //         pub date_of_hire: ExtensibleDate,
+    //         #[rasn(tag(explicit(2)))]
+    //         pub name_of_spouse: ExtensibleName,
+    //         #[rasn(tag(3), default, size(2, extensible))]
+    //         pub children: Option<Vec<ExtensibleChildInformation>>,
+    //     }
+    // #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    // #[rasn(set)]
+    // #[non_exhaustive]
+    // pub struct ExtensibleTest {
+    //     name: ExtensibleName,
+    //     #[rasn(tag(1), size(1, extensible))]
+    //     record: ExtensiblePersonnelRecord,
     // }
 }
