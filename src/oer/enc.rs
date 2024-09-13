@@ -4,6 +4,7 @@ use alloc::collections::BTreeMap;
 use alloc::{borrow::Cow, vec::Vec};
 use bitvec::prelude::*;
 use core::cell::RefCell;
+use heapless::LinearMap;
 use num_traits::ToPrimitive;
 
 use crate::{
@@ -66,7 +67,7 @@ pub struct Encoder<'a> {
     output: alloc::borrow::Cow<'a, RefCell<Vec<u8>>>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
-    field_bitfield: BTreeMap<(usize, Tag), (FieldPresence, bool)>,
+    field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), 5>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
@@ -97,7 +98,7 @@ impl<'a> Encoder<'a> {
             options,
             output: Cow::Owned(RefCell::new(Vec::with_capacity(16))),
             set_output: <_>::default(),
-            field_bitfield: <_>::default(),
+            field_bitfield: LinearMap::<_, _, 5>::default(),
             current_field_index: <_>::default(),
             extension_fields: <_>::default(),
             is_extension_sequence: bool::default(),
