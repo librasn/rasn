@@ -101,25 +101,24 @@ macro_rules! encode_error_with_constraints {
     }};
 }
 
-pub mod codec;
+mod bits;
+mod codec;
+mod num;
+mod per;
 pub mod de;
 pub mod enc;
+pub mod error;
 pub mod types;
 
 // Data Formats
 
-mod per;
-
 pub mod aper;
 pub mod ber;
-mod bits;
 pub mod cer;
 pub mod coer;
 pub mod der;
-pub mod error;
 #[cfg(feature = "jer")]
 pub mod jer;
-mod num;
 pub mod oer;
 pub mod uper;
 
