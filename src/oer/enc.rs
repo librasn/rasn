@@ -2,7 +2,6 @@ use alloc::{borrow::Cow, vec::Vec};
 use bitvec::prelude::*;
 use core::cell::RefCell;
 use hashbrown::HashMap;
-// use heapless::LinearMap;
 use num_traits::ToPrimitive;
 
 use crate::{
@@ -86,7 +85,6 @@ pub struct Encoder<'a> {
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
     field_bitfield: HashMap<(usize, Tag), (FieldPresence, bool)>,
-    // field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), 5>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
@@ -116,8 +114,6 @@ impl<'a> Encoder<'a> {
             output: Cow::Owned(RefCell::new(Vec::with_capacity(16))),
             set_output: <_>::default(),
             field_bitfield: <_>::default(),
-            // field_bitfield: LinearMap::<_, _, 5>::default(),
-            // field_bitfield: <_>::default(),
             current_field_index: <_>::default(),
             extension_fields: <_>::default(),
             is_extension_sequence: bool::default(),
@@ -169,8 +165,6 @@ impl<'a> Encoder<'a> {
             self.current_field_index += 1;
         }
     }
-    // Take data as param, same as vec.extend()
-
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
         if self.options.set_encoding {
             // If not using mem::take here, remember to call output.clear() after encoding
