@@ -601,7 +601,6 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Tag,
         _: Constraints,
     ) -> Result<Vec<D>, Self::Error> {
-        let mut sequence_of = Vec::new();
         let length_of_quantity = self.decode_length()?;
         let coer = self.options.encoding_rules.is_coer();
         let length_bits = self.extract_data_by_length(length_of_quantity)?;
@@ -626,6 +625,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
 
         let length = length_bits.load_be::<usize>();
+        let mut sequence_of: Vec<D> = Vec::with_capacity(length);
         let mut start = 1;
         let mut decoder = Self::new(self.input.0, self.options);
         while start <= length {
@@ -810,7 +810,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .collect();
 
         let fields = {
-            let mut fields = Vec::new();
+            let mut fields = Vec::with_capacity(
+                SET::FIELDS.len() + SET::EXTENDED_FIELDS.unwrap_or_default().len(),
+            );
             let mut set_decoder = Self::new(self.input.0, self.options);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
             set_decoder.extensions_present = extensible_present.then_some(None);
