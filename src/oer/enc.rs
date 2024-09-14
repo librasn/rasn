@@ -137,17 +137,8 @@ impl<'a> Encoder<'a> {
     }
 
     #[must_use]
-    pub fn output(self) -> Vec<u8> {
-        self.options
-            .set_encoding
-            .then(|| {
-                self.set_output
-                    .values()
-                    .flatten()
-                    .copied()
-                    .collect::<Vec<u8>>()
-            })
-            .unwrap_or(core::mem::take(&mut *self.output.borrow_mut()))
+    pub fn output(&self) -> Vec<u8> {
+        core::mem::take(&mut *self.output.borrow_mut())
     }
     fn collect_set(&self) {
         self.output.borrow_mut().append(
@@ -510,6 +501,9 @@ impl<'a> Encoder<'a> {
         // Must copy before move...
         let extension_fields = core::mem::take(&mut encoder.extension_fields);
         if encoder.field_bitfield.values().any(|(_, b)| *b) {
+            if encoder.options.set_encoding {
+                encoder.collect_set();
+            }
             self.output.borrow_mut().append(&mut encoder.output());
         }
         if !extensions_defined || !extensions_present {
