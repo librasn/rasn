@@ -7,7 +7,6 @@ use core::cell::RefCell;
 use heapless::LinearMap;
 use num_traits::ToPrimitive;
 
-// fields::FieldBitfield, fields::FieldBitfieldEntry,
 use crate::{
     oer::{ranges, EncodingRules},
     types::{
@@ -75,7 +74,6 @@ pub struct Encoder<'a, const FC: usize = 0> {
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
     field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), FC>,
-    // field_bitfield: FieldBitfield<FC>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
