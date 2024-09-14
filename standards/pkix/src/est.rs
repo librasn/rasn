@@ -38,7 +38,7 @@ pub struct Attribute {
 mod tests {
     use pretty_assertions::assert_eq;
 
-    use alloc::{borrow::Cow, collections::BTreeSet, string::ToString, vec};
+    use alloc::{borrow::Cow, string::ToString, vec};
 
     use super::*;
 
@@ -78,19 +78,19 @@ mod tests {
                     1, 3, 6, 1, 5, 5, 7, 48, 1,
                 ])),
                 values: {
-                    let mut b = BTreeSet::new();
-                    b.insert(rasn::types::Any::new(
+                    let mut b = SetOf::new();
+                    b.push(rasn::types::Any::new(
                         rasn::der::encode(
                             &rasn::types::PrintableString::try_from("And me second".to_string())
                                 .unwrap(),
                         )
                         .unwrap(),
                     ));
-                    b.insert(rasn::types::Any::new(rasn::der::encode(&false).unwrap()));
-                    b.insert(rasn::types::Any::new(
+                    b.push(rasn::types::Any::new(rasn::der::encode(&false).unwrap()));
+                    b.push(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::Open::Null).unwrap(),
                     ));
-                    b.insert(rasn::types::Any::new(
+                    b.push(rasn::types::Any::new(
                         rasn::der::encode(
                             &rasn::types::VisibleString::try_from("Me first!").unwrap(),
                         )
@@ -128,8 +128,8 @@ mod tests {
                     1, 2, 840, 10045, 2, 1,
                 ])),
                 values: {
-                    let mut b = BTreeSet::new();
-                    b.insert(rasn::types::Any::new(
+                    let mut b = SetOf::new();
+                    b.push(rasn::types::Any::new(
                         // secp384r1 (SECG (Certicom) named elliptic curve)
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
                             Cow::from(vec![1, 3, 132, 0, 34]),
@@ -145,8 +145,8 @@ mod tests {
                     1, 2, 840, 113549, 1, 9, 14,
                 ])),
                 values: {
-                    let mut b = BTreeSet::new();
-                    b.insert(rasn::types::Any::new(
+                    let mut b = SetOf::new();
+                    b.push(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
                             Cow::from(vec![1, 3, 6, 1, 1, 1, 1, 22]),
                         ))
@@ -181,8 +181,8 @@ mod tests {
             AttrOrOid::Attribute(Attribute {
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![2, 999, 1])),
                 values: {
-                    let mut b = BTreeSet::new();
-                    b.insert(rasn::types::Any::new(
+                    let mut b = SetOf::new();
+                    b.push(rasn::types::Any::new(
                         rasn::der::encode(
                             &rasn::types::PrintableString::try_from(
                                 "Parse SET as 2.999.1 data".to_string(),
@@ -201,20 +201,20 @@ mod tests {
             AttrOrOid::Attribute(Attribute {
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![2, 999, 2])),
                 values: {
-                    let mut b = BTreeSet::new();
-                    b.insert(rasn::types::Any::new(
+                    let mut b = SetOf::new();
+                    b.push(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
                             Cow::from(vec![2, 999, 3]),
                         ))
                         .unwrap(),
                     ));
-                    b.insert(rasn::types::Any::new(
+                    b.push(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
                             Cow::from(vec![2, 999, 4]),
                         ))
                         .unwrap(),
                     ));
-                    b.insert(rasn::types::Any::new(
+                    b.push(rasn::types::Any::new(
                         rasn::der::encode(
                             &rasn::types::PrintableString::try_from(
                                 "Parse SET as 2.999.2 data".to_string(),

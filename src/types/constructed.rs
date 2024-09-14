@@ -77,6 +77,11 @@ impl From<alloc::vec::Vec<u8>> for SetOf<u8> {
         Self(vec)
     }
 }
+impl<T: Clone, const N: usize> From<[T; N]> for SetOf<T> {
+    fn from(array: [T; N]) -> Self {
+        Self(array.to_vec())
+    }
+}
 
 impl<T> Default for SetOf<T> {
     fn default() -> Self {
@@ -116,19 +121,13 @@ impl<T: Ord> Ord for SetOf<T> {
             ord => return ord,
         }
 
-        // Build frequency counts of elements
-        let mut self_counts = alloc::collections::BTreeMap::new();
-        for item in &self.0 {
-            *self_counts.entry(item).or_insert(0) += 1;
-        }
+        // Collect references to the elements
+        let mut self_refs: alloc::vec::Vec<&T> = self.0.iter().collect();
+        let mut other_refs: alloc::vec::Vec<&T> = other.0.iter().collect();
 
-        let mut other_counts = alloc::collections::BTreeMap::new();
-        for item in &other.0 {
-            *other_counts.entry(item).or_insert(0) += 1;
-        }
-
-        // Compare the frequency counts
-        self_counts.cmp(&other_counts)
+        self_refs.sort_unstable();
+        other_refs.sort_unstable();
+        self_refs.cmp(&other_refs)
     }
 }
 impl<T: core::hash::Hash + Clone + Ord> core::hash::Hash for SetOf<T> {
