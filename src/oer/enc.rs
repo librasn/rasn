@@ -5,7 +5,6 @@ use bitvec::prelude::*;
 use core::cell::RefCell;
 use num_traits::ToPrimitive;
 
-// fields::FieldBitfield, fields::FieldBitfieldEntry,
 use crate::{
     oer::EncodingRules,
     types::{
