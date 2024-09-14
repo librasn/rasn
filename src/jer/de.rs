@@ -176,7 +176,7 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(|v| self.sequence_of_from_value(v), self.stack)
     }
 
-    fn decode_set_of<D: crate::Decode + Ord>(
+    fn decode_set_of<D: crate::Decode>(
         &mut self,
         _t: Tag,
         _c: Constraints,
@@ -511,10 +511,7 @@ impl Decoder {
             .collect()
     }
 
-    fn set_of_from_value<D: Decode + Ord>(
-        &mut self,
-        value: Value,
-    ) -> Result<SetOf<D>, DecodeError> {
+    fn set_of_from_value<D: Decode>(&mut self, value: Value) -> Result<SetOf<D>, DecodeError> {
         value
             .as_array()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -525,7 +522,7 @@ impl Decoder {
             .into_iter()
             .try_fold(SetOf::new(), |mut acc, v| {
                 self.stack.push(v);
-                acc.insert(D::decode(self)?);
+                acc.push(D::decode(self)?);
                 Ok(acc)
             })
     }

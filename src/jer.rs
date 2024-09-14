@@ -274,15 +274,11 @@ mod tests {
     fn set_of() {
         round_trip_jer!(
             SetOf<SimpleChoice>,
-            alloc::vec![SimpleChoice::Test1(3)].into_iter().collect(),
+            SetOf::from_vec(alloc::vec![SimpleChoice::Test1(3)]),
             "[{\"Test1\":3}]"
         );
-        round_trip_jer!(
-            SetOf<u8>,
-            alloc::vec![1, 2, 3, 4, 5].into_iter().collect(),
-            "[1,2,3,4,5]"
-        );
-        round_trip_jer!(SetOf<bool>, alloc::vec![].into_iter().collect(), "[]");
+        round_trip_jer!(SetOf<u8>, alloc::vec![1, 2, 3, 4, 5].into(), "[1,2,3,4,5]");
+        round_trip_jer!(SetOf<bool>, SetOf::from_vec(alloc::vec![]), "[]");
     }
 
     #[test]

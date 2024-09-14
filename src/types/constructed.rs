@@ -56,39 +56,28 @@ impl<T> SetOf<T> {
     pub fn to_vec(self) -> alloc::vec::Vec<T> {
         self.0
     }
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    /// Push a value to the `SetOf`.
-    pub fn add(&mut self, value: T) {
-        self.0.push(value);
-    }
-    pub fn iter(&self) -> core::slice::Iter<T> {
-        self.0.iter()
-    }
-    pub fn iter_mut(&mut self) -> core::slice::IterMut<T> {
-        self.0.iter_mut()
-    }
-    pub fn sort(&mut self)
-    where
-        T: Ord,
-    {
-        self.0.sort();
-    }
-    pub fn sort_by<F>(&mut self, compare: F)
-    where
-        F: FnMut(&T, &T) -> core::cmp::Ordering,
-    {
-        self.0.sort_by(compare);
-    }
-    pub fn as_slice(&self) -> &[T] {
-        self.0.as_slice()
+    pub fn into_inner(self) -> alloc::vec::Vec<T> {
+        self.0
     }
 }
+impl<T> core::ops::Deref for SetOf<T> {
+    type Target = alloc::vec::Vec<T>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<T> core::ops::DerefMut for SetOf<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<alloc::vec::Vec<u8>> for SetOf<u8> {
+    fn from(vec: alloc::vec::Vec<u8>) -> Self {
+        Self(vec)
+    }
+}
+
 impl<T> Default for SetOf<T> {
     fn default() -> Self {
         Self::new()
@@ -96,7 +85,7 @@ impl<T> Default for SetOf<T> {
 }
 impl<T> PartialEq for SetOf<T>
 where
-    T: PartialEq + Ord + Clone,
+    T: PartialEq + Ord,
 {
     /// Compare two `SetOf` values for equality.
     /// The order of elements in the `SetOf` does not matter.
@@ -104,40 +93,44 @@ where
         if self.len() != other.len() {
             return false;
         }
-        let mut first = self.0.clone();
-        first.sort_unstable();
-        let mut second = other.0.clone();
-        second.sort_unstable();
-        first.eq(&second)
+        if let Some(order) = self.partial_cmp(other) {
+            order == core::cmp::Ordering::Equal
+        } else {
+            false
+        }
     }
 }
-impl<T: Ord + Clone> Eq for SetOf<T> {}
+impl<T: Ord> Eq for SetOf<T> {}
 
-impl<T: Ord + Clone> PartialOrd for SetOf<T> {
+impl<T: Ord> PartialOrd for SetOf<T> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<T: Ord + Clone> Ord for SetOf<T> {
+impl<T: Ord> Ord for SetOf<T> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        // First, compare by length
+        // First, compare lengths
         match self.0.len().cmp(&other.0.len()) {
             core::cmp::Ordering::Equal => {}
             ord => return ord,
         }
 
-        // If lengths are equal, compare sorted contents
-        // let mut self_sorted = self.0.clone();
-        // let mut other_sorted = other.0.clone();
-        // self_sorted.sort();
-        // other_sorted.sort();
-        self.0.cmp(&other.0)
+        // Build frequency counts of elements
+        let mut self_counts = alloc::collections::BTreeMap::new();
+        for item in &self.0 {
+            *self_counts.entry(item).or_insert(0) += 1;
+        }
 
-        // self_sorted.cmp(&other_sorted)
+        let mut other_counts = alloc::collections::BTreeMap::new();
+        for item in &other.0 {
+            *other_counts.entry(item).or_insert(0) += 1;
+        }
+
+        // Compare the frequency counts
+        self_counts.cmp(&other_counts)
     }
 }
-//impl hash
 impl<T: core::hash::Hash + Clone + Ord> core::hash::Hash for SetOf<T> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         let mut sorted = self.0.clone();

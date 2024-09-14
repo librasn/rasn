@@ -13,7 +13,7 @@ pub struct PersonnelRecord {
     #[rasn(tag(explicit(2)))]
     pub name_of_spouse: Name,
     #[rasn(tag(3), default)]
-    pub children: Vec<ChildInformation>,
+    pub children: SetOf<ChildInformation>,
 }
 
 impl rasn::Encode for PersonnelRecord {
@@ -54,7 +54,7 @@ impl rasn::Encode for PersonnelRecord {
                 encoder.encode_default_with_tag(
                     rasn::types::Tag::new(rasn::types::Class::Context, 3),
                     &self.children,
-                    <Vec<ChildInformation>>::default,
+                    <SetOf<ChildInformation>>::default,
                 )?;
                 Ok(())
             })
@@ -70,12 +70,12 @@ impl Default for PersonnelRecord {
             number: <_>::default(),
             date_of_hire: Date(String::from("19710917").try_into().unwrap()),
             name_of_spouse: Name::mary(),
-            children: vec![ChildInformation::ralph(), ChildInformation::susan()],
+            children: SetOf::from_vec(vec![ChildInformation::ralph(), ChildInformation::susan()]),
         }
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[rasn(set)]
 pub struct ChildInformation {
     pub name: Name,
@@ -107,7 +107,7 @@ impl ChildInformation {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[rasn(tag(application, 1))]
 pub struct Name {
     pub given_name: VisibleString,
@@ -161,7 +161,7 @@ impl Default for EmployeeNumber {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[rasn(tag(application, 3), delegate)]
 pub struct Date(pub VisibleString);
 
@@ -194,7 +194,12 @@ impl From<PersonnelRecord> for PersonnelRecordWithConstraints {
             number: record.number,
             date_of_hire: record.date_of_hire.into(),
             name_of_spouse: record.name_of_spouse.into(),
-            children: record.children.into_iter().map(From::from).collect(),
+            children: record
+                .children
+                .into_inner()
+                .into_iter()
+                .map(From::from)
+                .collect(),
         }
     }
 }

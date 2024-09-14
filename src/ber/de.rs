@@ -636,7 +636,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             let mut items = types::SetOf::with_capacity(VEC_BASE_CAPACITY);
 
             while let Ok(item) = D::decode(decoder) {
-                items.add(item);
+                items.push(item);
             }
 
             Ok(items)
