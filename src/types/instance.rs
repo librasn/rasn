@@ -1,5 +1,5 @@
 use super::{AsnType, Class, Constraints, ObjectIdentifier, Tag};
-use crate::types::fields::{Field, FieldPresence, Fields};
+use crate::{types::fields::{Field, FieldPresence, Fields}, enc::Encoder};
 
 /// An instance of a defined object class.
 #[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -36,7 +36,7 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         tag: Tag,
         _: Constraints,
     ) -> core::result::Result<(), EN::Error> {
-        encoder.encode_sequence::<Self, _>(tag, |sequence| {
+        encoder.encode_sequence::<2, Self, _>(tag, |sequence| {
             self.type_id.encode(sequence)?;
             sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
             Ok(())
