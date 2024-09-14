@@ -45,7 +45,7 @@ pub trait Encode: AsnType {
 }
 
 /// A **data format** encode any ASN.1 data type.
-/// Const `FC` is the count of fields in sequence or set.
+/// Const `FC` is the count of root components in sequence or set.
 pub trait Encoder<const FC: usize = 0> {
     type Ok;
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
@@ -191,7 +191,7 @@ pub trait Encoder<const FC: usize = 0> {
 
     /// Encode a `SEQUENCE` value.
     ///
-    /// Const `N` is the count of fields in sequence or set.
+    /// Const `N` is the count of root components in sequence or set.
     /// Generic `C` is the sequence value.
     fn encode_sequence<const N: usize, C, F>(
         &mut self,
@@ -212,7 +212,7 @@ pub trait Encoder<const FC: usize = 0> {
 
     /// Encode a `SET` value.
     ///
-    /// Const `N` is the count of fields in sequence or set.
+    /// Const `N` is the count of root components in sequence or set.
     /// Generic `C` is the set value.
     fn encode_set<const N: usize, C, F>(
         &mut self,
