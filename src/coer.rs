@@ -1011,6 +1011,7 @@ mod tests {
             },
             &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
         );
+
         #[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
         #[rasn(automatic_tags)]
         #[non_exhaustive]
