@@ -869,6 +869,9 @@ impl<'a> crate::Encoder for Encoder<'a> {
         // It seems that constraints here are not C/OER visible? No mention in standard...
         self.set_bit(tag, true);
         self.encode_unconstrained_integer(&value.len(), false)?;
+        self.output
+            .borrow_mut()
+            .reserve(core::mem::size_of_val(value));
         let mut encoder = Encoder::from_buffer(self.options, &self.output);
         {
             for one in value {
