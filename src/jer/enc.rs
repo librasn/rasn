@@ -69,6 +69,7 @@ impl crate::Encoder for Encoder {
     type Ok = ();
 
     type Error = EncodeError;
+    type AnyEncoder<const N: usize> = Encoder;
 
     fn encode_any(&mut self, t: Tag, value: &crate::types::Any) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(t, Constraints::default(), &value.contents)
@@ -303,7 +304,11 @@ impl crate::Encoder for Encoder {
         value.encode(self)
     }
 
-    fn encode_sequence<C, F>(&mut self, __t: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_sequence<const N: usize, C, F>(
+        &mut self,
+        __t: Tag,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
@@ -344,12 +349,16 @@ impl crate::Encoder for Encoder {
         )?))
     }
 
-    fn encode_set<C, F>(&mut self, tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+    fn encode_set<const N: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        value: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
     {
-        self.encode_sequence::<C, F>(tag, value)
+        self.encode_sequence::<N, C, F>(tag, value)
     }
 
     fn encode_set_of<E: crate::Encode + Eq + core::hash::Hash>(

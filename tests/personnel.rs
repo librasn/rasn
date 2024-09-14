@@ -36,7 +36,7 @@ impl rasn::Encode for PersonnelRecord {
         #[allow(unused)]
         let children = &self.children;
         encoder
-            .encode_set::<Self, _>(tag, |encoder| {
+            .encode_set::<6, Self, _>(tag, |encoder| {
                 self.name.encode(encoder)?;
                 encoder.encode_explicit_prefix(
                     rasn::types::Tag::new(rasn::types::Class::Context, 0),

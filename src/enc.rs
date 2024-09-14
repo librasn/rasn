@@ -57,11 +57,12 @@ pub trait Encode: AsnType {
 }
 
 /// A **data format** encode any ASN.1 data type.
-pub trait Encoder {
-    /// The associated type returned on encoding success.
+/// Const `FC` is the count of fields in sequence or set.
+pub trait Encoder<const FC: usize = 0> {
     type Ok;
     /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
+    type AnyEncoder<const N: usize>: Encoder<FC, Ok = Self::Ok, Error = Self::Error> + Encoder;
 
     /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;
@@ -202,14 +203,17 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `SEQUENCE` value.
-    fn encode_sequence<C, F>(
+    ///
+    /// Const `N` is the count of fields in sequence or set.
+    /// Generic `C` is the sequence value.
+    fn encode_sequence<const N: usize, C, F>(
         &mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed,
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+        F: FnOnce(&mut Self::AnyEncoder<N>) -> Result<(), Self::Error>;
 
     /// Encode a `SEQUENCE OF` value.
     fn encode_sequence_of<E: Encode>(
@@ -220,10 +224,17 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `SET` value.
-    fn encode_set<C, F>(&mut self, tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+    ///
+    /// Const `N` is the count of fields in sequence or set.
+    /// Generic `C` is the set value.
+    fn encode_set<const N: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        value: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed,
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+        F: FnOnce(&mut Self::AnyEncoder<N>) -> Result<(), Self::Error>;
 
     /// Encode a `SET OF` value.
     fn encode_set_of<E: Encode + Eq + core::hash::Hash>(
