@@ -10,7 +10,7 @@ use crate::{
     MessageAuthenticationCodeAlgorithm, OriginatorInfo, RecipientInfos, RevocationInfoChoices,
     SignerInfos, UnauthAttributes,
 };
-use rasn::{AsnType, Decode, Encode};
+use rasn::prelude::*;
 
 /// The content is represented in the type EncapsulatedContentInfo
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]

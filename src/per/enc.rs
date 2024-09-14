@@ -779,6 +779,7 @@ impl Encoder {
 impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = Error;
+    type AnyEncoder<const N: usize> = Encoder;
 
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
@@ -1122,7 +1123,11 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_sequence<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_sequence<const N: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
@@ -1132,7 +1137,11 @@ impl crate::Encoder for Encoder {
         self.encode_constructed::<C>(tag, encoder)
     }
 
-    fn encode_set<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_set<const N: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,

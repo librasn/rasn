@@ -56,8 +56,9 @@ pub fn derive_struct_impl(
             .then(|| quote!(encode_set))
             .unwrap_or_else(|| quote!(encode_sequence));
 
+        let field_count = container.fields.len();
         let encode_impl = quote! {
-            encoder.#operation::<Self, _>(tag, |encoder| {
+            encoder.#operation::<#field_count, Self, _>(tag, |encoder| {
                 #(#list)*
 
                 Ok(())
