@@ -98,28 +98,6 @@ where
         if self.len() != other.len() {
             return false;
         }
-        if let Some(order) = self.partial_cmp(other) {
-            order == core::cmp::Ordering::Equal
-        } else {
-            false
-        }
-    }
-}
-impl<T: Ord> Eq for SetOf<T> {}
-
-impl<T: Ord> PartialOrd for SetOf<T> {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<T: Ord> Ord for SetOf<T> {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        // First, compare lengths
-        match self.0.len().cmp(&other.0.len()) {
-            core::cmp::Ordering::Equal => {}
-            ord => return ord,
-        }
 
         // Collect references to the elements
         let mut self_refs: alloc::vec::Vec<&T> = self.0.iter().collect();
@@ -127,9 +105,11 @@ impl<T: Ord> Ord for SetOf<T> {
 
         self_refs.sort_unstable();
         other_refs.sort_unstable();
-        self_refs.cmp(&other_refs)
+        self_refs.eq(&other_refs)
     }
 }
+impl<T> Eq for SetOf<T> where T: Eq {}
+
 impl<T: core::hash::Hash + Clone + Ord> core::hash::Hash for SetOf<T> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         let mut sorted = self.0.clone();

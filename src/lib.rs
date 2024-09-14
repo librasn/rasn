@@ -328,8 +328,5 @@ mod tests {
         let int_set_diff: SetOf<u8> = [1, 2, 3, 4, 6].into();
         assert_eq!(int_set, int_set_reversed);
         assert_ne!(int_set, int_set_diff);
-        assert!(int_set < int_set_diff);
-        assert!(int_set <= int_set_reversed);
-        assert!(int_set >= int_set_reversed);
     }
 }
