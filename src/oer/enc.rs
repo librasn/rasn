@@ -111,7 +111,7 @@ impl<'a> Encoder<'a> {
     pub fn new(options: EncoderOptions) -> Self {
         Self {
             options,
-            output: Cow::Owned(RefCell::new(Vec::with_capacity(32))),
+            output: Cow::Owned(RefCell::new(Vec::with_capacity(16))),
             set_output: <_>::default(),
             field_bitfield: <_>::default(),
             current_field_index: <_>::default(),
@@ -167,6 +167,7 @@ impl<'a> Encoder<'a> {
     }
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
         if self.options.set_encoding {
+            // If not using mem::take here, remember to call output.clear() after encoding
             self.set_output
                 .insert(tag, core::mem::take(&mut self.output.borrow_mut()));
         }
@@ -194,7 +195,7 @@ impl<'a> Encoder<'a> {
         } else {
             bv.extend([true; 6].iter());
             // Generate the bits for the tag number
-            let mut tag_bits = BitVec::<u8, Msb0>::new();
+            let mut tag_bits = BitVec::<u8, Msb0>::with_capacity(16);
             while tag_number > 0 {
                 tag_bits.push(tag_number & 1 != 0);
                 tag_number >>= 1;
@@ -468,9 +469,9 @@ impl<'a> Encoder<'a> {
         mut encoder: Self,
     ) -> Result<(), EncodeError> {
         self.set_bit(tag, true);
-        const WIDTH: usize = 16;
-        let mut preamble = BitString::with_capacity(WIDTH);
         // ### PREAMBLE ###
+        let mut preamble =
+            BitString::with_capacity(C::FIELDS.number_of_optional_and_default_fields() + 1);
         // Section 16.2.2
         let extensions_defined = C::EXTENDED_FIELDS.is_some();
         let mut extensions_present = false;
@@ -493,7 +494,9 @@ impl<'a> Encoder<'a> {
         }
         // 16.2.4 - fill missing bits from full octet with zeros
         if preamble.len() % 8 != 0 {
-            preamble.extend(BitString::repeat(false, 8 - preamble.len() % 8));
+            let missing_bits = [false; 8];
+            let missing = &missing_bits[..8 - preamble.len() % 8];
+            preamble.extend(missing);
         }
         debug_assert!(preamble.len() % 8 == 0);
         self.output.borrow_mut().extend(preamble.as_raw_slice());
@@ -512,7 +515,7 @@ impl<'a> Encoder<'a> {
         }
         // Section 16.4 ### Extension addition presence bitmap ###
         let bitfield_length = extension_fields.len();
-        let mut extension_bitmap_buffer = BitString::with_capacity(WIDTH);
+        let mut extension_bitmap_buffer = BitString::with_capacity(bitfield_length);
         #[allow(clippy::cast_possible_truncation)]
         let missing_bits: u8 = if bitfield_length > 0 {
             (8u8 - (bitfield_length % 8) as u8) % 8
@@ -525,7 +528,11 @@ impl<'a> Encoder<'a> {
         for field in &extension_fields {
             extension_bitmap_buffer.push(field.is_some());
         }
-        extension_bitmap_buffer.extend(BitString::repeat(false, missing_bits as usize));
+        {
+            let missing = [false; 8];
+            let missing = &missing[..missing_bits as usize];
+            extension_bitmap_buffer.extend(missing);
+        }
         debug_assert!(extension_bitmap_buffer.len() % 8 == 0);
         self.output
             .borrow_mut()
@@ -575,8 +582,7 @@ impl<'a> crate::Encoder for Encoder<'a> {
         // effective size constraint.
         // Rasn does not currently support NamedBitList
         self.set_bit(tag, true);
-        // let mut buffer: Vec<u8> = Vec::new();
-        let mut bit_string_encoding = BitVec::<u8, Msb0>::with_capacity(16);
+        let mut bit_string_encoding = BitVec::<u8, Msb0>::with_capacity(value.len());
 
         if let Some(size) = constraints.size() {
             // Constraints apply only if the lower and upper bounds
@@ -628,7 +634,8 @@ impl<'a> crate::Encoder for Encoder<'a> {
             // }
             // With length determinant
             let missing_bits: usize = (8 - value.len() % 8) % 8;
-            let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
+            let trailing = [false; 8];
+            let trailing = &trailing[..missing_bits];
             // missing bits never > 8
             bit_string_encoding.extend(missing_bits.to_u8().unwrap_or(0).to_be_bytes());
             bit_string_encoding.extend(value);
