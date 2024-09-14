@@ -73,7 +73,7 @@ impl EncodingRules {
 }
 impl<const FC: usize> Default for Encoder<'_, FC> {
     fn default() -> Self {
-        Self::new(EncoderOptions::coer())
+        Self::new(EncoderOptions::coer(), 0)
     }
 }
 
@@ -108,10 +108,10 @@ pub struct Encoder<'a, const FC: usize = 0> {
 // which alternative of the choice type is the chosen alternative (see 20.1).
 impl<'a, const FC: usize> Encoder<'a, FC> {
     #[must_use]
-    pub fn new(options: EncoderOptions) -> Self {
+    pub fn new(options: EncoderOptions, base_capacity: usize) -> Self {
         Self {
             options,
-            output: Cow::Owned(RefCell::new(Vec::with_capacity(16))),
+            output: Cow::Owned(RefCell::new(Vec::with_capacity(base_capacity))),
             set_output: <_>::default(),
             field_bitfield: LinearMap::<_, _, FC>::default(),
             current_field_index: <_>::default(),
@@ -176,7 +176,7 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
     /// Encode a tag as specified in ITU-T X.696 8.7
     ///
     /// Encoding of the tag is only required when encoding a choice type.
-    fn encode_tag(tag: Tag) -> Vec<u8> {
+    fn encode_tag(&mut self, tag: Tag) {
         use crate::types::Class;
         let mut bv: BitVec<u8, Msb0> = BitVec::with_capacity(32);
         // Encode the tag class
@@ -216,7 +216,7 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
             debug_assert!(&bv[2..8].all());
             debug_assert!(&bv[9..16].any());
         }
-        bv.into_vec()
+        self.output.borrow_mut().extend(bv.as_raw_slice());
     }
 
     fn encode_unconstrained_enum_index(&mut self, value: isize) -> Result<(), EncodeError> {
@@ -437,7 +437,10 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
     }
 
     fn new_default_encoder<C: Constructed>(&self) -> Self {
-        let mut encoder = Encoder::new(self.options.without_set_encoding());
+        let mut encoder = Encoder::new(
+            self.options.without_set_encoding(),
+            core::mem::size_of::<C>(),
+        );
         encoder.field_bitfield = C::FIELDS
             .iter()
             .enumerate()
@@ -843,7 +846,10 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         C: Constructed,
         F: FnOnce(&mut Self::AnyEncoder<N>) -> Result<(), Self::Error>,
     {
-        let mut encoder = Encoder::<N>::new(self.options.without_set_encoding());
+        let mut encoder = Encoder::<N>::new(
+            self.options.without_set_encoding(),
+            core::mem::size_of::<C>(),
+        );
         encoder.field_bitfield = C::FIELDS
             .iter()
             .enumerate()
@@ -887,7 +893,7 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
     {
         let mut options = self.options;
         options.set_encoding = true;
-        let mut encoder = Encoder::<N>::new(options);
+        let mut encoder = Encoder::<N>::new(options, core::mem::size_of::<C>());
         encoder.field_bitfield = C::FIELDS
             .canonised()
             .iter()
@@ -945,12 +951,14 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         _tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut choice_encoder = Self::new(self.options.without_set_encoding());
+        let mut choice_encoder = Self::new(
+            self.options.without_set_encoding(),
+            core::mem::size_of::<E>(),
+        );
         let tag = encode_fn(&mut choice_encoder)?;
 
         let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
-        let mut tag_bytes: Vec<u8> = Self::encode_tag(tag);
-        self.output.borrow_mut().append(&mut tag_bytes);
+        self.encode_tag(tag);
         if is_root_extension {
             self.output
                 .borrow_mut()
@@ -971,7 +979,10 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: E,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut encoder = Self::new(self.options.without_set_encoding());
+        let mut encoder = Self::new(
+            self.options.without_set_encoding(),
+            core::mem::size_of::<E>(),
+        );
         encoder.current_field_index = self.current_field_index;
         // encoder.field_bitfield :Map::<_, _, 100>;
         _ = encoder.field_bitfield.insert(
