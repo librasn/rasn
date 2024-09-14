@@ -3,7 +3,7 @@
 
 extern crate alloc;
 
-use rasn::{types::*, Decode, Encode};
+use rasn::prelude::*;
 
 /// ID value of a corresponding request [`LdapMessage`].
 ///
@@ -23,10 +23,12 @@ use rasn::{types::*, Decode, Encode};
 /// responses.
 pub type MessageId = u32;
 
-/// A notational convenience to indicate that, although strings of `LdapString`
-/// encode as [`OctetString`] types, the ISO10646 character set (a superset of
-/// Unicode) is used, encoded following the UTF-8 RFC3629 algorithm.
-pub type LdapString = OctetString;
+/// A notational convenience to indicate that, for `LdapString`, the
+/// ISO10646 character set (a superset of
+/// Unicode) is being used, encoded following the UTF-8 RFC3629 algorithm.
+/// We can use Rust `String` type to represent this type, see
+/// https://github.com/librasn/rasn/issues/304 and https://www.unicode.org/faq/unicode_iso.html
+pub type LdapString = Utf8String;
 
 /// A notational convenience to indicate that the permitted value of this string
 /// is a (UTF-8 encoded) dotted-decimal representation of an `ObjectIdentifier`.
