@@ -62,7 +62,7 @@ impl Default for EncoderOptions {
 
 impl<const FC: usize> Default for Encoder<'_, FC> {
     fn default() -> Self {
-        Self::new(EncoderOptions::coer())
+        Self::new(EncoderOptions::coer(), 0)
     }
 }
 
@@ -99,10 +99,10 @@ pub struct Encoder<'a, const FC: usize = 0> {
 impl<'a, const FC: usize> Encoder<'a, FC> {
     /// Constructs a new encoder with its own buffer from the provided options.
     #[must_use]
-    pub fn new(options: EncoderOptions) -> Self {
+    pub fn new(options: EncoderOptions, base_capacity: usize) -> Self {
         Self {
             options,
-            output: Cow::Owned(RefCell::new(Vec::with_capacity(16))),
+            output: Cow::Owned(RefCell::new(Vec::with_capacity(base_capacity))),
             set_output: <_>::default(),
             field_bitfield: LinearMap::<_, _, FC>::default(),
             current_field_index: <_>::default(),
@@ -471,7 +471,10 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
     }
 
     fn new_default_encoder<C: Constructed>(&self) -> Self {
-        let mut encoder = Encoder::new(self.options.without_set_encoding());
+        let mut encoder = Encoder::new(
+            self.options.without_set_encoding(),
+            core::mem::size_of::<C>(),
+        );
         encoder.field_bitfield = C::FIELDS
             .iter()
             .enumerate()
@@ -874,7 +877,10 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         C: Constructed,
         F: FnOnce(&mut Self::AnyEncoder<N>) -> Result<(), Self::Error>,
     {
-        let mut encoder = Encoder::<N>::new(self.options.without_set_encoding());
+        let mut encoder = Encoder::<N>::new(
+            self.options.without_set_encoding(),
+            core::mem::size_of::<C>(),
+        );
         encoder.field_bitfield = C::FIELDS
             .iter()
             .enumerate()
@@ -918,7 +924,7 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
     {
         let mut options = self.options;
         options.set_encoding = true;
-        let mut encoder = Encoder::<N>::new(options);
+        let mut encoder = Encoder::<N>::new(options, core::mem::size_of::<C>());
         encoder.field_bitfield = C::FIELDS
             .canonised()
             .iter()
@@ -1002,7 +1008,10 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: E,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut encoder = Self::new(self.options.without_set_encoding());
+        let mut encoder = Self::new(
+            self.options.without_set_encoding(),
+            core::mem::size_of::<E>(),
+        );
         encoder.current_field_index = self.current_field_index;
         // encoder.field_bitfield :Map::<_, _, 100>;
         _ = encoder.field_bitfield.insert(
