@@ -55,10 +55,7 @@ pub fn derive_struct_impl(
             .iter()
             .enumerate()
             .map(|(i, field)| {
-                let ty = config
-                    .option_type
-                    .map_to_inner_type(&field.ty)
-                    .unwrap_or(&field.ty);
+                let ty = map_to_inner_type(&field.ty).unwrap_or(&field.ty);
                 let config = FieldConfig::new(field, config);
                 let tag_attr = config.tag_derive(i);
                 let constraints = config.constraints.attribute_tokens();
