@@ -3,6 +3,8 @@
 
 extern crate alloc;
 
+use alloc::string::{String, ToString};
+use rasn::error::DecodeError;
 use rasn::prelude::*;
 
 /// ID value of a corresponding request [`LdapMessage`].
@@ -26,9 +28,61 @@ pub type MessageId = u32;
 /// A notational convenience to indicate that, for `LdapString`, the
 /// ISO10646 character set (a superset of
 /// Unicode) is being used, encoded following the UTF-8 RFC3629 algorithm.
-/// We can use Rust `String` type to represent this type in a form of ASN.1 [`Utf8String`], see
+/// We can use Rust `String` type to represent this type, see
 /// https://github.com/librasn/rasn/issues/304 and https://www.unicode.org/faq/unicode_iso.html
-pub type LdapString = Utf8String;
+#[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[rasn(delegate)]
+pub struct LdapString(pub String);
+
+impl core::ops::Deref for LdapString {
+    type Target = String;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl core::ops::DerefMut for LdapString {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl From<String> for LdapString {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+#[allow(clippy::mutable_key_type)]
+impl rasn::Encode for LdapString {
+    fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
+        &self,
+        encoder: &mut EN,
+        _tag: rasn::types::Tag,
+        constraints: rasn::types::Constraints,
+    ) -> core::result::Result<(), EN::Error> {
+        encoder.encode_octet_string(
+            rasn::types::Tag::OCTET_STRING,
+            constraints,
+            self.0.as_bytes(),
+        )?;
+        Ok(())
+    }
+}
+impl rasn::Decode for LdapString {
+    fn decode_with_tag_and_constraints<D: rasn::Decoder>(
+        decoder: &mut D,
+        _tag: rasn::types::Tag,
+        constraints: rasn::types::Constraints,
+    ) -> core::result::Result<Self, D::Error> {
+        String::from_utf8(decoder.decode_octet_string(rasn::types::Tag::OCTET_STRING, constraints)?)
+            .map_err(|error| {
+                rasn::de::Error::custom(
+                    alloc::format!("LdapString not valid UTF-8: {error}"),
+                    decoder.codec(),
+                )
+            })
+            .map(Self::from)
+    }
+}
 
 /// A notational convenience to indicate that the permitted value of this string
 /// is a (UTF-8 encoded) dotted-decimal representation of an `ObjectIdentifier`.
@@ -911,4 +965,20 @@ pub struct IntermediateResponse {
     /// Information specific to the extended operation.
     #[rasn(tag(1))]
     pub response_value: Option<OctetString>,
+}
+
+mod tests {
+
+    #[test]
+    fn test_ldpa_string() {
+        use super::{LdapString, ToString};
+        let ldap_string = LdapString("test".to_string());
+        let encoded = rasn::ber::encode(&ldap_string).unwrap();
+        assert_eq!(encoded, alloc::vec![0x04, 0x04, 0x74, 0x65, 0x73, 0x74]);
+        let decoded: LdapString = rasn::ber::decode(&encoded).unwrap();
+        assert_eq!(ldap_string, decoded);
+        let invalid_utf8: &[u8] = &[0x04, 0x04, 0x80, 0xC0, 0xF5, 0xFF];
+        let decoded = rasn::ber::decode::<LdapString>(invalid_utf8);
+        assert!(decoded.is_err());
+    }
 }
