@@ -102,15 +102,22 @@ where
             return false;
         }
         // Frequency count of elements in both sets
-        let self_counts = self.0.iter().fold(HashMap::new(), |mut acc, item| {
-            *acc.entry(item).or_insert(0) += 1;
-            acc
-        });
+        let self_counts =
+            self.0
+                .iter()
+                .fold(HashMap::with_capacity(self.len()), |mut acc, item| {
+                    *acc.entry(item).or_insert(0) += 1;
+                    acc
+                });
 
-        let other_counts = other.0.iter().fold(HashMap::new(), |mut acc, item| {
-            *acc.entry(item).or_insert(0) += 1;
-            acc
-        });
+        let other_counts =
+            other
+                .0
+                .iter()
+                .fold(HashMap::with_capacity(other.len()), |mut acc, item| {
+                    *acc.entry(item).or_insert(0) += 1;
+                    acc
+                });
 
         self_counts == other_counts
     }
@@ -125,7 +132,7 @@ impl<T: core::hash::Hash + Clone + Eq> core::hash::Hash for SetOf<T> {
         // We can hash the item and its count instead, and then combine the hashes to get equal hashes of unordered list.
 
         // Count occurrences of each element
-        let mut element_counts = HashMap::new();
+        let mut element_counts = HashMap::with_capacity(self.0.len());
         for item in &self.0 {
             *element_counts.entry(item).or_insert(0u64) += 1;
         }
