@@ -2,6 +2,7 @@
 
 use alloc::string::ToString;
 
+use rasn::macros::*;
 use rasn::prelude::*;
 
 use crate::v1::InvalidVariant;
@@ -76,10 +77,11 @@ impl Encode for ExtUtcTime {
         tag: Tag,
         _: Constraints,
     ) -> Result<(), EN::Error> {
+        const CONSTRAINT_1: constraints::Constraints = constraints!(value_constraint!(13));
         encoder
             .encode_octet_string(
                 tag,
-                <_>::from(&[constraints::Size::new(constraints::Bounded::single_value(13)).into()]),
+                CONSTRAINT_1,
                 self.0.format(FULL_DATE_FORMAT).to_string().as_bytes(),
             )
             .map(drop)

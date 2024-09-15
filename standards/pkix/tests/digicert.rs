@@ -24,7 +24,7 @@ fn extensions() {
 
         encoder.encode_sequence::<Sequence, _>(Tag::SEQUENCE, |encoder| {
             encoder.encode_bool(Tag::BOOL, true)?;
-            encoder.encode_integer::<u32>(Tag::INTEGER, <_>::default(), &0u32)?;
+            encoder.encode_integer::<u32>(Tag::INTEGER, Constraints::default(), &0u32)?;
             Ok(())
         })?;
 

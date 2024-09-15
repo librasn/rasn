@@ -8,7 +8,7 @@ type ValueMap = Map<alloc::string::String, Value>;
 
 use crate::{
     error::{EncodeError, JerEncodeErrorKind},
-    types::{fields::Fields, variants, IntegerType, Tag},
+    types::{fields::Fields, variants, Constraints, IntegerType, Tag},
 };
 
 pub struct Encoder {
@@ -66,7 +66,7 @@ impl crate::Encoder for Encoder {
     type Error = EncodeError;
 
     fn encode_any(&mut self, t: Tag, value: &crate::types::Any) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(t, <_>::default(), &value.contents)
+        self.encode_octet_string(t, Constraints::default(), &value.contents)
     }
 
     fn encode_bool(&mut self, _: Tag, value: bool) -> Result<Self::Ok, Self::Error> {

@@ -859,7 +859,7 @@ impl<'a> FieldConfig<'a> {
                 let constraints = self
                     .constraints
                     .const_expr(&self.container_config.crate_root)
-                    .unwrap_or_else(|| quote!(<_>::default()));
+                    .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
                 quote!(
                     encoder.encode_extension_addition(
                         #tag,
@@ -873,7 +873,7 @@ impl<'a> FieldConfig<'a> {
                 let constraints = self
                     .constraints
                     .const_expr(&self.container_config.crate_root)
-                    .unwrap_or_else(|| quote!(<_>::default()));
+                    .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
                 match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
                         quote!(
@@ -905,7 +905,7 @@ impl<'a> FieldConfig<'a> {
             let constraints = self
                 .constraints
                 .const_expr(&self.container_config.crate_root)
-                .unwrap_or_else(|| quote!(<_>::default()));
+                .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
             quote!(
                 encoder.encode_extension_addition(
                     #tag,

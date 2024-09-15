@@ -90,12 +90,32 @@ impl Enum {
         let extended_const_variants = extensible
             .then(|| quote!(Some(&[#(#extended_variants),*])))
             .unwrap_or(quote!(None));
+        // Check count of the root components in the choice
+        // https://github.com/XAMPPRocky/rasn/issues/168
+        // Choice index starts from zero, so we need to reduce variance by one
+        let variant_count = if self.variants.is_empty() {
+            0
+        } else {
+            self.variants.len() - 1
+        };
+
+        let variance_constraint = Constraints {
+            extensible: false,
+            from: None,
+            size: None,
+            value: Some(Constraint::from(Value::Range(
+                Some(0),
+                Some(variant_count as i128),
+            ))),
+        }
+        .const_expr(crate_root);
 
         let choice_impl = self.config.choice.then(|| quote! {
             impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
                 const VARIANTS: &'static [#crate_root::types::TagTree] = &[
                     #(#base_variants),*
                 ];
+                const VARIANCE_CONSTRAINT: #crate_root::types::Constraints<'static> = #variance_constraint;
                 const EXTENDED_VARIANTS: Option<&'static [#crate_root::types::TagTree]> = #extended_const_variants;
                 const IDENTIFIERS: &'static [&'static str] = &[
                     #(#identifiers),*

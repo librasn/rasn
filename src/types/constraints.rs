@@ -2,7 +2,9 @@ use super::IntegerType;
 use alloc::borrow::Cow;
 use num_bigint::BigInt;
 
-#[derive(Debug, Default, Clone)]
+pub const DEFAULT_CONSTRAINTS: Constraints = Constraints::NONE;
+
+#[derive(Debug, Clone)]
 pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
 
 impl<'r> Constraints<'r> {
@@ -10,6 +12,9 @@ impl<'r> Constraints<'r> {
 
     pub const fn new(constraints: &'r [Constraint]) -> Self {
         Self(Cow::Borrowed(constraints))
+    }
+    pub const fn default() -> Self {
+        Self::NONE
     }
 
     /// Overrides a set of constraints with another set.
@@ -42,7 +47,7 @@ impl<'r> Constraints<'r> {
         self.0.iter().any(|constraint| constraint.is_extensible())
     }
 
-    pub fn value(&self) -> Option<Extensible<Value>> {
+    pub fn value(&self) -> Option<&Extensible<Value>> {
         self.0.iter().find_map(|constraint| constraint.to_value())
     }
 }
@@ -59,7 +64,7 @@ impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Constraint {
     Value(Extensible<Value>),
     Size(Extensible<Size>),
@@ -94,23 +99,23 @@ impl Constraint {
         }
     }
 
-    pub fn as_permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
+    pub const fn as_permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
         match self {
             Self::PermittedAlphabet(alphabet) => Some(alphabet),
             _ => None,
         }
     }
 
-    pub fn to_size(&self) -> Option<&Extensible<Size>> {
+    pub const fn to_size(&self) -> Option<&Extensible<Size>> {
         match self {
             Self::Size(size) => Some(size),
             _ => None,
         }
     }
 
-    pub fn to_value(&self) -> Option<Extensible<Value>> {
+    pub const fn to_value(&self) -> Option<&Extensible<Value>> {
         match self {
-            Self::Value(integer) => Some(integer.clone()),
+            Self::Value(integer) => Some(integer),
             _ => None,
         }
     }
@@ -126,7 +131,7 @@ impl Constraint {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Copy, Default, Clone, PartialEq)]
 pub struct Extensible<T: 'static> {
     pub constraint: T,
     /// Whether the constraint is extensible, and if it is, a list of extensible
@@ -273,12 +278,12 @@ impl Size {
 
     #[must_use]
     /// Returns whether the size is fixed.
-    pub fn is_fixed(&self) -> bool {
+    pub const fn is_fixed(&self) -> bool {
         matches!(self.0, Bounded::Single(_))
     }
     /// Returns whether the size has a varying range.
     #[must_use]
-    pub fn is_range(&self) -> bool {
+    pub const fn is_range(&self) -> bool {
         matches!(self.0, Bounded::Range { .. })
     }
 }
@@ -297,7 +302,7 @@ impl core::ops::DerefMut for Size {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PermittedAlphabet(&'static [u32]);
 
 impl PermittedAlphabet {
@@ -305,7 +310,7 @@ impl PermittedAlphabet {
         Self(range)
     }
 
-    pub fn as_inner(&self) -> &'static [u32] {
+    pub const fn as_inner(&self) -> &'static [u32] {
         self.0
     }
 }
@@ -373,8 +378,8 @@ impl<T> Bounded<T> {
     }
 }
 
-impl<T: Default + Copy> Bounded<T> {
-    pub fn as_minimum(&self) -> Option<&T> {
+impl<T: Copy + IntegerType> Bounded<T> {
+    pub const fn as_minimum(&self) -> Option<&T> {
         match self {
             Self::Single(value) => Some(value),
             Self::Range {
@@ -384,8 +389,11 @@ impl<T: Default + Copy> Bounded<T> {
         }
     }
 
-    pub fn minimum(&self) -> T {
-        self.as_minimum().copied().unwrap_or_default()
+    pub const fn minimum(&self) -> T {
+        match self.as_minimum() {
+            Some(value) => *value,
+            None => T::ZERO,
+        }
     }
 }
 
@@ -579,6 +587,184 @@ impl<T: core::fmt::Display> core::fmt::Display for Bounded<T> {
             Self::None => write!(f, ".."),
         }
     }
+}
+
+/// Helper macro to create constant value constraints.
+///
+/// Usage:
+// ```rust
+/// use rasn::macros::*;
+/// Full range
+/// const FULL_RANGE = value_constraint!(0, 100);
+/// const FULL_RANGE_EXTEND = value_constraint!(0, 100, true);
+/// const START_ONLY = value_constraint!(start: 42);
+/// const START_ONLY_EXTENDED = value_constraint!(start: 42, true);
+/// const END_ONLY = value_constraint!(end: 42);
+/// const SINGLE = value_constraint!(42);
+/// const EXT_SINGLE = value_constraint!(42, true);
+///```
+#[macro_export]
+macro_rules! value_constraint {
+    ($($args:tt)*) => {
+        $crate::bounded_constraint!(Value, $($args)*)
+    };
+}
+/// Helper macro to create constant size constraints.
+///
+/// Usage:
+// ```rust
+/// use rasn::macros::*;
+/// Full range
+/// const RANGE = size_constraint!(0, 100);
+/// const RANGE_EXTEND = size_constraint!(0, 100, true);
+/// const START_ONLY = size_constraint!(start: 42);
+/// const START_ONLY_EXTENDED = size_constraint!(start: 42, true);
+/// const END_ONLY = size_constraint!(end: 42);
+/// const FIXED = size_constraint!(42);
+/// const EXT_FIXED = size_constraint!(42, true);
+///```
+
+#[macro_export]
+macro_rules! size_constraint {
+    ($($args:tt)*) => {
+        $crate::bounded_constraint!(Size, $($args)*)
+    };
+}
+
+/// Helper macro to create an array of constant constraints.
+///
+/// Usage:
+/// ```rust
+/// use rasn::prelude::*;
+/// use rasn::macros::*;
+/// const CONSTRAINTS: Constraints = constraints!(value_constraint!(0, 100), size_constraint!(0, 100));
+/// ```
+/// See other macros about the parameter usage.
+#[macro_export]
+macro_rules! constraints {
+    ($($constraint:expr),+ $(,)?) => {
+        $crate::types::constraints::Constraints::new(&[$($constraint),+])
+    };
+}
+/// Helper macro to create a permitted alphabet constraint.
+///
+/// Usage:
+/// ```rust
+/// use rasn::prelude::*;
+/// use rasn::macros::*;
+/// const CONSTRAINT: Constraints = constraints!(permitted_alphabet_constraint!(&[
+///     b'0' as u32,
+///     b'1' as u32,
+///     b'2' as u32,
+///     b'3' as u32,
+///     b'4' as u32,
+///     b'5' as u32
+/// ]));
+/// ```
+#[macro_export]
+macro_rules! permitted_alphabet_constraint {
+    ( $alphabet:expr) => {
+        $crate::types::constraints::Constraint::PermittedAlphabet(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::PermittedAlphabet::new($alphabet),
+            ),
+        )
+    };
+}
+
+#[macro_export]
+macro_rules! bounded_constraint {
+    // Start and end
+    ($constraint_type:ident, $start:expr, $end:expr) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::const_new($start, $end),
+                ),
+            ),
+        )
+    };
+
+    // Only start provided
+    ($constraint_type:ident, start: $start:expr) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::start_from($start),
+                ),
+            ),
+        )
+    };
+
+    // Only end provided
+    ($constraint_type:ident, end: $end:expr) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::up_to($end),
+                ),
+            ),
+        )
+    };
+
+    // Single value
+    ($constraint_type:ident, $single:expr) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::Single($single),
+                ),
+            ),
+        )
+    };
+
+    // Range with extensibility
+    ($constraint_type:ident, $start:expr, $end:expr, $extensible:expr) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::const_new($start, $end),
+                ),
+            )
+            .set_extensible($extensible),
+        )
+    };
+
+    // Only start with extensibility
+    ($constraint_type:ident, start: $start:expr, $extensible:expr) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::start_from($start),
+                ),
+            )
+            .set_extensible($extensible),
+        )
+    };
+
+    // Only end with extensibility
+    ($constraint_type:ident, end: $end:expr, $extensible:expr) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::up_to($end),
+                ),
+            )
+            .set_extensible($extensible),
+        )
+    };
+
+    // Single value with extensibility
+    ($constraint_type:ident, $single:expr, $extensible:expr) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::Single($single),
+                ),
+            )
+            .set_extensible($extensible),
+        )
+    };
 }
 
 #[cfg(test)]

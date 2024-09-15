@@ -376,7 +376,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E> {
-        let discriminant = self.decode_integer::<isize>(tag, <_>::default())?;
+        let discriminant = self.decode_integer::<isize>(tag, Constraints::default())?;
 
         E::from_discriminant(discriminant)
             .ok_or_else(|| DecodeError::discriminant_value_not_found(discriminant, self.codec()))
@@ -575,7 +575,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let string = self.decode_utf8_string(tag, <_>::default())?;
+        let string = self.decode_utf8_string(tag, Constraints::default())?;
         if self.config.encoding_rules.is_ber() {
             Self::parse_any_generalized_time_string(string)
         } else {
@@ -585,7 +585,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
         // Reference https://obj-sys.com/asn1tutorial/node15.html
-        let string = self.decode_utf8_string(tag, <_>::default())?;
+        let string = self.decode_utf8_string(tag, Constraints::default())?;
         if self.config.encoding_rules.is_ber() {
             Self::parse_any_utc_time_string(string)
         } else {
@@ -594,7 +594,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
-        let string = self.decode_utf8_string(tag, <_>::default())?;
+        let string = self.decode_utf8_string(tag, Constraints::default())?;
         Self::parse_date_string(&string)
     }
 
