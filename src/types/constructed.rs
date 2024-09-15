@@ -1,5 +1,7 @@
 //! A module that contains `SET`, `SEQUENCE`, `SET OF` and `SEQUENCE OF` types.
 
+use hashbrown::HashMap;
+
 /// A `SET` or `SEQUENCE` value.
 pub trait Constructed {
     /// Fields contained in the "root component list".
@@ -90,7 +92,7 @@ impl<T> Default for SetOf<T> {
 }
 impl<T> PartialEq for SetOf<T>
 where
-    T: PartialEq + Ord,
+    T: PartialEq + Eq + core::hash::Hash,
 {
     /// Compare two `SetOf` values for equality.
     /// The order of elements in the `SetOf` does not matter.
@@ -98,17 +100,21 @@ where
         if self.len() != other.len() {
             return false;
         }
+        // Frequency count of elements in both sets
+        let self_counts = self.0.iter().fold(HashMap::new(), |mut acc, item| {
+            *acc.entry(item).or_insert(0) += 1;
+            acc
+        });
 
-        // Collect references to the elements
-        let mut self_refs: alloc::vec::Vec<&T> = self.0.iter().collect();
-        let mut other_refs: alloc::vec::Vec<&T> = other.0.iter().collect();
+        let other_counts = other.0.iter().fold(HashMap::new(), |mut acc, item| {
+            *acc.entry(item).or_insert(0) += 1;
+            acc
+        });
 
-        self_refs.sort_unstable();
-        other_refs.sort_unstable();
-        self_refs.eq(&other_refs)
+        self_counts == other_counts
     }
 }
-impl<T> Eq for SetOf<T> where T: Eq {}
+impl<T> Eq for SetOf<T> where T: Eq + core::hash::Hash {}
 
 impl<T: core::hash::Hash + Clone + Ord> core::hash::Hash for SetOf<T> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
