@@ -64,6 +64,12 @@ impl Fields {
     }
 }
 
+impl Default for Fields {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
 impl From<Cow<'static, [Field]>> for Fields {
     fn from(fields: Cow<'static, [Field]>) -> Self {
         Self::new(fields)
