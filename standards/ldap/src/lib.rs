@@ -30,7 +30,6 @@ pub type MessageId = u32;
 /// We can use Rust `String` type to represent this type, see
 /// https://github.com/librasn/rasn/issues/304 and https://www.unicode.org/faq/unicode_iso.html
 #[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-#[rasn(delegate)]
 pub struct LdapString(pub String);
 
 impl core::ops::Deref for LdapString {
