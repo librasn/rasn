@@ -75,7 +75,7 @@ impl Default for PersonnelRecord {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct ChildInformation {
     pub name: Name,
@@ -107,7 +107,7 @@ impl ChildInformation {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 1))]
 pub struct Name {
     pub given_name: VisibleString,
@@ -161,7 +161,7 @@ impl Default for EmployeeNumber {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 3), delegate)]
 pub struct Date(pub VisibleString);
 

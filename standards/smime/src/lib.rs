@@ -34,7 +34,7 @@ pub struct Capability {
     pub parameters: Option<Any>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum EncryptionKeyPreference {
     #[rasn(tag(0))]

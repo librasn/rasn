@@ -120,7 +120,7 @@ pub type PartialAttributeList = SequenceOf<PartialAttribute>;
 pub type AttributeList = SequenceOf<Attribute>;
 
 /// The envelope for all LDAP operations.
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct LdapMessage {
     pub message_id: MessageId,
@@ -141,7 +141,7 @@ impl LdapMessage {
 }
 
 /// The kind of operation in the [`LdapMessage`].
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 #[non_exhaustive]
 pub enum ProtocolOp {
@@ -185,7 +185,7 @@ impl AttributeValueAssertion {
     }
 }
 
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct PartialAttribute {
     pub r#type: AttributeDescription,
@@ -199,7 +199,7 @@ impl PartialAttribute {
     }
 }
 
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub struct Attribute {
     pub r#type: AttributeDescription,
@@ -430,7 +430,7 @@ pub struct UnbindRequest;
 /// restrictions, a set of entries matching a complex search criterion. This can
 /// be used to read attributes from a single entry, from entries immediately
 /// subordinate to a particular entry, or from a whole subtree of entries.
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[rasn(tag(application, 3))]
 #[non_exhaustive]
 pub struct SearchRequest {
@@ -552,7 +552,7 @@ pub enum SearchRequestDerefAliases {
 
 /// Defines the conditions that must be fulfilled in order for the search to
 /// match a given entry.
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 #[non_exhaustive]
 pub enum Filter {
@@ -695,7 +695,7 @@ impl MatchingRuleAssertion {
 }
 
 /// An entry found during the search.
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[rasn(tag(application, 4))]
 #[non_exhaustive]
 pub struct SearchResultEntry {
@@ -729,7 +729,7 @@ pub struct SearchResultDone(pub LdapResult);
 
 /// Allows a client to request that a modification of an entry be performed on
 /// its behalf by a server.
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[rasn(tag(application, 6))]
 pub struct ModifyRequest {
     /// The name of the entry to be modified.
@@ -746,7 +746,7 @@ pub struct ModifyRequest {
 }
 
 /// Modifications to be performed on an LDAP entry.
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ModifyRequestChanges {
     /// The type of modification being performed.
     pub operation: ChangeOperation,
@@ -787,7 +787,7 @@ pub enum ChangeOperation {
 pub struct ModifyResponse(pub LdapResult);
 
 /// Allows a client to request the addition of LDAP an entry into the directory.
-#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[rasn(tag(application, 8))]
 pub struct AddRequest {
     /// The name of the entry to be added.

@@ -1,5 +1,6 @@
 //! A module that contains `SET`, `SEQUENCE`, `SET OF` and `SEQUENCE OF` types.
 
+use core::hash::BuildHasher;
 use hashbrown::HashMap;
 
 /// A `SET` or `SEQUENCE` value.
@@ -116,10 +117,60 @@ where
 }
 impl<T> Eq for SetOf<T> where T: Eq + core::hash::Hash {}
 
-impl<T: core::hash::Hash + Clone + Ord> core::hash::Hash for SetOf<T> {
+impl<T: core::hash::Hash + Clone + Eq> core::hash::Hash for SetOf<T> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        let mut sorted = self.0.clone();
-        sorted.sort_unstable();
-        sorted.hash(state);
+        // We can't use unstable_sort/sort to calcualte the hash for the unordered list.
+        // This is because we can't implement PartialOrd/Ord for SetOf, when the type uses itself as a subtype.
+
+        // We can hash the item and its count instead, and then combine the hashes to get equal hashes of unordered list.
+
+        // Count occurrences of each element
+        let mut element_counts = HashMap::new();
+        for item in &self.0 {
+            *element_counts.entry(item).or_insert(0u64) += 1;
+        }
+
+        // Combine element hashes with counts and aggregate
+        let mut combined_hash: u64 = 0;
+        for (item, count) in &element_counts {
+            let element_hasher = element_counts.hasher();
+            let item_hash = element_hasher.hash_one(item);
+            // Combine the element hash with its count
+            let combined_element_hash = item_hash.wrapping_mul(*count);
+            // Aggregate the combined element hashes using addition
+            combined_hash = combined_hash.wrapping_add(combined_element_hash);
+        }
+
+        // Write the final combined hash to the provided hasher
+        state.write_u64(combined_hash);
+    }
+}
+
+mod tests {
+    #[cfg(test)]
+    use super::*;
+
+    #[test]
+    fn test_set_of() {
+        let mut set_a = SetOf::new();
+        set_a.push(1);
+        set_a.push(2);
+        set_a.push(3);
+
+        let mut set_b = SetOf::new();
+        set_b.push(3);
+        set_b.push(2);
+        set_b.push(1);
+
+        let set_c: SetOf<_> = alloc::vec![4, 5, 6].into();
+
+        assert_eq!(set_a, set_b);
+        assert_ne!(set_a, set_c);
+        let hasher = hashbrown::hash_map::DefaultHashBuilder::default();
+        let hashed_a = hasher.hash_one(set_a);
+        let hashed_b = hasher.hash_one(set_b);
+        let hashed_c = hasher.hash_one(set_c);
+        assert_eq!(hashed_a, hashed_b);
+        assert_ne!(hashed_a, hashed_c);
     }
 }

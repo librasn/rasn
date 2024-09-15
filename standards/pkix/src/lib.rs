@@ -644,7 +644,7 @@ pub struct Attribute {
     pub values: SetOf<AttributeValue>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct AttributeTypeAndValue {
     pub r#type: AttributeType,
     pub value: AttributeValue,

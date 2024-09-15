@@ -30,14 +30,14 @@ pub const SHA256: &Oid =
 
 pub const RECEIPTS_TO: u8 = 16;
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct ReceiptRequest {
     pub signed_content_identifier: ContentIdentifier,
     pub receipts_from: ReceiptsFrom,
     pub receipts_to: SequenceOf<GeneralNames>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum ReceiptsFrom {
     #[rasn(tag(0))]
@@ -84,7 +84,7 @@ pub struct ContentReference {
     pub originator_signature_value: OctetString,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(set)]
 pub struct EssSecurityLabel {
     pub security_policy_identifier: SecurityPolicyIdentifier,
@@ -125,21 +125,21 @@ pub struct SecurityCategory {
     pub value: Any,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct MlData {
     pub mail_list_identifier: EntityIdentifier,
     pub expansion_time: GeneralizedTime,
     pub ml_receipt_policy: Option<MlReceiptPolicy>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum EntityIdentifier {
     IssuerAndSerialNumber(IssuerAndSerialNumber),
     SubjectKeyIdentifier(SubjectKeyIdentifier),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum MlReceiptPolicy {
     #[rasn(tag(0))]
@@ -150,19 +150,19 @@ pub enum MlReceiptPolicy {
     InAdditionTo(SequenceOf<GeneralNames>),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct SigningCertificate {
     pub certs: SequenceOf<EssCertId>,
     pub policies: Option<SequenceOf<PolicyInformation>>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct SigningCertificateV2 {
     pub certs: SequenceOf<EssCertIdv2>,
     pub policies: Option<SequenceOf<PolicyInformation>>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct EssCertIdv2 {
     #[rasn(default = "default_sha256")]
     pub hash_algorithm: AlgorithmIdentifier,
@@ -177,13 +177,13 @@ fn default_sha256() -> AlgorithmIdentifier {
     }
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct EssCertId {
     pub cert_hash: Hash,
     pub issuer_serial: Option<IssuerSerial>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct IssuerSerial {
     pub issuer: GeneralNames,
     pub serial_number: CertificateSerialNumber,

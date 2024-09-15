@@ -29,7 +29,7 @@ pub const GLKEY_REFRESH: &Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS9_SMIME_SKD_G
 pub const SKD_ALG_REQUEST: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_MECHANISMS_PKIX_CMC_GLARR_SKD_ALG_REQUEST;
 pub const SKD_ALG_RESPONSE: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_MECHANISMS_PKIX_CMC_GLARR_SKD_ALG_RESPONSE;
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlUseKek {
     pub info: GlInfo,
     pub owner_info: SequenceOf<GlOwnerInfo>,
@@ -38,13 +38,13 @@ pub struct GlUseKek {
     key_attributes: Option<GlKeyAttributes>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlInfo {
     pub name: GeneralName,
     pub address: GeneralName,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlOwnerInfo {
     pub owner_name: GeneralName,
     pub owner_address: GeneralName,
@@ -134,20 +134,20 @@ impl From<GlNewKeyAttributes> for GlKeyAttributes {
 
 pub type DeleteGl = GeneralName;
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlAddMember {
     pub name: GeneralName,
     member: GlMember,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlMember {
     pub member_name: GeneralName,
     pub member_address: Option<GeneralName>,
     pub certificates: Option<Certificates>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct Certificates {
     #[rasn(tag(0))]
     pub pkc: Option<Certificate>,
@@ -157,13 +157,13 @@ pub struct Certificates {
     cert_path: Option<CertificateSet>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlDeleteMember {
     pub name: GeneralName,
     pub member_to_delete: GeneralName,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlRekey {
     pub name: GeneralName,
     pub administration: Option<GlAdministration>,
@@ -185,13 +185,13 @@ pub struct GlNewKeyAttributes {
     pub requested_algorithm: Option<AlgorithmIdentifier>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlOwnerAdministration {
     pub name: GeneralName,
     pub owner_info: GlOwnerInfo,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlkRefresh {
     pub name: GeneralName,
     pub dates: SequenceOf<Date>,
@@ -215,13 +215,13 @@ pub struct GlaQueryResponse {
     value: Any,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlManageCert {
     pub name: GeneralName,
     pub member: GlMember,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GlKey {
     pub name: GeneralName,
     pub identifier: KekIdentifier,

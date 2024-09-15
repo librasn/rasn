@@ -91,7 +91,7 @@ mod tests {
         Test3 = -1,
     }
 
-    #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq, Ord, Eq, PartialOrd)]
+    #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq, Ord, Eq, PartialOrd, Hash)]
     #[rasn(automatic_tags, choice)]
     #[rasn(crate_root = "crate")]
     enum SimpleChoice {
