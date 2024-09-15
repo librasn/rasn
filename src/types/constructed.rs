@@ -74,12 +74,17 @@ impl<T> core::ops::DerefMut for SetOf<T> {
         &mut self.0
     }
 }
-
-impl From<alloc::vec::Vec<u8>> for SetOf<u8> {
-    fn from(vec: alloc::vec::Vec<u8>) -> Self {
+impl<T> From<alloc::vec::Vec<T>> for SetOf<T> {
+    fn from(vec: alloc::vec::Vec<T>) -> Self {
         Self(vec)
     }
 }
+impl<T: Clone> From<&[T]> for SetOf<T> {
+    fn from(vec: &[T]) -> Self {
+        Self(vec.to_vec())
+    }
+}
+
 impl<T: Clone, const N: usize> From<[T; N]> for SetOf<T> {
     fn from(array: [T; N]) -> Self {
         Self(array.to_vec())
@@ -91,6 +96,7 @@ impl<T> Default for SetOf<T> {
         Self::new()
     }
 }
+
 impl<T> PartialEq for SetOf<T>
 where
     T: PartialEq + Eq + core::hash::Hash,
@@ -124,10 +130,10 @@ where
 }
 impl<T> Eq for SetOf<T> where T: Eq + core::hash::Hash {}
 
-impl<T: core::hash::Hash + Clone + Eq> core::hash::Hash for SetOf<T> {
+impl<T: core::hash::Hash + Eq> core::hash::Hash for SetOf<T> {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        // We can't use unstable_sort/sort to calcualte the hash for the unordered list.
-        // This is because we can't implement PartialOrd/Ord for SetOf, when the type uses itself as a subtype.
+        // We can't use unstable_sort/sort to calculate the hash for the unordered list.
+        // This is because we can't implement PartialOrd/Ord for T in `SetOf``, when the T uses itself as a subtype.
 
         // We can hash the item and its count instead, and then combine the hashes to get equal hashes of unordered list.
 
@@ -159,6 +165,12 @@ mod tests {
 
     #[test]
     fn test_set_of() {
+        let int_set: SetOf<u8> = [1, 2, 3, 4, 5].into();
+        let int_set_reversed: &SetOf<u8> = &[5, 4, 3, 2, 1].into();
+        let int_set_diff: SetOf<u8> = [1, 2, 3, 4, 6].into();
+        assert_eq!(&int_set, int_set_reversed);
+        assert_ne!(int_set, int_set_diff);
+
         let mut set_a = SetOf::new();
         set_a.push(1);
         set_a.push(2);

@@ -321,12 +321,4 @@ mod tests {
         round_trip(&Day::Tues);
         round_trip(&Day::Sat);
     }
-    #[test]
-    fn test_set_of() {
-        let int_set: SetOf<u8> = [1, 2, 3, 4, 5].into();
-        let int_set_reversed: SetOf<u8> = [5, 4, 3, 2, 1].into();
-        let int_set_diff: SetOf<u8> = [1, 2, 3, 4, 6].into();
-        assert_eq!(int_set, int_set_reversed);
-        assert_ne!(int_set, int_set_diff);
-    }
 }
