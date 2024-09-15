@@ -442,14 +442,14 @@ mod tests {
         use rasn::AsnType;
 
         #[derive(rasn::AsnType, rasn::Encode, rasn::Decode, Debug, Clone, PartialEq, Eq)]
-        #[rasn(automatic_tags, option_type(Option))]
+        #[rasn(automatic_tags)]
         #[non_exhaustive]
         pub struct Updates {
             pub updates: Vec<u8>,
         }
 
         #[derive(rasn::AsnType, rasn::Encode, rasn::Decode, Debug, Clone, PartialEq, Eq)]
-        #[rasn(automatic_tags, option_type(Option))]
+        #[rasn(automatic_tags)]
         #[rasn(choice)]
         #[non_exhaustive]
         pub enum Message {

@@ -24,7 +24,7 @@ pub fn derive_struct_impl(
         if let Some(tag) = config.tag.as_ref().filter(|tag| tag.is_explicit()) {
             let tag = tag.to_tokens(crate_root);
             let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.0).map(drop));
-            if config.option_type.is_option_type(ty) {
+            if is_option_type(ty) {
                 quote! {
                     if &self.0.is_some() {
                         #encode

@@ -219,7 +219,6 @@ pub struct Config {
     pub choice: bool,
     pub set: bool,
     pub automatic_tags: bool,
-    pub option_type: OptionalEnum,
     pub delegate: bool,
     pub tag: Option<Tag>,
     pub constraints: Constraints,
@@ -234,7 +233,6 @@ impl Config {
         let mut enumerated = false;
         let mut automatic_tags = false;
         let mut tag = None;
-        let mut option = None;
         let mut from = None;
         let mut size = None;
         let mut value = None;
@@ -279,24 +277,6 @@ impl Config {
                     set = true;
                 } else if path.is_ident("automatic_tags") {
                     automatic_tags = true;
-                } else if path.is_ident("option_type") {
-                    if let syn::Meta::List(list) = item {
-                        let filter_into_paths = |nm: &_| match nm {
-                            syn::NestedMeta::Meta(meta) => Some(meta.path().clone()),
-                            _ => None,
-                        };
-                        let mut iter = list
-                            .nested
-                            .iter()
-                            .take(3)
-                            .filter_map(filter_into_paths)
-                            .fuse();
-
-                        let path = iter.next();
-                        let some_variant = iter.next();
-                        let none_variant = iter.next();
-                        option = Some((path, some_variant, none_variant));
-                    }
                 } else if path.is_ident("tag") {
                     tag = Tag::from_meta(item);
                 } else if path.is_ident("delegate") {
@@ -339,36 +319,11 @@ impl Config {
             panic!("`#[rasn(delegate)]` is only valid on single-unit structs.");
         }
 
-        let option_type = {
-            let (path, some_variant, none_variant) = option.unwrap_or((None, None, None));
-
-            OptionalEnum {
-                path: path
-                    .and_then(|path| path.get_ident().cloned())
-                    .unwrap_or_else(|| syn::Ident::new("Option", proc_macro2::Span::call_site())),
-                some_variant: syn::TypePath {
-                    path: some_variant.unwrap_or_else(|| {
-                        Path::from(syn::Ident::new("Some", proc_macro2::Span::call_site()))
-                    }),
-                    qself: None,
-                }
-                .into(),
-                none_variant: syn::TypePath {
-                    path: none_variant.unwrap_or_else(|| {
-                        Path::from(syn::Ident::new("None", proc_macro2::Span::call_site()))
-                    }),
-                    qself: None,
-                }
-                .into(),
-            }
-        };
-
         Self {
             automatic_tags,
             choice,
             delegate,
             enumerated,
-            option_type,
             set,
             tag,
             identifier,
@@ -419,50 +374,39 @@ impl Config {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct OptionalEnum {
-    pub path: syn::Ident,
-    #[allow(unused)]
-    pub some_variant: syn::Type,
-    #[allow(unused)]
-    pub none_variant: syn::Type,
+pub(crate) fn is_option_type(ty: &syn::Type) -> bool {
+    match ty {
+        syn::Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .map_or(false, |segment| segment.ident == "Option"),
+        syn::Type::Reference(syn::TypeReference { elem, .. }) => is_option_type(elem),
+        _ => false,
+    }
 }
 
-impl OptionalEnum {
-    pub(crate) fn is_option_type(&self, ty: &syn::Type) -> bool {
-        match ty {
-            syn::Type::Path(path) => path
-                .path
-                .segments
-                .last()
-                .map_or(false, |segment| segment.ident == self.path),
-            syn::Type::Reference(syn::TypeReference { elem, .. }) => self.is_option_type(elem),
-            _ => false,
-        }
-    }
-
-    pub(crate) fn map_to_inner_type<'ty>(&self, ty: &'ty syn::Type) -> Option<&'ty syn::Type> {
-        match ty {
-            syn::Type::Path(path) => path
-                .path
-                .segments
-                .last()
-                .filter(|segment| segment.ident == self.path)
-                .and_then(|segment| {
-                    if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
-                        args.args.first().and_then(|arg| {
-                            if let syn::GenericArgument::Type(ty) = arg {
-                                Some(ty)
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    }
-                }),
-            _ => None,
-        }
+pub(crate) fn map_to_inner_type<'ty>(ty: &'ty syn::Type) -> Option<&'ty syn::Type> {
+    match ty {
+        syn::Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .filter(|segment| segment.ident == "Option")
+            .and_then(|segment| {
+                if let syn::PathArguments::AngleBracketed(args) = &segment.arguments {
+                    args.args.first().and_then(|arg| {
+                        if let syn::GenericArgument::Type(ty) = arg {
+                            Some(ty)
+                        } else {
+                            None
+                        }
+                    })
+                } else {
+                    None
+                }
+            }),
+        _ => None,
     }
 }
 
@@ -1197,9 +1141,7 @@ impl<'a> FieldConfig<'a> {
     }
 
     pub fn is_option_type(&self) -> bool {
-        self.container_config
-            .option_type
-            .is_option_type(&self.field.ty)
+        is_option_type(&self.field.ty)
     }
 
     pub fn is_default_type(&self) -> bool {
