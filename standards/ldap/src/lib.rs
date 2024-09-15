@@ -4,7 +4,6 @@
 extern crate alloc;
 
 use alloc::string::{String, ToString};
-use rasn::error::DecodeError;
 use rasn::prelude::*;
 
 /// ID value of a corresponding request [`LdapMessage`].
@@ -51,6 +50,12 @@ impl From<String> for LdapString {
         Self(s)
     }
 }
+impl From<&str> for LdapString {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
 #[allow(clippy::mutable_key_type)]
 impl rasn::Encode for LdapString {
     fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
@@ -973,6 +978,8 @@ mod tests {
     fn test_ldpa_string() {
         use super::{LdapString, ToString};
         let ldap_string = LdapString("test".to_string());
+        let ldap_string2 = LdapString("test".into());
+        assert_eq!(ldap_string, ldap_string2);
         let encoded = rasn::ber::encode(&ldap_string).unwrap();
         assert_eq!(encoded, alloc::vec![0x04, 0x04, 0x74, 0x65, 0x73, 0x74]);
         let decoded: LdapString = rasn::ber::decode(&encoded).unwrap();
