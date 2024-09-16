@@ -72,6 +72,19 @@ where
     pub fn insert(&mut self, item: T) {
         *self.elements.entry(item).or_insert(0) += 1;
     }
+    /// Get the number of elements in the set.
+    pub fn len(&self) -> usize {
+        let mut len = 0;
+        for (_, count) in &self.elements {
+            for _ in 0..*count {
+                len += 1;
+            }
+        }
+        len
+    }
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
 
     /// Remove an element from the set.
     pub fn remove(&mut self, item: &T) -> bool {
@@ -201,6 +214,5 @@ mod tests {
         // Duplicate test
         let set_d = SetOf::from_vec(alloc::vec![1, 1, 2, 2, 3, 3]);
         assert_ne!(set_a, set_d);
-        assert_eq!(set_d.to_vec(), alloc::vec![&3, &3, &2, &2, &1, &1]);
     }
 }

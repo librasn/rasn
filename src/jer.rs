@@ -277,7 +277,23 @@ mod tests {
             SetOf::from_vec(alloc::vec![SimpleChoice::Test1(3)]),
             "[{\"Test1\":3}]"
         );
-        round_trip_jer!(SetOf<u8>, alloc::vec![1, 2, 3, 4, 5].into(), "[5,4,3,2,1]");
+        // SetOf is not ordered, and does not maintain order, so we need to adapt a bit
+        let set = SetOf::from_vec(alloc::vec![1, 2, 3, 4, 5]);
+        let actual_encoding = crate::jer::encode(&set).unwrap();
+        let trimmed = actual_encoding
+            .trim_start_matches('[')
+            .trim_end_matches(']');
+
+        // Split the string by commas and sum the values
+        let sum = trimmed
+            .split(',')
+            .map(|num_str| num_str.trim().parse::<i32>())
+            .sum::<Result<i32, _>>()
+            .unwrap();
+        assert_eq!(sum, 15);
+        let decoded_value: SetOf<_> = crate::jer::decode(&actual_encoding).unwrap();
+
+        assert_eq!(set, decoded_value);
         round_trip_jer!(SetOf<bool>, SetOf::from_vec(alloc::vec![]), "[]");
     }
 
