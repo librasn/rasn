@@ -100,7 +100,7 @@ pub trait Decoder: Sized {
         constraints: Constraints,
     ) -> Result<Vec<D>, Self::Error>;
     /// Decode a `SET OF D` where `D: Decode` identified by `tag` from the available input.
-    fn decode_set_of<D: Decode>(
+    fn decode_set_of<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
         constraints: Constraints,
@@ -528,7 +528,7 @@ impl<T: Decode> Decode for alloc::vec::Vec<T> {
     }
 }
 
-impl<T: Decode> Decode for SetOf<T> {
+impl<T: Decode + Eq + core::hash::Hash> Decode for SetOf<T> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,

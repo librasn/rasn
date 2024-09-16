@@ -212,7 +212,7 @@ pub trait Encoder {
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
 
     /// Encode a `SET OF` value.
-    fn encode_set_of<E: Encode>(
+    fn encode_set_of<E: Encode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
         value: &types::SetOf<E>,
@@ -647,7 +647,7 @@ impl<E: Encode> Encode for alloc::vec::Vec<E> {
     }
 }
 
-impl<E: Encode> Encode for SetOf<E> {
+impl<E: Encode + Eq + core::hash::Hash> Encode for SetOf<E> {
     fn encode_with_tag_and_constraints<EN: Encoder>(
         &self,
         encoder: &mut EN,

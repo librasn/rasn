@@ -894,13 +894,13 @@ impl<'a> crate::Encoder for Encoder<'a> {
         Ok(())
     }
 
-    fn encode_set_of<E: Encode>(
+    fn encode_set_of<E: Encode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
         value: &SetOf<E>,
         constraints: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_sequence_of(tag, &value.iter().collect::<Vec<_>>(), constraints)
+        self.encode_sequence_of(tag, &value.to_vec(), constraints)
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {

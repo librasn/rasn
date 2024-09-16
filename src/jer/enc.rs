@@ -351,13 +351,13 @@ impl crate::Encoder for Encoder {
         self.encode_sequence::<C, F>(tag, value)
     }
 
-    fn encode_set_of<E: crate::Encode>(
+    fn encode_set_of<E: crate::Encode + Eq + core::hash::Hash>(
         &mut self,
         _t: Tag,
         value: &crate::types::SetOf<E>,
         _c: crate::types::Constraints,
     ) -> Result<Self::Ok, Self::Error> {
-        self.update_root_or_constructed(Value::Array(value.iter().try_fold(
+        self.update_root_or_constructed(Value::Array(value.to_vec().iter().try_fold(
             alloc::vec![],
             |mut acc, v| {
                 let mut item_encoder = Self::new();

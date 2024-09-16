@@ -75,7 +75,7 @@ impl Default for PersonnelRecord {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(set)]
 pub struct ChildInformation {
     pub name: Name,
@@ -107,7 +107,7 @@ impl ChildInformation {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 1))]
 pub struct Name {
     pub given_name: VisibleString,
@@ -161,7 +161,7 @@ impl Default for EmployeeNumber {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Decode, Encode, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(application, 3), delegate)]
 pub struct Date(pub VisibleString);
 
@@ -177,7 +177,7 @@ pub struct PersonnelRecordWithConstraints {
     #[rasn(tag(explicit(2)))]
     pub name_of_spouse: NameWithConstraints,
     #[rasn(tag(3), default)]
-    pub children: Vec<ChildInformationWithConstraints>,
+    pub children: SetOf<ChildInformationWithConstraints>,
 }
 
 impl Default for PersonnelRecordWithConstraints {
@@ -194,12 +194,14 @@ impl From<PersonnelRecord> for PersonnelRecordWithConstraints {
             number: record.number,
             date_of_hire: record.date_of_hire.into(),
             name_of_spouse: record.name_of_spouse.into(),
-            children: record
-                .children
-                .into_inner()
-                .into_iter()
-                .map(From::from)
-                .collect(),
+            children: SetOf::from_vec(
+                record
+                    .children
+                    .to_vec()
+                    .into_iter()
+                    .map(From::from)
+                    .collect(),
+            ),
         }
     }
 }
@@ -217,7 +219,7 @@ pub struct ExtensiblePersonnelRecord {
     #[rasn(tag(explicit(2)))]
     pub name_of_spouse: ExtensibleName,
     #[rasn(tag(3), default, size(2, extensible))]
-    pub children: Option<Vec<ExtensibleChildInformation>>,
+    pub children: Option<SetOf<ExtensibleChildInformation>>,
 }
 
 impl Default for ExtensiblePersonnelRecord {
@@ -228,15 +230,18 @@ impl Default for ExtensiblePersonnelRecord {
             number: ExtensibleEmployeeNumber(51.into()),
             date_of_hire: ExtensibleDate(VisibleString::try_from("19710917").unwrap()),
             name_of_spouse: Name::mary().into(),
-            children: Some(vec![
-                ChildInformation::ralph().into(),
-                ExtensibleChildInformation::susan(),
-            ]),
+            children: Some(
+                vec![
+                    ChildInformation::ralph().into(),
+                    ExtensibleChildInformation::susan(),
+                ]
+                .into(),
+            ),
         }
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, Hash)]
 #[rasn(set)]
 #[non_exhaustive]
 pub struct ExtensibleChildInformation {
@@ -247,7 +252,7 @@ pub struct ExtensibleChildInformation {
     sex: Option<Sex>,
 }
 
-#[derive(AsnType, Decode, Encode, Debug, Clone, Copy, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[rasn(enumerated)]
 pub enum Sex {
     Male = 1,
@@ -274,8 +279,17 @@ impl From<ChildInformation> for ExtensibleChildInformation {
         }
     }
 }
+impl From<&ChildInformation> for ExtensibleChildInformation {
+    fn from(info: &ChildInformation) -> Self {
+        Self {
+            name: info.name.clone().into(),
+            date_of_birth: info.date_of_birth.clone().into(),
+            sex: None,
+        }
+    }
+}
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, Hash)]
 #[rasn(set)]
 pub struct ChildInformationWithConstraints {
     name: NameWithConstraints,
@@ -291,8 +305,16 @@ impl From<ChildInformation> for ChildInformationWithConstraints {
         }
     }
 }
+impl From<&ChildInformation> for ChildInformationWithConstraints {
+    fn from(info: &ChildInformation) -> Self {
+        Self {
+            name: info.name.clone().into(),
+            date_of_birth: info.date_of_birth.clone().into(),
+        }
+    }
+}
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, Hash)]
 #[rasn(tag(application, 1))]
 #[non_exhaustive]
 pub struct ExtensibleName {
@@ -312,7 +334,7 @@ impl From<Name> for ExtensibleName {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, Hash)]
 #[rasn(tag(application, 1))]
 pub struct NameWithConstraints {
     pub given_name: NameString,
@@ -331,7 +353,7 @@ impl From<Name> for NameWithConstraints {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, Hash)]
 #[rasn(
     tag(application, 3),
     delegate,
@@ -346,7 +368,7 @@ impl From<Date> for ExtensibleDate {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, Hash)]
 #[rasn(tag(application, 3), delegate, from("0..=9"), size(8))]
 pub struct DateWithConstraints(pub VisibleString);
 
@@ -356,7 +378,7 @@ impl From<Date> for DateWithConstraints {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, Hash)]
 #[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64", extensible))]
 pub struct ExtensibleNameString(pub VisibleString);
 
@@ -366,7 +388,7 @@ impl From<VisibleString> for ExtensibleNameString {
     }
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+#[derive(AsnType, Decode, Encode, Debug, PartialEq, Eq, Hash)]
 #[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64"))]
 pub struct NameString(pub VisibleString);
 

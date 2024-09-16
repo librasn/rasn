@@ -1,6 +1,6 @@
 //! A module that contains `SET`, `SEQUENCE`, `SET OF` and `SEQUENCE OF` types.
 
-use core::hash::BuildHasher;
+use core::hash::{BuildHasher, Hash};
 use hashbrown::HashMap;
 
 /// A `SET` or `SEQUENCE` value.
@@ -38,118 +38,100 @@ pub trait Constructed {
 pub type SequenceOf<T> = alloc::vec::Vec<T>;
 
 /// The `SET OF` type - an unordered list of zero, one or more values of the component type.
-/// Works internally identical to a `Vec<T>`, but with a different name and order of the elements does not matter.
+/// Works internally like  `HashMap<T, usize>`, where the count of each element is tracked and used appropriately to represent an unordered list.
 #[derive(Debug, Clone)]
-pub struct SetOf<T>(alloc::vec::Vec<T>);
+pub struct SetOf<T> {
+    elements: HashMap<T, usize>,
+}
 
-impl<T> SetOf<T> {
-    /// Create a new empty `SetOf`.
+impl<T> SetOf<T>
+where
+    T: Eq + Hash,
+{
     pub fn new() -> Self {
-        Self(alloc::vec::Vec::new())
-    }
-    /// Create a new `SetOf` with capacity for `n` elements.
-    pub fn with_capacity(n: usize) -> Self {
-        Self(alloc::vec::Vec::with_capacity(n))
+        SetOf {
+            elements: HashMap::new(),
+        }
     }
     /// Create a new `SetOf` from a `Vec<T>`.
     pub fn from_vec(vec: alloc::vec::Vec<T>) -> Self {
-        Self(vec)
+        let mut elements = HashMap::with_capacity(vec.len());
+        for item in vec {
+            *elements.entry(item).or_insert(0) += 1;
+        }
+        Self { elements }
     }
-    /// Convert the `SetOf` into a `Vec<T>`.
-    pub fn to_vec(self) -> alloc::vec::Vec<T> {
-        self.0
+    /// Create a new `SetOf` with capacity for `n` elements.
+    pub fn with_capacity(n: usize) -> Self {
+        Self {
+            elements: HashMap::with_capacity(n),
+        }
     }
-    pub fn into_inner(self) -> alloc::vec::Vec<T> {
-        self.0
-    }
-}
-impl<T> core::ops::Deref for SetOf<T> {
-    type Target = alloc::vec::Vec<T>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl<T> core::ops::DerefMut for SetOf<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-impl<T> From<alloc::vec::Vec<T>> for SetOf<T> {
-    fn from(vec: alloc::vec::Vec<T>) -> Self {
-        Self(vec)
-    }
-}
-impl<T: Clone> From<&[T]> for SetOf<T> {
-    fn from(vec: &[T]) -> Self {
-        Self(vec.to_vec())
-    }
-}
 
-impl<T: Clone, const N: usize> From<[T; N]> for SetOf<T> {
-    fn from(array: [T; N]) -> Self {
-        Self(array.to_vec())
+    /// Insert an element into the set.
+    pub fn insert(&mut self, item: T) {
+        *self.elements.entry(item).or_insert(0) += 1;
     }
-}
 
-impl<T> Default for SetOf<T> {
-    fn default() -> Self {
-        Self::new()
+    /// Remove an element from the set.
+    pub fn remove(&mut self, item: &T) -> bool {
+        if let Some(count) = self.elements.get_mut(item) {
+            if *count > 1 {
+                *count -= 1;
+            } else {
+                self.elements.remove(item);
+            }
+            true
+        } else {
+            false
+        }
+    }
+    /// Check if the set contains an element.
+    pub fn contains(&self, item: &T) -> bool {
+        self.elements.contains_key(item)
+    }
+    /// Convert the set to a `Vec<&T>`. `&T` refers to the original element in the set.
+    pub fn to_vec(&self) -> alloc::vec::Vec<&T> {
+        let mut vec = alloc::vec::Vec::with_capacity(self.elements.values().sum());
+        for (item, count) in &self.elements {
+            for _ in 0..*count {
+                vec.push(item);
+            }
+        }
+        vec
     }
 }
 
 impl<T> PartialEq for SetOf<T>
 where
-    T: PartialEq + Eq + core::hash::Hash,
+    T: Eq + Hash,
 {
-    /// Compare two `SetOf` values for equality.
-    /// The order of elements in the `SetOf` does not matter.
     fn eq(&self, other: &Self) -> bool {
-        if self.len() != other.len() {
-            return false;
-        }
-        // Frequency count of elements in both sets
-        let self_counts =
-            self.0
-                .iter()
-                .fold(HashMap::with_capacity(self.len()), |mut acc, item| {
-                    *acc.entry(item).or_insert(0) += 1;
-                    acc
-                });
-
-        let other_counts =
-            other
-                .0
-                .iter()
-                .fold(HashMap::with_capacity(other.len()), |mut acc, item| {
-                    *acc.entry(item).or_insert(0) += 1;
-                    acc
-                });
-
-        self_counts == other_counts
+        self.elements == other.elements
     }
 }
-impl<T> Eq for SetOf<T> where T: Eq + core::hash::Hash {}
 
-impl<T: core::hash::Hash + Eq> core::hash::Hash for SetOf<T> {
+impl<T> PartialEq<HashMap<T, usize>> for SetOf<T>
+where
+    T: Eq + Hash,
+{
+    fn eq(&self, other: &HashMap<T, usize>) -> bool {
+        &self.elements == other
+    }
+}
+impl<T> Eq for SetOf<T> where T: Eq + Hash {}
+
+impl<T> Hash for SetOf<T>
+where
+    T: Eq + Hash,
+{
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        // We can't use unstable_sort/sort to calculate the hash for the unordered list.
-        // This is because we can't implement PartialOrd/Ord for T in `SetOf``, when the T uses itself as a subtype.
-
-        // We can hash the item and its count instead, and then combine the hashes to get equal hashes of unordered list.
-
-        // Count occurrences of each element
-        let mut element_counts = HashMap::with_capacity(self.0.len());
-        for item in &self.0 {
-            *element_counts.entry(item).or_insert(0u64) += 1;
-        }
-
         // Combine element hashes with counts and aggregate
         let mut combined_hash: u64 = 0;
-        for (item, count) in &element_counts {
-            let element_hasher = element_counts.hasher();
-            let item_hash = element_hasher.hash_one(item);
+        for (item, count) in &self.elements {
+            let item_hash = self.elements.hasher().hash_one(item);
             // Combine the element hash with its count
-            let combined_element_hash = item_hash.wrapping_mul(*count);
+            let combined_element_hash = item_hash.wrapping_mul(*count as u64);
             // Aggregate the combined element hashes using addition
             combined_hash = combined_hash.wrapping_add(combined_element_hash);
         }
@@ -159,12 +141,37 @@ impl<T: core::hash::Hash + Eq> core::hash::Hash for SetOf<T> {
     }
 }
 
+impl<T: Eq + Hash> From<alloc::vec::Vec<T>> for SetOf<T> {
+    fn from(vec: alloc::vec::Vec<T>) -> Self {
+        Self::from_vec(vec)
+    }
+}
+impl<T: Clone + Eq + Hash> From<&[T]> for SetOf<T> {
+    fn from(vec: &[T]) -> Self {
+        Self::from_vec(vec.to_vec())
+    }
+}
+
+impl<T: Clone + Eq + Hash, const N: usize> From<[T; N]> for SetOf<T> {
+    fn from(array: [T; N]) -> Self {
+        Self::from_vec(array.to_vec())
+    }
+}
+
+impl<T: Eq + Hash> Default for SetOf<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_set_of() {
+        use core::hash::BuildHasher;
+
         let int_set: SetOf<u8> = [1, 2, 3, 4, 5].into();
         let int_set_reversed: &SetOf<u8> = &[5, 4, 3, 2, 1].into();
         let int_set_diff: SetOf<u8> = [1, 2, 3, 4, 6].into();
@@ -172,14 +179,14 @@ mod tests {
         assert_ne!(int_set, int_set_diff);
 
         let mut set_a = SetOf::new();
-        set_a.push(1);
-        set_a.push(2);
-        set_a.push(3);
+        set_a.insert(1);
+        set_a.insert(2);
+        set_a.insert(3);
 
         let mut set_b = SetOf::new();
-        set_b.push(3);
-        set_b.push(2);
-        set_b.push(1);
+        set_b.insert(3);
+        set_b.insert(2);
+        set_b.insert(1);
 
         let set_c: SetOf<_> = alloc::vec![4, 5, 6].into();
 

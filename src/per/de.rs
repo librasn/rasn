@@ -827,7 +827,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         Ok(sequence_of)
     }
 
-    fn decode_set_of<D: Decode>(
+    fn decode_set_of<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
         constraints: Constraints,

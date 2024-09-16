@@ -79,18 +79,18 @@ mod tests {
                 ])),
                 values: {
                     let mut b = SetOf::new();
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(
                         rasn::der::encode(
                             &rasn::types::PrintableString::try_from("And me second".to_string())
                                 .unwrap(),
                         )
                         .unwrap(),
                     ));
-                    b.push(rasn::types::Any::new(rasn::der::encode(&false).unwrap()));
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(rasn::der::encode(&false).unwrap()));
+                    b.insert(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::Open::Null).unwrap(),
                     ));
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(
                         rasn::der::encode(
                             &rasn::types::VisibleString::try_from("Me first!").unwrap(),
                         )
@@ -129,7 +129,7 @@ mod tests {
                 ])),
                 values: {
                     let mut b = SetOf::new();
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(
                         // secp384r1 (SECG (Certicom) named elliptic curve)
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
                             Cow::from(vec![1, 3, 132, 0, 34]),
@@ -146,7 +146,7 @@ mod tests {
                 ])),
                 values: {
                     let mut b = SetOf::new();
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
                             Cow::from(vec![1, 3, 6, 1, 1, 1, 1, 22]),
                         ))
@@ -182,7 +182,7 @@ mod tests {
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![2, 999, 1])),
                 values: {
                     let mut b = SetOf::new();
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(
                         rasn::der::encode(
                             &rasn::types::PrintableString::try_from(
                                 "Parse SET as 2.999.1 data".to_string(),
@@ -202,19 +202,19 @@ mod tests {
                 r#type: rasn::types::ObjectIdentifier::new_unchecked(Cow::from(vec![2, 999, 2])),
                 values: {
                     let mut b = SetOf::new();
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
                             Cow::from(vec![2, 999, 3]),
                         ))
                         .unwrap(),
                     ));
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(
                         rasn::der::encode(&rasn::types::ObjectIdentifier::new_unchecked(
                             Cow::from(vec![2, 999, 4]),
                         ))
                         .unwrap(),
                     ));
-                    b.push(rasn::types::Any::new(
+                    b.insert(rasn::types::Any::new(
                         rasn::der::encode(
                             &rasn::types::PrintableString::try_from(
                                 "Parse SET as 2.999.2 data".to_string(),

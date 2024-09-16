@@ -622,7 +622,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_set_of<D: Decode>(
+    fn decode_set_of<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
         _: Constraints,
@@ -631,7 +631,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             let mut items = types::SetOf::new();
 
             while let Ok(item) = D::decode(decoder) {
-                items.push(item);
+                items.insert(item);
             }
 
             Ok(items)
