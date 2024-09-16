@@ -193,10 +193,14 @@ mod tests {
         assert_eq!(set_a, set_b);
         assert_ne!(set_a, set_c);
         let hasher = hashbrown::hash_map::DefaultHashBuilder::default();
-        let hashed_a = hasher.hash_one(set_a);
+        let hashed_a = hasher.hash_one(&set_a);
         let hashed_b = hasher.hash_one(set_b);
         let hashed_c = hasher.hash_one(set_c);
         assert_eq!(hashed_a, hashed_b);
         assert_ne!(hashed_a, hashed_c);
+        // Duplicate test
+        let set_d = SetOf::from_vec(alloc::vec![1, 1, 2, 2, 3, 3]);
+        assert_ne!(set_a, set_d);
+        assert_eq!(set_d.to_vec(), alloc::vec![&3, &3, &2, &2, &1, &1]);
     }
 }
