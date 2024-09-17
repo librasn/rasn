@@ -561,13 +561,14 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_set_of<E: Encode>(
+    fn encode_set_of<E: Encode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
         values: &types::SetOf<E>,
         _constraints: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
         let mut encoded_values = values
+            .to_vec()
             .iter()
             .map(|val| {
                 let mut sequence_encoder = Self::new(self.config);

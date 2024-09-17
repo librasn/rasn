@@ -16,7 +16,7 @@ pub type ArchiveCutoff = GeneralizedTime;
 pub type AcceptableResponses = SequenceOf<ObjectIdentifier>;
 
 /// The (optionally signed) OCSP request.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct OcspRequest {
     /// The body of the request.
     pub tbs_request: TbsRequest,
@@ -26,7 +26,7 @@ pub struct OcspRequest {
 }
 
 /// The body of the [OcspRequest].
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct TbsRequest {
     /// The version of the protocol.
     #[rasn(tag(explicit(0)), default)]
@@ -42,7 +42,7 @@ pub struct TbsRequest {
 }
 
 /// The signature for an [OcspRequest].
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct Signature {
     /// The algorithm used to sign the request.
     pub signature_algorithm: AlgorithmIdentifier,
@@ -122,7 +122,7 @@ pub struct ResponseBytes {
 }
 
 /// A Basic OCSP response.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct BasicOcspResponse {
     /// The response body.
     pub tbs_response_data: ResponseData,
@@ -140,7 +140,7 @@ pub struct BasicOcspResponse {
 }
 
 /// The body of [BasicOcspResponse].
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct ResponseData {
     #[rasn(tag(explicit(0)), default)]
     pub version: Version,
@@ -151,7 +151,7 @@ pub struct ResponseData {
     pub response_extensions: Option<Extensions>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum ResponderId {
     #[rasn(tag(explicit(1)))]
@@ -195,7 +195,7 @@ pub struct RevokedInfo {
     pub revocation_reason: Option<CrlReason>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct ServiceLocator {
     pub issuer: Name,
     pub locator: AuthorityInfoAccessSyntax,

@@ -13,6 +13,7 @@ pub mod constraints;
 pub mod fields;
 pub mod variants;
 
+pub(crate) mod constructed;
 pub(crate) mod date;
 pub(crate) mod integer;
 pub(crate) mod oid;
@@ -25,6 +26,7 @@ pub use {
     self::{
         any::Any,
         constraints::{Constraint, Constraints, Extensible, DEFAULT_CONSTRAINTS},
+        constructed::{Constructed, SequenceOf, SetOf},
         instance::InstanceOf,
         integer::{ConstrainedInteger, Integer, IntegerType},
         oid::{ObjectIdentifier, Oid},
@@ -40,8 +42,6 @@ pub use {
     rasn_derive::AsnType,
 };
 
-///  The `SET OF` type.
-pub type SetOf<T> = alloc::collections::BTreeSet<T>;
 ///  The `UniversalString` type.
 pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
 ///  The `UTCTime` type.
@@ -50,32 +50,6 @@ pub type UtcTime = chrono::DateTime<chrono::Utc>;
 pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
 /// The `Date` type.
 pub type Date = chrono::NaiveDate;
-
-///  The `SEQUENCE OF` type.
-/// ## Usage
-/// ASN1 declaration such as ...
-/// ```asn
-/// Test-type-a ::= SEQUENCE OF BOOLEAN
-/// Test-type-b ::= SEQUENCE OF INTEGER(1,...)
-/// ```
-/// ... can be represented using `rasn` as ...
-/// ```rust
-/// use rasn::prelude::*;
-///
-/// #[derive(AsnType, Decode, Encode)]
-/// #[rasn(delegate)]
-/// struct TestTypeA(pub SequenceOf<bool>);
-///
-/// // Constrained inner primitive types need to be wrapped in a helper newtype
-/// #[derive(AsnType, Decode, Encode)]
-/// #[rasn(delegate, value("1", extensible))]
-/// struct InnerTestTypeB(pub Integer);
-///
-/// #[derive(AsnType, Decode, Encode)]
-/// #[rasn(delegate)]
-/// struct TestTypeB(pub SequenceOf<InnerTestTypeB>);
-/// ```
-pub type SequenceOf<T> = alloc::vec::Vec<T>;
 
 /// A trait representing any type that can represented in ASN.1.
 pub trait AsnType {
@@ -95,14 +69,6 @@ pub trait AsnType {
     /// Identifier of an ASN.1 type as specified in the original specification
     /// if not identical with the identifier of `Self`
     const IDENTIFIER: Option<&'static str> = None;
-}
-
-/// A `SET` or `SEQUENCE` value.
-pub trait Constructed {
-    /// Fields contained in the "root component list".
-    const FIELDS: self::fields::Fields;
-    /// Fields contained in the list of extensions.
-    const EXTENDED_FIELDS: Option<self::fields::Fields> = None;
 }
 
 /// A `CHOICE` value.
@@ -322,7 +288,7 @@ impl<T: AsnType> AsnType for Option<T> {
     const TAG_TREE: TagTree = T::TAG_TREE;
 }
 
-impl<T> AsnType for alloc::collections::BTreeSet<T> {
+impl<T> AsnType for SetOf<T> {
     const TAG: Tag = Tag::SET;
 }
 

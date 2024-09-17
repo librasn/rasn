@@ -176,7 +176,7 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(|v| self.sequence_of_from_value(v), self.stack)
     }
 
-    fn decode_set_of<D: crate::Decode + Ord>(
+    fn decode_set_of<D: crate::Decode + Eq + core::hash::Hash>(
         &mut self,
         _t: Tag,
         _c: Constraints,
@@ -511,7 +511,7 @@ impl Decoder {
             .collect()
     }
 
-    fn set_of_from_value<D: Decode + Ord>(
+    fn set_of_from_value<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         value: Value,
     ) -> Result<SetOf<D>, DecodeError> {

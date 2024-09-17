@@ -29,14 +29,14 @@ pub const ENC_ATTRIBUTES: &Oid =
 pub const ROLE: &Oid = Oid::JOINT_ISO_ITU_T_DS_ATTRIBUTE_TYPE_ROLE;
 pub const CLEARANCE: &Oid = Oid::JOINT_ISO_ITU_T_DS_ATTRIBUTE_TYPE_CLEARANCE;
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct AttributeCertificate {
     pub info: AttributeCertificateInfo,
     pub signature_algorithm: AlgorithmIdentifier,
     pub signature_value: BitString,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct AttributeCertificateInfo {
     pub version: AttributeCertificateVersion,
     pub holder: Holder,
@@ -57,7 +57,7 @@ impl AttributeCertificateVersion {
     pub const V2: u8 = 1;
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct Holder {
     /// The issuer and serial number of the holder's public key certificate.
     #[rasn(tag(0))]
@@ -86,7 +86,7 @@ pub enum DisgestedObjectType {
     OtherObjectTypes = 2,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum Issuer {
     V1(GeneralNames),
@@ -94,7 +94,7 @@ pub enum Issuer {
     V2(V2Form),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct V2Form {
     pub issuer_name: Option<GeneralNames>,
     #[rasn(tag(0))]
@@ -103,20 +103,20 @@ pub struct V2Form {
     pub object_digest_info: Option<ObjectDigestInfo>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct IssuerSerial {
     pub issuer: GeneralNames,
     pub serial: CertificateSerialNumber,
     pub issuer_uid: Option<UniqueIdentifier>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct AttributeCertificateValidityPeriod {
     pub not_before: GeneralizedTime,
     pub not_after: GeneralizedTime,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum Target {
     #[rasn(tag(0))]
@@ -127,14 +127,14 @@ pub enum Target {
     Cert(TargetCert),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct TargetCert {
     pub target_certificate: IssuerSerial,
     pub target_name: Option<GeneralName>,
     pub cert_digest_info: Option<ObjectDigestInfo>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct IetfAttrSyntax {
     #[rasn(tag(0))]
     pub policy_authority: Option<GeneralNames>,
@@ -149,14 +149,14 @@ pub enum IetfAttrSyntaxValue {
     String(Utf8String),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct SvceAuthInfo {
     pub service: GeneralName,
     pub ident: GeneralName,
     pub auth_info: Option<OctetString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct RoleSyntax {
     #[rasn(tag(0))]
     role_authority: Option<GeneralNames>,
@@ -164,7 +164,7 @@ pub struct RoleSyntax {
     role_name: GeneralName,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct Clearance {
     policy_id: ObjectIdentifier,
     #[rasn(default = "ClassList::unclassified")]
@@ -225,7 +225,7 @@ fn true_bool() -> bool {
     true
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct AttributeCertificateClearAttributes {
     pub issuer: GeneralName,
     pub serial: Integer,

@@ -1059,13 +1059,13 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_set_of<E: Encode>(
+    fn encode_set_of<E: Encode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
         values: &types::SetOf<E>,
         constraints: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_sequence_of(tag, &values.iter().collect::<Vec<_>>(), constraints)
+        self.encode_sequence_of(tag, &values.to_vec(), constraints)
     }
 
     fn encode_explicit_prefix<V: Encode>(

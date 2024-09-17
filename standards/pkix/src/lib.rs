@@ -78,7 +78,7 @@ macro_rules! derefable {
 }
 
 /// An X.509 certificate
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct Certificate {
     /// Certificate information.
     pub tbs_certificate: TbsCertificate,
@@ -96,7 +96,7 @@ pub struct Certificate {
 
 /// Information associated with the subject of the certificate and the CA that
 /// issued it.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct TbsCertificate {
     /// The version of the encoded certificate.
     #[rasn(tag(explicit(0)), default)]
@@ -187,7 +187,7 @@ impl core::fmt::Display for Version {
 /// when validating certification paths.  Though widely used, there is no
 /// standard format for representing trust anchor information.  The RFC-5914
 /// document describes the TrustAnchorInfo structure.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct TrustAnchorInfo {
     /// version identifies the version of TrustAnchorInfo.  Defaults to 1.
     #[rasn(tag(explicit(1)), default)]
@@ -228,7 +228,7 @@ pub struct TrustAnchorInfo {
 
 /// CertPathControls provides the controls needed to initialize an X.509
 // certification path validation algorithm implementation
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct CertPathControls {
     /// taName provides the X.500 distinguished name associated with the
     /// trust anchor, and this distinguished name is used to construct and
@@ -277,7 +277,7 @@ pub struct CertPathControls {
 ///
 /// The taInfo option allows for use of the TrustAnchorInfo structure defined
 /// in RFC-5914.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum TrustAnchorChoice {
     Certificate(Certificate),
@@ -316,7 +316,7 @@ pub struct SubjectPublicKeyInfo {
 /// to multiple concurrent key pairs or due to changeover).  The identification
 /// MAY be based on either the key identifier (the subject key identifier in the
 /// issuer's certificate) or the issuer name and serial number.
-#[derive(AsnType, Default, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Default, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct AuthorityKeyIdentifier {
     #[rasn(tag(0))]
     pub key_identifier: Option<KeyIdentifier>,
@@ -336,7 +336,7 @@ pub struct Extension {
 }
 
 /// A signed list of revoked certificates.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct CertificateList {
     pub tbs_cert_list: TbsCertList,
     pub signature_algorithm: AlgorithmIdentifier,
@@ -344,7 +344,7 @@ pub struct CertificateList {
 }
 
 /// The list of revoked certificates along with associated metadata.
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct TbsCertList {
     /// The version of the list.
     pub version: Version,
@@ -384,7 +384,7 @@ pub struct AlgorithmIdentifier {
     pub parameters: Option<Any>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct OrAddress {
     pub built_in_standard_attributes: BuiltInStandardAttributes,
     pub built_in_domain_defined_attributes: Option<BuiltInDomainDefinedAttributes>,
@@ -483,12 +483,12 @@ derefable!(OrganisationalUnitName, PrintableString);
 pub struct Extensions(SequenceOf<Extension>);
 derefable!(Extensions, SequenceOf<Extension>);
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate, size("1.."))]
 pub struct RelativeDistinguishedName(SetOf<AttributeTypeAndValue>);
 derefable!(RelativeDistinguishedName, SetOf<AttributeTypeAndValue>);
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate, size("1..=256"))]
 pub struct ExtensionAttributes(SetOf<ExtensionAttribute>);
 derefable!(ExtensionAttributes, SetOf<ExtensionAttribute>);
@@ -592,7 +592,7 @@ pub struct PdsParameter {
     pub teletex_string: Option<TeletexString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum ExtendedNetworkAddress {
     E1634Address(E1634Address),
@@ -608,7 +608,7 @@ pub struct E1634Address {
     pub sub_address: Option<NumericString>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct PresentationAddress {
     #[rasn(tag(explicit(0)))]
     pub p_selector: Option<OctetString>,
@@ -632,13 +632,13 @@ pub struct TeletexDomainDefinedAttribute {
     pub value: TeletexString,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum Name {
     RdnSequence(RdnSequence),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialOrd, Ord, PartialEq, Eq, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct Attribute {
     pub r#type: AttributeType,
     pub values: SetOf<AttributeValue>,
@@ -689,7 +689,7 @@ pub struct PolicyMapping {
     pub subject_domain_policy: CertPolicyId,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum GeneralName {
     #[rasn(tag(0))]
@@ -915,7 +915,7 @@ pub struct BasicConstraints {
     pub path_len_constraint: Option<Integer>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct NameConstraints {
     #[rasn(tag(0))]
     pub permitted_subtrees: Option<GeneralSubtrees>,
@@ -923,7 +923,7 @@ pub struct NameConstraints {
     pub excluded_subtrees: Option<GeneralSubtrees>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct GeneralSubtree {
     pub base: GeneralName,
     #[rasn(tag(0), default)]
@@ -940,7 +940,7 @@ pub struct PolicyConstraints {
     pub inhibit_policy_mapping: Option<SkipCerts>,
 }
 
-#[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct DistributionPoint {
     #[rasn(tag(0))]
     pub distribution_point: Option<DistributionPointName>,
@@ -950,7 +950,7 @@ pub struct DistributionPoint {
     pub crl_issuer: Option<GeneralNames>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice)]
 pub enum DistributionPointName {
     #[rasn(tag(0))]
@@ -959,7 +959,7 @@ pub enum DistributionPointName {
     NameRelativeToCrlIssuer(RelativeDistinguishedName),
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct AccessDescription {
     pub access_method: ObjectIdentifier,
     pub access_location: GeneralName,
@@ -980,7 +980,7 @@ pub enum CrlReason {
     AaCompromise = 10,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct IssuingDistributionPoint {
     #[rasn(tag(0))]
     pub distribution_point: Option<DistributionPointName>,

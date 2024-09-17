@@ -91,7 +91,7 @@ mod tests {
         Test3 = -1,
     }
 
-    #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq, Ord, Eq, PartialOrd)]
+    #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq, Ord, Eq, PartialOrd, Hash)]
     #[rasn(automatic_tags, choice)]
     #[rasn(crate_root = "crate")]
     enum SimpleChoice {
@@ -274,15 +274,27 @@ mod tests {
     fn set_of() {
         round_trip_jer!(
             SetOf<SimpleChoice>,
-            alloc::vec![SimpleChoice::Test1(3)].into_iter().collect(),
+            SetOf::from_vec(alloc::vec![SimpleChoice::Test1(3)]),
             "[{\"Test1\":3}]"
         );
-        round_trip_jer!(
-            SetOf<u8>,
-            alloc::vec![1, 2, 3, 4, 5].into_iter().collect(),
-            "[1,2,3,4,5]"
-        );
-        round_trip_jer!(SetOf<bool>, alloc::vec![].into_iter().collect(), "[]");
+        // SetOf is not ordered, and does not maintain order, so we need to adapt a bit
+        let set = SetOf::from_vec(alloc::vec![1, 2, 3, 4, 5]);
+        let actual_encoding = crate::jer::encode(&set).unwrap();
+        let trimmed = actual_encoding
+            .trim_start_matches('[')
+            .trim_end_matches(']');
+
+        // Split the string by commas and sum the values
+        let sum = trimmed
+            .split(',')
+            .map(|num_str| num_str.trim().parse::<i32>())
+            .sum::<Result<i32, _>>()
+            .unwrap();
+        assert_eq!(sum, 15);
+        let decoded_value: SetOf<_> = crate::jer::decode(&actual_encoding).unwrap();
+
+        assert_eq!(set, decoded_value);
+        round_trip_jer!(SetOf<bool>, SetOf::from_vec(alloc::vec![]), "[]");
     }
 
     #[test]

@@ -622,7 +622,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         })
     }
 
-    fn decode_set_of<D: Decode + Ord>(
+    fn decode_set_of<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
         _: Constraints,
