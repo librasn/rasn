@@ -20,7 +20,7 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
 /// Returns `EncodeError` if `value` cannot be encoded as COER, usually meaning that constraints
 /// are not met.
 pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    let mut enc = Encoder::new(enc::EncoderOptions::coer());
+    let mut enc = Encoder::<0>::new(enc::EncoderOptions::coer(), core::mem::size_of::<T>());
     value.encode(&mut enc)?;
     Ok(enc.output())
 }
@@ -48,7 +48,7 @@ pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    let mut enc = Encoder::new(enc::EncoderOptions::coer());
+    let mut enc = Encoder::<0>::new(enc::EncoderOptions::coer(), core::mem::size_of::<T>());
     value.encode_with_constraints(&mut enc, constraints)?;
     Ok(enc.output())
 }
@@ -989,6 +989,45 @@ mod tests {
                 b: Some(true)
             },
             &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
+        );
+
+        #[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        pub struct ExtendedOptional {
+            pub value: Integer,
+            pub integer1: Option<Integer>,
+            pub octet1: Option<OctetString>,
+            pub integer2: Option<Integer>,
+            pub octet2: Option<OctetString>,
+            pub integer3: Option<Integer>,
+            pub octet3: Option<OctetString>,
+            #[rasn(extension_addition)]
+            pub integer4: Option<Integer>,
+            #[rasn(extension_addition)]
+            pub octet4: Option<OctetString>,
+            #[rasn(extension_addition)]
+            pub integer5: Option<Integer>,
+            #[rasn(extension_addition)]
+            pub octet5: Option<OctetString>,
+        }
+        round_trip!(
+            coer,
+            ExtendedOptional,
+            ExtendedOptional {
+                value: 1.into(),
+                integer1: Some(1_230_066_625_199_609_624u64.into()),
+                octet1: None,
+                integer2: None,
+                octet2: None,
+                integer3: Some(1.into()),
+                octet3: None,
+                integer4: None,
+                octet4: None,
+                integer5: None,
+                octet5: None
+            },
+            &[68, 1, 1, 8, 17, 18, 19, 20, 21, 22, 23, 24, 1, 1]
         );
     }
     #[test]

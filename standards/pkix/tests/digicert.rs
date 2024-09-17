@@ -1,6 +1,6 @@
 use chrono::TimeZone;
 use pretty_assertions::assert_eq;
-use rasn::types::*;
+use rasn::prelude::*;
 use rasn_pkix::*;
 
 #[test]
@@ -22,7 +22,7 @@ fn extensions() {
             _i: Integer,
         }
 
-        encoder.encode_sequence::<Sequence, _>(Tag::SEQUENCE, |encoder| {
+        encoder.encode_sequence::<2, Sequence, _>(Tag::SEQUENCE, |encoder| {
             encoder.encode_bool(Tag::BOOL, true)?;
             encoder.encode_integer::<u32>(Tag::INTEGER, Constraints::default(), &0u32)?;
             Ok(())
