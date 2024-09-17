@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0](https://github.com/librasn/rasn/compare/rasn-snmp-v0.17.3...rasn-snmp-v0.18.0) - 2024-09-17
+
+### Fixed
+
+- [**breaking**] Remove Tag and TagTree from module root
+
 ## [0.17.3](https://github.com/librasn/rasn/compare/rasn-snmp-v0.17.2...rasn-snmp-v0.17.3) - 2024-09-12
 
 ### Other

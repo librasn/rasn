@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0](https://github.com/librasn/rasn/compare/rasn-v0.17.3...rasn-v0.18.0) - 2024-09-17
+
+### Added
+
+- [**breaking**] Rework for SetOf type ([#325](https://github.com/librasn/rasn/pull/325))
+- Change LDAPString to be newtype wrapper around String ([#327](https://github.com/librasn/rasn/pull/327))
+- [**breaking**] Remove option_type ([#329](https://github.com/librasn/rasn/pull/329))
+- Constraint utilities, const default, more const functions ([#321](https://github.com/librasn/rasn/pull/321))
+
+### Fixed
+
+- macros: include license texts in the packaged crate ([#330](https://github.com/librasn/rasn/pull/330))
+- [**breaking**] Remove jer feature, jer is enabled by default
+- [**breaking**] Remove Tag and TagTree from module root
+- [**breaking**] Make codec module private
+
+### Other
+
+- fix version-pinned types url ([#326](https://github.com/librasn/rasn/pull/326))
+- Add basic optimizations for allocations in OER ([#323](https://github.com/librasn/rasn/pull/323))
+
 ## [0.17.3](https://github.com/librasn/rasn/compare/rasn-v0.17.2...rasn-v0.17.3) - 2024-09-12
 
 ### Other
