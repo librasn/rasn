@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0](https://github.com/librasn/rasn/compare/rasn-ldap-v0.17.3...rasn-ldap-v0.18.0) - 2024-09-17
+
+### Added
+
+- [**breaking**] Rework for SetOf type ([#325](https://github.com/librasn/rasn/pull/325))
+- Change LDAPString to be newtype wrapper around String ([#327](https://github.com/librasn/rasn/pull/327))
+
 ## [0.8.0](https://github.com/XAMPPRocky/rasn/compare/rasn-ldap-v0.7.0...rasn-ldap-v0.8.0) - 2023-07-11
 
 ### Other

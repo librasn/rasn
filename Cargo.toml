@@ -19,7 +19,7 @@ exclude = ["fuzzing"]
 [workspace.package]
 edition = "2021"
 license = "MIT/Apache-2.0"
-version = "0.17.3"
+version = "0.18.0"
 repository = "https://github.com/librasn/rasn.git"
 
 [workspace.dependencies]
@@ -67,7 +67,7 @@ num-traits = { version = "0.2.19", default-features = false }
 snafu = { version = "0.7.5", default-features = false, features = [] }
 bytes = { version = "1.7.1", default-features = false }
 bitvec.workspace = true
-rasn-derive = { version = "0.17", path = "macros", optional = true }
+rasn-derive = { version = "0.18", path = "macros", optional = true }
 chrono.workspace = true
 konst = { version = "0.3.9", default-features = false }
 nom-bitvec = { package = "bitvec-nom2", version = "0.2.1" }
