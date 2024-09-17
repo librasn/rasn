@@ -416,12 +416,6 @@ mod tests {
             ]),
             size_constraint!(1, 255)
         );
-        const PERMITTED_CONSTRAINT_2: Constraints =
-            Constraints::new(
-                &[Constraint::PermittedAlphabet(constraints::Extensible::new(
-                    PermittedAlphabet::new(&[b'a' as u32]),
-                ))],
-            );
         round_trip_with_constraints!(
             aper,
             VisibleString,

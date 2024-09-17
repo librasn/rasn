@@ -7,7 +7,6 @@ use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
     THIRTY_TWO_K,
 };
-pub use crate::error::DecodeError;
 use crate::{
     de::Error as _,
     types::{

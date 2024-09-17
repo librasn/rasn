@@ -41,7 +41,6 @@ mod tests {
     use crate::{
         macros::{constraints, permitted_alphabet_constraint, size_constraint},
         prelude::*,
-        size_constraint,
         types::{constraints::*, *},
     };
 
