@@ -65,7 +65,11 @@ impl crate::Encoder for Encoder {
 
     type Error = EncodeError;
 
-    fn encode_any(&mut self, t: Tag, value: &crate::types::Any) -> Result<Self::Ok, Self::Error> {
+    fn encode_any(
+        &mut self,
+        t: crate::types::Tag,
+        value: &crate::types::Any,
+    ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(t, Constraints::default(), &value.contents)
     }
 

@@ -1,69 +1,136 @@
 use super::IntegerType;
-use alloc::borrow::Cow;
 use num_bigint::BigInt;
 
+const SUPPORTED_CONSTRAINTS_COUNT: usize = 5;
 pub const DEFAULT_CONSTRAINTS: Constraints = Constraints::NONE;
 
 #[derive(Debug, Clone)]
-pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
+pub struct Constraints<'constraint>(pub &'constraint [Constraint]);
 
-impl<'r> Constraints<'r> {
-    pub const NONE: Self = Self(Cow::Borrowed(&[]));
+impl<'constraint> Constraints<'constraint> {
+    pub const NONE: Self = Self(&[]);
 
-    pub const fn new(constraints: &'r [Constraint]) -> Self {
-        Self(Cow::Borrowed(constraints))
+    pub const fn new(constraints: &'constraint [Constraint]) -> Self {
+        Self(constraints)
     }
+    pub const fn inner(&self) -> &'constraint [Constraint] {
+        self.0
+    }
+    /// We currently only support 5 different constraint types, which includes the empty constraint.
+    /// `usize` is used to drop the empty ones, which are needed to initialize the array.
+    pub const fn from_fixed_size(
+        merged: &'constraint ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize),
+    ) -> Self {
+        if merged.1 == 0 {
+            return Self::NONE;
+        }
+        struct ConstraintArray<'a, const N: usize>(&'a [Constraint; N]);
+
+        impl<'a, const N: usize> ConstraintArray<'a, N> {
+            const fn as_slice(&self) -> &'a [Constraint] {
+                self.0
+            }
+        }
+        let array = ConstraintArray(&merged.0);
+        Self::new(array.as_slice())
+    }
+
     pub const fn default() -> Self {
         Self::NONE
     }
 
-    /// Overrides a set of constraints with another set.
+    /// Merges a set of constraints with another set, if they don't exist.
+    /// This function should be only used on compile-time.
     #[inline(always)]
-    pub fn override_constraints(mut self, mut rhs: Constraints) -> Constraints {
+    pub const fn merge(self, rhs: Self) -> ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize) {
+        let rhs = rhs.0;
+        let mut array: [Constraint; SUPPORTED_CONSTRAINTS_COUNT] =
+            [Constraint::Empty; SUPPORTED_CONSTRAINTS_COUNT];
+
+        if rhs.len() > SUPPORTED_CONSTRAINTS_COUNT {
+            panic!("Overriding constraint is larger than we have different constraint types")
+        }
+
+        // Copy rhs first to the array
+        let mut copy_index = 0;
+        while copy_index < rhs.len() {
+            array[copy_index] = rhs[copy_index];
+            copy_index += 1;
+        }
+        let mut si = 0;
+        while si < self.0.len() {
+            let mut found = false;
+            let mut ri = 0;
+            while ri < rhs.len() {
+                if self.0[si].kind().eq(&rhs[ri].kind()) {
+                    found = true;
+                    break;
+                }
+                ri += 1;
+            }
+
+            if !found {
+                if copy_index >= SUPPORTED_CONSTRAINTS_COUNT {
+                    panic!("attempting to copy into greater index than we have different constraint types")
+                }
+                array[copy_index] = self.0[si];
+                copy_index += 1;
+            }
+
+            si += 1;
+        }
+
+        (array, copy_index)
+    }
+
+    pub const fn size(&self) -> Option<&Extensible<Size>> {
         let mut i = 0;
         while i < self.0.len() {
-            if !rhs.0.iter().any(|child| child.kind() == self.0[i].kind()) {
-                // No matching constraint in rhs, so move it
-                let parent = self.0.to_mut().swap_remove(i);
-                rhs.0.to_mut().push(parent);
-            } else {
-                i += 1;
+            if let Some(size) = self.0[i].to_size() {
+                return Some(size);
             }
+            i += 1;
         }
-        rhs
+        None
     }
 
-    pub fn size(&self) -> Option<&Extensible<Size>> {
-        self.0.iter().find_map(|constraint| constraint.to_size())
+    pub const fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
+        let mut i = 0;
+        while i < self.0.len() {
+            if let Some(alpha) = self.0[i].as_permitted_alphabet() {
+                return Some(alpha);
+            }
+            i += 1;
+        }
+        None
     }
 
-    pub fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
-        self.0
-            .iter()
-            .find_map(|constraint| constraint.as_permitted_alphabet())
+    pub const fn extensible(&self) -> bool {
+        let mut i = 0;
+        while i < self.0.len() {
+            if self.0[i].is_extensible() {
+                return true;
+            }
+            i += 1;
+        }
+        false
     }
 
-    pub fn extensible(&self) -> bool {
-        self.0.iter().any(|constraint| constraint.is_extensible())
-    }
-
-    pub fn value(&self) -> Option<&Extensible<Value>> {
-        self.0.iter().find_map(|constraint| constraint.to_value())
+    pub const fn value(&self) -> Option<&Extensible<Value>> {
+        let mut i = 0;
+        while i < self.0.len() {
+            if let Some(value) = self.0[i].as_value() {
+                return Some(value);
+            }
+            i += 1;
+        }
+        None
     }
 }
 
-impl<'r> From<&'r [Constraint]> for Constraints<'r> {
-    fn from(constraints: &'r [Constraint]) -> Self {
-        Self::new(constraints)
-    }
-}
-
-impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
-    fn from(constraints: &'r [Constraint; N]) -> Self {
-        Self::new(constraints)
-    }
-}
-
+/// A constraint that can be applied to a type.
+///
+/// Do not change the amount of variants in this enum without changing the `SUPPORTED_CONSTRAINTS_COUNT` constant.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Constraint {
     Value(Extensible<Value>),
@@ -72,14 +139,21 @@ pub enum Constraint {
     /// The value itself is extensible, only valid for constructed types,
     /// choices, or enumerated values.
     Extensible,
+    Empty,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy)]
 pub enum ConstraintDiscriminant {
     Value,
     Size,
     PermittedAlphabet,
     Extensible,
+    Empty,
+}
+impl ConstraintDiscriminant {
+    pub const fn eq(&self, other: &ConstraintDiscriminant) -> bool {
+        *self as isize == *other as isize
+    }
 }
 
 impl Constraint {
@@ -89,6 +163,19 @@ impl Constraint {
             Self::Size(_) => ConstraintDiscriminant::Size,
             Self::PermittedAlphabet(_) => ConstraintDiscriminant::PermittedAlphabet,
             Self::Extensible => ConstraintDiscriminant::Extensible,
+            Self::Empty => ConstraintDiscriminant::Empty,
+        }
+    }
+    pub const fn default() -> Self {
+        Self::Empty
+    }
+    pub const fn variant_as_isize(&self) -> isize {
+        match self {
+            Self::Value(_) => 0,
+            Self::Size(_) => 1,
+            Self::PermittedAlphabet(_) => 2,
+            Self::Extensible => 3,
+            Self::Empty => 4,
         }
     }
 
@@ -127,11 +214,12 @@ impl Constraint {
             Self::Size(size) => size.extensible.is_some(),
             Self::PermittedAlphabet(alphabet) => alphabet.extensible.is_some(),
             Self::Extensible => true,
+            Self::Empty => false,
         }
     }
 }
 
-#[derive(Debug, Copy, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct Extensible<T: 'static> {
     pub constraint: T,
     /// Whether the constraint is extensible, and if it is, a list of extensible
@@ -199,11 +287,29 @@ impl From<PermittedAlphabet> for Extensible<PermittedAlphabet> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Value(pub(crate) Bounded<i128>);
+pub struct Value {
+    /// Bound of the value
+    pub(crate) value: Bounded<i128>,
+    /// Sign of the bound, used for numeric values
+    pub(crate) signed: bool,
+    /// Range of the bound in bytes, used for numeric values
+    pub(crate) range: Option<u8>,
+}
 
 impl Value {
     pub const fn new(value: Bounded<i128>) -> Self {
-        Self(value)
+        let (signed, range) = value.range_in_bytes();
+        Self {
+            value,
+            signed,
+            range,
+        }
+    }
+    pub const fn get_sign(&self) -> bool {
+        self.signed
+    }
+    pub const fn get_range(&self) -> Option<u8> {
+        self.range
     }
 }
 
@@ -211,13 +317,7 @@ impl core::ops::Deref for Value {
     type Target = Bounded<i128>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl core::ops::DerefMut for Value {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &self.value
     }
 }
 
@@ -226,7 +326,7 @@ macro_rules! from_primitives {
         $(
             impl From<Bounded<$int>> for Value {
                 fn from(bounded: Bounded<$int>) -> Self {
-                    Self(match bounded {
+                    Self::new(match bounded {
                         Bounded::Range { start, end } => Bounded::Range {
                             start: start.map(From::from),
                             end: end.map(From::from),
@@ -249,7 +349,7 @@ impl TryFrom<Bounded<usize>> for Value {
     type Error = <i128 as TryFrom<usize>>::Error;
 
     fn try_from(bounded: Bounded<usize>) -> Result<Self, Self::Error> {
-        Ok(Self(match bounded {
+        Ok(Self::new(match bounded {
             Bounded::Range { start, end } => Bounded::Range {
                 start: start.map(TryFrom::try_from).transpose()?,
                 end: end.map(TryFrom::try_from).transpose()?,
@@ -302,7 +402,7 @@ impl core::ops::DerefMut for Size {
     }
 }
 
-#[derive(Clone, Debug, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PermittedAlphabet(&'static [u32]);
 
 impl PermittedAlphabet {
@@ -335,6 +435,24 @@ pub enum Bounded<T> {
 }
 
 impl<T> Bounded<T> {
+    /// Calculates the the amount of bytes that are required to represent integer `value`.
+    /// Particularly useful for OER codec
+    #[inline(always)]
+    const fn octet_size_by_range(value: i128) -> Option<u8> {
+        let abs_value = value.unsigned_abs();
+        Some(if abs_value <= u8::MAX as u128 {
+            1
+        } else if abs_value <= u16::MAX as u128 {
+            2
+        } else if abs_value <= u32::MAX as u128 {
+            4
+        } else if abs_value <= u64::MAX as u128 {
+            8
+        } else {
+            return None;
+        })
+    }
+
     pub const fn start_from(value: T) -> Self {
         Self::Range {
             start: Some(value),
@@ -493,6 +611,30 @@ impl From<Extensible<PermittedAlphabet>> for Constraint {
 }
 
 impl Bounded<i128> {
+    const fn max(&self, a: u128, b: u128) -> u128 {
+        [a, b][(a < b) as usize]
+    }
+    pub const fn range_in_bytes(&self) -> (bool, Option<u8>) {
+        match self {
+            Self::Single(value) => (*value < 0, Self::octet_size_by_range(*value)),
+            Self::Range {
+                start: Some(start),
+                end: Some(end),
+            } => {
+                let is_signed = *start < 0;
+                let end_abs = end.unsigned_abs();
+                let start_abs = start.unsigned_abs();
+                let max = self.max(start_abs, end_abs);
+                let octets = Self::octet_size_by_range(max as i128);
+                (is_signed, octets)
+            }
+            Self::Range {
+                start: Some(start),
+                end: None,
+            } => (*start < 0, None),
+            Self::Range { start: None, .. } | Self::None => (true, None),
+        }
+    }
     /// Returns `true` if the given element is within the bounds of the constraint.
     /// Constraint type is `i128` here, so we can make checks based on that.
     pub fn in_bound<I: IntegerType>(&self, element: &I) -> bool {
@@ -588,7 +730,6 @@ impl<T: core::fmt::Display> core::fmt::Display for Bounded<T> {
         }
     }
 }
-
 /// Helper macro to create constant value constraints.
 ///
 /// Usage:
@@ -770,10 +911,119 @@ macro_rules! bounded_constraint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate as rasn;
+    use crate::prelude::*;
 
     #[test]
     fn range() {
         let constraints = Bounded::new(0, 255);
         assert_eq!(256, constraints.range().unwrap());
     }
+    #[test]
+    fn test_merge_constraints() {
+        #[derive(AsnType, Decode, Debug, PartialEq)]
+        #[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64"))]
+        pub struct NameString(pub VisibleString);
+
+        #[derive(AsnType, Decode, Debug, PartialEq)]
+        #[rasn(tag(application, 1))]
+        pub struct InitialString {
+            #[rasn(size(1))]
+            pub initial: NameString,
+        }
+        const INNER: Constraint = rasn::types::Constraint::Size(
+            rasn::types::constraints::Extensible::new(rasn::types::constraints::Size::new(
+                rasn::types::constraints::Bounded::single_value(1i128 as usize),
+            ))
+            .set_extensible(false),
+        );
+        const LESS_INNER: Constraints = rasn::types::Constraints::new(&[INNER]);
+        dbg!(LESS_INNER);
+        dbg!(<NameString as rasn::AsnType>::CONSTRAINTS);
+        const MERGED: ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize) =
+            <NameString as rasn::AsnType>::CONSTRAINTS.merge(rasn::types::Constraints::new(&[
+                rasn::types::Constraint::Size(
+                    rasn::types::constraints::Extensible::new(rasn::types::constraints::Size::new(
+                        rasn::types::constraints::Bounded::single_value(1i128 as usize),
+                    ))
+                    .set_extensible(false),
+                ),
+            ]));
+        dbg!(MERGED);
+
+        const FIELD_CONSTRAINT_0: rasn::types::Constraints =
+            rasn::types::Constraints::from_fixed_size(
+                &<NameString as rasn::AsnType>::CONSTRAINTS.merge(rasn::types::Constraints::new(
+                    &[rasn::types::Constraint::Size(
+                        rasn::types::constraints::Extensible::new(
+                            rasn::types::constraints::Size::new(
+                                rasn::types::constraints::Bounded::single_value(1i128 as usize),
+                            ),
+                        )
+                        .set_extensible(false),
+                    )],
+                )),
+            );
+        dbg!(FIELD_CONSTRAINT_0);
+    }
+    // #[test]
+    // fn test_nested_extensible() {
+    //     #[derive(AsnType, Encode, Decode, Debug, PartialEq)]
+    //     #[rasn(tag(application, 2), delegate, value("0..=9999", extensible))]
+    //     pub struct ExtensibleEmployeeNumber(pub Integer);
+
+    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    //     #[rasn(
+    //         tag(application, 3),
+    //         delegate,
+    //         from("0..=9"),
+    //         size(8, extensible, "9..=20")
+    //     )]
+    //     pub struct ExtensibleDate(pub VisibleString);
+
+    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    //     #[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64", extensible))]
+    //     pub struct ExtensibleNameString(pub VisibleString);
+
+    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    //     #[rasn(tag(application, 1))]
+    //     #[non_exhaustive]
+    //     pub struct ExtensibleName {
+    //         pub given_name: ExtensibleNameString,
+    //         #[rasn(size(1))]
+    //         pub initial: ExtensibleNameString,
+    //         pub family_name: ExtensibleNameString,
+    //     }
+    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    //     #[rasn(set)]
+    //     #[non_exhaustive]
+    //     pub struct ExtensibleChildInformation {
+    //         name: ExtensibleName,
+    //         #[rasn(tag(explicit(0)))]
+    //         date_of_birth: ExtensibleDate,
+    //     }
+
+    //     #[derive(AsnType, Encode, Decode, Debug, PartialEq)]
+    //     #[rasn(set, tag(application, 0))]
+    //     #[non_exhaustive]
+    //     pub struct ExtensiblePersonnelRecord {
+    //         pub name: ExtensibleName,
+    //         #[rasn(tag(explicit(0)))]
+    //         pub title: VisibleString,
+    //         pub number: ExtensibleEmployeeNumber,
+    //         #[rasn(tag(explicit(1)))]
+    //         pub date_of_hire: ExtensibleDate,
+    //         #[rasn(tag(explicit(2)))]
+    //         pub name_of_spouse: ExtensibleName,
+    //         #[rasn(tag(3), default, size(2, extensible))]
+    //         pub children: Option<Vec<ExtensibleChildInformation>>,
+    //     }
+    // #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    // #[rasn(set)]
+    // #[non_exhaustive]
+    // pub struct ExtensibleTest {
+    //     name: ExtensibleName,
+    //     #[rasn(tag(1), size(1, extensible))]
+    //     record: ExtensiblePersonnelRecord,
+    // }
 }
