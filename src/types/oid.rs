@@ -177,7 +177,7 @@ impl ObjectIdentifier {
     /// Creates a new object identifier from `vec`.
     ///
     /// Returns `None` if `vec` contains less than two components or the first
-    /// component is greater than 1.
+    /// component is greater than 2.
     pub fn new(arcs: impl Into<alloc::borrow::Cow<'static, [u32]>>) -> Option<Self> {
         let arcs = arcs.into();
         is_valid_oid(&arcs).then_some(Self(arcs))
