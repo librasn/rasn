@@ -252,7 +252,7 @@ impl<'input> Decoder<'input> {
     ) -> Result<I, DecodeError> {
         // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
-            ranges::determine_integer_size_and_sign(&value, self.input, |_, sign, octets| {
+            ranges::determine_integer_size_and_sign(value, self.input, |_, sign, octets| {
                 let integer = self.decode_integer_from_bytes::<I>(sign, octets.map(usize::from))?;
                 // if the value is too large for a i128, the constraint isn't satisfied
                 if let Some(constraint_integer) = integer.to_i128() {

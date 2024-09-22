@@ -149,7 +149,7 @@ impl<'input> Decoder<'input> {
         is_large_string: bool,
         mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<()> {
-        let extensible_is_present = self.parse_extensible_bit(&constraints)?;
+        let extensible_is_present = self.parse_extensible_bit(constraints)?;
         let constraints = constraints.size().filter(|_| !extensible_is_present);
         let input =
             self.decode_string_length(self.input, constraints, is_large_string, &mut decode_fn)?;

@@ -386,7 +386,7 @@ pub(crate) fn is_option_type(ty: &syn::Type) -> bool {
     }
 }
 
-pub(crate) fn map_to_inner_type<'ty>(ty: &'ty syn::Type) -> Option<&'ty syn::Type> {
+pub(crate) fn map_to_inner_type(ty: &syn::Type) -> Option<&syn::Type> {
     match ty {
         syn::Type::Path(path) => path
             .path

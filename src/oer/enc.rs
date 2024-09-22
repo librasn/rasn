@@ -322,7 +322,7 @@ impl<'a> Encoder<'a> {
                 ));
             }
             ranges::determine_integer_size_and_sign(
-                &value,
+                value,
                 value_to_enc,
                 |value_to_enc, sign, octets| -> Result<(), EncodeError> {
                     if let Some(octets) = octets {
