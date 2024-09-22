@@ -1,18 +1,24 @@
+//! Constraints of values on a given type.
+
 use super::IntegerType;
 use alloc::borrow::Cow;
 use num_bigint::BigInt;
 
-pub const DEFAULT_CONSTRAINTS: Constraints = Constraints::NONE;
-
+/// A set of constraints for a given type on what kinds of values are allowed.
+/// Used in certain codecs to optimise encoding and decoding values.
 #[derive(Debug, Clone)]
 pub struct Constraints<'constraint>(pub Cow<'constraint, [Constraint]>);
 
 impl<'r> Constraints<'r> {
+    /// No constraints on a given type.
     pub const NONE: Self = Self(Cow::Borrowed(&[]));
 
+    /// Creates a set of constraints from a set of values.
     pub const fn new(constraints: &'r [Constraint]) -> Self {
         Self(Cow::Borrowed(constraints))
     }
+
+    /// A const variant of the default function.
     pub const fn default() -> Self {
         Self::NONE
     }
@@ -33,20 +39,24 @@ impl<'r> Constraints<'r> {
         rhs
     }
 
+    /// Returns the size constraint from the set, if available.
     pub fn size(&self) -> Option<&Extensible<Size>> {
         self.0.iter().find_map(|constraint| constraint.to_size())
     }
 
+    /// Returns the permitted alphabet constraint from the set, if available.
     pub fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
         self.0
             .iter()
             .find_map(|constraint| constraint.as_permitted_alphabet())
     }
 
+    /// Returns whether any of the constraints are extensible.
     pub fn extensible(&self) -> bool {
         self.0.iter().any(|constraint| constraint.is_extensible())
     }
 
+    /// Returns the value constraint from the set, if available.
     pub fn value(&self) -> Option<&Extensible<Value>> {
         self.0.iter().find_map(|constraint| constraint.to_value())
     }
@@ -64,17 +74,23 @@ impl<'r, const N: usize> From<&'r [Constraint; N]> for Constraints<'r> {
     }
 }
 
+/// The set of possible constraints a given value can have.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Constraint {
+    /// A set of possible values which the type can be.
     Value(Extensible<Value>),
+    /// The amount of possible values the type can have.
     Size(Extensible<Size>),
+    /// The set of possible characters the type can have.
     PermittedAlphabet(Extensible<PermittedAlphabet>),
     /// The value itself is extensible, only valid for constructed types,
     /// choices, or enumerated values.
     Extensible,
 }
 
+/// The discriminant of [Constraint] values.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[allow(missing_docs)]
 pub enum ConstraintDiscriminant {
     Value,
     Size,
@@ -83,6 +99,7 @@ pub enum ConstraintDiscriminant {
 }
 
 impl Constraint {
+    /// Returns the discriminant of the value.
     pub const fn kind(&self) -> ConstraintDiscriminant {
         match self {
             Self::Value(_) => ConstraintDiscriminant::Value,
@@ -92,6 +109,7 @@ impl Constraint {
         }
     }
 
+    /// Returns the value constraint, if set.
     pub const fn as_value(&self) -> Option<&Extensible<Value>> {
         match self {
             Self::Value(integer) => Some(integer),
@@ -99,6 +117,7 @@ impl Constraint {
         }
     }
 
+    /// Returns the permitted alphabet constraint, if set.
     pub const fn as_permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
         match self {
             Self::PermittedAlphabet(alphabet) => Some(alphabet),
@@ -106,6 +125,7 @@ impl Constraint {
         }
     }
 
+    /// Returns the size constraint, if set.
     pub const fn to_size(&self) -> Option<&Extensible<Size>> {
         match self {
             Self::Size(size) => Some(size),
@@ -113,6 +133,7 @@ impl Constraint {
         }
     }
 
+    /// Returns the value constraint, if set.
     pub const fn to_value(&self) -> Option<&Extensible<Value>> {
         match self {
             Self::Value(integer) => Some(integer),
@@ -131,8 +152,12 @@ impl Constraint {
     }
 }
 
+/// A wrapper around [Constraint] covering whether the constraint is "extensible"
+/// meaning that it can have values outside of its constraints, and what possible
+/// constraints thosevalues in the extended set can have, if any.
 #[derive(Debug, Copy, Default, Clone, PartialEq)]
 pub struct Extensible<T: 'static> {
+    /// The underlying constraint type.
     pub constraint: T,
     /// Whether the constraint is extensible, and if it is, a list of extensible
     /// constraints.
@@ -140,6 +165,8 @@ pub struct Extensible<T: 'static> {
 }
 
 impl<T> Extensible<T> {
+    /// Creates a new wrapper around a given constraint, by default this means
+    /// that the underlying constraint is not extensible.
     pub const fn new(constraint: T) -> Self {
         Self {
             constraint,
@@ -147,6 +174,8 @@ impl<T> Extensible<T> {
         }
     }
 
+    /// Creates a new extensible constraint with a given set of constraints
+    /// on the extended values.
     pub const fn new_extensible(constraint: T, constraints: &'static [T]) -> Self {
         Self {
             constraint,
@@ -154,6 +183,8 @@ impl<T> Extensible<T> {
         }
     }
 
+    /// Sets the constraint to be extensible with no constraints on extended
+    /// values.
     pub const fn set_extensible(self, extensible: bool) -> Self {
         let extensible = if extensible {
             let empty: &[T] = &[];
@@ -165,6 +196,8 @@ impl<T> Extensible<T> {
         self.extensible_with_constraints(extensible)
     }
 
+    /// Sets the constraint to either not be extended or extensible with a set
+    /// of constraints.
     pub const fn extensible_with_constraints(mut self, constraints: Option<&'static [T]>) -> Self {
         self.extensible = constraints;
         self
@@ -198,10 +231,12 @@ impl From<PermittedAlphabet> for Extensible<PermittedAlphabet> {
     }
 }
 
+/// A single or range of numeric values a type can be.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Value(pub(crate) Bounded<i128>);
 
 impl Value {
+    /// Creates a new value constraint from a given bound.
     pub const fn new(value: Bounded<i128>) -> Self {
         Self(value)
     }
@@ -260,6 +295,7 @@ impl TryFrom<Bounded<usize>> for Value {
     }
 }
 
+/// A single or range of length values a type can have.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Size(pub(crate) Bounded<usize>);
 
@@ -302,14 +338,17 @@ impl core::ops::DerefMut for Size {
     }
 }
 
+/// A range of alphabet characters a type can have.
 #[derive(Clone, Debug, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PermittedAlphabet(&'static [u32]);
 
 impl PermittedAlphabet {
+    /// Creates a new constraint from a given range.
     pub const fn new(range: &'static [u32]) -> Self {
         Self(range)
     }
 
+    /// Returns the range of allowed possible values.
     pub const fn as_inner(&self) -> &'static [u32] {
         self.0
     }
@@ -323,18 +362,25 @@ impl core::ops::Deref for PermittedAlphabet {
     }
 }
 
+/// A set of potential bounded values.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Bounded<T> {
+    /// No bounds on a given type.
     #[default]
     None,
+    /// A single value is permitted for a given type.
     Single(T),
+    /// the range of values permitted for a given type.
     Range {
+        /// The lower bound of the range, if any.
         start: Option<T>,
+        /// The upper bound of the range, if any.
         end: Option<T>,
     },
 }
 
 impl<T> Bounded<T> {
+    /// Creates a bounded range that starts from value and has no end.
     pub const fn start_from(value: T) -> Self {
         Self::Range {
             start: Some(value),
@@ -342,6 +388,7 @@ impl<T> Bounded<T> {
         }
     }
 
+    /// Creates a bounded range that ends at value and has no defined start.
     pub const fn up_to(value: T) -> Self {
         Self::Range {
             start: None,
@@ -349,6 +396,12 @@ impl<T> Bounded<T> {
         }
     }
 
+    /// Creates new bound from a single value.
+    pub const fn single_value(value: T) -> Self {
+        Self::Single(value)
+    }
+
+    /// Returns the lower bound of a given range, if any.
     pub const fn as_start(&self) -> Option<&T> {
         match &self {
             Self::Range { start, .. } => start.as_ref(),
@@ -357,6 +410,7 @@ impl<T> Bounded<T> {
         }
     }
 
+    /// Returns the upper bound of a given range, if any.
     pub const fn as_end(&self) -> Option<&T> {
         match &self {
             Self::Range { end, .. } => end.as_ref(),
@@ -365,6 +419,7 @@ impl<T> Bounded<T> {
         }
     }
 
+    /// Returns the bounds of a given range, if any.
     pub const fn start_and_end(&self) -> (Option<&T>, Option<&T>) {
         match &self {
             Self::Range { start, end } => (start.as_ref(), end.as_ref()),
@@ -372,25 +427,13 @@ impl<T> Bounded<T> {
             _ => (None, None),
         }
     }
-
-    pub const fn single_value(value: T) -> Self {
-        Self::Single(value)
-    }
 }
 
 impl<T: Copy + IntegerType> Bounded<T> {
-    pub const fn as_minimum(&self) -> Option<&T> {
-        match self {
-            Self::Single(value) => Some(value),
-            Self::Range {
-                start: Some(start), ..
-            } => Some(start),
-            _ => None,
-        }
-    }
-
+    /// Assuming T is an integer, returns the minimum possible bound, or zero
+    /// if not present.
     pub const fn minimum(&self) -> T {
-        match self.as_minimum() {
+        match self.as_start() {
             Some(value) => *value,
             None => T::ZERO,
         }
@@ -400,6 +443,7 @@ impl<T: Copy + IntegerType> Bounded<T> {
 impl<T: num_traits::WrappingSub<Output = T> + num_traits::SaturatingAdd<Output = T> + From<u8>>
     Bounded<T>
 {
+    /// Returns the number representing the difference between the lower and upper bound.
     pub fn range(&self) -> Option<T> {
         match self {
             Self::Single(_) => Some(T::from(1u8)),
@@ -551,6 +595,7 @@ impl<T: PartialEq + PartialOrd> Bounded<T> {
         }
     }
 
+    /// Returns whether a given element is contained within a bound.
     pub fn contains(&self, element: &T) -> bool {
         match &self {
             Self::Single(value) => value == element,
@@ -562,10 +607,14 @@ impl<T: PartialEq + PartialOrd> Bounded<T> {
         }
     }
 
+    /// Returns whether a given element is contained within a bound, returning
+    /// an error if not.
     pub fn contains_or<E>(&self, element: &T, error: E) -> Result<(), E> {
         self.contains_or_else(element, || error)
     }
 
+    /// Returns whether a given element is contained within a bound, returning
+    /// an error if not.
     pub fn contains_or_else<E>(&self, element: &T, error: impl FnOnce() -> E) -> Result<(), E> {
         match self.contains(element) {
             true => Ok(()),

@@ -11,10 +11,15 @@ static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox:
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl NumericString {
+    /// Attempts to convert the provided bytes into [Self].
+    ///
+    /// # Errors
+    /// If any of the provided bytes does not match the allowed character set.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
         Ok(Self(Self::try_from_slice(bytes)?))
     }
 
+    /// Provides a slice of bytes representing the current value.
     #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.0

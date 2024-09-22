@@ -1,4 +1,4 @@
-//! # Encoding JER.
+//! Encoding Rust structures into JSON Encoding Rules data.
 
 use alloc::string::ToString;
 
@@ -11,6 +11,7 @@ use crate::{
     types::{fields::Fields, variants, Constraints, IntegerType, Tag},
 };
 
+/// Encodes Rust structures into JSON Encoding Rules data.
 pub struct Encoder {
     stack: alloc::vec::Vec<&'static str>,
     constructed_stack: alloc::vec::Vec<ValueMap>,
@@ -24,6 +25,7 @@ impl Default for Encoder {
 }
 
 impl Encoder {
+    /// Creates new default encoder.
     pub fn new() -> Self {
         Self {
             stack: alloc::vec![],
@@ -32,13 +34,15 @@ impl Encoder {
         }
     }
 
-    pub fn root_value(self) -> Result<Value, EncodeError> {
+    /// Returns the complete encoded JSON value, consuming the encoder.
+    pub fn to_json(self) -> Result<Value, EncodeError> {
         Ok(self
             .root_value
             .ok_or(JerEncodeErrorKind::NoRootValueFound)?)
     }
 
-    pub fn to_json(self) -> alloc::string::String {
+    /// Returns the complete encoded JSON value formatted to a string, consuming the encoder.
+    pub fn to_string(self) -> alloc::string::String {
         self.root_value.map_or(<_>::default(), |v| v.to_string())
     }
 
@@ -333,12 +337,8 @@ impl crate::Encoder for Encoder {
             alloc::vec![],
             |mut acc, v| {
                 let mut item_encoder = Self::new();
-                v.encode(&mut item_encoder).and(
-                    item_encoder
-                        .root_value()
-                        .map(|rv| acc.push(rv))
-                        .map(|_| acc),
-                )
+                v.encode(&mut item_encoder)
+                    .and(item_encoder.to_json().map(|rv| acc.push(rv)).map(|_| acc))
             },
         )?))
     }
@@ -361,12 +361,8 @@ impl crate::Encoder for Encoder {
             alloc::vec![],
             |mut acc, v| {
                 let mut item_encoder = Self::new();
-                v.encode(&mut item_encoder).and(
-                    item_encoder
-                        .root_value()
-                        .map(|rv| acc.push(rv))
-                        .map(|_| acc),
-                )
+                v.encode(&mut item_encoder)
+                    .and(item_encoder.to_json().map(|rv| acc.push(rv)).map(|_| acc))
             },
         )?))
     }

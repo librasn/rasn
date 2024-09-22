@@ -23,6 +23,7 @@ impl PrintableString {
         Ok(Self(Self::try_from_slice(bytes)?))
     }
 
+    /// Returns a slice of bytes representing the current string value.
     #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.0

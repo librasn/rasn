@@ -1,3 +1,5 @@
+//! Encoding Rust structures into Packed Encoding Rules data.
+
 use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
 use hashbrown::HashMap;
 
@@ -21,8 +23,9 @@ use crate::{
 };
 
 pub use crate::error::EncodeError as Error;
-pub type Result<T, E = Error> = core::result::Result<T, E>;
+type Result<T, E = Error> = core::result::Result<T, E>;
 
+/// Options for configuring the [`Encoder`].
 #[derive(Debug, Clone, Copy, Default)]
 pub struct EncoderOptions {
     aligned: bool,
@@ -30,6 +33,7 @@ pub struct EncoderOptions {
 }
 
 impl EncoderOptions {
+    /// Returns the default encoder options for Aligned Packed Encoding Rules.
     #[must_use]
     pub fn aligned() -> Self {
         Self {
@@ -38,6 +42,7 @@ impl EncoderOptions {
         }
     }
 
+    /// Returns the default encoder options for Unaligned Packed Encoding Rules.
     #[must_use]
     pub fn unaligned() -> Self {
         Self {
@@ -61,6 +66,7 @@ impl EncoderOptions {
     }
 }
 
+/// Encodes Rust data structures into Canonical Packed Encoding Rules (CPER) data.
 #[derive(Debug)]
 pub struct Encoder {
     options: EncoderOptions,
@@ -75,6 +81,7 @@ pub struct Encoder {
 }
 
 impl Encoder {
+    /// Constructs a new encoder from the provided options.
     pub fn new(options: EncoderOptions) -> Self {
         Self {
             options,
@@ -121,20 +128,22 @@ impl Encoder {
         encoder
     }
 
+    /// Returns the octet aligned output for the encoder.
     pub fn output(self) -> Vec<u8> {
         let mut output = self.bitstring_output();
         Self::force_pad_to_alignment(&mut output);
         output.as_raw_slice().to_vec()
     }
 
-    pub fn bitstring_output(self) -> BitString {
+    /// Returns the bit level output for the encoder.
+    fn bitstring_output(self) -> BitString {
         self.options
             .set_encoding
             .then(|| self.set_output.values().flatten().collect::<BitString>())
             .unwrap_or(self.output)
     }
 
-    pub fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
+    fn set_bit(&mut self, tag: Tag, bit: bool) -> Result<()> {
         // In set encoding, field index does not matter
         // Tags need to be unique
         if self.options.set_encoding {
@@ -611,7 +620,7 @@ impl Encoder {
             })?;
         } else if 0 == size.constraint.effective_value(value.len()).into_inner() {
             // NO-OP
-        } else if size.constraint.range() == Some(1) && size.constraint.as_minimum() <= Some(&2) {
+        } else if size.constraint.range() == Some(1) && size.constraint.as_start() <= Some(&2) {
             // ITU-T X.691 (02/2021) §17 NOTE: Octet strings of fixed length less than or equal to two octets are not octet-aligned.
             // All other octet strings are octet-aligned in the ALIGNED variant.
             self.encode_length(buffer, value.len(), Some(size), |range| {
@@ -812,7 +821,7 @@ impl crate::Encoder for Encoder {
         } else if size.and_then(|size| size.constraint.range()) == Some(0) {
             // NO-OP
         } else if size.map_or(false, |size| {
-            size.constraint.range() == Some(1) && size.constraint.as_minimum() <= Some(&16)
+            size.constraint.range() == Some(1) && size.constraint.as_start() <= Some(&16)
         }) {
             // ITU-T X.691 (02/2021) §16: Bitstrings constrained to a fixed length less than or equal to 16 bits
             // do not cause octet alignment. Larger bitstrings are octet-aligned in the ALIGNED variant.
@@ -1275,7 +1284,7 @@ impl crate::Encoder for Encoder {
 }
 
 #[derive(Debug)]
-pub enum Input<'input> {
+enum Input<'input> {
     Bit(bool),
     Byte(u8),
     Bits(&'input BitString),

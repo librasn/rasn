@@ -1,3 +1,5 @@
+//! Decoding Packed Encoding Rules data into Rust structures.
+
 use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
 
@@ -19,10 +21,11 @@ use crate::{
 };
 
 pub use crate::error::DecodeError;
-pub type Result<T, E = DecodeError> = core::result::Result<T, E>;
+type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
+/// Options for configuring the [`Decoder`].
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
     #[allow(unused)]
@@ -30,13 +33,16 @@ pub struct DecoderOptions {
 }
 
 impl DecoderOptions {
+    /// Returns the default decoding rules options for Aligned Packed Encoding Rules.
     pub fn aligned() -> Self {
         Self { aligned: true }
     }
 
+    /// Returns the default decoding rules options for unaligned Packed Encoding Rules.
     pub fn unaligned() -> Self {
         Self { aligned: false }
     }
+
     #[must_use]
     fn current_codec(self) -> crate::Codec {
         if self.aligned {
@@ -47,6 +53,7 @@ impl DecoderOptions {
     }
 }
 
+/// Decodes Packed Encoding Rules (PER) data into Rust data structures.
 pub struct Decoder<'input> {
     input: InputSlice<'input>,
     options: DecoderOptions,
@@ -58,9 +65,12 @@ pub struct Decoder<'input> {
 }
 
 impl<'input> Decoder<'input> {
+    /// Returns the currently selected codec.
     pub fn codec(&self) -> crate::Codec {
         self.options.current_codec()
     }
+
+    /// Creates a new Decoder from the given input and options.
     pub fn new(input: &'input crate::types::BitStr, options: DecoderOptions) -> Self {
         Self {
             input: input.into(),
@@ -240,7 +250,7 @@ impl<'input> Decoder<'input> {
         }
     }
 
-    pub fn decode_string_length(
+    fn decode_string_length(
         &mut self,
         mut input: InputSlice<'input>,
         constraints: Option<&Extensible<constraints::Size>>,
@@ -294,7 +304,7 @@ impl<'input> Decoder<'input> {
         }
     }
 
-    pub fn decode_length(
+    fn decode_length(
         &mut self,
         mut input: InputSlice<'input>,
         constraints: Option<&Extensible<constraints::Size>>,

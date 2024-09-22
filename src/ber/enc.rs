@@ -1,4 +1,4 @@
-//! # Encoding BER.
+//! Encoding Rust structures into Basic Encoding Rules data.
 
 mod config;
 
@@ -22,7 +22,7 @@ pub use config::EncoderOptions;
 const START_OF_CONTENTS: u8 = 0x80;
 const END_OF_CONTENTS: &[u8] = &[0, 0];
 
-/// A BER and variants encoder. Capable of encoding to BER, CER, and DER.
+/// Encodes Rust structures into Basic Encoding Rules data.
 pub struct Encoder {
     output: Vec<u8>,
     config: EncoderOptions,
@@ -47,6 +47,8 @@ impl Encoder {
             set_buffer: <_>::default(),
         }
     }
+
+    /// Returns the currently selected codec.
     #[must_use]
     pub fn codec(&self) -> crate::Codec {
         self.config.current_codec()

@@ -25,7 +25,7 @@ use alloc::boxed::Box;
 pub use {
     self::{
         any::Any,
-        constraints::{Constraint, Constraints, Extensible, DEFAULT_CONSTRAINTS},
+        constraints::{Constraint, Constraints, Extensible},
         constructed::{Constructed, SequenceOf, SetOf},
         instance::InstanceOf,
         integer::{ConstrainedInteger, Integer, IntegerType},
@@ -64,6 +64,7 @@ pub trait AsnType {
     /// `Leaf` that points [`Self::TAG`].
     const TAG_TREE: TagTree = TagTree::Leaf(Self::TAG);
 
+    /// The set of constraints for values of the given type.
     const CONSTRAINTS: Constraints<'static> = Constraints::NONE;
 
     /// Identifier of an ASN.1 type as specified in the original specification

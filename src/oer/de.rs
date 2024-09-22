@@ -1,3 +1,5 @@
+//! Decoding Octet Encoding Rules data into Rust structures.
+
 // ITU-T X.696 (02/2021) version of OER decoding
 // In OER, without knowledge of the type of the value encoded, it is not possible to determine
 // the structure of the encoding. In particular, the end of the encoding cannot be determined from
@@ -10,7 +12,7 @@ use alloc::{
 };
 
 use crate::{
-    oer::ranges,
+    oer::{ranges, EncodingRules},
     types::{
         self,
         fields::{Field, Fields},
@@ -20,8 +22,6 @@ use crate::{
     },
     Codec, Decode,
 };
-
-use super::enc::EncodingRules;
 
 use bitvec::field::BitField;
 use nom::{AsBytes, Slice};
@@ -37,23 +37,29 @@ use crate::error::{CoerDecodeErrorKind, DecodeError, DecodeErrorKind, OerDecodeE
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
+/// Options for configuring the [`Decoder`].
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
     encoding_rules: EncodingRules, // default COER
 }
+
 impl DecoderOptions {
+    /// Returns the default decoding rules options for [EncodingRules::Oer].
     #[must_use]
     pub const fn oer() -> Self {
         Self {
             encoding_rules: EncodingRules::Oer,
         }
     }
+
+    /// Returns the default decoding rules options for [EncodingRules::Coer].
     #[must_use]
     pub const fn coer() -> Self {
         Self {
             encoding_rules: EncodingRules::Coer,
         }
     }
+
     #[must_use]
     fn current_codec(self) -> Codec {
         match self.encoding_rules {
@@ -63,6 +69,7 @@ impl DecoderOptions {
     }
 }
 
+/// Decodes Octet Encoding Rules (OER) data into Rust data structures.
 pub struct Decoder<'input> {
     input: InputSlice<'input>,
     options: DecoderOptions,
@@ -72,6 +79,7 @@ pub struct Decoder<'input> {
 }
 
 impl<'input> Decoder<'input> {
+    /// Creates a new Decoder from the given input and options.
     #[must_use]
     pub fn new(input: &'input crate::types::BitStr, options: DecoderOptions) -> Self {
         Self {
@@ -82,16 +90,19 @@ impl<'input> Decoder<'input> {
             extensions_present: <_>::default(),
         }
     }
+
     #[must_use]
     fn codec(&self) -> Codec {
         self.options.current_codec()
     }
+
     fn parse_one_bit(&mut self) -> Result<bool, DecodeError> {
         let (input, boolean) = nom::bytes::streaming::take(1u8)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
         Ok(boolean[0])
     }
+
     fn parse_one_byte(&mut self) -> Result<u8, DecodeError> {
         let (input, byte) = nom::bytes::streaming::take(8u8)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
@@ -99,6 +110,7 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(byte.as_bytes()[0])
     }
+
     fn drop_preamble_bits(&mut self, num: usize) -> Result<(), DecodeError> {
         let (input, bits) = nom::bytes::streaming::take(num)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
@@ -111,6 +123,7 @@ impl<'input> Decoder<'input> {
             ))
         }
     }
+
     fn parse_tag(&mut self) -> Result<Tag, DecodeError> {
         // Seems like tag number
         use crate::types::Class;
@@ -148,6 +161,7 @@ impl<'input> Decoder<'input> {
             Ok(Tag::new(class, u32::from(tag_number)))
         }
     }
+
     /// There is a short form and long form for length determinant in OER encoding.
     /// In short form one octet is used and the leftmost bit is always zero; length is less than 128
     /// Max length for data type could be 2^1016 - 1 octets, however on this implementation it is limited to `usize::MAX`
@@ -199,6 +213,7 @@ impl<'input> Decoder<'input> {
             }
         }
     }
+
     /// Extracts data from input by length and updates the input
     /// Since we rely on memory and `BitSlice`, we cannot handle larger data length than `0x1fff_ffff_ffff_ffff`
     /// 'length' is the length of the data in bytes (octets)
@@ -219,6 +234,7 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(data)
     }
+
     fn decode_integer_from_bytes<I: crate::types::IntegerType>(
         &mut self,
         signed: bool,
@@ -246,6 +262,7 @@ impl<'input> Decoder<'input> {
             Ok(I::try_from_unsigned_bytes(data.as_bytes(), codec)?)
         }
     }
+
     fn decode_integer_with_constraints<I: crate::types::IntegerType>(
         &mut self,
         constraints: &Constraints,
@@ -278,6 +295,7 @@ impl<'input> Decoder<'input> {
             self.decode_integer_from_bytes::<I>(true, None)
         }
     }
+
     fn parse_bit_string(&mut self, constraints: &Constraints) -> Result<BitString, DecodeError> {
         if let Some(size) = constraints.size() {
             // Fixed size, only data is included
@@ -329,6 +347,7 @@ impl<'input> Decoder<'input> {
             .slice(..(data_bit_length - num_unused_bits as usize));
         Ok(BitString::from_bitslice(data.into()))
     }
+
     fn parse_known_multiplier_string<
         T: crate::types::strings::StaticPermittedAlphabet
             + crate::types::AsnType
@@ -351,6 +370,7 @@ impl<'input> Decoder<'input> {
         T::try_from(self.extract_data_by_length(length)?.as_bytes().to_vec())
             .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
+
     fn parse_optional_and_default_field_bitmap(
         &mut self,
         fields: &Fields,
@@ -362,6 +382,7 @@ impl<'input> Decoder<'input> {
         self.input = input;
         Ok(bitset)
     }
+
     #[track_caller]
     fn require_field(&mut self, tag: Tag) -> Result<bool, DecodeError> {
         if self
@@ -378,6 +399,7 @@ impl<'input> Decoder<'input> {
             ))
         }
     }
+
     fn extension_is_present(&mut self) -> Result<Option<(Field, bool)>, DecodeError> {
         let codec = self.codec();
         Ok(self
@@ -388,6 +410,7 @@ impl<'input> Decoder<'input> {
             .ok_or_else(|| DecodeError::type_not_extensible(codec))?
             .pop_front())
     }
+
     fn parse_extension_header(&mut self) -> Result<bool, DecodeError> {
         match self.extensions_present {
             Some(Some(_)) => return Ok(true),
@@ -435,6 +458,7 @@ impl<'input> Decoder<'input> {
 
         Ok(true)
     }
+
     /// Parse preamble, returns field bitmap and if extensible is present
     fn parse_preamble<D>(&mut self) -> Result<(InputSlice, bool), DecodeError>
     where
@@ -465,6 +489,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn codec(&self) -> Codec {
         self.codec()
     }
+
     fn decode_any(&mut self) -> Result<Any, Self::Error> {
         panic!("Not every type can be decoded as Any in OER.")
     }
@@ -476,6 +501,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     ) -> Result<BitString, Self::Error> {
         self.parse_bit_string(&constraints)
     }
+
     /// One octet is used to present bool, false is 0x0 and true is value up to 0xff
     /// In COER, only 0x0 and 0xff are valid values
     fn decode_bool(&mut self, _: Tag) -> Result<bool, Self::Error> {

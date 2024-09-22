@@ -7,18 +7,20 @@ use num_traits::{CheckedAdd, CheckedSub};
 
 /// `Integer`` enum is variable-sized non-constrained integer type which uses `isize` for lower values to optimize performance.
 #[derive(Debug, Clone, Ord, PartialOrd)]
+#[allow(missing_docs)]
 pub enum Integer {
     Primitive(isize),
     Variable(Box<BigInt>),
 }
 
 impl Integer {
+    /// Represents `0`.
     pub const ZERO: Self = Self::Primitive(0);
 }
 
 impl Default for Integer {
     fn default() -> Self {
-        Self::Primitive(isize::default())
+        Self::ZERO
     }
 }
 
@@ -375,6 +377,8 @@ impl<T: Into<Integer>, const START: i128, const END: i128> From<T>
     }
 }
 
+/// Represents a integer type in Rust that can be decoded or encoded into any
+/// ASN.1 codec.
 pub trait IntegerType:
     Sized
     + Clone
@@ -396,8 +400,11 @@ pub trait IntegerType:
     + core::cmp::PartialEq
     + num_traits::ToPrimitive
 {
+    /// The bit level width of the integer (e.g. u32 is 32 bits).
     const WIDTH: u32;
+    /// The byte level width of the integer(e.g. u32 is 4 bytes).
     const BYTE_WIDTH: usize = Self::WIDTH as usize / 8;
+    /// Represents `0` in a given integer.
     const ZERO: Self;
     /// `Self` as an unsigned type with the same width.
     type UnsignedPair: IntegerType;
@@ -405,14 +412,26 @@ pub trait IntegerType:
     /// Truncation would happen if unsigned type is converted to signed bytes with the same size.
     type SignedPair: IntegerType;
 
+    /// Attempts to convert the input data matching the given codec into [Self].
+    ///
+    /// # Errors
+    /// If the data doesn't represent a valid integer in the given codec.
     fn try_from_bytes(input: &[u8], codec: crate::Codec)
         -> Result<Self, crate::error::DecodeError>;
 
+    /// Attempts to convert the input data (assuming signed bytes) matching the given codec into [Self].
+    ///
+    /// # Errors
+    /// If the data doesn't represent a valid integer in the given codec.
     fn try_from_signed_bytes(
         input: &[u8],
         codec: crate::Codec,
     ) -> Result<Self, crate::error::DecodeError>;
 
+    /// Attempts to convert the input data (assuming unsigned bytes) matching the given codec into [Self].
+    ///
+    /// # Errors
+    /// If the data doesn't represent a valid integer in the given codec.
     fn try_from_unsigned_bytes(
         input: &[u8],
         codec: crate::Codec,

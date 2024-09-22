@@ -18,7 +18,7 @@ pub fn encode<T: crate::Encode>(
 ) -> Result<alloc::string::String, crate::error::EncodeError> {
     let mut encoder = enc::Encoder::new();
     value.encode(&mut encoder)?;
-    Ok(encoder.to_json())
+    Ok(encoder.to_string())
 }
 
 #[cfg(test)]

@@ -192,10 +192,12 @@ pub enum TagTree {
 }
 
 impl TagTree {
+    /// Returns an empty tree.
     pub const fn empty() -> Self {
         Self::Choice(&[])
     }
 
+    /// Returns the tag with the smallest possible value from the tree.
     pub const fn smallest_tag(&self) -> Tag {
         match self {
             Self::Leaf(tag) => *tag,

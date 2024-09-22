@@ -9,6 +9,7 @@ use alloc::{boxed::Box, string::ToString};
 /// Variants for every codec-specific `EncodeError` kind.
 #[derive(Debug)]
 #[non_exhaustive]
+#[allow(missing_docs)]
 pub enum CodecEncodeError {
     Ber(BerEncodeErrorKind),
     Cer(CerEncodeErrorKind),
@@ -100,11 +101,15 @@ impl From<CodecEncodeError> for EncodeError {
 #[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct EncodeError {
+    /// The inner encoding error.
     pub kind: Box<EncodeErrorKind>,
+    /// The codec associated with the error.
     pub codec: crate::Codec,
+    /// The backtrace for the given error.
     #[cfg(feature = "backtraces")]
     pub backtrace: Backtrace,
 }
+
 impl core::fmt::Display for EncodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Error Kind: {}", self.kind)?;
@@ -115,6 +120,7 @@ impl core::fmt::Display for EncodeError {
         Ok(())
     }
 }
+
 impl EncodeError {
     #[must_use]
     pub fn alphabet_constraint_not_satisfied(
@@ -126,6 +132,7 @@ impl EncodeError {
             codec,
         )
     }
+
     #[must_use]
     pub fn size_constraint_not_satisfied(
         size: usize,
@@ -140,6 +147,7 @@ impl EncodeError {
             codec,
         )
     }
+
     #[must_use]
     pub fn value_constraint_not_satisfied(
         value: BigInt,
@@ -154,6 +162,7 @@ impl EncodeError {
             codec,
         )
     }
+
     pub fn check_length(length: usize, expected: &Size, codec: crate::Codec) -> Result<(), Self> {
         expected.contains_or_else(&length, || Self {
             kind: Box::new(EncodeErrorKind::InvalidLength {
@@ -165,27 +174,33 @@ impl EncodeError {
             backtrace: Backtrace::generate(),
         })
     }
+
     #[must_use]
     pub fn length_exceeds_platform_size(codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::LengthExceedsPlatformSize, codec)
     }
+
     /// An error for failed conversion from `BitInt` or `BigUint` to primitive integer types
     #[must_use]
     pub fn integer_type_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::IntegerTypeConversionFailed { msg }, codec)
     }
+
     #[must_use]
     pub fn invalid_length(length: usize, expected: Bounded<usize>, codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::InvalidLength { length, expected }, codec)
     }
+
     #[must_use]
     pub fn opaque_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::OpaqueConversionFailed { msg }, codec)
     }
+
     #[must_use]
     pub fn variant_not_in_choice(codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::VariantNotInChoice, codec)
     }
+
     #[must_use]
     pub fn from_kind(kind: EncodeErrorKind, codec: crate::Codec) -> Self {
         Self {
@@ -195,6 +210,7 @@ impl EncodeError {
             backtrace: Backtrace::generate(),
         }
     }
+
     #[must_use]
     fn from_codec_kind(inner: CodecEncodeError) -> Self {
         let codec = match inner {

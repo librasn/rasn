@@ -1,12 +1,15 @@
 //! Codec for Octet Encoding Rules (OER).
 //! Encodes in canonical format (COER), and decodes in more versatile format (OER).
+
+mod ranges;
+
 pub mod de;
 pub mod enc;
-mod ranges;
 
 pub use self::{de::Decoder, enc::Encoder};
 use crate::error::{DecodeError, EncodeError};
 use crate::types::Constraints;
+
 /// Attempts to decode `T` from `input` using OER.
 ///
 /// # Errors
@@ -56,6 +59,35 @@ pub fn encode_with_constraints<T: crate::Encode>(
     let mut enc = Encoder::new(enc::EncoderOptions::coer());
     value.encode_with_constraints(&mut enc, constraints)?;
     Ok(enc.output())
+}
+
+/// Represents all possible variants of the OER codec.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EncodingRules {
+    /// Basic Octet Encoding Rules.
+    ///
+    /// This is the base variant of OER that all other variants superset.
+    Oer,
+    /// Canonical Octet Encoding Rules.
+    ///
+    /// This is a superset of [Self::Oer] that includes additional restrictions
+    /// to ensure that encoded values are always canonical (A given value
+    /// always produces the same encoding).
+    Coer,
+}
+
+impl EncodingRules {
+    /// Returns whether the current variant matches [Self::Coer].
+    #[must_use]
+    pub fn is_coer(self) -> bool {
+        matches!(self, Self::Coer)
+    }
+
+    /// Returns whether the current variant matches [Self::Oer].
+    #[must_use]
+    pub fn is_oer(self) -> bool {
+        matches!(self, Self::Oer)
+    }
 }
 
 #[cfg(test)]

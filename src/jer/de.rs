@@ -1,4 +1,4 @@
-//! # Decoding JER
+//! Decoding JSON Encoding Rules data into Rust structures.
 
 use serde_json::Value;
 
@@ -18,11 +18,13 @@ macro_rules! decode_jer_value {
     };
 }
 
+/// Decodes JSON Encoding Rules data into Rust structures.
 pub struct Decoder {
     stack: alloc::vec::Vec<Value>,
 }
 
 impl Decoder {
+    /// Creates new default decoder from the given input.
     pub fn new(input: &str) -> Result<Self, <Decoder as crate::de::Decoder>::Error> {
         let root = serde_json::from_str(input).map_err(|e| {
             DecodeError::parser_fail(

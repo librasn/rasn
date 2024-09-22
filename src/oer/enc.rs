@@ -1,3 +1,5 @@
+//! Encoding Rust structures into Octet Encoding Rules data.
+
 use alloc::{borrow::Cow, vec::Vec};
 use bitvec::prelude::*;
 use core::cell::RefCell;
@@ -5,7 +7,7 @@ use hashbrown::HashMap;
 use num_traits::ToPrimitive;
 
 use crate::{
-    oer::ranges,
+    oer::{ranges, EncodingRules},
     types::{
         fields::FieldPresence, Any, BitStr, BitString, BmpString, Choice, Constraints, Constructed,
         Date, Enumerated, GeneralString, GeneralizedTime, Ia5String, IntegerType, NumericString,
@@ -19,6 +21,7 @@ use crate::{
 /// Basic-OER is not supported and it might be that never will.
 use crate::error::{CoerEncodeErrorKind, EncodeError, EncodeErrorKind};
 
+/// The current supported edition of the ITU X.696 standard.
 pub const ITU_T_X696_OER_EDITION: f32 = 3.0;
 
 /// Options for configuring the [`Encoder`].
@@ -29,8 +32,7 @@ pub struct EncoderOptions {
 }
 
 impl EncoderOptions {
-    // Return the default configuration for COER.
-    // We reserve the possibility to use OER in the future by using the rules.
+    /// Returns the default encoding rules options for [EncodingRules::Coer].
     #[must_use]
     pub const fn coer() -> Self {
         Self {
@@ -50,34 +52,14 @@ impl EncoderOptions {
         }
     }
 }
+
 impl Default for EncoderOptions {
     fn default() -> Self {
         Self::coer()
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum EncodingRules {
-    Oer,
-    Coer,
-}
 
-impl EncodingRules {
-    #[must_use]
-    pub fn is_coer(self) -> bool {
-        matches!(self, Self::Coer)
-    }
-    #[must_use]
-    pub fn is_oer(self) -> bool {
-        matches!(self, Self::Oer)
-    }
-}
-impl Default for Encoder<'_> {
-    fn default() -> Self {
-        Self::new(EncoderOptions::coer())
-    }
-}
-
-/// COER encoder. A subset of OER to provide canonical and unique encoding.
+/// Encodes Rust data structures into Canonical Octet Encoding Rules (COER) data.
 #[derive(Debug)]
 pub struct Encoder<'a> {
     options: EncoderOptions,
@@ -90,6 +72,7 @@ pub struct Encoder<'a> {
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
 }
+
 // ITU-T X.696 8.2.1 Only the following constraints are OER-visible:
 // a) non-extensible single value constraints and value range constraints on integer types;
 // b) non-extensible single value constraints on real types where the single value is either plus zero or minus zero or
@@ -107,6 +90,7 @@ pub struct Encoder<'a> {
 // Tags are encoded only as part of the encoding of a choice type, where the tag indicates
 // which alternative of the choice type is the chosen alternative (see 20.1).
 impl<'a> Encoder<'a> {
+    /// Constructs a new encoder with its own buffer from the provided options.
     #[must_use]
     pub fn new(options: EncoderOptions) -> Self {
         Self {
@@ -120,6 +104,8 @@ impl<'a> Encoder<'a> {
             parent_output_length: <_>::default(),
         }
     }
+
+    /// Constructs a new encoder from options that borrows the buffer from output.
     pub fn from_buffer(options: EncoderOptions, output: &'a RefCell<Vec<u8>>) -> Self {
         Self {
             options,
@@ -132,14 +118,17 @@ impl<'a> Encoder<'a> {
             parent_output_length: <_>::default(),
         }
     }
+
     fn codec(&self) -> Codec {
         self.options.current_codec()
     }
 
+    /// Takes and returns the current output buffer, clearing the internal storage.
     #[must_use]
     pub fn output(&self) -> Vec<u8> {
         core::mem::take(&mut *self.output.borrow_mut())
     }
+
     fn collect_set(&self) {
         self.output.borrow_mut().append(
             self.set_output
@@ -150,7 +139,8 @@ impl<'a> Encoder<'a> {
                 .as_mut(),
         )
     }
-    pub fn set_bit(&mut self, tag: Tag, bit: bool) {
+
+    fn set_bit(&mut self, tag: Tag, bit: bool) {
         // In set encoding, field index does not matter
         // Tags need to be unique
         if self.options.set_encoding {
@@ -435,6 +425,7 @@ impl<'a> Encoder<'a> {
         }
         output_length
     }
+
     fn new_set_encoder<C: Constructed>(&self) -> Self {
         let mut options = self.options;
         options.set_encoding = true;
@@ -463,6 +454,7 @@ impl<'a> Encoder<'a> {
         encoder.parent_output_length = Some(self.output_length());
         encoder
     }
+
     fn encode_constructed<C: Constructed>(
         &mut self,
         tag: Tag,
@@ -544,6 +536,12 @@ impl<'a> Encoder<'a> {
         }
         self.extend(tag)?;
         Ok(())
+    }
+}
+
+impl Default for Encoder<'_> {
+    fn default() -> Self {
+        Self::new(EncoderOptions::coer())
     }
 }
 

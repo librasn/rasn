@@ -266,6 +266,7 @@ macro_rules! oids {
     ($($name:ident => $($num:literal),+ $(,)?);+ $(;)?) => {
         impl Oid {
             $(
+                #[allow(missing_docs)]
                 pub const $name: &'static Oid = Oid::const_new(&[$($num),+]);
             )+
         }

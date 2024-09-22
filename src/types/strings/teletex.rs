@@ -15,6 +15,11 @@ impl TeletexString {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.iter().flat_map(|ch| ch.to_be_bytes()).collect()
     }
+
+    /// Attempts to convert the provided bytes into [Self].
+    ///
+    /// # Errors
+    /// If any of the provided bytes does not match the allowed character set.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
         Ok(Self(Self::try_from_slice(bytes)?))
     }

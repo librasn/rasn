@@ -48,11 +48,13 @@ impl<T> SetOf<T>
 where
     T: Eq + Hash,
 {
+    /// Construct a new empty set of value.
     pub fn new() -> Self {
         SetOf {
             elements: HashMap::new(),
         }
     }
+
     /// Create a new `SetOf` from a `Vec<T>`.
     pub fn from_vec(vec: alloc::vec::Vec<T>) -> Self {
         let mut elements = HashMap::with_capacity(vec.len());
@@ -61,6 +63,7 @@ where
         }
         Self { elements }
     }
+
     /// Create a new `SetOf` with capacity for `n` elements.
     pub fn with_capacity(n: usize) -> Self {
         Self {
@@ -72,6 +75,7 @@ where
     pub fn insert(&mut self, item: T) {
         *self.elements.entry(item).or_insert(0) += 1;
     }
+
     /// Get the number of elements in the set.
     pub fn len(&self) -> usize {
         let mut len = 0;
@@ -82,6 +86,8 @@ where
         }
         len
     }
+
+    /// Returns whether the given value doesn't contain any elements.
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty()
     }
@@ -99,10 +105,12 @@ where
             false
         }
     }
+
     /// Check if the set contains an element.
     pub fn contains(&self, item: &T) -> bool {
         self.elements.contains_key(item)
     }
+
     /// Convert the set to a `Vec<&T>`. `&T` refers to the original element in the set.
     pub fn to_vec(&self) -> alloc::vec::Vec<&T> {
         let mut vec = alloc::vec::Vec::with_capacity(self.elements.values().sum());
