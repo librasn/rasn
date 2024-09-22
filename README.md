@@ -415,6 +415,8 @@ struct TestTypeC(pub Integer);
 
 </td>
 </tr>
+
+<tr>
 <td>Extensible value constraint</td>
 <td>
 
@@ -440,6 +442,7 @@ struct TestTypeB(pub Integer);
 
 </td>
 </tr>
+
 <tr>
 <td>ENUMERATED type</td>
 <td>

@@ -21,7 +21,7 @@ use crate::error::{CoerEncodeErrorKind, EncodeError, EncodeErrorKind};
 
 pub const ITU_T_X696_OER_EDITION: f32 = 3.0;
 
-/// Options for configuring the [`Encoder`][super::Encoder].
+/// Options for configuring the [`Encoder`].
 #[derive(Clone, Copy, Debug)]
 pub struct EncoderOptions {
     encoding_rules: EncodingRules,

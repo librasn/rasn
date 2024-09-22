@@ -437,7 +437,7 @@ impl<T> Bounded<T>
 where
     T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + PartialOrd<T>,
 {
-    /// The same as [`effective_value`] except using [`crate::types::Integer<I>`].
+    /// The same as [`Self::effective_value`] except using [`crate::types::Integer<I>`].
     pub fn effective_integer_value<I>(self, value: I) -> either::Either<I, I>
     where
         I: IntegerType + core::ops::Sub<Output = I>,
