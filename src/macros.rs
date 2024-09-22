@@ -12,17 +12,17 @@ pub mod test;
 /// Helper macro to create constant value constraints.
 ///
 /// Usage:
-// ```rust
+/// ```rust
 /// use rasn::{types::Constraint, macros::*};
 /// // Full range
 /// const FULL_RANGE: Constraint = value_constraint!(0, 100);
-/// const FULL_RANGE_EXTEND: Constraint = value_constraint!(0, 100, true);
+/// const FULL_RANGE_EXTEND: Constraint = value_constraint!(0, 100, extensible);
 /// const START_ONLY: Constraint = value_constraint!(start: 42);
-/// const START_ONLY_EXTENDED: Constraint = value_constraint!(start: 42, true);
+/// const START_ONLY_EXTENDED: Constraint = value_constraint!(start: 42, extensible);
 /// const END_ONLY: Constraint = value_constraint!(end: 42);
 /// const SINGLE: Constraint = value_constraint!(42);
-/// const EXT_SINGLE: Constraint = value_constraint!(42, true);
-///```
+/// const EXT_SINGLE: Constraint = value_constraint!(42, extensible);
+/// ```
 #[macro_export]
 macro_rules! value_constraint {
     ($($args:tt)*) => {
@@ -33,17 +33,17 @@ macro_rules! value_constraint {
 /// Helper macro to create constant size constraints.
 ///
 /// Usage:
-// ```rust
+/// ```rust
 /// use rasn::{types::Constraint, macros::*};
 /// // Full range
 /// const RANGE: Constraint = size_constraint!(0, 100);
-/// const RANGE_EXTEND: Constraint = size_constraint!(0, 100, true);
+/// const RANGE_EXTEND: Constraint = size_constraint!(0, 100, extensible);
 /// const START_ONLY: Constraint = size_constraint!(start: 42);
-/// const START_ONLY_EXTENDED: Constraint = size_constraint!(start: 42, true);
+/// const START_ONLY_EXTENDED: Constraint = size_constraint!(start: 42, extensible);
 /// const END_ONLY: Constraint = size_constraint!(end: 42);
 /// const FIXED: Constraint = size_constraint!(42);
-/// const EXT_FIXED: Constraint = size_constraint!(42, true);
-///```
+/// const EXT_FIXED: Constraint = size_constraint!(42, extensible);
+/// ```
 #[macro_export]
 macro_rules! size_constraint {
     ($($args:tt)*) => {
@@ -94,6 +94,54 @@ macro_rules! permitted_alphabet_constraint {
 #[doc(hidden)]
 #[macro_export]
 macro_rules! bounded_constraint {
+    // Single value with extensibility
+    ($constraint_type:ident, $single:expr, extensible) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::Single($single),
+                ),
+            )
+            .set_extensible(true),
+        )
+    };
+
+    // Range with extensibility
+    ($constraint_type:ident, $start:expr, $end:expr, extensible) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::const_new($start, $end),
+                ),
+            )
+            .set_extensible(true),
+        )
+    };
+
+    // Only start with extensibility
+    ($constraint_type:ident, start: $start:expr, extensible) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::start_from($start),
+                ),
+            )
+            .set_extensible(true),
+        )
+    };
+
+    // Only end with extensibility
+    ($constraint_type:ident, end: $end:expr, extensible) => {
+        $crate::types::constraints::Constraint::$constraint_type(
+            $crate::types::constraints::Extensible::new(
+                $crate::types::constraints::$constraint_type::new(
+                    $crate::types::constraints::Bounded::up_to($end),
+                ),
+            )
+            .set_extensible(true),
+        )
+    };
+
     // Start and end
     ($constraint_type:ident, $start:expr, $end:expr) => {
         $crate::types::constraints::Constraint::$constraint_type(
@@ -135,54 +183,6 @@ macro_rules! bounded_constraint {
                     $crate::types::constraints::Bounded::Single($single),
                 ),
             ),
-        )
-    };
-
-    // Single value with extensibility
-    ($constraint_type:ident, $single:expr, $extensible:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::Single($single),
-                ),
-            )
-            .set_extensible($extensible),
-        )
-    };
-
-    // Range with extensibility
-    ($constraint_type:ident, $start:expr, $end:expr, $extensible:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::const_new($start, $end),
-                ),
-            )
-            .set_extensible($extensible),
-        )
-    };
-
-    // Only start with extensibility
-    ($constraint_type:ident, start: $start:expr, $extensible:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::start_from($start),
-                ),
-            )
-            .set_extensible($extensible),
-        )
-    };
-
-    // Only end with extensibility
-    ($constraint_type:ident, end: $end:expr, $extensible:expr) => {
-        $crate::types::constraints::Constraint::$constraint_type(
-            $crate::types::constraints::Extensible::new(
-                $crate::types::constraints::$constraint_type::new(
-                    $crate::types::constraints::Bounded::up_to($end),
-                ),
-            )
-            .set_extensible($extensible),
         )
     };
 }
