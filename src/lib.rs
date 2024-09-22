@@ -34,6 +34,12 @@ pub use self::{
     types::AsnType,
 };
 
+#[doc(inline)]
+#[cfg(feature = "compiler")]
+#[cfg_attr(docsrs, doc(cfg(feature = "compiler")))]
+/// Compiler for ASN.1 Notation to Rust code.
+pub use rasn_compiler as compiler;
+
 /// A prelude containing the codec traits and all types defined in the [`types`]
 /// module.
 pub mod prelude {
