@@ -7,19 +7,19 @@ pub use rasn_derive::Encode;
 
 /// A **data type** that can be encoded to a ASN.1 data format.
 pub trait Encode: AsnType {
-    /// Encodes `self`'s data into the given `Encoder`.
+    /// Encodes `self`'s data into the given [`crate::Encoder`].
     ///
     /// **Note for implementors** You typically do not need to implement this.
-    /// The default implementation will call `Encode::encode_with_tag` with
-    /// your types associated `AsnType::TAG`. You should only ever need to
-    /// implement this if you have a type that *cannot* be implicitly tagged,
-    /// such as a `CHOICE` type, in which case you want to implement encoding
-    /// in `encode`.
+    /// The default implementation will call [`Encode::encode_with_tag_and_constraints`] with
+    /// your types associated [`AsnType::TAG`] and [`AsnType::CONSTRAINTS`]. You
+    /// should only ever need to implement this if you have a type that *cannot*
+    /// be implicitly tagged, such as a `CHOICE` type, in which case you want to
+    /// implement encoding in [`Self::encode`].
     fn encode<E: Encoder>(&self, encoder: &mut E) -> Result<(), E::Error> {
         self.encode_with_tag_and_constraints(encoder, Self::TAG, Self::CONSTRAINTS)
     }
 
-    /// Encode this value with `tag` into the given `Encoder`.
+    /// Encode this value with `tag` into the given [`crate::Encoder`].
     ///
     /// **Note** For `CHOICE` and other types that cannot be implicitly tagged
     /// this will **explicitly tag** the value, for all other types, it will
@@ -28,6 +28,12 @@ pub trait Encode: AsnType {
         self.encode_with_tag_and_constraints(encoder, tag, Self::CONSTRAINTS)
     }
 
+    /// Encode this value into the given [`crate::Encoder`] with the
+    /// constraints the values this is allowed to encode into.
+    ///
+    /// **Note** For `CHOICE` and other types that cannot be implicitly tagged
+    /// this will **explicitly tag** the value, for all other types, it will
+    /// **implicitly** tag the value.
     fn encode_with_constraints<E: Encoder>(
         &self,
         encoder: &mut E,
@@ -36,6 +42,12 @@ pub trait Encode: AsnType {
         self.encode_with_tag_and_constraints(encoder, Self::TAG, constraints)
     }
 
+    /// Encode this value with `tag` into the given [`crate::Encoder`] with the
+    /// constraints the values this is allowed to encode into.
+    ///
+    /// **Note** For `CHOICE` and other types that cannot be implicitly tagged
+    /// this will **explicitly tag** the value, for all other types, it will
+    /// **implicitly** tag the value.
     fn encode_with_tag_and_constraints<E: Encoder>(
         &self,
         encoder: &mut E,
@@ -46,7 +58,9 @@ pub trait Encode: AsnType {
 
 /// A **data format** encode any ASN.1 data type.
 pub trait Encoder {
+    /// The associated type returned on encoding success.
     type Ok;
+    /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
 
     /// Returns codec variant of `Codec` that current encoder is encoding.

@@ -14,8 +14,8 @@ pub trait Decode: Sized + AsnType {
     /// Decode this value from a given ASN.1 decoder.
     ///
     /// **Note for implementors** You typically do not need to implement this.
-    /// The default implementation will call `Decode::decode_with_tag` with
-    /// your types associated `AsnType::TAG`. You should only ever need to
+    /// The default implementation will call [`Decode::decode_with_tag_and_constraints`] with
+    /// your types associated [`AsnType::TAG`]. You should only ever need to
     /// implement this if you have a type that *cannot* be implicitly tagged,
     /// such as a `CHOICE` type, which case you want to implement the decoding
     /// in `decode`.
@@ -32,6 +32,12 @@ pub trait Decode: Sized + AsnType {
         Self::decode_with_tag_and_constraints(decoder, tag, Self::CONSTRAINTS)
     }
 
+    /// Decode this value from a given ASN.1 decoder with a set of constraints
+    /// on what values of that type are allowed.
+    ///
+    /// **Note for implementors** You typically do not need to implement this.
+    /// The default implementation will call [`Decode::decode_with_tag_and_constraints`] with
+    /// your types associated [`AsnType::TAG`] and [`AsnType::CONSTRAINTS`].
     fn decode_with_constraints<D: Decoder>(
         decoder: &mut D,
         constraints: Constraints,
@@ -39,6 +45,12 @@ pub trait Decode: Sized + AsnType {
         Self::decode_with_tag_and_constraints(decoder, Self::TAG, constraints)
     }
 
+    /// Decode this value implicitly tagged with `tag` from a given ASN.1
+    /// decoder with a set of constraints on what values of that type are allowed.
+    ///
+    /// **Note** For `CHOICE` and other types that cannot be implicitly tagged
+    /// this will **explicitly tag** the value, for all other types, it will
+    /// **implicitly** tag the value.
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
@@ -50,6 +62,7 @@ pub trait Decode: Sized + AsnType {
 pub trait Decoder: Sized {
     // TODO, when associated type defaults are stabilized, use this instead?
     // type Error = crate::error::DecodeError;
+    /// The associated error type of the decoder.
     type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
 
     /// Returns codec variant of `Codec` that current decoder is decoding.
@@ -263,6 +276,7 @@ pub trait Decoder: Sized {
             .unwrap_or_else(default_fn))
     }
 
+    /// Decode a extension addition value in a `SEQUENCE` or `SET`.
     fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -300,6 +314,7 @@ pub trait Decoder: Sized {
     where
         D: Decode;
 
+    /// Decode a extension addition group in a `SEQUENCE` or `SET`.
     fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
         &mut self,
     ) -> Result<Option<D>, Self::Error>;

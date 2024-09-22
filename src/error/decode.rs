@@ -1,3 +1,6 @@
+//! Error types associated with decoding from ASN.1 codecs.
+#![expect(missing_docs)]
+
 use core::num::ParseIntError;
 
 use super::strings::PermittedAlphabetError;
@@ -15,6 +18,7 @@ use num_bigint::BigInt;
 /// Variants for every codec-specific `DecodeError` kind.
 #[derive(Debug)]
 #[non_exhaustive]
+#[allow(missing_docs)]
 pub enum CodecDecodeError {
     Ber(BerDecodeErrorKind),
     Cer(CerDecodeErrorKind),
@@ -133,8 +137,11 @@ impl From<CodecDecodeError> for DecodeError {
 #[derive(Debug)]
 #[allow(clippy::module_name_repetitions)]
 pub struct DecodeError {
+    /// The kind of decoding error received.
     pub kind: Box<DecodeErrorKind>,
+    /// The codec that returned the error.
     pub codec: Codec,
+    /// The backtrace associated with the error.
     #[cfg(feature = "backtraces")]
     pub backtrace: Backtrace,
 }
@@ -149,10 +156,13 @@ impl core::fmt::Display for DecodeError {
 }
 
 impl DecodeError {
+    /// Creates a wrapper around a permitted alphabet error from a given codec.
     #[must_use]
     pub fn permitted_alphabet_error(reason: PermittedAlphabetError, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::PermittedAlphabetError { reason }, codec)
     }
+
+    /// Creates a wrapper around a size error from a given codec.
     #[must_use]
     pub fn size_constraint_not_satisfied(
         size: Option<usize>,
@@ -164,6 +174,8 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a value error from a given codec.
     #[must_use]
     pub fn value_constraint_not_satisfied(
         value: BigInt,
@@ -175,6 +187,8 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a discriminant value error from a given codec.
     #[must_use]
     pub fn discriminant_value_not_found(discriminant: isize, codec: Codec) -> Self {
         Self::from_kind(
@@ -182,6 +196,8 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a range value error from a given codec.
     #[must_use]
     pub fn range_exceeds_platform_width(needed: u32, present: u32, codec: Codec) -> Self {
         Self::from_kind(
@@ -189,6 +205,8 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a fixed string conversion error from a given codec.
     #[must_use]
     pub fn fixed_string_conversion_failed(
         tag: Tag,
@@ -205,6 +223,8 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a sequence item error from a given codec.
     #[must_use]
     pub fn incorrect_item_number_in_sequence(expected: usize, actual: usize, codec: Codec) -> Self {
         Self::from_kind(
@@ -212,18 +232,26 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a integer overflow error from a given codec.
     #[must_use]
     pub fn integer_overflow(max_width: u32, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::IntegerOverflow { max_width }, codec)
     }
+
+    /// Creates a wrapper around a integer conversion error from a given codec.
     #[must_use]
     pub fn integer_type_conversion_failed(msg: alloc::string::String, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::IntegerTypeConversionFailed { msg }, codec)
     }
+
+    /// Creates a wrapper around a invalid bit string error from a given codec.
     #[must_use]
     pub fn invalid_bit_string(bits: u8, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::InvalidBitString { bits }, codec)
     }
+
+    /// Creates a wrapper around a missing tag error from a given codec.
     #[must_use]
     pub fn missing_tag_class_or_value_in_sequence_or_set(
         class: crate::types::Class,
@@ -236,20 +264,25 @@ impl DecodeError {
         )
     }
 
+    /// Creates a wrapper around a unexpected non-extensible type error from a given codec.
     #[must_use]
     pub fn type_not_extensible(codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::TypeNotExtensible, codec)
     }
+
+    /// Creates a wrapper around a parser error from a given codec.
     #[must_use]
     pub fn parser_fail(msg: alloc::string::String, codec: Codec) -> Self {
         DecodeError::from_kind(DecodeErrorKind::Parser { msg }, codec)
     }
 
+    /// Creates a wrapper around a missing required extension error from a given codec.
     #[must_use]
     pub fn required_extension_not_present(tag: Tag, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::RequiredExtensionNotPresent { tag }, codec)
     }
 
+    /// Creates a wrapper around a missing enum index error from a given codec.
     #[must_use]
     pub fn enumeration_index_not_found(index: usize, extended_list: bool, codec: Codec) -> Self {
         Self::from_kind(
@@ -260,6 +293,8 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a choice index exceeding platform width error from a given codec.
     #[must_use]
     pub fn choice_index_exceeds_platform_width(
         needed: u32,
@@ -271,11 +306,14 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a length exceeding platform width error from a given codec.
     #[must_use]
     pub fn length_exceeds_platform_width(msg: alloc::string::String, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::LengthExceedsPlatformWidth { msg }, codec)
     }
 
+    /// Creates a wrapper around a missing choice index error from a given codec.
     #[must_use]
     pub fn choice_index_not_found(index: usize, variants: Variants, codec: Codec) -> Self {
         Self::from_kind(
@@ -283,19 +321,26 @@ impl DecodeError {
             codec,
         )
     }
+
+    /// Creates a wrapper around a string conversion error from a given codec.
     #[must_use]
     pub fn string_conversion_failed(tag: Tag, msg: alloc::string::String, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::StringConversionFailed { tag, msg }, codec)
     }
+
+    /// Creates a wrapper around unexpected extra data error from a given codec.
     #[must_use]
     pub fn unexpected_extra_data(length: usize, codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::UnexpectedExtraData { length }, codec)
     }
+
+    /// Creates a wrapper around unexpected empty input error from a given codec.
     #[must_use]
     pub fn unexpected_empty_input(codec: Codec) -> Self {
         Self::from_kind(DecodeErrorKind::UnexpectedEmptyInput, codec)
     }
 
+    /// Checks whether the length matches, and returns an error if not.
     pub fn assert_length(
         expected: usize,
         actual: usize,
@@ -311,7 +356,7 @@ impl DecodeError {
         }
     }
 
-    pub fn map_nom_err<T: core::fmt::Debug>(
+    pub(crate) fn map_nom_err<T: core::fmt::Debug>(
         error: nom::Err<nom::error::Error<T>>,
         codec: Codec,
     ) -> DecodeError {
@@ -321,6 +366,8 @@ impl DecodeError {
         };
         DecodeError::parser_fail(msg, codec)
     }
+
+    /// Creates a new error from a given decode error kind and codec.
     #[must_use]
     pub fn from_kind(kind: DecodeErrorKind, codec: Codec) -> Self {
         Self {
@@ -330,6 +377,7 @@ impl DecodeError {
             backtrace: Backtrace::generate(),
         }
     }
+
     #[must_use]
     fn from_codec_kind(inner: CodecDecodeError) -> Self {
         let codec = match inner {
@@ -360,8 +408,14 @@ impl DecodeError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum DecodeErrorKind {
+    /// Permitted alphabet constraint wasn't satisfied.
     #[snafu(display("Alphabet constraint not satisfied {}", reason))]
-    PermittedAlphabetError { reason: PermittedAlphabetError },
+    PermittedAlphabetError {
+        /// The reason the constraint wasn't satisfied.
+        reason: PermittedAlphabetError,
+    },
+
+    /// Size constraint wasn't satisfied.
     #[snafu(display("Size constraint not satisfied: expected: {expected}; actual: {size:?}"))]
     SizeConstraintNotSatisfied {
         /// Actual sie of the data
@@ -369,6 +423,8 @@ pub enum DecodeErrorKind {
         /// Expected size by the constraint
         expected: alloc::string::String,
     },
+
+    /// Value constraint wasn't satisfied.
     #[snafu(display("Value constraint not satisfied: expected: {expected}; actual: {value}"))]
     ValueConstraintNotSatisfied {
         /// Actual value of the data
@@ -376,9 +432,15 @@ pub enum DecodeErrorKind {
         /// Expected value by the constraint
         expected: Bounded<i128>,
     },
-    #[snafu(display("Wrapped codec-specific decode error"))]
-    CodecSpecific { inner: CodecDecodeError },
 
+    /// Codec specific error.
+    #[snafu(display("Wrapped codec-specific decode error"))]
+    CodecSpecific {
+        /// The inner error type.
+        inner: CodecDecodeError,
+    },
+
+    /// Enumeration index didn't match any variant.
     #[snafu(display(
         "Enumeration index '{}' did not match any variant. Extended list: {}",
         index,
@@ -390,6 +452,8 @@ pub enum DecodeErrorKind {
         /// Whether the index was checked from the extended variants.
         extended_list: bool,
     },
+
+    /// Choice index didn't match any variant.
     #[snafu(display("choice index '{index}' did not match any variant"))]
     ChoiceIndexNotFound {
         /// The found index of the choice variant.
@@ -397,6 +461,8 @@ pub enum DecodeErrorKind {
         /// The variants checked for presence.
         variants: Variants,
     },
+
+    /// Choice index exceeds maximum possible address width.
     #[snafu(display("integer range larger than possible to address on this platform. needed: {needed} present: {present}"))]
     ChoiceIndexExceedsPlatformWidth {
         /// Amount of bytes needed.
@@ -404,37 +470,51 @@ pub enum DecodeErrorKind {
         /// Inner error
         present: DecodeError,
     },
+
+    /// Uncategorised error.
     #[snafu(display("Custom: {}", msg))]
     Custom {
         /// The error's message.
         msg: alloc::string::String,
     },
+
+    /// Discriminant index didn't match any variant.
     #[snafu(display("Discriminant value '{}' did not match any variant", discriminant))]
     DiscriminantValueNotFound {
         /// The found value of the discriminant
         discriminant: isize,
     },
+
+    /// Duplicate fields found.
     #[snafu(display("Duplicate field for `{}`", name))]
     DuplicateField {
         /// The field's name.
         name: &'static str,
     },
+
+    /// Exceeds maxmium allowed length.
     #[snafu(display("Expected maximum of {} items", length))]
     ExceedsMaxLength {
         /// The maximum length.
         length: num_bigint::BigUint,
     },
+
     ///  More than `usize::MAX` number of data requested.
-    #[snafu(display(
-        "Length of the incoming data is either incorrect or your device is up by miracle."
-    ))]
-    LengthExceedsPlatformWidth { msg: alloc::string::String },
+    #[snafu(display("Length of the incoming data is either exceeds platform address width."))]
+    LengthExceedsPlatformWidth {
+        /// The specific message of the length error.
+        msg: alloc::string::String,
+    },
+
+    /// An error when decoding a field in a constructed type.
     #[snafu(display("Error when decoding field `{}`: {}", name, nested))]
     FieldError {
         /// The field's name.
         name: &'static str,
+        /// The underlying error type.
         nested: Box<DecodeError>,
     },
+
     /// Input is provided as BIT slice for nom in UPER/APER.
     /// On BER/CER/DER it is as BYTE slice.
     /// Hence, `needed` field can describe either bits or bytes depending on the codec.
@@ -443,6 +523,8 @@ pub enum DecodeErrorKind {
         /// Amount of bits/bytes needed.
         needed: nom::Needed,
     },
+
+    /// Invalid item number in sequence.
     #[snafu(display(
         "Invalid item number in Sequence: expected {}, actual {}",
         expected,
@@ -454,24 +536,38 @@ pub enum DecodeErrorKind {
         /// The actual item number.
         actual: usize,
     },
+
+    /// Integer conversion overflow.
     #[snafu(display("Actual integer larger than expected {} bits", max_width))]
     IntegerOverflow {
         /// The maximum integer width.
         max_width: u32,
     },
+
+    /// Integer conversion failure.
     #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
-    IntegerTypeConversionFailed { msg: alloc::string::String },
+    IntegerTypeConversionFailed {
+        /// The reason the conversion failed.
+        msg: alloc::string::String,
+    },
+
+    /// BitString contains an invalid amount of unused bits.
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
     InvalidBitString {
         /// The amount of invalid bits.
         bits: u8,
     },
-    /// BOOL value is not `0` or `0xFF`. Applies: BER/COER/PER? TODO categorize better
+
+    /// BOOL value is not `0` or `0xFF`.
     #[snafu(display(
         "Bool value is not `0` or `0xFF` as canonical requires. Actual: {}",
         value
     ))]
-    InvalidBool { value: u8 },
+    InvalidBool {
+        /// The invalid bool value.
+        value: u8,
+    },
+
     // Length of Length zero
     #[snafu(display("Length of Length cannot be zero"))]
     ZeroLengthOfLength,

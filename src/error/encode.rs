@@ -1,3 +1,6 @@
+//! Error types associated with encoding to ASN.1 codecs.
+#![expect(missing_docs)]
+
 use crate::types::constraints::{Bounded, Size};
 use num_bigint::BigInt;
 use snafu::Snafu;
