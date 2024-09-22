@@ -4,7 +4,7 @@ version = "0.0.0"
 authors = ["Erin Power <xampprocky@gmail.com>"]
 edition = "2018"
 description = "Something someday."
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
 publish = false
 
 [workspace]
