@@ -1,3 +1,5 @@
+//! JSON Encoding Rules.
+
 pub mod de;
 pub mod enc;
 
