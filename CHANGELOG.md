@@ -6,6 +6,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0](https://github.com/librasn/rasn/compare/rasn-v0.18.0...rasn-v0.19.0) - 2024-09-22
+
+### Added
+
+- Export rasn-compiler as optional feature
+
+### Fixed
+
+- [**breaking**] Change *_constraint macros to accept `extensible` keyword over bool
+
+### Other
+
+- Use `OR` operator in Cargo.toml `license` field ([#335](https://github.com/librasn/rasn/pull/335))
+- Document more of rasn, add warning on missing documentation
+- Document more of rasn, remove unintentionally public items
+- Add rustdoc lint check
+- documentation lint fixes
+- Add module level top-line doc for JER
+- clippy fixes
+- move common macros into dedicated module
+- ObjectIdentifier::new: first arc may be 2 ([#331](https://github.com/librasn/rasn/pull/331))
+
 ## [0.18.0](https://github.com/librasn/rasn/compare/rasn-v0.17.3...rasn-v0.18.0) - 2024-09-17
 
 ### Added
