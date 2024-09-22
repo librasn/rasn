@@ -90,6 +90,9 @@ jobs:
       - run: ci/clippy.bash cargo
         if: matrix.target == 'stable'
         shell: bash
+      - run: ci/rustdoc.bash cargo
+        if: matrix.target == 'stable'
+        shell: bash
 
     strategy:
       fail-fast: true
