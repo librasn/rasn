@@ -113,6 +113,8 @@ pub struct EncodeError {
     pub backtrace: Backtrace,
 }
 
+impl core::error::Error for EncodeError {}
+
 impl core::fmt::Display for EncodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Error Kind: {}", self.kind)?;

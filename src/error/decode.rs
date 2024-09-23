@@ -145,6 +145,7 @@ pub struct DecodeError {
     #[cfg(feature = "backtraces")]
     pub backtrace: Backtrace,
 }
+
 impl core::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "Error Kind: {}", self.kind)?;
@@ -401,6 +402,8 @@ impl DecodeError {
         }
     }
 }
+
+impl core::error::Error for DecodeError {}
 
 /// `DecodeError` kinds which are common for all codecs.
 #[derive(Snafu)]
