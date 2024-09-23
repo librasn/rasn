@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0](https://github.com/librasn/rasn/compare/rasn-derive-v0.18.0...rasn-derive-v0.19.0) - 2024-09-22
+
+### Other
+
+- clippy fixes
+
 ## [0.18.0](https://github.com/librasn/rasn/compare/rasn-derive-v0.17.3...rasn-derive-v0.18.0) - 2024-09-17
 
 ### Added
