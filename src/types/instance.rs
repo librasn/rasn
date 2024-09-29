@@ -1,5 +1,6 @@
 use super::{AsnType, Class, Constraints, ObjectIdentifier, Tag};
 use crate::{
+    de::Decoder,
     enc::Encoder,
     types::fields::{Field, FieldPresence, Fields},
 };
@@ -49,8 +50,8 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
     }
 }
 
-impl<T: AsnType> crate::types::Constructed for InstanceOf<T> {
-    const FIELDS: Fields = Fields::from_static(&[
+impl<T: AsnType> crate::types::Constructed<2> for InstanceOf<T> {
+    const FIELDS: Fields<2> = Fields::from_static([
         Field {
             tag: ObjectIdentifier::TAG,
             tag_tree: ObjectIdentifier::TAG_TREE,

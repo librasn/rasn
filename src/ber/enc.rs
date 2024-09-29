@@ -323,6 +323,8 @@ impl crate::Encoder for Encoder {
     fn codec(&self) -> Codec {
         Self::codec(self)
     }
+    fn set_presence_bits(&mut self, _bits: &[bool], _ext_bits: &[bool]) {}
+
     fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
             return Err(BerEncodeErrorKind::AnyInSet.into());

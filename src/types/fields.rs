@@ -1,71 +1,89 @@
 //! Representing all fields for a `SEQUENCE` or `SET` type.
 
-use alloc::borrow::Cow;
+// use alloc::borrow::Cow;
 
 use crate::types::{Tag, TagTree};
 
 /// Represents all of the values that make up a given value in ASN.1.
 #[derive(Debug, Clone)]
-pub struct Fields {
-    fields: Cow<'static, [Field]>,
+pub struct Fields<const N: usize> {
+    fields: [Field; N],
 }
 
-impl Fields {
+impl<const N: usize> Fields<N> {
     /// Creates a new set of fields from a given value.
-    pub const fn new(fields: Cow<'static, [Field]>) -> Self {
+    pub const fn new(fields: [Field; N]) -> Self {
         Self { fields }
     }
 
     /// Creates an empty set of fields.
-    pub const fn empty() -> Self {
-        Self::new(Cow::Borrowed(&[]))
-    }
+    // pub const fn empty() -> Self {
+    //     Self::new([Field::default(); N])
+    // }
 
     /// Creates a set of fields from a static set.
-    pub const fn from_static(fields: &'static [Field]) -> Self {
-        Self {
-            fields: Cow::Borrowed(fields),
-        }
+    pub const fn from_static(fields: [Field; N]) -> Self {
+        Self { fields }
     }
 
     /// Returns the number of fields.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.fields.len()
     }
 
     /// Returns whether the set doesn't contain any fields.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.fields.is_empty()
     }
 
     /// Returns whether the set contains any fields.
-    pub fn is_not_empty(&self) -> bool {
+    pub const fn is_not_empty(&self) -> bool {
         !self.is_empty()
     }
 
     /// Returns an iterator over all fields which are [FieldPresence::Optional] or
     /// [FieldPresence::Default].
-    pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
-        self.iter().filter(Field::is_optional_or_default)
-    }
+    // pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
+    //     self.iter().filter(Field::is_optional_or_default)
+    // }
 
     /// Returns the number of fields which are [FieldPresence::Optional] or
     /// [FieldPresence::Default].
-    pub fn number_of_optional_and_default_fields(&self) -> usize {
-        self.optional_and_default_fields().count()
+    pub const fn number_of_optional_and_default_fields(&self) -> usize {
+        let mut count = 0;
+        let mut i = 0;
+        while i < self.fields.len() {
+            if self.fields[i].is_optional_or_default() {
+                count += 1;
+            }
+            i += 1;
+        }
+        count
     }
 
     /// Returns the canonical sorted version of `self`.
-    pub fn canonised(mut self) -> Self {
-        self.canonical_sort();
-        self
+    pub const fn canonised(self) -> Self {
+        self.canonical_sort()
     }
 
     /// Sorts the fields by their canonical tag order.
-    pub fn canonical_sort(&mut self) {
-        self.fields
-            .to_mut()
-            .sort_by(|a, b| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+    pub const fn canonical_sort(mut self) -> Self {
+        let mut i = 0;
+        while i < self.fields.len() {
+            let mut j = i + 1;
+            while j < self.fields.len() {
+                if self.fields[i].tag_tree.smallest_tag().value
+                    > self.fields[j].tag_tree.smallest_tag().value
+                {
+                    let temp = self.fields[i];
+                    self.fields[i] = self.fields[j];
+                    self.fields[j] = temp;
+                }
+                j += 1;
+            }
+            i += 1;
+        }
+        self
     }
 
     /// Returns an iterator over all fields.
@@ -79,20 +97,20 @@ impl Fields {
     }
 }
 
-impl Default for Fields {
-    fn default() -> Self {
-        Self::empty()
-    }
-}
+// impl<const N: usize> Default for Fields<N> {
+//     fn default() -> Self {
+//         Self::empty()
+//     }
+// }
 
-impl From<Cow<'static, [Field]>> for Fields {
-    fn from(fields: Cow<'static, [Field]>) -> Self {
-        Self::new(fields)
-    }
-}
+// impl From<Cow<'static, [Field]>> for Fields {
+//     fn from(fields: Cow<'static, [Field]>) -> Self {
+//         Self::new(fields)
+//     }
+// }
 
 /// Represents a field in a `SET` or `SEQUENCE` type.
-#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Field {
     /// The tag for the field.
     pub tag: Tag,
