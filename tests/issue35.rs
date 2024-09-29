@@ -1,6 +1,4 @@
-use rasn::AsnType;
-use rasn::Decode;
-use rasn::Encode;
+use rasn::prelude::*;
 
 #[derive(Debug, AsnType, Decode, Encode)]
 #[rasn(automatic_tags)]

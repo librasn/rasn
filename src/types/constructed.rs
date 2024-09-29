@@ -4,11 +4,11 @@ use core::hash::{BuildHasher, Hash};
 use hashbrown::HashMap;
 
 /// A `SET` or `SEQUENCE` value.
-pub trait Constructed {
+pub trait Constructed<const N: usize> {
     /// Fields contained in the "root component list".
-    const FIELDS: super::fields::Fields;
+    const FIELDS: super::fields::Fields<N>;
     /// Fields contained in the list of extensions.
-    const EXTENDED_FIELDS: Option<super::fields::Fields> = None;
+    const EXTENDED_FIELDS: Option<super::fields::Fields<N>> = None;
 }
 
 ///  The `SEQUENCE OF` type.

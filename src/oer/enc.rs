@@ -73,11 +73,13 @@ pub struct Encoder<'a, const FC: usize = 0> {
     output: alloc::borrow::Cow<'a, RefCell<Vec<u8>>>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
-    field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), FC>,
+    // field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), FC>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
+    preamble: BitString,
+    extension_bitfield: BitString,
 }
 
 // ITU-T X.696 8.2.1 Only the following constraints are OER-visible:
@@ -104,11 +106,13 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
             options,
             output: Cow::Owned(RefCell::new(Vec::with_capacity(base_capacity))),
             set_output: <_>::default(),
-            field_bitfield: LinearMap::<_, _, FC>::default(),
+            // field_bitfield: LinearMap::<_, _, FC>::default(),
             current_field_index: <_>::default(),
             extension_fields: <_>::default(),
             is_extension_sequence: bool::default(),
             parent_output_length: <_>::default(),
+            preamble: BitString::with_capacity(8),
+            extension_bitfield: BitString::with_capacity(8),
         }
     }
 
@@ -118,11 +122,13 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
             options,
             output: Cow::Borrowed(output),
             set_output: <_>::default(),
-            field_bitfield: <_>::default(),
+            // field_bitfield: <_>::default(),
             current_field_index: <_>::default(),
             extension_fields: <_>::default(),
             is_extension_sequence: bool::default(),
             parent_output_length: <_>::default(),
+            preamble: <_>::default(),
+            extension_bitfield: BitString::with_capacity(8),
         }
     }
 
@@ -150,17 +156,17 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
     fn set_bit(&mut self, tag: Tag, bit: bool) {
         // In set encoding, field index does not matter
         // Tags need to be unique
-        if self.options.set_encoding {
-            if let Some((_, b)) = self.field_bitfield.get_mut(&(usize::default(), tag)) {
-                *b = bit
-            }
-        } else if let Some((_, b)) = self
-            .field_bitfield
-            .get_mut(&(self.current_field_index, tag))
-        {
-            *b = bit;
-            self.current_field_index += 1;
-        }
+        // if self.options.set_encoding {
+        //     if let Some((_, b)) = self.field_bitfield.get_mut(&(usize::default(), tag)) {
+        //         *b = bit
+        //     }
+        // } else if let Some((_, b)) = self
+        //     .field_bitfield
+        //     .get_mut(&(self.current_field_index, tag))
+        // {
+        //     *b = bit;
+        //     self.current_field_index += 1;
+        // }
     }
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
         if self.options.set_encoding {
@@ -457,11 +463,12 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
     fn output_length(&self) -> usize {
         let mut output_length = self.output.borrow().len();
         output_length += usize::from(self.is_extension_sequence);
-        output_length += self
-            .field_bitfield
-            .values()
-            .filter(|(presence, _)| presence.is_optional_or_default())
-            .count();
+        // output_length += self
+        //     .field_bitfield
+        //     .values()
+        //     .filter(|(presence, _)| presence.is_optional_or_default())
+        //     .count();
+        output_length += self.preamble.len();
         output_length += self.parent_output_length.unwrap_or_default();
 
         if self.options.set_encoding {
@@ -475,11 +482,11 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
             self.options.without_set_encoding(),
             core::mem::size_of::<C>(),
         );
-        encoder.field_bitfield = C::FIELDS
-            .iter()
-            .enumerate()
-            .map(|(i, field)| ((i, field.tag_tree.smallest_tag()), (field.presence, false)))
-            .collect();
+        // encoder.field_bitfield = C::FIELDS
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(i, field)| ((i, field.tag_tree.smallest_tag()), (field.presence, false)))
+        //     .collect();
         encoder.parent_output_length = Some(self.output_length());
         encoder
     }
@@ -490,49 +497,58 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
     ) -> Result<(), EncodeError> {
         self.set_bit(tag, true);
         // ### PREAMBLE ###
-        let mut preamble =
-            BitString::with_capacity(C::FIELDS.number_of_optional_and_default_fields() + 1);
-        // Section 16.2.2
+        // let mut preamble =
+        //     BitString::with_capacity(C::FIELDS.number_of_optional_and_default_fields() + 1);
+        // // Section 16.2.2
         let extensions_defined = C::EXTENDED_FIELDS.is_some();
         let mut extensions_present = false;
         if extensions_defined {
-            extensions_present = encoder.extension_fields.iter().any(Option::is_some);
-            preamble.push(extensions_present);
+            // extensions_present = encoder.extension_fields.iter().any(Option::is_some);
+            extensions_present = encoder.extension_bitfield.iter().any(|bit| *bit);
+            // preamble.push(extensions_present);
         }
+        // dbg!(extensions_defined);
+        // dbg!(extensions_present);
         // Section 16.2.3
-        if C::FIELDS.number_of_optional_and_default_fields() > 0 {
-            for bit in encoder
-                .field_bitfield
-                .values()
-                .filter_map(|(presence, is_present)| {
-                    presence.is_optional_or_default().then_some(is_present)
-                })
-                .copied()
-            {
-                preamble.push(bit);
-            }
-        }
+        // if C::FIELDS.number_of_optional_and_default_fields() > 0 {
+        //     for bit in encoder
+        //         .field_bitfield
+        //         .values()
+        //         .filter_map(|(presence, is_present)| {
+        //             presence.is_optional_or_default().then_some(is_present)
+        //         })
+        //         .copied()
+        //     {
+        //         preamble.push(bit);
+        //     }
+        // }
         // 16.2.4 - fill missing bits from full octet with zeros
-        if preamble.len() % 8 != 0 {
+        if encoder.preamble.len() % 8 != 0 {
             let missing_bits = [false; 8];
-            let missing = &missing_bits[..8 - preamble.len() % 8];
-            preamble.extend(missing);
+            let missing = &missing_bits[..8 - encoder.preamble.len() % 8];
+            encoder.preamble.extend(missing);
         }
-        debug_assert!(preamble.len() % 8 == 0);
-        self.output.borrow_mut().extend(preamble.as_raw_slice());
+        debug_assert!(encoder.preamble.len() % 8 == 0);
+        dbg!(&self.preamble);
+        dbg!(&encoder.preamble);
+        self.output
+            .borrow_mut()
+            .extend(encoder.preamble.as_raw_slice());
         // Section 16.3 ### Encodings of the components in the extension root ###
         // Must copy before move...
         let extension_fields = core::mem::take(&mut encoder.extension_fields);
-        if encoder.field_bitfield.values().any(|(_, b)| *b) {
-            if encoder.options.set_encoding {
-                encoder.collect_set();
-            }
-            self.output.borrow_mut().append(&mut encoder.output());
+        // if encoder.field_bitfield.values().any(|(_, b)| *b) {
+        if encoder.options.set_encoding {
+            encoder.collect_set();
         }
+        self.output.borrow_mut().append(&mut encoder.output());
+        dbg!(&self.output);
+        // }
         if !extensions_defined || !extensions_present {
             self.extend(tag)?;
             return Ok(());
         }
+        dbg!("Nope");
         // Section 16.4 ### Extension addition presence bitmap ###
         let bitfield_length = extension_fields.len();
         let mut extension_bitmap_buffer = BitString::with_capacity(bitfield_length);
@@ -574,6 +590,17 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
 
     fn codec(&self) -> Codec {
         self.options.current_codec()
+    }
+    fn set_presence_bits(&mut self, root_bits: &[bool], ext_bits: &[bool]) {
+        let extensions_present = ext_bits.iter().any(|&bit| bit);
+        let optional_default_present = !root_bits.is_empty();
+        if optional_default_present {
+            self.preamble.push(extensions_present);
+            self.preamble.extend(root_bits.iter().copied());
+        }
+        if extensions_present {
+            self.extension_bitfield.extend(ext_bits.iter().copied());
+        }
     }
 
     fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
@@ -881,11 +908,11 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
             self.options.without_set_encoding(),
             core::mem::size_of::<C>(),
         );
-        encoder.field_bitfield = C::FIELDS
-            .iter()
-            .enumerate()
-            .map(|(i, field)| ((i, field.tag_tree.smallest_tag()), (field.presence, false)))
-            .collect();
+        // encoder.field_bitfield = C::FIELDS
+        //     .iter()
+        //     .enumerate()
+        //     .map(|(i, field)| ((i, field.tag_tree.smallest_tag()), (field.presence, false)))
+        //     .collect();
         encoder.parent_output_length = Some(self.output_length());
         encoder_scope(&mut encoder)?;
         self.encode_constructed::<N, C>(tag, encoder)
@@ -925,16 +952,16 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Encoder::<N>::new(options, core::mem::size_of::<C>());
-        encoder.field_bitfield = C::FIELDS
-            .canonised()
-            .iter()
-            .map(|field| {
-                (
-                    (usize::default(), field.tag_tree.smallest_tag()),
-                    (field.presence, false),
-                )
-            })
-            .collect();
+        // encoder.field_bitfield = C::FIELDS
+        //     .canonised()
+        //     .iter()
+        //     .map(|field| {
+        //         (
+        //             (usize::default(), field.tag_tree.smallest_tag()),
+        //             (field.presence, false),
+        //         )
+        //     })
+        //     .collect();
         encoder.parent_output_length = Some(self.output_length());
         encoder_scope(&mut encoder)?;
         self.encode_constructed::<N, C>(tag, encoder)?;
@@ -1014,22 +1041,22 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         );
         encoder.current_field_index = self.current_field_index;
         // encoder.field_bitfield :Map::<_, _, 100>;
-        _ = encoder.field_bitfield.insert(
-            (self.current_field_index, tag),
-            (FieldPresence::Optional, false),
-        );
+        // _ = encoder.field_bitfield.insert(
+        //     (self.current_field_index, tag),
+        //     (FieldPresence::Optional, false),
+        // );
         E::encode_with_tag_and_constraints(&value, &mut encoder, tag, constraints)?;
-        if encoder
-            .field_bitfield
-            .get(&(self.current_field_index, tag))
-            .map_or(false, |(_, b)| *b)
-        {
-            self.set_bit(tag, true);
-            self.extension_fields.push(Some(encoder.output()));
-        } else {
-            self.set_bit(tag, false);
-            self.extension_fields.push(None);
-        }
+        // if encoder
+        //     .field_bitfield
+        //     .get(&(self.current_field_index, tag))
+        //     .map_or(false, |(_, b)| *b)
+        // {
+        self.set_bit(tag, true);
+        self.extension_fields.push(Some(encoder.output()));
+        // } else {
+        //     self.set_bit(tag, false);
+        //     self.extension_fields.push(None);
+        // }
         Ok(())
     }
     fn encode_extension_addition_group<E>(

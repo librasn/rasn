@@ -793,6 +793,8 @@ impl crate::Encoder for Encoder {
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
     }
+    fn set_presence_bits(&mut self, _bits: &[bool], _ext_bits: &[bool]) {}
+
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         self.encode_octet_string(tag, Constraints::default(), &value.contents)

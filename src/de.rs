@@ -59,11 +59,17 @@ pub trait Decode: Sized + AsnType {
 }
 
 /// A **data format** decode any ASN.1 data type.
-pub trait Decoder: Sized {
+pub trait Decoder<const FC: usize = 0> {
+    type Ok;
+    /// The associated error type returned on failure.
+    // type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
+    type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
+    type AnyDecoder<const N: usize>: Decoder<FC, Ok = Self::Ok, Error = Self::Error> + Decoder;
+    // pub trait Decoder: Sized {
     // TODO, when associated type defaults are stabilized, use this instead?
     // type Error = crate::error::DecodeError;
     /// The associated error type of the decoder.
-    type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
+    // type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
 
     /// Returns codec variant of `Codec` that current decoder is decoding.
     #[must_use]
@@ -96,16 +102,16 @@ pub trait Decoder: Sized {
     ) -> Result<types::ObjectIdentifier, Self::Error>;
     /// Decode a `SEQUENCE` identified by `tag` from the available input. Returning
     /// a new `Decoder` containing the sequence's contents to be decoded.
-    fn decode_sequence<D, DF, F>(
+    fn decode_sequence<const N: usize, D, DF, F>(
         &mut self,
         tag: Tag,
         default_initializer_fn: Option<DF>,
         decode_fn: F,
     ) -> Result<D, Self::Error>
     where
-        D: crate::types::Constructed,
+        D: crate::types::Constructed<N>,
         DF: FnOnce() -> D,
-        F: FnOnce(&mut Self) -> Result<D, Self::Error>;
+        F: FnOnce(&mut Self::AnyDecoder<N>) -> Result<D, Self::Error>;
     /// Decode a `SEQUENCE OF D` where `D: Decode` identified by `tag` from the available input.
     fn decode_sequence_of<D: Decode>(
         &mut self,
@@ -207,7 +213,7 @@ pub trait Decoder: Sized {
         field_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode + crate::types::Constructed,
+        SET: Decode + crate::types::Constructed<FC>,
         FIELDS: Decode,
         D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
@@ -372,7 +378,7 @@ pub trait Decoder: Sized {
     }
 
     /// Decode a extension addition group in a `SEQUENCE` or `SET`.
-    fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
+    fn decode_extension_addition_group<D: Decode + crate::types::Constructed<FC>>(
         &mut self,
     ) -> Result<Option<D>, Self::Error>;
 }
