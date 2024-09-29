@@ -72,6 +72,9 @@ pub trait Encoder<const RCL: usize = 0, const ECL: usize = 0> {
     /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;
 
+    /// Set the presence bits for optional or default fields, for both root component list and extensions.
+    fn set_presence_bits(&mut self, root_bits: &[bool], extension_bits: &[bool]);
+
     /// Encode an unknown ASN.1 value.
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error>;
 

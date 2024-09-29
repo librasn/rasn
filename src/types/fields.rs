@@ -55,9 +55,9 @@ impl<const N: usize> Fields<N> {
 
     /// Returns an iterator over all fields which are [FieldPresence::Optional] or
     /// [FieldPresence::Default].
-    pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
-        self.iter().filter(Field::is_optional_or_default)
-    }
+    // pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
+    //     self.iter().filter(Field::is_optional_or_default)
+    // }
 
     /// Returns the number of fields which are [FieldPresence::Optional] or
     /// [FieldPresence::Default].

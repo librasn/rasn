@@ -527,6 +527,7 @@ impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
             self.extend(tag)?;
             return Ok(());
         }
+        dbg!("Nope");
         // Section 16.4 ### Extension addition presence bitmap ###
 
         let mut extension_bitmap_buffer: BitArray<[u8; EC], Msb0> = BitArray::default();
@@ -563,6 +564,17 @@ impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC,
 
     fn codec(&self) -> Codec {
         self.options.current_codec()
+    }
+    fn set_presence_bits(&mut self, root_bits: &[bool], ext_bits: &[bool]) {
+        let extensions_present = ext_bits.iter().any(|&bit| bit);
+        let optional_default_present = !root_bits.is_empty();
+        if optional_default_present {
+            self.preamble.push(extensions_present);
+            self.preamble.extend(root_bits.iter().copied());
+        }
+        if extensions_present {
+            self.extension_bitfield.extend(ext_bits.iter().copied());
+        }
     }
 
     fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {

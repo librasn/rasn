@@ -221,6 +221,7 @@ pub struct Config {
     pub delegate: bool,
     pub tag: Option<Tag>,
     pub constraints: Constraints,
+    pub extensible: bool,
 }
 
 impl Config {
@@ -322,6 +323,7 @@ impl Config {
                 size,
                 value,
             },
+            extensible,
             crate_root: crate_root.unwrap_or_else(|| {
                 syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site())
                     .parse()
