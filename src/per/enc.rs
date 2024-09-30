@@ -1,7 +1,7 @@
 //! Encoding Rust structures into Packed Encoding Rules data.
 
+use alloc::collections::BTreeMap;
 use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
-use hashbrown::HashMap;
 
 use bitvec::prelude::*;
 
@@ -73,7 +73,7 @@ pub struct Encoder {
     output: BitString,
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
     // usize a.k.a. field index defines the order for Sequence
-    field_bitfield: HashMap<(usize, Tag), (FieldPresence, bool)>,
+    field_bitfield: BTreeMap<(usize, Tag), (FieldPresence, bool)>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
