@@ -990,6 +990,44 @@ mod tests {
             },
             &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
         );
+        #[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        pub struct ExtendedOptional {
+            pub value: Integer,
+            pub integer1: Option<Integer>,
+            pub octet1: Option<OctetString>,
+            pub integer2: Option<Integer>,
+            pub octet2: Option<OctetString>,
+            pub integer3: Option<Integer>,
+            pub octet3: Option<OctetString>,
+            #[rasn(extension_addition)]
+            pub integer4: Option<Integer>,
+            #[rasn(extension_addition)]
+            pub octet4: Option<OctetString>,
+            #[rasn(extension_addition)]
+            pub integer5: Option<Integer>,
+            #[rasn(extension_addition)]
+            pub octet5: Option<OctetString>,
+        }
+        round_trip!(
+            coer,
+            ExtendedOptional,
+            ExtendedOptional {
+                value: 1.into(),
+                integer1: Some(1_230_066_625_199_609_624u64.into()),
+                octet1: None,
+                integer2: None,
+                octet2: None,
+                integer3: Some(1.into()),
+                octet3: None,
+                integer4: None,
+                octet4: None,
+                integer5: None,
+                octet5: None
+            },
+            &[68, 1, 1, 8, 17, 18, 19, 20, 21, 22, 23, 24, 1, 1]
+        );
     }
     #[test]
     fn test_sequence_of() {
