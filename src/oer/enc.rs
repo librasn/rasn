@@ -1,9 +1,9 @@
 //! Encoding Rust structures into Octet Encoding Rules data.
 
+use alloc::collections::BTreeMap;
 use alloc::{borrow::Cow, vec::Vec};
 use bitvec::prelude::*;
 use core::cell::RefCell;
-use hashbrown::HashMap;
 use num_traits::ToPrimitive;
 
 use crate::{
@@ -66,7 +66,7 @@ pub struct Encoder<'a> {
     output: alloc::borrow::Cow<'a, RefCell<Vec<u8>>>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
-    field_bitfield: HashMap<(usize, Tag), (FieldPresence, bool)>,
+    field_bitfield: BTreeMap<(usize, Tag), (FieldPresence, bool)>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
