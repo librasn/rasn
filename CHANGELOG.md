@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0](https://github.com/librasn/rasn/compare/rasn-v0.19.0...rasn-v0.20.0) - 2024-09-30
+
+### Added
+
+- [**breaking**] update snafu to 0.8.5, impl `core::error::Error` for error types
+
+### Fixed
+
+- Reroll back to BTreeMap for field presence tracking ([#338](https://github.com/librasn/rasn/pull/338))
+
 ## [0.19.0](https://github.com/librasn/rasn/compare/rasn-v0.18.0...rasn-v0.19.0) - 2024-09-22
 
 ### Added
