@@ -28,7 +28,7 @@ pub type MessageId = u32;
 /// ISO10646 character set (a superset of
 /// Unicode) is being used, encoded following the UTF-8 RFC3629 algorithm.
 /// We can use Rust `String` type to represent this type, see
-/// https://github.com/librasn/rasn/issues/304 and https://www.unicode.org/faq/unicode_iso.html
+/// <https://github.com/librasn/rasn/issues/304> and <https://www.unicode.org/faq/unicode_iso.html>
 #[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct LdapString(pub String);
 

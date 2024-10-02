@@ -5,7 +5,7 @@
 //! data and X.509 certificates to bind an Authenticode-signed binary to the identity of a software
 //! publisher.
 //!
-//! Reference: [Windows Authenticode Portable Executable Signature Format] (http://msdn.microsoft.com/en-US/windows/hardware/gg463183)
+//! Reference: [Windows Authenticode Portable Executable Signature Format](http://msdn.microsoft.com/en-US/windows/hardware/gg463183)
 //! **NOTE**: the document differs from the actual implementation. This crate contains the structures used in actual signing.
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Neg};
 
