@@ -552,6 +552,27 @@ mod tests {
         round_trip!(coer, TopLevel, test_value, &[1, 130, 2, 128]);
     }
     #[test]
+    fn test_tag_max_size() {
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        #[rasn(choice)]
+        enum Choice {
+            #[rasn(tag(0))]
+            Normal(Integer),
+            #[rasn(tag(1))]
+            High(Integer),
+            // u32::MAX
+            #[rasn(tag(4_294_967_295u32))]
+            Medium(Integer),
+        }
+        round_trip!(
+            coer,
+            Choice,
+            Choice::Medium(333.into()),
+            &[191, 143, 255, 255, 255, 127, 2, 1, 77]
+        );
+    }
+    #[test]
     fn test_numeric_string() {
         round_trip!(
             coer,

@@ -166,47 +166,84 @@ impl<'a> Encoder<'a> {
     /// Encode a tag as specified in ITU-T X.696 8.7
     ///
     /// Encoding of the tag is only required when encoding a choice type.
-    fn encode_tag(tag: Tag) -> Vec<u8> {
+    fn encode_tag(&self, tag: Tag, bv: &mut BitSlice<u8, Msb0>) -> usize {
         use crate::types::Class;
-        let mut bv: BitVec<u8, Msb0> = BitVec::with_capacity(32);
         // Encode the tag class
+        let mut index = 0;
         match tag.class {
-            Class::Universal => bv.extend(&[false, false]),
-            Class::Application => bv.extend(&[false, true]),
-            Class::Context => bv.extend(&[true, false]),
-            Class::Private => bv.extend(&[true, true]),
+            Class::Universal => {
+                bv.set(index, false);
+                bv.set(index + 1, false);
+                index += 2;
+            }
+            Class::Application => {
+                bv.set(index, false);
+                bv.set(index + 1, true);
+                index += 2;
+            }
+            Class::Context => {
+                bv.set(index, true);
+                bv.set(index + 1, false);
+                index += 2;
+            }
+            Class::Private => {
+                bv.set(index, true);
+                bv.set(index + 1, true);
+                index += 2;
+            }
         }
         let mut tag_number = tag.value;
         // Encode the tag number
         if tag_number < 63 {
             for i in (0..6).rev() {
-                bv.push(tag_number & (1 << i) != 0);
+                bv.set(index, tag_number & (1 << i) != 0);
+                index += 1;
             }
         } else {
-            bv.extend([true; 6].iter());
+            for i in 0..6 {
+                bv.set(index + i, true);
+            }
+            index += 6;
             // Generate the bits for the tag number
-            let mut tag_bits = BitVec::<u8, Msb0>::with_capacity(16);
-            while tag_number > 0 {
-                tag_bits.push(tag_number & 1 != 0);
-                tag_number >>= 1;
+            let mut tag_number_bits = 0;
+            let mut temp_tag_number = tag_number;
+            while temp_tag_number > 0 {
+                temp_tag_number >>= 1;
+                tag_number_bits += 1;
             }
-            // Add leading zeros if needed to make length a multiple of 7
-            while tag_bits.len() % 7 != 0 {
-                tag_bits.push(false);
-            }
+            let mut remainer = 7 - tag_number_bits % 7;
             // Encode the bits in the "big-endian" format, with continuation bits
-            for chunk in tag_bits.chunks(7).rev() {
+            bv.set(index, true);
+            index += 1;
+            // First, add leading zeros if needed to make length a multiple of 7
+            for _ in 0..7 {
+                if remainer != 0 {
+                    bv.set(index, false);
+                    index += 1;
+                    remainer -= 1;
+                    continue;
+                }
+                bv.set(index, tag_number & 1 != 0);
+                tag_number >>= 1;
+                index += 1;
+            }
+            while tag_number > 0 {
                 // 8th bit is continuation marker; true for all but the last octet
-                bv.push(true);
-                bv.extend(chunk);
+                bv.set(index, true);
+                index += 1;
+                for _ in 0..7 {
+                    bv.set(index, tag_number & 1 != 0);
+                    tag_number >>= 1;
+                    index += 1;
+                }
             }
             // Correct the 8th bit of the last octet to be false
-            let bv_last_8bit = bv.len() - 8;
+            let bv_last_8bit = &bv[..index].len() - 8;
             bv.replace(bv_last_8bit, false);
             debug_assert!(&bv[2..8].all());
             debug_assert!(&bv[9..16].any());
         }
-        bv.into_vec()
+        index
     }
 
     fn encode_unconstrained_enum_index(&mut self, value: isize) -> Result<(), EncodeError> {
@@ -932,21 +969,21 @@ impl<'a> crate::Encoder for Encoder<'a> {
         _tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut choice_encoder = Self::new(self.options.without_set_encoding());
-        let tag = encode_fn(&mut choice_encoder)?;
-
+        let buffer_end = self.output.borrow().len();
+        let tag = encode_fn(self)?;
         let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
-        let mut tag_bytes: Vec<u8> = Self::encode_tag(tag);
-        self.output.borrow_mut().append(&mut tag_bytes);
+        let mut output = self.output.borrow_mut().split_off(buffer_end);
+        let mut tag_buffer: BitArray<[u8; core::mem::size_of::<Tag>() + 1], Msb0> =
+            BitArray::default();
+        let needed = self.encode_tag(tag, tag_buffer.as_mut_bitslice());
+        self.output
+            .borrow_mut()
+            .extend(tag_buffer[..needed].domain());
         if is_root_extension {
-            self.output
-                .borrow_mut()
-                .append(&mut choice_encoder.output());
+            self.output.borrow_mut().append(&mut output);
         } else {
-            self.encode_length(choice_encoder.output.borrow().len())?;
-            self.output
-                .borrow_mut()
-                .append(&mut choice_encoder.output());
+            self.encode_length(output.len())?;
+            self.output.borrow_mut().append(&mut output);
         }
         self.extend(tag)?;
         Ok(())

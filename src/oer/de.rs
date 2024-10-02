@@ -123,7 +123,6 @@ impl<'input> Decoder<'input> {
             ))
         }
     }
-
     fn parse_tag(&mut self) -> Result<Tag, DecodeError> {
         // Seems like tag number
         use crate::types::Class;
@@ -140,7 +139,8 @@ impl<'input> Decoder<'input> {
             // Long form
             let mut tag_number = 0u32;
             let mut next_byte = self.parse_one_byte()?;
-            if next_byte & 0b1000_0000 > 0 {
+            // The first octet cannot have last 7 bits set to 0
+            if next_byte & 0b0111_1111 == 0 || next_byte == 0 {
                 return Err(OerDecodeErrorKind::invalid_tag_number_on_choice(u32::from(
                     next_byte & 0b1000_0000,
                 )));
@@ -151,6 +151,7 @@ impl<'input> Decoder<'input> {
                     .checked_shl(7)
                     .ok_or(OerDecodeErrorKind::invalid_tag_number_on_choice(tag_number))?
                     | u32::from(next_byte & 0b0111_1111);
+                // The zero-first-bit marks the octet as last
                 if next_byte & 0b1000_0000 == 0 {
                     break;
                 }
