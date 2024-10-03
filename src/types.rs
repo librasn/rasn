@@ -56,7 +56,6 @@ pub trait AsnType {
     /// The associated tag for the type.
     ///
     /// **Note** When implementing CHOICE types, this should be set to
-
     /// [`Tag::EOC`] and instead set the [`Self::TAG_TREE`] constant to contain
     /// all variants.
     const TAG: Tag;

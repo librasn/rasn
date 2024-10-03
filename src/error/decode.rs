@@ -1,5 +1,5 @@
 //! Error types associated with decoding from ASN.1 codecs.
-#![expect(missing_docs)]
+#![allow(missing_docs)]
 
 use core::num::ParseIntError;
 

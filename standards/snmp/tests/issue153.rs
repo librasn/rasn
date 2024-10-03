@@ -9,21 +9,23 @@ fn test_snmp() {
         14, 48, 12, 6, 8, 43, 6, 1, 2, 1, 1, 5, 0, 5, 0,
     ];
     let bytes: Vec<u8> = unsafe { std::mem::transmute(bytes) };
-    println!(
-        "{}",
-        bytes
-            .iter()
-            .map(|byte| format!("{:02X}", byte))
-            .collect::<String>()
-    );
+    println!("{}", {
+        let mut s = String::with_capacity(bytes.len() * 2);
+        for byte in &bytes {
+            use std::fmt::Write;
+            write!(&mut s, "{:02X}", byte).unwrap();
+        }
+        s
+    });
     let msg: rasn_snmp::v3::Message = rasn::der::decode(&bytes).unwrap();
     let bytes2 = rasn::der::encode(&msg).unwrap();
-    println!(
-        "{}",
-        bytes2
-            .iter()
-            .map(|byte| format!("{:02X}", byte))
-            .collect::<String>()
-    );
+    println!("{}", {
+        let mut s = String::with_capacity(bytes2.len() * 2);
+        for byte in &bytes2 {
+            use std::fmt::Write;
+            write!(&mut s, "{:02X}", byte).unwrap();
+        }
+        s
+    });
     pretty_assertions::assert_eq!(bytes, bytes2);
 }
