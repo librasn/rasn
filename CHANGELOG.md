@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.1](https://github.com/librasn/rasn/compare/rasn-v0.20.0...rasn-v0.20.1) - 2024-10-06
+
+### Other
+
+- OER: Fix tag decoding and optimise choice/tag encoding further ([#341](https://github.com/librasn/rasn/pull/341))
+- Fix some typos and word insertions/deletions ([#339](https://github.com/librasn/rasn/pull/339))
+
 ## [0.20.0](https://github.com/librasn/rasn/compare/rasn-v0.19.0...rasn-v0.20.0) - 2024-09-30
 
 ### Added
