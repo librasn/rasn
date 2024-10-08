@@ -9,4 +9,4 @@ CROSS="$1"
 
 required_arg "$CROSS" 'CROSS'
 
-"$CROSS" doc --all-features --all-targets -- -D warnings
+RUSTDOCFLAGS='--deny warnings' "$CROSS" doc --workspace --all-features --no-deps
