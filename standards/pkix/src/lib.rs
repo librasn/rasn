@@ -183,8 +183,9 @@ impl core::fmt::Display for Version {
 }
 
 /// Trust anchors are widely used to verify digital signatures and
-/// validate certification paths [RFC 5280][X.509].  They are required
-/// when validating certification paths.  Though widely used, there is no
+/// validate certification paths [RFC 5280][X.509].  
+///
+/// They are required when validating certification paths. Though widely used, there is no
 /// standard format for representing trust anchor information.  The RFC-5914
 /// document describes the TrustAnchorInfo structure.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
