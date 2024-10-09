@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0](https://github.com/librasn/rasn/compare/rasn-derive-v0.20.1...rasn-derive-v0.21.0) - 2024-10-09
+
+### Fixed
+
+- Run clippy and rustdoc only on stable channel in CI ([#342](https://github.com/librasn/rasn/pull/342))
+
 ## [0.19.0](https://github.com/librasn/rasn/compare/rasn-derive-v0.18.0...rasn-derive-v0.19.0) - 2024-09-22
 
 ### Other
