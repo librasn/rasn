@@ -10,8 +10,9 @@ pub type HostAddresses = SequenceOf<HostAddress>;
 pub type AdMandatoryForKdc = AuthorizationData;
 
 /// Element are intended for interpretation only by application servers that
-/// understand the particular `type` of the embedded element.  Application
-/// servers that do not understand the type of an element embedded within the
+/// understand the particular `type` of the embedded element.
+///
+/// Application servers that do not understand the type of an element embedded within the
 /// [AdIfRelevant] element MAY ignore the uninterpretable element. This element
 /// promotes interoperability across implementations that may have local
 /// extensions for authorization.
@@ -813,8 +814,9 @@ impl ApOptions {
     }
 }
 
-/// The authenticator included in the [ApReq]; it certifies to a server that the
-/// sender has recent knowledge of the encryption key in the accompanying
+/// The authenticator included in the [ApReq].
+///
+/// Tt certifies to a server that the sender has recent knowledge of the encryption key in the accompanying
 /// ticket, to help the server detect replays. It also assists in the selection
 /// of a "true session key" to use with the particular session.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -1191,7 +1193,9 @@ pub struct EtypeInfo2Entry {
 
 /// Provides a means for Kerberos principal credentials to embed within
 /// themselves privilege attributes and other mechanisms for positive
-/// authorization, amplifying the privileges of the principal beyond what can be
+/// authorization.
+///
+/// This amplifies the privileges of the principal beyond what can be
 /// done using credentials without such an a-data element.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AdKdcIssued {
@@ -1216,7 +1220,9 @@ pub struct AdKdcIssued {
 
 /// Used to implement an "or" operation by setting the condition-count field to
 /// `1`, and it may specify an "and" operation by setting the condition count to
-/// the number of embedded elements.  Application servers that do not implement
+/// the number of embedded elements.  
+///
+/// Application servers that do not implement
 /// this element MUST reject tickets that contain authorization data elements of
 /// this type.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]

@@ -87,7 +87,9 @@ impl Message {
 }
 
 /// A trait representing a type that is a valid "security parameter" used for
-/// an SNMP v3 `Message`. You can use this in combination with the
+/// an SNMP v3 `Message`.
+///
+/// You can use this in combination with the
 /// [`Message::decode_security_parameters`] and
 /// [`Message::encode_security_parameters`] to safely retrieve the encoded
 /// parameters from a given message.
@@ -136,8 +138,9 @@ pub struct HeaderData {
 }
 
 /// Represents either the plain text `ScopedPdu` if the `privFlag` in `Message::flags` is zero, or
-/// it represents an encrypted PDU (encoded as an OCTET STRING) which MUST be decrypted by the
-/// security model in use to produce a plaintext `ScopedPdu`.
+/// it represents an encrypted PDU (encoded as an OCTET STRING).
+///
+/// It MUST be decrypted by the security model in use to produce a plaintext `ScopedPdu`.
 ///
 /// [RFC 3412 § 6.7](https://datatracker.ietf.org/doc/html/rfc3412#section-6.7)
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]

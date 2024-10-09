@@ -42,6 +42,7 @@ impl Encoder {
     }
 
     /// Returns the complete encoded JSON value formatted to a string, consuming the encoder.
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(self) -> alloc::string::String {
         self.root_value.map_or(<_>::default(), |v| v.to_string())
     }

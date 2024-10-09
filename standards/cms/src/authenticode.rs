@@ -5,7 +5,11 @@
 //! data and X.509 certificates to bind an Authenticode-signed binary to the identity of a software
 //! publisher.
 //!
-//! Reference: [Windows Authenticode Portable Executable Signature Format] (http://msdn.microsoft.com/en-US/windows/hardware/gg463183)
+//! An Authenticode signature's ContentInfo structure contains several structures that in turn contain
+//! the file's hash value, page hash values (if present), the file description, and various optional or legacy
+//! ASN.1 fields.
+//!
+//! Reference: [Windows Authenticode Portable Executable Signature Format](http://msdn.microsoft.com/en-US/windows/hardware/gg463183)
 //! **NOTE**: the document differs from the actual implementation. This crate contains the structures used in actual signing.
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Neg};
 
@@ -36,9 +40,7 @@ pub const SPC_CLASS_UUID: OctetString = OctetString::from_static(&[
 
 pub type SpcUuid = OctetString;
 
-/// An Authenticode signature's ContentInfo structure contains several structures that in turn contain
-/// the file's hash value, page hash values (if present), the file description, and various optional or legacy
-/// ASN.1 fields. The root structure is SpcIndirectDataContent.
+/// The root structure is SpcIndirectDataContent.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SpcIndirectDataContent {
     pub data: SpcAttributeTypeAndOptionalValue,

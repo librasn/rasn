@@ -38,6 +38,7 @@ pub trait Constructed {
 pub type SequenceOf<T> = alloc::vec::Vec<T>;
 
 /// The `SET OF` type - an unordered list of zero, one or more values of the component type.
+///
 /// Works internally like  `HashMap<T, usize>`, where the count of each element is tracked and used appropriately to represent an unordered list.
 #[derive(Debug, Clone)]
 pub struct SetOf<T> {

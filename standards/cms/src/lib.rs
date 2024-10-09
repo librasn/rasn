@@ -162,7 +162,9 @@ pub struct AuthenticatedData {
     pub unauth_attrs: Option<UnauthAttributes>,
 }
 
-/// The CertificateChoices type gives either a PKCS #6 extended
+/// The `CertificateChoices`` type contains options for certificate formats.
+///
+/// It gives either a PKCS #6 extended
 /// certificate, an X.509 certificate, a version 1 X.509
 ///  attribute certificate (ACv1) [X.509-97], a version 2 X.509 attribute
 /// certificate (ACv2) [X.509-00], or any other certificate format.
@@ -185,8 +187,9 @@ pub struct OtherCertificateFormat {
     pub other_cert: Any,
 }
 
-/// The RevocationInfoChoice type gives a revocation status
-/// information alternatives. It is intended that the set contain
+/// The RevocationInfoChoice type gives a revocation status information alternatives.
+///
+/// It is intended that the set contain
 /// information sufficient to determine whether the certificates and
 /// attribute certificates with which the set is associated are revoked.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
@@ -322,8 +325,9 @@ pub struct RecipientEncryptedKey {
     pub encrypted_key: EncryptedKey,
 }
 
-/// KeyAgreeRecipientIdentifier is a CHOICE with two alternatives
-/// specifying the recipient's certificate, and thereby the
+/// KeyAgreeRecipientIdentifier is a CHOICE with two alternatives.
+///
+/// Alternatives specify the recipient's certificate, and thereby the
 /// recipient's public key, that was used by the sender to generate a
 /// pairwise key-encryption key.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]

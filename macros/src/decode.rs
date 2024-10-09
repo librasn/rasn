@@ -1,8 +1,8 @@
 use syn::Fields;
 
 use crate::{config::*, ext::GenericsExt};
-#[allow(clippy::too_many_lines)]
 
+#[allow(clippy::too_many_lines)]
 pub fn derive_struct_impl(
     name: syn::Ident,
     mut generics: syn::Generics,

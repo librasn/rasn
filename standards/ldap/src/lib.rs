@@ -27,8 +27,9 @@ pub type MessageId = u32;
 /// A notational convenience to indicate that, for `LdapString`, the
 /// ISO10646 character set (a superset of
 /// Unicode) is being used, encoded following the UTF-8 RFC3629 algorithm.
+///
 /// We can use Rust `String` type to represent this type, see
-/// https://github.com/librasn/rasn/issues/304 and https://www.unicode.org/faq/unicode_iso.html
+/// <https://github.com/librasn/rasn/issues/304> and <https://www.unicode.org/faq/unicode_iso.html>
 #[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct LdapString(pub String);
 
@@ -98,7 +99,9 @@ pub type LdapDn = LdapString;
 pub type RelativeLdapDn = LdapString;
 /// An attribute type and zero or more options.
 pub type AttributeDescription = LdapString;
-/// An encoded attribute value. The attribute value is encoded according to the
+/// An encoded attribute value. T
+///
+/// he attribute value is encoded according to the
 /// LDAP-specific encoding definition of its corresponding syntax.  The
 /// LDAP-specific encoding definitions for different syntaxes and attribute
 /// types may be found in other documents and in particular [RFC 4517].
@@ -427,8 +430,9 @@ impl BindResponse {
 pub struct UnbindRequest;
 
 /// Used to request a server to return, subject to access controls and other
-/// restrictions, a set of entries matching a complex search criterion. This can
-/// be used to read attributes from a single entry, from entries immediately
+/// restrictions, a set of entries matching a complex search criterion.
+///
+/// This can be used to read attributes from a single entry, from entries immediately
 /// subordinate to a particular entry, or from a whole subtree of entries.
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, Eq, Hash)]
 #[rasn(tag(application, 3))]

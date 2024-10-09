@@ -152,8 +152,9 @@ impl Constraint {
     }
 }
 
-/// A wrapper around [Constraint] covering whether the constraint is "extensible"
-/// meaning that it can have values outside of its constraints, and what possible
+/// A wrapper around [Constraint] covering whether the constraint is "extensible".
+///
+/// Extensible means that it can have values outside of its constraints, and what possible
 /// constraints thosevalues in the extended set can have, if any.
 #[derive(Debug, Copy, Default, Clone, PartialEq)]
 pub struct Extensible<T: 'static> {

@@ -109,12 +109,12 @@ fn lets_encrypt_x3() {
             validity: Validity {
                 not_before: Time::Utc(
                     chrono::Utc
-                        .with_ymd_and_hms(2016, 03, 17, 16, 40, 46)
+                        .with_ymd_and_hms(2016, 3, 17, 16, 40, 46)
                         .unwrap(),
                 ),
                 not_after: Time::Utc(
                     chrono::Utc
-                        .with_ymd_and_hms(2021, 03, 17, 16, 40, 46)
+                        .with_ymd_and_hms(2021, 3, 17, 16, 40, 46)
                         .unwrap(),
                 ),
             },

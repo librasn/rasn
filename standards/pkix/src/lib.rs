@@ -183,8 +183,9 @@ impl core::fmt::Display for Version {
 }
 
 /// Trust anchors are widely used to verify digital signatures and
-/// validate certification paths [RFC5280][X.509].  They are required
-/// when validating certification paths.  Though widely used, there is no
+/// validate certification paths [RFC 5280][X.509].  
+///
+/// They are required when validating certification paths. Though widely used, there is no
 /// standard format for representing trust anchor information.  The RFC-5914
 /// document describes the TrustAnchorInfo structure.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
@@ -193,7 +194,7 @@ pub struct TrustAnchorInfo {
     #[rasn(tag(explicit(1)), default)]
     pub version: TrustAnchorInfoVersion,
     /// pubKey identifies the public key and algorithm associated with the
-    /// trust anchor using the SubjectPublicKeyInfo structure [RFC5280].  The
+    /// trust anchor using the SubjectPublicKeyInfo structure [RFC 5280].  The
     /// SubjectPublicKeyInfo structure contains the algorithm identifier
     /// followed by the public key itself.
     pub pub_key: SubjectPublicKeyInfo,
@@ -204,7 +205,7 @@ pub struct TrustAnchorInfo {
     pub ta_title: Option<TrustAnchorTitle>,
     /// certPath is OPTIONAL.  When it is present, it provides the controls
     /// needed to initialize an X.509 certification path validation algorithm
-    /// implementation (see Section 6 of [RFC5280]).  When absent, the trust
+    /// implementation (see Section 6 of [RFC 5280]).  When absent, the trust
     /// anchor cannot be used to validate the signature on an X.509
     /// certificate.
     pub cert_path: Option<CertPathControls>,
@@ -254,7 +255,7 @@ pub struct CertPathControls {
     pub policy_flags: Option<CertPolicyFlags>,
     #[rasn(tag(3))]
     /// nameConstrhas the same syntax and semantics as the
-    /// Name Constraints certificate extension [RFC5280], which includes a
+    /// Name Constraints certificate extension [RFC 5280], which includes a
     /// list of permitted names and a list of excluded names.
     pub name_constr: Option<NameConstraints>,
     #[rasn(tag(4))]

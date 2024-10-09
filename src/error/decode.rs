@@ -1,5 +1,4 @@
 //! Error types associated with decoding from ASN.1 codecs.
-#![expect(missing_docs)]
 
 use core::num::ParseIntError;
 
@@ -571,7 +570,7 @@ pub enum DecodeErrorKind {
         value: u8,
     },
 
-    // Length of Length zero
+    /// Length of Length cannot be zero.
     #[snafu(display("Length of Length cannot be zero"))]
     ZeroLengthOfLength,
     /// The length does not match what was expected.
@@ -583,18 +582,22 @@ pub enum DecodeErrorKind {
         actual: usize,
     },
 
+    /// Missing field in a sequence.
     #[snafu(display("Missing field `{}`", name))]
     MissingField {
         /// The field's name.
         name: &'static str,
     },
+    /// When there is a mismatch between the expected and actual tag class or `value`.
     #[snafu(display("Expected class: {}, value: {} in sequence or set Missing tag class or value in sequence or set", class, value))]
     MissingTagClassOrValueInSequenceOrSet {
-        /// The field's name.
+        /// The tag's class.
         class: crate::types::Class,
+        /// The tag's value.
         value: u32,
     },
 
+    /// The range of the integer exceeds the platform width.
     #[snafu(display("integer range larger than possible to address on this platform. needed: {needed} present: {present}"))]
     RangeExceedsPlatformWidth {
         /// Amount of bytes needed.
@@ -602,15 +605,19 @@ pub enum DecodeErrorKind {
         /// Amount of bytes needed.
         present: u32,
     },
+    /// A specific required extension not present.
     #[snafu(display("Extension with class `{}` and tag `{}` required, but not present", tag.class, tag.value))]
-    RequiredExtensionNotPresent { tag: crate::types::Tag },
-    #[snafu(display("Extension {} required but not present", tag.class))]
-    ExtensionRequiredButNotPresent { tag: crate::types::Tag },
+    RequiredExtensionNotPresent {
+        /// The tag of the required extension.
+        tag: crate::types::Tag,
+    },
+    /// General error when parsing data.
     #[snafu(display("Error in Parser: {}", msg))]
     Parser {
         /// The error's message.
         msg: alloc::string::String,
     },
+    /// General error for failed ASN.1 string conversion from bytes.
     #[snafu(display(
         "Failed to convert byte array into valid ASN.1 string. String type as tag: {} Error: {}",
         tag,
@@ -622,6 +629,7 @@ pub enum DecodeErrorKind {
         /// The error's message.
         msg: alloc::string::String,
     },
+    /// General error for failed ASN.1 fixed-sized string conversion from bytes.
     #[snafu(display(
     "Failed to convert byte array into valid fixed-sized ASN.1 string. String type as tag: {}, actual: {}, expected: {}",
     tag,
@@ -636,12 +644,14 @@ pub enum DecodeErrorKind {
         /// Actual length
         actual: usize,
     },
+    /// An error when the choice cannot be created from the given variant.
     #[snafu(display("No valid choice for `{}`", name))]
     NoValidChoice {
         /// The field's name.
         name: &'static str,
     },
 
+    /// An error when the type is not extensible when it should.
     #[snafu(display("Attempted to decode extension on non-extensible type"))]
     TypeNotExtensible,
     /// Unexpected extra data found.
@@ -650,8 +660,15 @@ pub enum DecodeErrorKind {
         /// The amount of garbage data.
         length: usize,
     },
+    /// An error when a unknown field is found when decoding sequence.
     #[snafu(display("Unknown field with index {} and tag {}", index, tag))]
-    UnknownField { index: usize, tag: Tag },
+    UnknownField {
+        /// Index of the field.
+        index: usize,
+        /// Tag of the field.
+        tag: Tag,
+    },
+    /// An error when there should be more data but it is not present.
     #[snafu(display("SEQUENCE has at least one required field, but no input provided"))]
     UnexpectedEmptyInput,
 }
@@ -661,13 +678,19 @@ pub enum DecodeErrorKind {
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum BerDecodeErrorKind {
+    /// An error when the length is not definite.
     #[snafu(display("Indefinite length encountered but not allowed."))]
     IndefiniteLengthNotAllowed,
+    /// An error if the value is not primitive when required.
     #[snafu(display("Invalid constructed identifier for ASN.1 value: not primitive."))]
     InvalidConstructedIdentifier,
     /// Invalid date.
     #[snafu(display("Invalid date string: {}", msg))]
-    InvalidDate { msg: alloc::string::String },
+    InvalidDate {
+        /// The reason as string
+        msg: alloc::string::String,
+    },
+    /// An error when the object identifier is invalid.
     #[snafu(display("Invalid object identifier with missing or corrupt root nodes."))]
     InvalidObjectIdentifier,
     /// The tag does not match what was expected.
@@ -681,10 +704,12 @@ pub enum BerDecodeErrorKind {
 }
 
 impl BerDecodeErrorKind {
+    /// A helper function to create an error [BerDecodeErrorKind::InvalidDate].
     #[must_use]
     pub fn invalid_date(msg: alloc::string::String) -> CodecDecodeError {
         CodecDecodeError::Ber(Self::InvalidDate { msg })
     }
+    /// A helper function to create an error [BerDecodeErrorKind::MismatchedTag].
     pub fn assert_tag(expected: Tag, actual: Tag) -> core::result::Result<(), DecodeError> {
         if expected == actual {
             Ok(())
@@ -705,6 +730,7 @@ pub enum CerDecodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum DerDecodeErrorKind {
+    /// An error when constructed encoding encountered but not allowed.
     #[snafu(display("Constructed encoding encountered but not allowed."))]
     ConstructedEncodingNotAllowed,
 }
@@ -714,28 +740,46 @@ pub enum DerDecodeErrorKind {
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum JerDecodeErrorKind {
+    /// An error when the end of input is reached, but more data is needed.
     #[snafu(display("Unexpected end of input while decoding JER JSON."))]
     EndOfInput {},
+    /// An error when the JSON type is not the expected type.
     #[snafu(display(
         "Found mismatching JSON value. Expected type {}. Found value {}.",
         needed,
         found
     ))]
     TypeMismatch {
+        /// Expected JSON type.
         needed: &'static str,
+        /// Found JSON value.
         found: alloc::string::String,
     },
+    /// An error when the JSON value is not a valid bit string.
     #[snafu(display("Found invalid byte in bit string. {parse_int_err}"))]
-    InvalidJerBitstring { parse_int_err: ParseIntError },
+    InvalidJerBitstring {
+        /// The error that occurred when parsing the BitString byte.
+        parse_int_err: ParseIntError,
+    },
+    /// An error when the JSON value is not a valid octet string.
     #[snafu(display("Found invalid character in octet string."))]
     InvalidJerOctetString {},
+    /// An error when the JSON value is not a valid OID string.
     #[snafu(display("Failed to construct OID from value {value}",))]
-    InvalidOIDString { value: serde_json::Value },
+    InvalidOIDString {
+        /// The JSON value that could not be converted to an OID.
+        value: serde_json::Value,
+    },
+    /// An error when the JSON value is not a valid enumerated discriminant.
     #[snafu(display("Found invalid enumerated discriminant {discriminant}",))]
-    InvalidEnumDiscriminant { discriminant: alloc::string::String },
+    InvalidEnumDiscriminant {
+        /// The invalid enumerated discriminant.
+        discriminant: alloc::string::String,
+    },
 }
 
 impl JerDecodeErrorKind {
+    /// Helper function to create an error [JerDecodeErrorKind::EndOfInput].
     pub fn eoi() -> CodecDecodeError {
         CodecDecodeError::Jer(JerDecodeErrorKind::EndOfInput {})
     }
@@ -755,6 +799,7 @@ pub enum UperDecodeErrorKind {}
 #[non_exhaustive]
 pub enum AperDecodeErrorKind {}
 
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for OER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
@@ -765,32 +810,50 @@ pub enum OerDecodeErrorKind {
         /// The actual class.
         class: u8,
     },
+    /// The tag number was incorrect when decoding a Choice type.
     #[snafu(display("Invalid tag number when decoding Choice. Value: {value}"))]
-    InvalidTagNumberOnChoice { value: u32 },
+    InvalidTagNumberOnChoice {
+        /// Invalid tag bytes at the time of decoding.
+        value: u32,
+    },
+    /// An error scenario where the tag number is not present in the expected Choice type.
     #[snafu(display(
         "Tag not found from the variants of the platform when decoding Choice. Tag: {value}, extensible status: {is_extensible}"
     ))]
-    InvalidTagVariantOnChoice { value: Tag, is_extensible: bool },
+    InvalidTagVariantOnChoice {
+        /// The tag number that was not found.
+        value: Tag,
+        /// The extensible status of the Choice type.
+        is_extensible: bool,
+    },
 
+    /// An error scenario where the extension header in preamble is invalid.
     InvalidExtensionHeader {
         /// The amount of invalid bits.
         msg: alloc::string::String,
     },
+    /// An error scenario where the BitString is invalid for some reason.
     #[snafu(display("Invalid BitString: {msg}"))]
     InvalidOerBitString {
         /// The amount of invalid bits.
         msg: alloc::string::String,
     },
+    /// An error scenario where the preamble is invalid.
     #[snafu(display("Invalid preamble: {msg}"))]
-    InvalidPreamble { msg: alloc::string::String },
+    InvalidPreamble {
+        /// Message related to reason
+        msg: alloc::string::String,
+    },
 }
 
 impl OerDecodeErrorKind {
     #[must_use]
+    /// Helper function to create an error [OerDecodeErrorKind::InvalidTagNumberOnChoice].
     pub fn invalid_tag_number_on_choice(value: u32) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidTagNumberOnChoice { value }).into()
     }
     #[must_use]
+    /// Helper function to create an error [OerDecodeErrorKind::InvalidTagVariantOnChoice].
     pub fn invalid_tag_variant_on_choice(value: Tag, is_extensible: bool) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidTagVariantOnChoice {
             value,
@@ -799,26 +862,34 @@ impl OerDecodeErrorKind {
         .into()
     }
 
+    /// Helper function to create an error [OerDecodeErrorKind::InvalidExtensionHeader].
     #[must_use]
     pub fn invalid_extension_header(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidExtensionHeader { msg }).into()
     }
+    /// Helper function to create an error [OerDecodeErrorKind::InvalidOerBitString].
     #[must_use]
     pub fn invalid_bit_string(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidOerBitString { msg }).into()
     }
+    /// Helper function to create an error [OerDecodeErrorKind::InvalidPreamble].
     #[must_use]
     pub fn invalid_preamble(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidPreamble { msg }).into()
     }
 }
 
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for COER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum CoerDecodeErrorKind {
+    /// An error of a result where the stricter Canonical Octet Encoding is not reached.
     #[snafu(display("Invalid Canonical Octet Encoding, not encoded as the smallest possible number of octets: {msg}"))]
-    NotValidCanonicalEncoding { msg: alloc::string::String },
+    NotValidCanonicalEncoding {
+        /// Reason for the error.
+        msg: alloc::string::String,
+    },
 }
 
 impl crate::de::Error for DecodeError {

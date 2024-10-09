@@ -1,6 +1,4 @@
 //! Error types associated with encoding to ASN.1 codecs.
-#![expect(missing_docs)]
-
 use crate::types::constraints::{Bounded, Size};
 use num_bigint::BigInt;
 use snafu::Snafu;
@@ -127,6 +125,7 @@ impl core::fmt::Display for EncodeError {
 }
 
 impl EncodeError {
+    /// Returns an encode error for `codec` when the alphabet constraint is not satisfied.
     #[must_use]
     pub fn alphabet_constraint_not_satisfied(
         reason: super::strings::PermittedAlphabetError,
@@ -139,6 +138,9 @@ impl EncodeError {
     }
 
     #[must_use]
+    /// Returns an encode error for `codec` when the size constraint is not satisfied.
+    ///
+    /// The `size` is the actual size that failed the constraint and `expected` the expected size.
     pub fn size_constraint_not_satisfied(
         size: usize,
         expected: &Size,
@@ -153,6 +155,9 @@ impl EncodeError {
         )
     }
 
+    /// Returns an encode error for `codec` when the value constraint is not satisfied.
+    ///
+    /// The `value` is the actual value that failed the constraint.
     #[must_use]
     pub fn value_constraint_not_satisfied(
         value: BigInt,
@@ -168,6 +173,7 @@ impl EncodeError {
         )
     }
 
+    /// Check the passed `length` against the expected size and return an error if it does not match.
     pub fn check_length(length: usize, expected: &Size, codec: crate::Codec) -> Result<(), Self> {
         expected.contains_or_else(&length, || Self {
             kind: Box::new(EncodeErrorKind::InvalidLength {
@@ -180,32 +186,33 @@ impl EncodeError {
         })
     }
 
+    /// Create an encode error for `codec` when the value is too large to be encoded on the current platform.
     #[must_use]
     pub fn length_exceeds_platform_size(codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::LengthExceedsPlatformSize, codec)
     }
 
-    /// An error for failed conversion from `BitInt` or `BigUint` to primitive integer types
+    /// Create an error for failed conversion from `BitInt` or `BigUint` to primitive integer types
     #[must_use]
     pub fn integer_type_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::IntegerTypeConversionFailed { msg }, codec)
     }
 
-    #[must_use]
-    pub fn invalid_length(length: usize, expected: Bounded<usize>, codec: crate::Codec) -> Self {
-        Self::from_kind(EncodeErrorKind::InvalidLength { length, expected }, codec)
-    }
-
+    /// Create an error if conversion to opaque type failed.
+    ///
+    /// This is mainly used as part of SMI standard which converts type to BER encoding and handles bytes as `Opaque`.
     #[must_use]
     pub fn opaque_conversion_failed(msg: alloc::string::String, codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::OpaqueConversionFailed { msg }, codec)
     }
 
+    /// Create an error when the selected variant is not found in the choice.
     #[must_use]
     pub fn variant_not_in_choice(codec: crate::Codec) -> Self {
         Self::from_kind(EncodeErrorKind::VariantNotInChoice, codec)
     }
 
+    /// A helper function to construct an `EncodeError` from the given `kind` and `codec`.
     #[must_use]
     pub fn from_kind(kind: EncodeErrorKind, codec: crate::Codec) -> Self {
         Self {
@@ -245,8 +252,13 @@ impl EncodeError {
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum EncodeErrorKind {
+    /// Error when the BitString does not align with the `u8` byte boundary.
     #[snafu(display("Failed to convert BIT STRING unused bits to u8: {err}"))]
-    FailedBitStringUnusedBitsToU8 { err: core::num::TryFromIntError },
+    FailedBitStringUnusedBitsToU8 {
+        /// Internal integer conversion error
+        err: core::num::TryFromIntError,
+    },
+    /// Error when the length of the data is not in the constraint size range.
     #[snafu(display("invalid length, expected: {expected}; actual: {length}"))]
     InvalidLength {
         /// Actual length of the data
@@ -254,19 +266,38 @@ pub enum EncodeErrorKind {
         /// Expected length of the data
         expected: Bounded<usize>,
     },
+    /// Error when the length of the data is more than we can technically handle.
     #[snafu(display("invalid length, exceeds platform maximum size usize::MAX"))]
     LengthExceedsPlatformSize,
-    #[snafu(display("Integer does not fit to the reserved octets {expected}; actual: {value}"))]
-    MoreBytesThanExpected { value: usize, expected: usize },
+    /// Encode error when the
+    #[snafu(display(
+        "The provided value does not fit to the reserved octets {expected}; actual: {value}"
+    ))]
+    MoreBytesThanExpected {
+        /// The count of the provided bytes
+        value: usize,
+        /// Expected number of bytes
+        expected: usize,
+    },
+    /// Error when the custom error is thrown.
     #[snafu(display("custom error:\n{}", msg))]
-    Custom { msg: alloc::string::String },
+    Custom {
+        /// The custom error message
+        msg: alloc::string::String,
+    },
+    /// Wraps codec-specific errors as inner [CodecEncodeError].
     #[snafu(display("Wrapped codec-specific encode error"))]
-    CodecSpecific { inner: CodecEncodeError },
+    CodecSpecific {
+        /// Inner codec-specific error
+        inner: CodecEncodeError,
+    },
+    /// Error when the alphabet constraint is not satisfied.
     #[snafu(display("Alphabet constraint not satisfied: {reason}"))]
     AlphabetConstraintNotSatisfied {
         /// Inner error from mapping realized characters to allowed characters
         reason: super::strings::PermittedAlphabetError,
     },
+    /// Error when the size constraint is not satisfied.
     #[snafu(display("Size constraint not satisfied: expected: {expected}; actual: {size}"))]
     SizeConstraintNotSatisfied {
         /// Actual sie of the data
@@ -274,6 +305,7 @@ pub enum EncodeErrorKind {
         /// Expected size by the constraint
         expected: Bounded<usize>,
     },
+    /// Error when the value constraint is not satisfied.
     #[snafu(display("Value constraint not satisfied: expected: {expected}; actual: {value}"))]
     ValueConstraintNotSatisfied {
         /// Actual value of the data
@@ -281,10 +313,19 @@ pub enum EncodeErrorKind {
         /// Expected value by the constraint
         expected: Bounded<i128>,
     },
+    /// Error when the type conversion failed between different integer types.
     #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
-    IntegerTypeConversionFailed { msg: alloc::string::String },
+    IntegerTypeConversionFailed {
+        /// More precise error message
+        msg: alloc::string::String,
+    },
+    /// Error mainly used as part of SMI standard which converts type to BER encoding and handles bytes as `Opaque`.
     #[snafu(display("Conversion to Opaque type failed: {msg}"))]
-    OpaqueConversionFailed { msg: alloc::string::String },
+    OpaqueConversionFailed {
+        /// More precise error message
+        msg: alloc::string::String,
+    },
+    /// Error when the selected variant is not found in the choice.
     #[snafu(display("Selected Variant not found from Choice"))]
     VariantNotInChoice,
 }
@@ -293,15 +334,20 @@ pub enum EncodeErrorKind {
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum BerEncodeErrorKind {
+    /// Error to be thrown when the BER encoder encounters an `ANY` type in a `SET` field.
     #[snafu(display("Cannot encode `ANY` types in `SET` fields"))]
     AnyInSet,
     /// `OBJECT IDENTIFIER` must have at least two components.
     #[snafu(display(
     "Invalid Object Identifier: must have at least two components and first octet must be 0, 1 or 2. Provided: {:?}", oid
     ))]
-    InvalidObjectIdentifier { oid: alloc::vec::Vec<u32> },
+    InvalidObjectIdentifier {
+        /// Bytes of the invalid object identifier
+        oid: alloc::vec::Vec<u32>,
+    },
 }
 impl BerEncodeErrorKind {
+    /// Create an error [BerEncodeErrorKind::InvalidObjectIdentifier}.
     #[must_use]
     pub fn invalid_object_identifier(oid: alloc::vec::Vec<u32>) -> Self {
         Self::InvalidObjectIdentifier { oid }
@@ -327,7 +373,10 @@ pub enum DerEncodeErrorKind {}
 #[non_exhaustive]
 pub enum JerEncodeErrorKind {
     /// Upstream `serde` error
-    JsonEncodingError { upstream: alloc::string::String },
+    JsonEncodingError {
+        /// Wrapped error from `serde` when encoding JSON
+        upstream: alloc::string::String,
+    },
     /// Error to be thrown when the JER encoder contains no encoded root value
     #[snafu(display("No encoded JSON root value found!"))]
     NoRootValueFound,
@@ -337,11 +386,13 @@ pub enum JerEncodeErrorKind {
         /// The error's message.
         msg: alloc::string::String,
     },
+    /// Error to be thrown when encoding large integers than the supported range
     #[snafu(display("Exceeds supported integer range -2^63..2^63 ({:?}).", value))]
     ExceedsSupportedIntSize {
         /// value failed to encode
         value: BigInt,
     },
+    /// Error to be thrown when some character from the input data is not valid UTF-8
     #[snafu(display("Invalid character: {:?}", error))]
     InvalidCharacter {
         /// value failed to encode
@@ -361,16 +412,18 @@ pub enum UperEncodeErrorKind {}
 #[non_exhaustive]
 pub enum AperEncodeErrorKind {}
 
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for COER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum CoerEncodeErrorKind {
+    /// Error type for a scenario when the provided data is too long to be encoded with COER.
     #[snafu(display("Provided data is too long to be encoded with COER."))]
-    TooLongValue { length: u128 },
-    #[snafu(display(
-    "Provided length in not correct format. Should be bits as multiple of 8. {remainder}; actual: {length}"
-    ))]
-    LengthNotAsBitLength { length: usize, remainder: usize },
+    TooLongValue {
+        /// The length of the provided data
+        length: u128,
+    },
+    /// Error type for a secenario when the provided integer value exceeds the limits of the constrained word sizes.
     #[snafu(display("Provided integer exceeds limits of the constrained word sizes."))]
     InvalidConstrainedIntegerOctetSize,
 }
