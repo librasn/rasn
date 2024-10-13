@@ -55,9 +55,9 @@ impl<const N: usize> Fields<N> {
 
     /// Returns an iterator over all fields which are [FieldPresence::Optional] or
     /// [FieldPresence::Default].
-    // pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
-    //     self.iter().filter(Field::is_optional_or_default)
-    // }
+    pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
+        self.iter().filter(Field::is_optional_or_default)
+    }
 
     /// Returns the number of fields which are [FieldPresence::Optional] or
     /// [FieldPresence::Default].
@@ -100,6 +100,40 @@ impl<const N: usize> Fields<N> {
     pub fn identifiers(&self) -> impl Iterator<Item = &str> + '_ {
         self.fields.iter().map(|f| f.name)
     }
+    /// Finds the field by index and sets its presence to be true.
+    pub fn set_field_present_by_index(&mut self, index: usize) -> bool {
+        let field = self.get_field_mut(index);
+        match field {
+            Some(f) => {
+                f.present = true;
+                true
+            }
+            None => false,
+        }
+    }
+    pub const fn get_overall_presence_bitmap(&self) -> [bool; N] {
+        let mut i = 0;
+        let mut bitmap = [false; N];
+        while i < self.fields.len() {
+            bitmap[i] = self.fields[i].present;
+            i += 1;
+        }
+        bitmap
+    }
+    pub const fn get_optional_default_presence_bitmap(&self) -> ([bool; N], usize) {
+        let mut i = 0;
+        // Second index for getting bitmap for the beginning, not used indexes can be dropped.
+        let mut y = 0;
+        let mut bitmap = [false; N];
+        while i < self.fields.len() {
+            if self.fields[i].is_optional_or_default() {
+                bitmap[y] = self.fields[i].present;
+                y += 1;
+            }
+            i += 1;
+        }
+        (bitmap, self.number_of_optional_and_default_fields())
+    }
 }
 
 impl<const N: usize> core::ops::Deref for Fields<N> {
@@ -121,6 +155,8 @@ pub struct Field {
     pub tag_tree: TagTree,
     /// The presence requirement of the field.
     pub presence: FieldPresence,
+    /// Whether the field value is present in optional or default fields.
+    pub present: bool,
     /// The name of the field.
     pub name: &'static str,
 }
@@ -138,6 +174,7 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Required,
+            present: true,
             name,
         }
     }
@@ -152,6 +189,7 @@ impl Field {
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Required,
+            present: true,
             name,
         }
     }
@@ -168,6 +206,7 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Optional,
+            present: false,
             name,
         }
     }
@@ -182,6 +221,7 @@ impl Field {
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Optional,
+            present: false,
             name,
         }
     }
@@ -198,6 +238,7 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Default,
+            present: false,
             name,
         }
     }
@@ -212,8 +253,13 @@ impl Field {
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Default,
+            present: false,
             name,
         }
+    }
+    /// Change the current presence of the field to be true.
+    pub fn set_present(&mut self) {
+        self.present = true;
     }
 }
 

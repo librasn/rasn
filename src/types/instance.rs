@@ -57,6 +57,7 @@ impl<T: AsnType> crate::types::Constructed<2, 0> for InstanceOf<T> {
             tag: ObjectIdentifier::TAG,
             tag_tree: ObjectIdentifier::TAG_TREE,
             presence: FieldPresence::Required,
+            present: true,
             name: "type_id",
         },
         Field {
@@ -64,6 +65,7 @@ impl<T: AsnType> crate::types::Constructed<2, 0> for InstanceOf<T> {
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Required,
+            present: true,
             name: "value",
         },
     ]);

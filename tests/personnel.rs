@@ -38,24 +38,30 @@ impl rasn::Encode for PersonnelRecord {
         encoder
             .encode_set::<6, 0, Self, _>(tag, |encoder| {
                 self.name.encode(encoder)?;
+                encoder.update_index();
                 encoder.encode_explicit_prefix(
                     rasn::types::Tag::new(rasn::types::Class::Context, 0),
                     &self.title,
                 )?;
+                encoder.update_index();
                 self.number.encode(encoder)?;
+                encoder.update_index();
                 encoder.encode_explicit_prefix(
                     rasn::types::Tag::new(rasn::types::Class::Context, 1),
                     &self.date_of_hire,
                 )?;
+                encoder.update_index();
                 encoder.encode_explicit_prefix(
                     rasn::types::Tag::new(rasn::types::Class::Context, 2),
                     &self.name_of_spouse,
                 )?;
+                encoder.update_index();
                 encoder.encode_default_with_tag(
                     rasn::types::Tag::new(rasn::types::Class::Context, 3),
                     &self.children,
                     <Vec<ChildInformation>>::default,
                 )?;
+                encoder.update_index();
                 Ok(())
             })
             .map(drop)

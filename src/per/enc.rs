@@ -1291,6 +1291,7 @@ mod tests {
     use super::*;
 
     use crate::macros::{constraints, value_constraint};
+    use crate::types::constructed::Constructed;
     use crate::Encoder as _;
 
     #[derive(crate::AsnType, Default, crate::Encode, Clone, Copy)]

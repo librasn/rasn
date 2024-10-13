@@ -927,46 +927,46 @@ mod tests {
     }
     #[test]
     fn test_sequence_with_extensions() {
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // #[non_exhaustive]
-        // struct Sequence1 {
-        //     a: bool,
-        // }
-        // round_trip!(coer, Sequence1, Sequence1 { a: true }, &[0x00, 0xff]);
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // #[non_exhaustive]
-        // struct Sequence2 {
-        //     a: bool,
-        //     #[rasn(extension_addition)]
-        //     b: Option<bool>,
-        //     #[rasn(extension_addition)]
-        //     c: Option<bool>,
-        // }
-        // round_trip!(
-        //     coer,
-        //     Sequence2,
-        //     Sequence2 {
-        //         a: true,
-        //         b: Some(true),
-        //         c: Some(true)
-        //     },
-        //     &[0x80, 0xff, 0x02, 0x06, 0xc0, 0x01, 0xff, 0x01, 0xff]
-        // );
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // #[non_exhaustive]
-        // struct Sequence3 {
-        //     a: bool,
-        //     #[rasn(extension_addition_group)]
-        //     b: Option<Sequence4>,
-        // }
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // struct Sequence4 {
-        //     a: bool,
-        // }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence1 {
+            a: bool,
+        }
+        round_trip!(coer, Sequence1, Sequence1 { a: true }, &[0x00, 0xff]);
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence2 {
+            a: bool,
+            #[rasn(extension_addition)]
+            b: Option<bool>,
+            #[rasn(extension_addition)]
+            c: Option<bool>,
+        }
+        round_trip!(
+            coer,
+            Sequence2,
+            Sequence2 {
+                a: true,
+                b: Some(true),
+                c: Some(true)
+            },
+            &[0x80, 0xff, 0x02, 0x06, 0xc0, 0x01, 0xff, 0x01, 0xff]
+        );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence3 {
+            a: bool,
+            #[rasn(extension_addition_group)]
+            b: Option<Sequence4>,
+        }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence4 {
+            a: bool,
+        }
         // round_trip!(
         //     coer,
         //     Sequence3,
@@ -982,29 +982,29 @@ mod tests {
         //     },
         //     &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
         // );
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // #[non_exhaustive]
-        // struct Sequence5 {
-        //     a: bool,
-        //     #[rasn(extension_addition)]
-        //     b: Option<bool>,
-        // }
-        // round_trip!(
-        //     coer,
-        //     Sequence5,
-        //     Sequence5 { a: true, b: None },
-        //     &[0x00, 0xff]
-        // );
-        // round_trip!(
-        //     coer,
-        //     Sequence5,
-        //     Sequence5 {
-        //         a: true,
-        //         b: Some(true)
-        //     },
-        //     &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
-        // );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence5 {
+            a: bool,
+            #[rasn(extension_addition)]
+            b: Option<bool>,
+        }
+        round_trip!(
+            coer,
+            Sequence5,
+            Sequence5 { a: true, b: None },
+            &[0x00, 0xff]
+        );
+        round_trip!(
+            coer,
+            Sequence5,
+            Sequence5 {
+                a: true,
+                b: Some(true)
+            },
+            &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
+        );
 
         #[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
         #[rasn(automatic_tags)]

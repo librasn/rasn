@@ -527,7 +527,6 @@ impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
             self.extend(tag)?;
             return Ok(());
         }
-        dbg!("Nope");
         // Section 16.4 ### Extension addition presence bitmap ###
 
         let mut extension_bitmap_buffer: BitArray<[u8; EC], Msb0> = BitArray::default();
@@ -565,16 +564,54 @@ impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC,
     fn codec(&self) -> Codec {
         self.options.current_codec()
     }
-    fn set_presence_bits(&mut self, root_bits: &[bool], ext_bits: &[bool]) {
-        let extensions_present = ext_bits.iter().any(|&bit| bit);
-        let optional_default_present = !root_bits.is_empty();
-        if optional_default_present {
-            self.preamble.push(extensions_present);
-            self.preamble.extend(root_bits.iter().copied());
-        }
-        if extensions_present {
-            self.extension_bitfield.extend(ext_bits.iter().copied());
-        }
+    fn update_index(&mut self) {
+        self.current_field_index += 1;
+    }
+    fn set_presence_bits<const N: usize, const E: usize>(
+        &mut self,
+        mut _fields: crate::types::fields::Fields<N>,
+        _extened_fields: Option<crate::types::fields::Fields<E>>,
+    ) {
+        // dbg!(&extened_fields);
+        // dbg!(&fields);
+        // if self.options.set_encoding {
+        //     fields = fields.canonised();
+        // }
+        // for (i, bit) in fields
+        //     .get_optional_default_presence_bitmap()
+        //     .0
+        //     .iter()
+        //     .enumerate()
+        // {
+        //     self.optional_default_bitfield.0[i] = *bit;
+        // }
+        // self.optional_default_bitfield.1 = fields.get_optional_default_presence_bitmap().1;
+        // dbg!(self.optional_default_bitfield);
+        // if let Some(extened_fields) = extened_fields.as_mut() {
+        //     for (i, bit) in extened_fields
+        //         .get_overall_presence_bitmap()
+        //         .iter()
+        //         .enumerate()
+        //     {
+        //         self.extension_bitfield.0[i] = *bit;
+        //     }
+        //     self.extension_bitfield.1 = extened_fields.get_overall_presence_bitmap().len();
+        // }
+        // dbg!(root_bits);
+        // dbg!(ext_bits);
+        // dbg!(fields);
+        // let extensions_present = ext_bits.iter().any(|&bit| bit);
+        // let optional_default_present = !root_bits.is_empty();
+        // if optional_default_present {
+        //     for (i, &bit) in root_bits.iter().enumerate() {
+        //         self.optional_default_bitfield.set(i, bit);
+        //     }
+        // }
+        // if extensions_present {
+        //     for (i, &bit) in ext_bits.iter().enumerate() {
+        //         self.extension_bitfield.set(i, bit);
+        //     }
+        // }
     }
 
     fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
