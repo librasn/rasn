@@ -40,7 +40,7 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         tag: Tag,
         _: Constraints,
     ) -> core::result::Result<(), EN::Error> {
-        encoder.encode_sequence::<2, Self, _>(tag, |sequence| {
+        encoder.encode_sequence::<2, 0, Self, _>(tag, |sequence| {
             self.type_id.encode(sequence)?;
             sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
             Ok(())
@@ -50,18 +50,22 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
     }
 }
 
-impl<T: AsnType> crate::types::Constructed<2> for InstanceOf<T> {
+impl<T: AsnType> crate::types::Constructed<2, 0> for InstanceOf<T> {
     const FIELDS: Fields<2> = Fields::from_static([
         Field {
+            index: 0,
             tag: ObjectIdentifier::TAG,
             tag_tree: ObjectIdentifier::TAG_TREE,
             presence: FieldPresence::Required,
+            present: true,
             name: "type_id",
         },
         Field {
+            index: 1,
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Required,
+            present: true,
             name: "value",
         },
     ]);

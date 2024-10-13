@@ -1,17 +1,15 @@
 //! Encoding Rust structures into Octet Encoding Rules data.
 
-use alloc::collections::BTreeMap;
 use alloc::{borrow::Cow, vec::Vec};
 use bitvec::prelude::*;
 use core::cell::RefCell;
-use heapless::LinearMap;
 use num_traits::ToPrimitive;
 
 use crate::{
     oer::{ranges, EncodingRules},
     types::{
-        fields::FieldPresence, Any, BitStr, BitString, BmpString, Choice, Constraints, Constructed,
-        Date, Enumerated, GeneralString, GeneralizedTime, Ia5String, IntegerType, NumericString,
+        fields::Fields, Any, BitStr, BitString, BmpString, Choice, Constraints, Constructed, Date,
+        Enumerated, GeneralString, GeneralizedTime, Ia5String, IntegerType, NumericString,
         PrintableString, SetOf, Tag, TeletexString, UtcTime, VisibleString,
     },
     Codec, Encode,
@@ -68,18 +66,26 @@ impl<const FC: usize> Default for Encoder<'_, FC> {
 
 /// COER encoder. A subset of OER to provide canonical and unique encoding.
 #[derive(Debug)]
-pub struct Encoder<'a, const FC: usize = 0> {
+pub struct Encoder<'a, const RFC: usize = 0, const EFC: usize = 0> {
     options: EncoderOptions,
     output: alloc::borrow::Cow<'a, RefCell<Vec<u8>>>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     // usize a.k.a. field index defines the order for Sequence
     // field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), FC>,
+    // field_bitfield: LinearMap<(usize, Tag), (FieldPresence, bool), FC>,
     current_field_index: usize,
     extension_fields: Vec<Option<Vec<u8>>>,
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
-    preamble: BitString,
-    extension_bitfield: BitString,
+    // optional_default_bitfield: ([bool; RFC], usize),
+    // field_bitfield: Option<Fields<RFC>>,
+    // extension_bitfield: ([bool; EFC], usize),
+    // extension_bitfield: BitArray<[u8; EFC], Msb0>,
+    recursio_check: Option<Tag>,
+    fields: Option<Fields<RFC>>,
+    extended_fields: Option<Fields<EFC>>,
+    combined_fields: Option<&'a Fields<RFC>>,
+    // bitfield_optional_default: BitArray<[u8; RFC], Msb0>,
 }
 
 // ITU-T X.696 8.2.1 Only the following constraints are OER-visible:
@@ -98,7 +104,7 @@ pub struct Encoder<'a, const FC: usize = 0> {
 
 // Tags are encoded only as part of the encoding of a choice type, where the tag indicates
 // which alternative of the choice type is the chosen alternative (see 20.1).
-impl<'a, const FC: usize> Encoder<'a, FC> {
+impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
     /// Constructs a new encoder with its own buffer from the provided options.
     #[must_use]
     pub fn new(options: EncoderOptions, base_capacity: usize) -> Self {
@@ -111,8 +117,15 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
             extension_fields: <_>::default(),
             is_extension_sequence: bool::default(),
             parent_output_length: <_>::default(),
-            preamble: BitString::with_capacity(8),
-            extension_bitfield: BitString::with_capacity(8),
+            // optional_default_bitfield: ([false; RFC], 0),
+            // field_bitfield: None,
+            // extension_bitfield: BitArray::default(),
+            // extension_bitfield: ([false; EFC], 0),
+            recursio_check: None,
+            fields: None,
+            extended_fields: None,
+            combined_fields: None,
+            // preamble: BitString::with_capacity(RFC + EFC),
         }
     }
 
@@ -127,8 +140,18 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
             extension_fields: <_>::default(),
             is_extension_sequence: bool::default(),
             parent_output_length: <_>::default(),
-            preamble: <_>::default(),
-            extension_bitfield: BitString::with_capacity(8),
+            // preamble: BitString::new(),
+            // extension_bitfield: BitString::new(),
+            // optional_default_bitfield: (BitArray::default(), 0),
+            // optional_default_bitfield: ([false; RFC], 0),
+            // field_bitfield: None,
+            // extension_bitfield: BitArray::default(),
+            // extension_bitfield: ([false; EFC], 0),
+            recursio_check: None,
+            fields: None,
+            extended_fields: None,
+            combined_fields: None,
+            // preamble: BitString::with_capacity(RFC + EFC),
         }
     }
 
@@ -153,20 +176,15 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
         )
     }
 
-    fn set_bit(&mut self, tag: Tag, bit: bool) {
-        // In set encoding, field index does not matter
-        // Tags need to be unique
-        // if self.options.set_encoding {
-        //     if let Some((_, b)) = self.field_bitfield.get_mut(&(usize::default(), tag)) {
-        //         *b = bit
-        //     }
-        // } else if let Some((_, b)) = self
-        //     .field_bitfield
-        //     .get_mut(&(self.current_field_index, tag))
-        // {
-        //     *b = bit;
-        //     self.current_field_index += 1;
-        // }
+    fn set_present(&mut self, _tag: Tag, _bit: bool) {
+        if let Some(ref mut fields) = self.fields {
+            if !fields.set_field_present_by_index(self.current_field_index) {
+                self.extended_fields
+                    .as_mut()
+                    .expect("Extended fields not found")
+                    .set_field_present_by_index(self.current_field_index);
+            }
+        }
     }
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
         if self.options.set_encoding {
@@ -463,13 +481,13 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
     fn output_length(&self) -> usize {
         let mut output_length = self.output.borrow().len();
         output_length += usize::from(self.is_extension_sequence);
-        // output_length += self
-        //     .field_bitfield
-        //     .values()
-        //     .filter(|(presence, _)| presence.is_optional_or_default())
-        //     .count();
-        output_length += self.preamble.len();
-        output_length += self.parent_output_length.unwrap_or_default();
+        // TODO note extended field presence
+        if let Some(ref fields) = self.fields {
+            let (bitmap, needed) = fields.get_optional_default_presence_bitmap();
+            output_length += &bitmap[..needed].len();
+        }
+        // output_length +=
+        //     &self.fields optional_default_bitfield.0[..self.optional_default_bitfield.1].len();
 
         if self.options.set_encoding {
             output_length += self.set_output.values().map(Vec::len).sum::<usize>();
@@ -477,81 +495,62 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
         output_length
     }
 
-    fn new_default_encoder<C: Constructed>(&self) -> Self {
-        let mut encoder = Encoder::new(
-            self.options.without_set_encoding(),
-            core::mem::size_of::<C>(),
-        );
-        // encoder.field_bitfield = C::FIELDS
-        //     .iter()
-        //     .enumerate()
-        //     .map(|(i, field)| ((i, field.tag_tree.smallest_tag()), (field.presence, false)))
-        //     .collect();
-        encoder.parent_output_length = Some(self.output_length());
-        encoder
-    }
-    fn encode_constructed<const N: usize, C: Constructed>(
+    /// Encode a constructed type.`RC` is the number root components, `EC` is the number of extension components.
+    /// `encoder` is the encoder for the constructed type that already includes the encoded values.
+    fn encode_constructed<const RC: usize, const EC: usize, C: Constructed<RC, EC>>(
         &mut self,
         tag: Tag,
-        mut encoder: Encoder<N>,
+        mut encoder: Encoder<RC, EC>,
     ) -> Result<(), EncodeError> {
-        self.set_bit(tag, true);
         // ### PREAMBLE ###
-        // let mut preamble =
-        //     BitString::with_capacity(C::FIELDS.number_of_optional_and_default_fields() + 1);
-        // // Section 16.2.2
-        let extensions_defined = C::EXTENDED_FIELDS.is_some();
+        // Section 16.2.2
+        let extensions_defined = C::IS_EXTENSIBLE;
+        // We have space for RC number of bytes so also the extension bit will always fit
+        let mut preamble: BitArray<[u8; RC], Msb0> = BitArray::default();
+        let mut preamble_index = 0;
         let mut extensions_present = false;
         if extensions_defined {
-            // extensions_present = encoder.extension_fields.iter().any(Option::is_some);
-            extensions_present = encoder.extension_bitfield.iter().any(|bit| *bit);
-            // preamble.push(extensions_present);
+            extensions_present = encoder.extension_fields.iter().any(Option::is_some);
+            preamble.set(0, extensions_present);
+            preamble_index += 1;
         }
-        // dbg!(extensions_defined);
-        // dbg!(extensions_present);
+        let required_present = C::FIELDS.has_required_field();
         // Section 16.2.3
-        // if C::FIELDS.number_of_optional_and_default_fields() > 0 {
-        //     for bit in encoder
-        //         .field_bitfield
-        //         .values()
-        //         .filter_map(|(presence, is_present)| {
-        //             presence.is_optional_or_default().then_some(is_present)
-        //         })
-        //         .copied()
-        //     {
-        //         preamble.push(bit);
-        //     }
-        // }
+        let (option_bitfield, needed) = encoder
+            .fields
+            .as_ref()
+            .unwrap()
+            .get_optional_default_presence_bitmap();
+        for bit in option_bitfield[..needed].iter() {
+            preamble.set(preamble_index, *bit);
+            preamble_index += 1;
+        }
         // 16.2.4 - fill missing bits from full octet with zeros
-        if encoder.preamble.len() % 8 != 0 {
-            let missing_bits = [false; 8];
-            let missing = &missing_bits[..8 - encoder.preamble.len() % 8];
-            encoder.preamble.extend(missing);
+        let missing_bits = 8 - (preamble[..needed].len() + extensions_defined as usize) % 8;
+        debug_assert!(
+            (preamble[..needed].len() + missing_bits + extensions_defined as usize) % 8 == 0
+        );
+        if needed > 0 || extensions_defined {
+            self.output
+                .borrow_mut()
+                .extend(preamble[..needed + missing_bits].domain());
         }
-        debug_assert!(encoder.preamble.len() % 8 == 0);
-        dbg!(&self.preamble);
-        dbg!(&encoder.preamble);
-        self.output
-            .borrow_mut()
-            .extend(encoder.preamble.as_raw_slice());
         // Section 16.3 ### Encodings of the components in the extension root ###
-        // Must copy before move...
-        let extension_fields = core::mem::take(&mut encoder.extension_fields);
-        // if encoder.field_bitfield.values().any(|(_, b)| *b) {
-        if encoder.options.set_encoding {
-            encoder.collect_set();
+        if option_bitfield[..needed].iter().any(|b| *b) || required_present {
+            if encoder.options.set_encoding {
+                encoder.collect_set();
+            }
+            self.output.borrow_mut().append(&mut encoder.output());
         }
-        self.output.borrow_mut().append(&mut encoder.output());
-        dbg!(&self.output);
-        // }
         if !extensions_defined || !extensions_present {
             self.extend(tag)?;
             return Ok(());
         }
-        dbg!("Nope");
         // Section 16.4 ### Extension addition presence bitmap ###
+        let extension_fields = core::mem::take(&mut encoder.extension_fields);
         let bitfield_length = extension_fields.len();
-        let mut extension_bitmap_buffer = BitString::with_capacity(bitfield_length);
+
+        let mut extension_bitmap_buffer: BitArray<[u8; EC], Msb0> = BitArray::default();
         #[allow(clippy::cast_possible_truncation)]
         let missing_bits: u8 = if bitfield_length > 0 {
             (8u8 - (bitfield_length % 8) as u8) % 8
@@ -560,19 +559,14 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
         };
         debug_assert!((bitfield_length + 8 + missing_bits as usize) % 8 == 0);
         self.encode_length((8 + bitfield_length + missing_bits as usize) / 8)?;
-        extension_bitmap_buffer.extend(missing_bits.to_be_bytes());
-        for field in &extension_fields {
-            extension_bitmap_buffer.push(field.is_some());
+        self.output.borrow_mut().extend(missing_bits.to_be_bytes());
+        for (i, bit) in extension_fields.iter().enumerate() {
+            extension_bitmap_buffer.set(i, bit.is_some());
         }
-        {
-            let missing = [false; 8];
-            let missing = &missing[..missing_bits as usize];
-            extension_bitmap_buffer.extend(missing);
-        }
-        debug_assert!(extension_bitmap_buffer.len() % 8 == 0);
+        // The size of EC is always at least 1 byte if extensions present, so full octet will always fit
         self.output
             .borrow_mut()
-            .extend(extension_bitmap_buffer.as_raw_slice());
+            .extend(extension_bitmap_buffer[..bitfield_length + missing_bits as usize].domain());
         // Section 16.5 # Encodings of the components in the extension addition group, as open type
         for field in extension_fields.iter().filter_map(Option::as_ref) {
             self.encode_length(field.len())?;
@@ -583,28 +577,66 @@ impl<'a, const FC: usize> Encoder<'a, FC> {
     }
 }
 
-impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
+impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC, EFC> {
     type Ok = ();
     type Error = EncodeError;
-    type AnyEncoder<const N: usize> = Encoder<'a, N>;
+    type AnyEncoder<const R: usize, const E: usize> = Encoder<'a, R, E>;
 
     fn codec(&self) -> Codec {
         self.options.current_codec()
     }
-    fn set_presence_bits(&mut self, root_bits: &[bool], ext_bits: &[bool]) {
-        let extensions_present = ext_bits.iter().any(|&bit| bit);
-        let optional_default_present = !root_bits.is_empty();
-        if optional_default_present {
-            self.preamble.push(extensions_present);
-            self.preamble.extend(root_bits.iter().copied());
-        }
-        if extensions_present {
-            self.extension_bitfield.extend(ext_bits.iter().copied());
-        }
+    fn update_index(&mut self) {
+        self.current_field_index += 1;
+    }
+    fn set_presence_bits<const N: usize, const E: usize>(
+        &mut self,
+        mut _fields: crate::types::fields::Fields<N>,
+        _extened_fields: Option<crate::types::fields::Fields<E>>,
+    ) {
+        // dbg!(&extened_fields);
+        // dbg!(&fields);
+        // if self.options.set_encoding {
+        //     fields = fields.canonised();
+        // }
+        // for (i, bit) in fields
+        //     .get_optional_default_presence_bitmap()
+        //     .0
+        //     .iter()
+        //     .enumerate()
+        // {
+        //     self.optional_default_bitfield.0[i] = *bit;
+        // }
+        // self.optional_default_bitfield.1 = fields.get_optional_default_presence_bitmap().1;
+        // dbg!(self.optional_default_bitfield);
+        // if let Some(extened_fields) = extened_fields.as_mut() {
+        //     for (i, bit) in extened_fields
+        //         .get_overall_presence_bitmap()
+        //         .iter()
+        //         .enumerate()
+        //     {
+        //         self.extension_bitfield.0[i] = *bit;
+        //     }
+        //     self.extension_bitfield.1 = extened_fields.get_overall_presence_bitmap().len();
+        // }
+        // dbg!(root_bits);
+        // dbg!(ext_bits);
+        // dbg!(fields);
+        // let extensions_present = ext_bits.iter().any(|&bit| bit);
+        // let optional_default_present = !root_bits.is_empty();
+        // if optional_default_present {
+        //     for (i, &bit) in root_bits.iter().enumerate() {
+        //         self.optional_default_bitfield.set(i, bit);
+        //     }
+        // }
+        // if extensions_present {
+        //     for (i, &bit) in ext_bits.iter().enumerate() {
+        //         self.extension_bitfield.set(i, bit);
+        //     }
+        // }
     }
 
     fn encode_any(&mut self, tag: Tag, value: &Any) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
+        // self.set_present(tag, true);
         self.encode_octet_string(tag, <Constraints>::default(), &value.contents)
     }
 
@@ -612,7 +644,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
     /// False is encoded as a single zero octet. In COER, true is always encoded as 0xFF.
     /// In Basic-OER, any non-zero octet value represents true, but we support only canonical encoding.
     fn encode_bool(&mut self, tag: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.output
             .borrow_mut()
             .extend(if value { &[0xffu8] } else { &[0x00u8] });
@@ -629,7 +660,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         // "NamedBitList"), the bitstring value shall be encoded with trailing 0 bits added or removed as necessary to satisfy the
         // effective size constraint.
         // Rasn does not currently support NamedBitList
-        self.set_bit(tag, true);
         let mut bit_string_encoding = BitVec::<u8, Msb0>::with_capacity(value.len());
 
         if let Some(size) = constraints.size() {
@@ -706,7 +736,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         // the values of the enumerated type.
         // max size for enumerated value is currently only isize MIN/MAX
         // Spec allows between –2^1015 and 2^1015 – 1
-        self.set_bit(tag, true);
         let number = value.discriminant();
         if 0isize <= number && number <= i8::MAX.into() {
             self.encode_constrained_integer_with_padding(1, &number, false)?;
@@ -724,7 +753,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         tag: Tag,
         value: &[u32],
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
         let mut octets = enc.object_identifier_as_bytes(value)?;
         self.encode_length(octets.len())?;
@@ -739,12 +767,10 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &I,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_integer_with_constraints(tag, &constraints, value)
     }
 
-    fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
+    fn encode_null(&mut self, _tag: Tag) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
@@ -754,7 +780,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &[u8],
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         if self.check_fixed_size_constraint(value.len(), &constraints)? {
             self.output.borrow_mut().extend(value);
         } else {
@@ -773,7 +798,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         value: &GeneralString,
     ) -> Result<Self::Ok, Self::Error> {
         // Seems like it can be encoded as it is...
-        self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, value)
     }
 
@@ -783,7 +807,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &str,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
@@ -793,7 +816,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &VisibleString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, value.as_iso646_bytes())
     }
 
@@ -803,7 +825,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &Ia5String,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, value.as_iso646_bytes())
     }
 
@@ -813,7 +834,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &PrintableString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
@@ -823,7 +843,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &NumericString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, value.as_bytes())
     }
 
@@ -836,7 +855,8 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         // X.690 8.23.5
         // TODO the octets specified in ISO/IEC 2022 for encodings in an 8-bit environment, using
         // the escape sequence and character codings registered in accordance with ISO/IEC 2375.
-        self.set_bit(tag, true);
+        // self.set_present(tag, true);
+        // self.current_field_index += 1;
         self.encode_octet_string(tag, constraints, &value.to_bytes())
     }
 
@@ -846,7 +866,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &BmpString,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(tag, constraints, &value.to_bytes())
     }
 
@@ -855,7 +874,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         tag: Tag,
         value: &GeneralizedTime,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(
             tag,
             Constraints::default(),
@@ -864,7 +882,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
     }
 
     fn encode_utc_time(&mut self, tag: Tag, value: &UtcTime) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(
             tag,
             Constraints::default(),
@@ -873,7 +890,6 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
     }
 
     fn encode_date(&mut self, tag: Tag, value: &Date) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
         self.encode_octet_string(
             tag,
             Constraints::default(),
@@ -895,27 +911,29 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         }
     }
 
-    fn encode_sequence<const N: usize, C, F>(
+    fn encode_sequence<const RL: usize, const EL: usize, C, F>(
         &mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
-        C: Constructed,
-        F: FnOnce(&mut Self::AnyEncoder<N>) -> Result<(), Self::Error>,
+        C: Constructed<RL, EL>,
+        F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
     {
-        let mut encoder = Encoder::<N>::new(
+        let mut encoder = Encoder::<RL, EL>::new(
             self.options.without_set_encoding(),
             core::mem::size_of::<C>(),
         );
+        encoder.fields = Some(C::FIELDS);
+        encoder.extended_fields = C::EXTENDED_FIELDS;
         // encoder.field_bitfield = C::FIELDS
-        //     .iter()
+        //     .iter)
         //     .enumerate()
         //     .map(|(i, field)| ((i, field.tag_tree.smallest_tag()), (field.presence, false)))
         //     .collect();
         encoder.parent_output_length = Some(self.output_length());
         encoder_scope(&mut encoder)?;
-        self.encode_constructed::<N, C>(tag, encoder)
+        self.encode_constructed::<RL, EL, C>(tag, encoder)
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -925,7 +943,8 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         _: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
         // It seems that constraints here are not C/OER visible? No mention in standard...
-        self.set_bit(tag, true);
+        // self.set_present(tag, true);
+        // self.current_field_index += 1;
         self.encode_unconstrained_integer(&value.len(), false)?;
         self.output
             .borrow_mut()
@@ -940,18 +959,20 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         Ok(())
     }
 
-    fn encode_set<const N: usize, C, F>(
+    fn encode_set<const RL: usize, const EL: usize, C, F>(
         &mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
-        C: Constructed,
-        F: FnOnce(&mut Self::AnyEncoder<N>) -> Result<(), Self::Error>,
+        C: Constructed<RL, EL>,
+        F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
     {
         let mut options = self.options;
         options.set_encoding = true;
-        let mut encoder = Encoder::<N>::new(options, core::mem::size_of::<C>());
+        let mut encoder = Encoder::<RL, EL>::new(options, core::mem::size_of::<C>());
+        encoder.fields = Some(C::FIELDS);
+        encoder.extended_fields = C::EXTENDED_FIELDS;
         // encoder.field_bitfield = C::FIELDS
         //     .canonised()
         //     .iter()
@@ -964,7 +985,7 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         //     .collect();
         encoder.parent_output_length = Some(self.output_length());
         encoder_scope(&mut encoder)?;
-        self.encode_constructed::<N, C>(tag, encoder)?;
+        self.encode_constructed::<RL, EL, C>(tag, encoder)?;
         self.collect_set();
         Ok(())
     }
@@ -979,7 +1000,7 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
     }
 
     fn encode_some<E: Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(E::TAG, true);
+        self.set_present(E::TAG, true);
         value.encode(self)
     }
 
@@ -989,17 +1010,15 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: &E,
     ) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, true);
+        self.set_present(tag, true);
         value.encode_with_tag_and_constraints(self, tag, constraints)
     }
 
     fn encode_none<E: Encode>(&mut self) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(E::TAG, false);
         Ok(())
     }
 
-    fn encode_none_with_tag(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
-        self.set_bit(tag, false);
+    fn encode_none_with_tag(&mut self, _tag: Tag) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
@@ -1035,48 +1054,46 @@ impl<'a, const FC: usize> crate::Encoder for Encoder<'a, FC> {
         constraints: Constraints,
         value: E,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut encoder = Self::new(
-            self.options.without_set_encoding(),
-            core::mem::size_of::<E>(),
-        );
-        encoder.current_field_index = self.current_field_index;
-        // encoder.field_bitfield :Map::<_, _, 100>;
-        // _ = encoder.field_bitfield.insert(
-        //     (self.current_field_index, tag),
-        //     (FieldPresence::Optional, false),
-        // );
-        E::encode_with_tag_and_constraints(&value, &mut encoder, tag, constraints)?;
-        // if encoder
-        //     .field_bitfield
-        //     .get(&(self.current_field_index, tag))
-        //     .map_or(false, |(_, b)| *b)
-        // {
-        self.set_bit(tag, true);
-        self.extension_fields.push(Some(encoder.output()));
-        // } else {
-        //     self.set_bit(tag, false);
-        //     self.extension_fields.push(None);
-        // }
+        let buffer_end = self.output.borrow().len();
+        E::encode_with_tag_and_constraints(&value, self, tag, constraints)?;
+        if let Some(ref fields) = self.extended_fields {
+            if fields
+                .get_field(self.current_field_index)
+                .filter(|f| f.present)
+                .is_some()
+            {
+                self.extension_fields
+                    .push(Some(self.output.borrow_mut().split_off(buffer_end)));
+            } else {
+                self.extension_fields.push(None);
+            }
+        } else {
+            return Err(EncodeError::from_kind(
+                EncodeErrorKind::Custom {
+                    msg: "No extended fields found when encoding extension addition.".to_string(),
+                },
+                self.codec(),
+            ));
+        }
         Ok(())
     }
-    fn encode_extension_addition_group<E>(
+    fn encode_extension_addition_group<const RL: usize, const EL: usize, E>(
         &mut self,
         value: Option<&E>,
     ) -> Result<Self::Ok, Self::Error>
     where
-        E: Encode + Constructed,
+        E: Encode + Constructed<RL, EL>,
     {
         let Some(value) = value else {
-            self.set_bit(E::TAG, false);
             self.extension_fields.push(None);
             return Ok(());
         };
-        self.set_bit(E::TAG, true);
-        let mut encoder = self.new_default_encoder::<E>();
-        encoder.is_extension_sequence = true;
-        value.encode(&mut encoder)?;
+        let buffer_end = self.output.borrow().len();
+        self.is_extension_sequence = true;
+        value.encode(self)?;
+        self.is_extension_sequence = false;
 
-        let output = encoder.output();
+        let output = self.output.borrow_mut().split_off(buffer_end);
         self.extension_fields.push(Some(output));
         Ok(())
     }

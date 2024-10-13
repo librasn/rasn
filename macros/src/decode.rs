@@ -48,6 +48,8 @@ pub fn derive_struct_impl(
         }
         let field_names = container.fields.iter().map(|field| field.ident.clone());
         let field_names2 = field_names.clone();
+        let mut count_extended_fields: usize = 0;
+        let mut count_root_fields: usize = 0;
         let required_field_names = container
             .fields
             .iter()
@@ -64,8 +66,10 @@ pub fn derive_struct_impl(
                 let constraints = config.constraints.attribute_tokens();
                 let name = quote::format_ident!("Field{}", i);
                 let ty = if config.extension_addition || config.extension_addition_group {
+                    count_extended_fields += 1;
                     quote!(Option<#ty>)
                 } else {
+                    count_root_fields += 1;
                     quote!(#ty)
                 };
 
@@ -141,9 +145,11 @@ pub fn derive_struct_impl(
         quote! {
             #choice_def
             let codec = decoder.codec();
+            // const RC_COUNT: usize = Self::FIELDS.len();
+            // const EC_COUNT: usize = Self::FIELDS.len();
             #(#field_type_defs)*
 
-            decoder.decode_set::<#choice_name, _, _, _>(tag, |decoder, index, tag| {
+            decoder.decode_set::<#count_root_fields, #count_extended_fields, #choice_name, _, _, _>(tag, |decoder, index, tag| {
                     #(#field_const_defs)*
 
                     Ok(match (index, tag) {
@@ -168,11 +174,18 @@ pub fn derive_struct_impl(
         }
     } else {
         let mut all_fields_optional_or_default = true;
+        let mut count_root_fields: usize = 0;
+        let mut count_extended_fields: usize = 0;
         for (i, field) in container.fields.iter().enumerate() {
             let field_config = FieldConfig::new(field, config);
 
             if !field_config.is_option_or_default_type() {
                 all_fields_optional_or_default = false;
+            }
+            if field_config.extension_addition || field_config.extension_addition_group {
+                count_extended_fields += 1;
+            } else {
+                count_root_fields += 1;
             }
 
             list.push(field_config.decode_field_def(&name, i));
@@ -218,7 +231,7 @@ pub fn derive_struct_impl(
         };
 
         quote! {
-            decoder.decode_sequence(tag, #initializer_fn, |decoder| {
+            decoder.decode_sequence::<#count_root_fields, #count_extended_fields, _, _, _>(tag, #initializer_fn, |decoder| {
                 Ok(Self #fields)
             })
         }

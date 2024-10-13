@@ -18,7 +18,7 @@ pub(crate) fn decode<T: crate::Decode>(
     options: de::DecoderOptions,
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
-    T::decode(&mut crate::per::de::Decoder::new(
+    T::decode(&mut crate::per::de::Decoder::<0, 0>::new(
         crate::types::BitStr::from_slice(input),
         options,
     ))
@@ -43,7 +43,7 @@ pub(crate) fn decode_with_constraints<T: crate::Decode>(
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
     T::decode_with_constraints(
-        &mut crate::per::de::Decoder::new(crate::types::BitStr::from_slice(input), options),
+        &mut crate::per::de::Decoder::<0, 0>::new(crate::types::BitStr::from_slice(input), options),
         constraints,
     )
 }

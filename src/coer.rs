@@ -9,7 +9,7 @@ use crate::types::Constraints;
 /// # Errors
 /// Returns `DecodeError` if `input` is not valid COER encoding specific to the expected type.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
-    T::decode(&mut Decoder::new(
+    T::decode(&mut Decoder::<0, 0>::new(
         crate::types::BitStr::from_slice(input),
         de::DecoderOptions::coer(),
     ))
@@ -33,7 +33,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
     input: &[u8],
 ) -> Result<T, DecodeError> {
     T::decode_with_constraints(
-        &mut Decoder::new(
+        &mut Decoder::<0, 0>::new(
             crate::types::BitStr::from_slice(input),
             de::DecoderOptions::coer(),
         ),
@@ -933,46 +933,46 @@ mod tests {
     }
     #[test]
     fn test_sequence_with_extensions() {
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // #[non_exhaustive]
-        // struct Sequence1 {
-        //     a: bool,
-        // }
-        // round_trip!(coer, Sequence1, Sequence1 { a: true }, &[0x00, 0xff]);
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // #[non_exhaustive]
-        // struct Sequence2 {
-        //     a: bool,
-        //     #[rasn(extension_addition)]
-        //     b: Option<bool>,
-        //     #[rasn(extension_addition)]
-        //     c: Option<bool>,
-        // }
-        // round_trip!(
-        //     coer,
-        //     Sequence2,
-        //     Sequence2 {
-        //         a: true,
-        //         b: Some(true),
-        //         c: Some(true)
-        //     },
-        //     &[0x80, 0xff, 0x02, 0x06, 0xc0, 0x01, 0xff, 0x01, 0xff]
-        // );
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // #[non_exhaustive]
-        // struct Sequence3 {
-        //     a: bool,
-        //     #[rasn(extension_addition_group)]
-        //     b: Option<Sequence4>,
-        // }
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // struct Sequence4 {
-        //     a: bool,
-        // }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence1 {
+            a: bool,
+        }
+        round_trip!(coer, Sequence1, Sequence1 { a: true }, &[0x00, 0xff]);
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence2 {
+            a: bool,
+            #[rasn(extension_addition)]
+            b: Option<bool>,
+            #[rasn(extension_addition)]
+            c: Option<bool>,
+        }
+        round_trip!(
+            coer,
+            Sequence2,
+            Sequence2 {
+                a: true,
+                b: Some(true),
+                c: Some(true)
+            },
+            &[0x80, 0xff, 0x02, 0x06, 0xc0, 0x01, 0xff, 0x01, 0xff]
+        );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence3 {
+            a: bool,
+            #[rasn(extension_addition_group)]
+            b: Option<Sequence4>,
+        }
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        struct Sequence4 {
+            a: bool,
+        }
         // round_trip!(
         //     coer,
         //     Sequence3,
@@ -988,29 +988,29 @@ mod tests {
         //     },
         //     &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
         // );
-        // #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
-        // #[rasn(automatic_tags)]
-        // #[non_exhaustive]
-        // struct Sequence5 {
-        //     a: bool,
-        //     #[rasn(extension_addition)]
-        //     b: Option<bool>,
-        // }
-        // round_trip!(
-        //     coer,
-        //     Sequence5,
-        //     Sequence5 { a: true, b: None },
-        //     &[0x00, 0xff]
-        // );
-        // round_trip!(
-        //     coer,
-        //     Sequence5,
-        //     Sequence5 {
-        //         a: true,
-        //         b: Some(true)
-        //     },
-        //     &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
-        // );
+        #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        struct Sequence5 {
+            a: bool,
+            #[rasn(extension_addition)]
+            b: Option<bool>,
+        }
+        round_trip!(
+            coer,
+            Sequence5,
+            Sequence5 { a: true, b: None },
+            &[0x00, 0xff]
+        );
+        round_trip!(
+            coer,
+            Sequence5,
+            Sequence5 {
+                a: true,
+                b: Some(true)
+            },
+            &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
+        );
 
         #[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
         #[rasn(automatic_tags)]
@@ -1049,6 +1049,44 @@ mod tests {
                 octet5: None
             },
             &[68, 1, 1, 8, 17, 18, 19, 20, 21, 22, 23, 24, 1, 1]
+        );
+        // Preamble that takes two bytes
+        #[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+        #[rasn(automatic_tags)]
+        pub struct ManyOptional {
+            pub value: Integer,
+            pub integer1: Option<Integer>,
+            pub octet1: Option<OctetString>,
+            pub integer2: Option<Integer>,
+            pub octet2: Option<OctetString>,
+            pub integer3: Option<Integer>,
+            pub octet3: Option<OctetString>,
+            pub integer4: Option<Integer>,
+            pub integer5: Option<Integer>,
+            pub integer6: Option<Integer>,
+            pub integer7: Option<Integer>,
+            pub integer8: Option<Integer>,
+            pub integer9: Option<Integer>,
+        }
+        round_trip!(
+            coer,
+            ManyOptional,
+            ManyOptional {
+                value: 1.into(),
+                integer1: Some(1_230_066_625_199_609_624u64.into()),
+                octet1: None,
+                integer2: None,
+                octet2: None,
+                integer3: Some(1.into()),
+                octet3: None,
+                integer4: None,
+                integer5: None,
+                integer6: Some(1.into()),
+                integer7: None,
+                integer8: None,
+                integer9: None
+            },
+            &[136, 128, 1, 1, 8, 17, 18, 19, 20, 21, 22, 23, 24, 1, 1, 1, 1]
         );
     }
     #[test]

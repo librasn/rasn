@@ -47,7 +47,9 @@ impl From<Value> for Decoder {
 }
 
 impl crate::Decoder for Decoder {
+    type Ok = ();
     type Error = DecodeError;
+    type AnyDecoder<const R: usize, const E: usize> = Self;
 
     fn decode_any(&mut self) -> Result<Any, Self::Error> {
         decode_jer_value!(Self::any_from_value, self.stack)
@@ -139,14 +141,14 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(Self::object_identifier_from_value, self.stack)
     }
 
-    fn decode_sequence<D, DF, F>(
+    fn decode_sequence<const RC: usize, const EC: usize, D, DF, F>(
         &mut self,
         _: Tag,
         _: Option<DF>,
         decode_fn: F,
     ) -> Result<D, Self::Error>
     where
-        D: Constructed,
+        D: Constructed<RC, EC>,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
         let mut last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
@@ -156,11 +158,13 @@ impl crate::Decoder for Decoder {
                 needed: "object",
                 found: "unknown".into(),
             })?;
-        let mut field_names = [D::FIELDS, D::EXTENDED_FIELDS.unwrap_or(Fields::empty())]
+        let mut field_names = D::FIELDS
             .iter()
-            .flat_map(|f| f.iter())
             .map(|f| f.name)
             .collect::<alloc::vec::Vec<&str>>();
+        if let Some(extended_fields) = D::EXTENDED_FIELDS {
+            field_names.extend(extended_fields.iter().map(|f| f.name));
+        }
         field_names.reverse();
         for name in field_names {
             self.stack
@@ -316,17 +320,29 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(Self::date_from_value, self.stack)
     }
 
-    fn decode_set<FIELDS, SET, D, F>(
+    // fn decode_set<const RC: usize, const EC: usize, FIELDS, SET, D, F>(
+    //     &mut self,
+    //     _t: Tag,
+    //     decode_fn: D,
+    //     field_fn: F,
+    // ) -> Result<SET, Self::Error>
+    // where
+    //     SET: crate::Decode + Constructed<RC, EC>,
+    //     FIELDS: crate::Decode,
+    //     D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
+    //     F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
+    // {
+    fn decode_set<const RC: usize, const EC: usize, FIELDS, SET, D, F>(
         &mut self,
-        _t: Tag,
+        _: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: crate::Decode + Constructed,
-        FIELDS: crate::Decode,
+        SET: Decode + Constructed<RC, EC>,
+        FIELDS: Decode,
         D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
-        F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
+        F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
         let mut last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
         let value_map = last
@@ -423,7 +439,11 @@ impl crate::Decoder for Decoder {
         self.decode_optional()
     }
 
-    fn decode_extension_addition_group<D: crate::Decode + Constructed>(
+    fn decode_extension_addition_group<
+        const RC: usize,
+        const EC: usize,
+        D: crate::Decode + Constructed<RC, EC>,
+    >(
         &mut self,
     ) -> Result<Option<D>, Self::Error> {
         self.decode_optional()

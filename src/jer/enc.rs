@@ -69,9 +69,15 @@ impl crate::Encoder for Encoder {
     type Ok = ();
 
     type Error = EncodeError;
-    type AnyEncoder<const N: usize> = Encoder;
+    type AnyEncoder<const R: usize, const E: usize> = Encoder;
 
-    fn set_presence_bits(&mut self, _bits: &[bool], _ext_bits: &[bool]) {}
+    fn set_presence_bits<const N: usize, const E: usize>(
+        &mut self,
+        _field: crate::types::fields::Fields<N>,
+        _extended_field: Option<crate::types::fields::Fields<E>>,
+    ) {
+    }
+    fn update_index(&mut self) {}
 
     fn encode_any(&mut self, t: Tag, value: &crate::types::Any) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(t, Constraints::default(), &value.contents)
@@ -306,20 +312,22 @@ impl crate::Encoder for Encoder {
         value.encode(self)
     }
 
-    fn encode_sequence<const N: usize, C, F>(
+    fn encode_sequence<const RL: usize, const EL: usize, C, F>(
         &mut self,
         __t: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+        C: crate::types::Constructed<RL, EL>,
+        F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
     {
-        let mut field_names = [C::FIELDS, C::EXTENDED_FIELDS.unwrap_or(Fields::empty())]
+        let mut field_names = C::FIELDS
             .iter()
-            .flat_map(|f| f.iter())
             .map(|f| f.name)
             .collect::<alloc::vec::Vec<&str>>();
+        if let Some(extended_fields) = C::EXTENDED_FIELDS {
+            field_names.extend(extended_fields.iter().map(|f| f.name));
+        }
         field_names.reverse();
         for name in field_names {
             self.stack.push(name);
@@ -351,16 +359,16 @@ impl crate::Encoder for Encoder {
         )?))
     }
 
-    fn encode_set<const N: usize, C, F>(
+    fn encode_set<const RL: usize, const EL: usize, C, F>(
         &mut self,
         tag: Tag,
         value: F,
     ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+        C: crate::types::Constructed<RL, EL>,
+        F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
     {
-        self.encode_sequence::<N, C, F>(tag, value)
+        self.encode_sequence::<RL, EL, C, F>(tag, value)
     }
 
     fn encode_set_of<E: crate::Encode + Eq + core::hash::Hash>(
@@ -447,12 +455,12 @@ impl crate::Encoder for Encoder {
         value.encode(self)
     }
 
-    fn encode_extension_addition_group<E>(
+    fn encode_extension_addition_group<const RL: usize, const EL: usize, E>(
         &mut self,
         value: Option<&E>,
     ) -> Result<Self::Ok, Self::Error>
     where
-        E: crate::Encode + crate::types::Constructed,
+        E: crate::Encode + crate::types::Constructed<RL, EL>,
     {
         match value {
             Some(v) => v.encode(self),
