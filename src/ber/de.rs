@@ -331,8 +331,10 @@ impl<'input> Decoder<'input> {
     }
 }
 
-impl crate::Decoder for Decoder<'_> {
+impl<'input> crate::Decoder for Decoder<'input> {
+    type Ok = ();
     type Error = DecodeError;
+    type AnyDecoder<const R: usize, const E: usize> = Decoder<'input>;
 
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
@@ -639,7 +641,9 @@ impl crate::Decoder for Decoder<'_> {
     }
 
     fn decode_sequence<
-        D: crate::types::Constructed,
+        const RC: usize,
+        const EC: usize,
+        D: crate::types::Constructed<RC, EC>,
         DF: FnOnce() -> D,
         F: FnOnce(&mut Self) -> Result<D>,
     >(
@@ -672,14 +676,14 @@ impl crate::Decoder for Decoder<'_> {
         self.parse_constructed_contents(tag, false, D::decode)
     }
 
-    fn decode_set<FIELDS, SET, D, F>(
+    fn decode_set<const RL: usize, const EL: usize, FIELDS, SET, D, F>(
         &mut self,
         tag: Tag,
         _decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode + crate::types::Constructed,
+        SET: Decode + crate::types::Constructed<RL, EL>,
         FIELDS: Decode,
         D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
@@ -747,7 +751,11 @@ impl crate::Decoder for Decoder<'_> {
         <Option<D>>::decode(self)
     }
 
-    fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
+    fn decode_extension_addition_group<
+        const RL: usize,
+        const EL: usize,
+        D: Decode + crate::types::Constructed<RL, EL>,
+    >(
         &mut self,
     ) -> Result<Option<D>, Self::Error> {
         <Option<D>>::decode(self)
@@ -971,10 +979,10 @@ mod tests {
             ok: bool,
         }
 
-        impl types::Constructed for Foo {
-            const FIELDS: types::fields::Fields = types::fields::Fields::from_static(&[
-                types::fields::Field::new_required(Ia5String::TAG, Ia5String::TAG_TREE, "name"),
-                types::fields::Field::new_required(bool::TAG, bool::TAG_TREE, "ok"),
+        impl types::Constructed<2, 0> for Foo {
+            const FIELDS: types::fields::Fields<2> = types::fields::Fields::from_static([
+                types::fields::Field::new_required(0, Ia5String::TAG, Ia5String::TAG_TREE, "name"),
+                types::fields::Field::new_required(1, bool::TAG, bool::TAG_TREE, "ok"),
             ]);
         }
 

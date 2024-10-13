@@ -17,6 +17,7 @@ pub fn derive_struct_impl(
 
     let mut field_encodings = Vec::with_capacity(container.fields.len());
     let mut number_optional_default_fields: usize = 0;
+    let mut number_root_fields: usize = 0;
     let mut number_extended_fields: usize = 0;
 
     // Set logic for setting presence bits in compile time
@@ -30,18 +31,21 @@ pub fn derive_struct_impl(
             .unwrap_or_else(|| quote!(#i));
         let field_type = &field_config.field.ty;
         let field_type_tokens = quote!(#field_type);
-        let field_opt_index_expr = quote! { #number_optional_default_fields };
+        // let field_opt_index_expr = quote! { #number_optional_default_fields };
         let mut field_encoding = field_config.encode(i, true);
 
         if field_config.is_option_type() && field_config.is_not_extension() {
             // Optional field
             field_encoding = quote! {
-                if self.#field_name.is_some() {
-                    root_bitfield[#field_opt_index_expr] = true;
-                }
+                // if self.#field_name.is_some() {
+                    // root_bitfield[#field_opt_index_expr] = true;
+                    // fields.set_field_present_by_index(#i);
+                    // bitfield[#i] = true;
+                // }
                 #field_encoding
             };
             number_optional_default_fields += 1;
+            number_root_fields += 1;
             field_encodings.push(field_encoding);
         } else if field_config.is_default_type() && field_config.is_not_extension() {
             // Default field
@@ -54,17 +58,25 @@ pub fn derive_struct_impl(
                 quote! { <#field_type_tokens as Default>::default()  }
             };
             field_encoding = quote! {
-                if self.#field_name != #default_call {
-                    root_bitfield[#field_opt_index_expr] = true;
-                }
+                // if self.#field_name != #default_call {
+                    // root_bitfield[#field_opt_index_expr] = true;
+                    // bitfield[#i] = true;
+                    // fields.set_field_present_by_index(#i);
+                // }
                 #field_encoding
             };
             number_optional_default_fields += 1;
+            number_root_fields += 1;
             field_encodings.push(field_encoding);
         } else if field_config.is_extension() && field_config.is_option_type() {
             field_encoding = quote! {
                 if self.#field_name.is_some() {
-                    extension_bitfield[#number_extended_fields] = true;
+                    // extension_bitfield[#number_extended_fields] = true;
+                    // fields.set_field_present_by_index(#i);
+                    // bitfield[#i] = true;
+                    // if let Some(ref mut ext_fields) = extended_fields {
+                    //     ext_fields.set_field_present_by_index(#i);
+                    // }
                 }
                 #field_encoding
             };
@@ -73,13 +85,23 @@ pub fn derive_struct_impl(
         } else if field_config.is_extension() {
             // Extension field
             field_encoding = quote! {
-                extension_bitfield[#number_extended_fields] = true;
+                // extension_bitfield[#number_extended_fields] = true;
+                // bitfield[#i] = true;
+                // if let Some(ref mut ext_fields) = extended_fields {
+                //     ext_fields.set_field_present_by_index(#i);
+                // }
+                // fields.set_field_present_by_index(#i);
                 #field_encoding
             };
             number_extended_fields += 1;
             field_encodings.push(field_encoding);
         } else {
+            field_encoding = quote! {
+                // bitfield[#i] = true;
+                #field_encoding
+            };
             field_encodings.push(field_encoding);
+            number_root_fields += 1;
         }
     }
 
@@ -127,13 +149,17 @@ pub fn derive_struct_impl(
         let field_count = container.fields.len();
         let encode_impl = quote! {
             // Bitmap of the presence of optional/default fields
-            let mut root_bitfield: [bool; #number_optional_default_fields] = [false; #number_optional_default_fields];
+            // let mut bitfield: [bool; #field_count] = [false; #field_count];
+            // let mut fields: [Field; #field_count] = [Self::FIELDS.fields, Self::EXTENDED_FIELDS.fields];
+            // let mut extended_fields = Self::EXTENDED_FIELDS;
+            // let mut root_bitfield: [bool; #number_optional_default_fields] = [false; #number_optional_default_fields];
             // Bitmap of the presence of extension fields
-            let mut extension_bitfield: [bool; #number_extended_fields] = [false; #number_extended_fields];
-            encoder.#operation::<#field_count, Self, _>(tag, |encoder| {
-                #(#field_encodings)*
+            // let mut extension_bitfield: [bool; #number_extended_fields] = [false; #number_extended_fields];
+            // let extended_count: usize = Self::EXTENDED_FIELDS.as_ref().map_or(0, |fields| fields.len());
+            encoder.#operation::<#number_root_fields, #number_extended_fields, Self, _>(tag, |encoder| {
+                #(#field_encodings; encoder.update_index();)*
 
-                encoder.set_presence_bits(root_bitfield.as_slice(), extension_bitfield.as_slice());
+                // encoder.set_presence_bits::<{#number_root_fields}, #number_extended_fields>(fields, extended_fields);
                 Ok(())
             }).map(drop)
         };
