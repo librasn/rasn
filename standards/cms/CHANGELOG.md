@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.2](https://github.com/librasn/rasn/compare/rasn-cms-v0.20.1...rasn-cms-v0.20.2) - 2024-10-18
+
+### Fixed
+
+- Run clippy and rustdoc only on stable channel in CI ([#342](https://github.com/librasn/rasn/pull/342))
+
 ## [0.18.0](https://github.com/librasn/rasn/compare/rasn-cms-v0.17.3...rasn-cms-v0.18.0) - 2024-09-17
 
 ### Added
