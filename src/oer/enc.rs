@@ -582,7 +582,7 @@ impl Default for Encoder<'_> {
     }
 }
 
-impl<'a> crate::Encoder for Encoder<'a> {
+impl crate::Encoder for Encoder<'_> {
     type Ok = ();
     type Error = EncodeError;
 

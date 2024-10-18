@@ -484,7 +484,7 @@ impl<'input> Decoder<'input> {
     }
 }
 
-impl<'input> crate::Decoder for Decoder<'input> {
+impl crate::Decoder for Decoder<'_> {
     type Error = DecodeError;
 
     fn codec(&self) -> Codec {

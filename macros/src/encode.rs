@@ -107,7 +107,7 @@ pub fn map_to_inner_type(
     );
     inner_generics
         .params
-        .push(syn::LifetimeDef::new(lifetime.clone()).into());
+        .push(syn::LifetimeParam::new(lifetime.clone()).into());
 
     let (field_defs, init_fields) = match &fields {
         syn::Fields::Named(_) => {

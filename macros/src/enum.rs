@@ -450,7 +450,7 @@ impl Enum {
 
             inner_generics
                 .params
-                .push(syn::LifetimeDef::new(encode_lifetime.clone()).into());
+                .push(syn::LifetimeParam::new(encode_lifetime.clone()).into());
 
             let variants = self
                 .variants

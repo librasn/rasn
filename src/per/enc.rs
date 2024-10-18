@@ -1309,13 +1309,13 @@ impl<'input> From<&'input Vec<u8>> for Input<'input> {
     }
 }
 
-impl<'input> From<bool> for Input<'input> {
+impl From<bool> for Input<'_> {
     fn from(value: bool) -> Self {
         Self::Bit(value)
     }
 }
 
-impl<'input> From<u8> for Input<'input> {
+impl From<u8> for Input<'_> {
     fn from(value: u8) -> Self {
         Self::Byte(value)
     }
