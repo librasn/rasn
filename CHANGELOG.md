@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.3](https://github.com/librasn/rasn/compare/rasn-v0.20.2...rasn-v0.20.3) - 2024-10-18
+
+### Other
+
+- Create FUNDING.yml
+
 ## [0.20.2](https://github.com/librasn/rasn/compare/rasn-v0.20.1...rasn-v0.20.2) - 2024-10-18
 
 ### Fixed
