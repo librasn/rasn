@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use quote::ToTokens;
-use syn::{Lit, LitStr, NestedMeta, Path, UnOp};
+use syn::{parenthesized, LitStr, Path, Token, UnOp};
 
 use crate::{ext::TypeExt, tag::Tag};
 
@@ -237,59 +237,49 @@ impl Config {
         let mut size = None;
         let mut value = None;
         let mut delegate = false;
-        let extensible = input
-            .attrs
-            .iter()
-            .any(|a| a.path.is_ident("non_exhaustive"));
+        let mut extensible = false;
 
-        let mut iter = input
-            .attrs
-            .iter()
-            .filter(|a| a.path.is_ident(crate::CRATE_NAME))
-            .map(|a| a.parse_meta().unwrap());
+        for attr in &input.attrs {
+            if attr.path().is_ident("non_exhaustive") {
+                extensible = true;
+            } else if attr.path().is_ident(crate::CRATE_NAME) {
+                attr.parse_nested_meta(|meta| {
+                    let path = &meta.path;
+                    if path.is_ident("crate_root") {
+                        if !meta.input.is_empty() {
+                            let value = meta.value()?;
 
-        while let Some(syn::Meta::List(list)) = iter.next() {
-            for item in list.nested.iter().filter_map(|n| match n {
-                syn::NestedMeta::Meta(m) => Some(m),
-                _ => None,
-            }) {
-                let path = item.path();
-
-                if path.is_ident("crate_root") {
-                    if let syn::Meta::NameValue(nv) = item {
-                        crate_root = match &nv.lit {
-                            syn::Lit::Str(s) => s.parse::<syn::Path>().ok(),
-                            _ => None,
-                        };
+                            let s: LitStr = value.parse()?;
+                            let root: Path = s.parse()?;
+                            crate_root = Some(root);
+                        }
+                    } else if path.is_ident("identifier") {
+                        let value = meta.value()?;
+                        identifier = Some(value.parse()?);
+                    } else if path.is_ident("enumerated") {
+                        enumerated = true;
+                    } else if path.is_ident("choice") {
+                        choice = true;
+                    } else if path.is_ident("set") {
+                        set = true;
+                    } else if path.is_ident("automatic_tags") {
+                        automatic_tags = true;
+                    } else if path.is_ident("tag") {
+                        tag = Some(Tag::from_meta(&meta)?);
+                    } else if path.is_ident("delegate") {
+                        delegate = true;
+                    } else if path.is_ident("from") {
+                        from = Some(StringValue::from_meta(&meta)?);
+                    } else if path.is_ident("size") {
+                        size = Some(Value::from_meta(&meta)?);
+                    } else if path.is_ident("value") {
+                        value = Some(Value::from_meta(&meta)?);
+                    } else {
+                        panic!("unknown input provided: {}", path.to_token_stream());
                     }
-                } else if path.is_ident("identifier") {
-                    if let syn::Meta::NameValue(nv) = item {
-                        identifier = match &nv.lit {
-                            syn::Lit::Str(s) => Some(s.clone()),
-                            _ => None,
-                        };
-                    }
-                } else if path.is_ident("enumerated") {
-                    enumerated = true;
-                } else if path.is_ident("choice") {
-                    choice = true;
-                } else if path.is_ident("set") {
-                    set = true;
-                } else if path.is_ident("automatic_tags") {
-                    automatic_tags = true;
-                } else if path.is_ident("tag") {
-                    tag = Tag::from_meta(item);
-                } else if path.is_ident("delegate") {
-                    delegate = true;
-                } else if path.is_ident("from") {
-                    from = Some(StringValue::from_meta(item));
-                } else if path.is_ident("size") {
-                    size = Some(Value::from_meta(item));
-                } else if path.is_ident("value") {
-                    value = Some(Value::from_meta(item));
-                } else {
-                    panic!("unknown input provided: {}", path.to_token_stream());
-                }
+                    Ok(())
+                })
+                .unwrap()
             }
         }
 
@@ -434,39 +424,32 @@ impl<'config> VariantConfig<'config> {
         let mut tag = None;
         let mut value = None;
 
-        let mut iter = variant
-            .attrs
-            .iter()
-            .filter_map(|a| a.parse_meta().ok())
-            .filter(|m| m.path().is_ident(crate::CRATE_NAME));
-
-        while let Some(syn::Meta::List(list)) = iter.next() {
-            for item in list.nested.iter().filter_map(|n| match n {
-                syn::NestedMeta::Meta(m) => Some(m),
-                _ => None,
-            }) {
-                let path = item.path();
+        for attr in &variant.attrs {
+            if !attr.path().is_ident(crate::CRATE_NAME) {
+                continue;
+            }
+            attr.parse_nested_meta(|meta| {
+                let path = &meta.path;
                 if path.is_ident("tag") {
-                    tag = Tag::from_meta(item);
+                    tag = Some(Tag::from_meta(&meta).unwrap());
                 } else if path.is_ident("identifier") {
-                    if let syn::Meta::NameValue(nv) = item {
-                        identifier = match &nv.lit {
-                            syn::Lit::Str(s) => Some(s.clone()),
-                            _ => None,
-                        };
-                    }
+                    let value = meta.value()?;
+                    identifier = Some(value.parse()?);
                 } else if path.is_ident("size") {
-                    size = Some(Value::from_meta(item));
+                    size = Some(Value::from_meta(&meta).unwrap());
                 } else if path.is_ident("value") {
-                    value = Some(Value::from_meta(item));
+                    value = Some(Value::from_meta(&meta).unwrap());
                 } else if path.is_ident("from") {
-                    from = Some(StringValue::from_meta(item));
+                    from = Some(StringValue::from_meta(&meta).unwrap());
                 } else if path.is_ident("extensible") {
                     extensible = true;
                 } else if path.is_ident("extension_addition") {
                     extension_addition = true;
                 }
-            }
+
+                Ok(())
+            })
+            .unwrap();
         }
 
         Self {
@@ -701,41 +684,32 @@ impl<'a> FieldConfig<'a> {
         let mut extensible = false;
         let mut extension_addition = false;
         let mut extension_addition_group = false;
-        let mut iter = field
-            .attrs
-            .iter()
-            .map(|a| a.parse_meta().unwrap())
-            .filter(|m| m.path().is_ident(crate::CRATE_NAME));
 
-        while let Some(syn::Meta::List(list)) = iter.next() {
-            for item in list.nested.iter().filter_map(|n| match n {
-                syn::NestedMeta::Meta(m) => Some(m),
-                _ => None,
-            }) {
-                let path = item.path();
+        for attr in &field.attrs {
+            if !attr.path().is_ident(crate::CRATE_NAME) {
+                continue;
+            }
+            attr.parse_nested_meta(|meta| {
+                let path = &meta.path;
                 if path.is_ident("tag") {
-                    tag = Tag::from_meta(item);
+                    tag = Some(Tag::from_meta(&meta).unwrap());
                 } else if path.is_ident("default") {
-                    default = Some(match item {
-                        syn::Meta::NameValue(value) => match &value.lit {
-                            syn::Lit::Str(lit_str) => lit_str.parse().map(Some).unwrap(),
-                            _ => panic!("Unsupported type for default."),
-                        },
-                        _ => None,
-                    });
-                } else if path.is_ident("identifier") {
-                    if let syn::Meta::NameValue(nv) = item {
-                        identifier = match &nv.lit {
-                            syn::Lit::Str(s) => Some(s.clone()),
-                            _ => None,
-                        };
+                    if meta.input.is_empty() || meta.input.peek(Token![,]) {
+                        default = Some(None);
+                    } else {
+                        let value = meta.value()?;
+                        let s: syn::LitStr = value.parse()?;
+                        default = Some(Some(s.parse()?));
                     }
+                } else if path.is_ident("identifier") {
+                    let value = meta.value()?;
+                    identifier = Some(value.parse()?);
                 } else if path.is_ident("size") {
-                    size = Some(Value::from_meta(item));
+                    size = Some(Value::from_meta(&meta).unwrap());
                 } else if path.is_ident("value") {
-                    value = Some(Value::from_meta(item));
+                    value = Some(Value::from_meta(&meta).unwrap());
                 } else if path.is_ident("from") {
-                    from = Some(StringValue::from_meta(item));
+                    from = Some(StringValue::from_meta(&meta).unwrap());
                 } else if path.is_ident("extensible") {
                     extensible = true;
                 } else if path.is_ident("extension_addition") {
@@ -748,7 +722,9 @@ impl<'a> FieldConfig<'a> {
                         path.get_ident().map(ToString::to_string)
                     );
                 }
-            }
+                Ok(())
+            })
+            .unwrap();
         }
 
         if extension_addition && extension_addition_group {
@@ -1176,7 +1152,7 @@ impl<T> From<T> for Constraint<T> {
 pub struct StringValue(pub Vec<u32>);
 
 impl StringValue {
-    fn from_meta(item: &syn::Meta) -> Constraint<StringValue> {
+    fn from_meta(item: &syn::meta::ParseNestedMeta) -> syn::Result<Constraint<StringValue>> {
         let mut values = Vec::new();
         let mut extensible: Option<_> = None;
 
@@ -1189,15 +1165,18 @@ impl StringValue {
             string.chars().map(u32::from).next()
         }
 
-        let syn::Meta::List(list) = item else {
-            panic!("Unsupported meta item: {:?}", item);
-        };
-
-        for item in &list.nested {
-            let string = match item {
-                NestedMeta::Lit(Lit::Str(string)) => string.value(),
-                NestedMeta::Meta(syn::Meta::Path(path)) => path.get_ident().unwrap().to_string(),
-                item => panic!("Unsupported meta item: {:?}", item),
+        let content;
+        parenthesized!(content in item.input);
+        while !content.is_empty() {
+            if content.peek(Token![,]) {
+                let _: Token![,] = content.parse()?;
+            }
+            let string = if content.peek(syn::LitStr) {
+                content.parse::<syn::LitStr>()?.value()
+            } else if content.peek(syn::Ident) {
+                panic!("StringValue2: {:?}", content);
+            } else {
+                panic!("StringValue Unsupported meta item: {:?}", content);
             };
 
             if string == "extensible" {
@@ -1248,10 +1227,10 @@ impl StringValue {
             set
         };
 
-        Constraint {
+        Ok(Constraint {
             constraint: Self((into_flat_set)(values)),
             extensible: extensible.map(|values| vec![Self((into_flat_set)(values))]),
-        }
+        })
     }
 }
 
@@ -1262,7 +1241,7 @@ pub enum Value {
 }
 
 impl Value {
-    fn from_meta(item: &syn::Meta) -> Constraint<Value> {
+    fn from_meta(item: &syn::meta::ParseNestedMeta) -> syn::Result<Constraint<Value>> {
         let mut extensible = None;
         let mut constraint = None;
 
@@ -1270,19 +1249,24 @@ impl Value {
             string.parse().ok()
         }
 
-        let syn::Meta::List(list) = item else {
-            panic!("Unsupported meta item: {:?}", item);
-        };
-
-        for item in list.nested.iter() {
-            let string = match item {
-                NestedMeta::Lit(Lit::Str(string)) => string.value(),
-                NestedMeta::Meta(syn::Meta::Path(path)) => path.get_ident().unwrap().to_string(),
-                NestedMeta::Lit(Lit::Int(int)) => {
-                    constraint = Some(int.base10_parse().map(Value::Single).unwrap());
-                    continue;
-                }
-                _ => panic!("Unsupported meta item: {item:?}"),
+        let content;
+        parenthesized!(content in item.input);
+        while !content.is_empty() {
+            if content.peek(Token![,]) {
+                let _: Token![,] = content.parse()?;
+                continue;
+            }
+            let string = if content.peek(syn::LitStr) {
+                content.parse::<syn::LitStr>()?.value()
+            } else if content.peek(syn::Ident) {
+                let path: syn::Path = content.parse()?;
+                path.get_ident().unwrap().to_string()
+            } else if content.peek(syn::LitInt) {
+                let int: syn::LitInt = content.parse()?;
+                constraint = Some(int.base10_parse().map(Value::Single).unwrap());
+                continue;
+            } else {
+                panic!("Value Unsupported meta item: {:?}", content);
             };
 
             if string == "extensible" {
@@ -1316,9 +1300,9 @@ impl Value {
             }
         }
 
-        Constraint {
+        Ok(Constraint {
             constraint: constraint.unwrap(),
             extensible,
-        }
+        })
     }
 }

@@ -1,3 +1,5 @@
+use syn::{parenthesized, Token};
+
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
     Universal = 0,
@@ -57,71 +59,62 @@ pub enum Tag {
 }
 
 impl Tag {
-    pub fn from_meta(item: &syn::Meta) -> Option<Self> {
-        let mut tag = None;
+    pub fn from_meta(meta: &syn::meta::ParseNestedMeta) -> syn::Result<Self> {
+        let tag;
         let mut explicit = false;
-        match item {
-            syn::Meta::List(list) => match list.nested.iter().count() {
-                1 => match &list.nested[0] {
-                    syn::NestedMeta::Lit(lit) => tag = Some((Class::Context, lit.clone())),
-                    syn::NestedMeta::Meta(meta) => {
-                        let list = match meta {
-                                syn::Meta::List(list) => list,
-                                _ => panic!("Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`."),
-                            };
-
-                        if !list
-                            .path
-                            .is_ident(&syn::Ident::new("explicit", proc_macro2::Span::call_site()))
-                        {
-                            panic!("Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`.");
-                        }
-
-                        let mut iter = list.nested.iter();
-                        let first = iter.next();
-                        let second = iter.next();
-
-                        match (first, second) {
-                            (
-                                Some(syn::NestedMeta::Meta(syn::Meta::Path(path))),
-                                Some(syn::NestedMeta::Lit(lit)),
-                            ) => {
-                                let class = Class::from_ident(
-                                    path.get_ident().expect("Path must be a valid ident."),
-                                );
-                                let value = lit.clone();
-                                explicit = true;
-                                tag = Some((class, value));
-                            }
-                            (Some(syn::NestedMeta::Lit(lit)), None) => {
-                                explicit = true;
-                                tag = Some((Class::Context, lit.clone()));
-                            }
-                            _ => panic!("Expected meta items inside `explicit`"),
-                        }
-                    }
-                },
-                2 => {
-                    let mut iter = list.nested.iter().take(2).fuse();
-                    let class = iter.next().unwrap();
-                    let value = iter.next().unwrap();
-
-                    if let (
-                        syn::NestedMeta::Meta(syn::Meta::Path(path)),
-                        syn::NestedMeta::Lit(value),
-                    ) = (class, value)
-                    {
-                        tag = Some((Class::from_ident(path.get_ident().unwrap()), value.clone()));
-                    }
+        let content;
+        parenthesized!(content in meta.input);
+        if content.peek(syn::Lit) {
+            tag = (Class::Context, content.parse::<syn::Lit>()?)
+        } else if content.peek(syn::Ident) {
+            let ident: syn::Ident = content.parse()?;
+            if content.peek(syn::token::Paren) {
+                if ident != syn::Ident::new("explicit", proc_macro2::Span::call_site()) {
+                    panic!("Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`.");
                 }
-                _ => panic!("The `#[rasn(tag)]`attribute takes a maximum of two arguments."),
-            },
-            _ => panic!("The `#[rasn(tag)]`attribute must be a list."),
+                let explicit_content;
+                parenthesized!(explicit_content in &content);
+                if explicit_content.peek(syn::Ident)
+                    && explicit_content.peek2(Token![,])
+                    && explicit_content.peek3(syn::Lit)
+                {
+                    let path: syn::Path = explicit_content.parse()?;
+
+                    let _ = explicit_content.parse::<Token![,]>()?;
+                    let lit: syn::Lit = explicit_content.parse()?;
+
+                    let class =
+                        Class::from_ident(path.get_ident().expect("Path must be a valid ident."));
+                    explicit = true;
+                    tag = (class, lit);
+                } else if explicit_content.peek(syn::Lit) {
+                    let lit = explicit_content.parse()?;
+                    explicit = true;
+                    tag = (Class::Context, lit);
+                } else {
+                    panic!("Expected meta items inside `explicit`")
+                }
+                if !explicit_content.is_empty() {
+                    panic!("The `#[rasn(tag)]`attribute takes a maximum of two arguments.")
+                }
+            } else if content.peek(Token![,]) {
+                let _: Token![,] = content.parse()?;
+                let lit: syn::Lit = content.parse()?;
+                let class = Class::from_ident(&ident);
+                tag = (class, lit);
+            } else {
+                panic!("The `#[rasn(tag)]`attribute must be a list.")
+            }
+        } else {
+            panic!("The `#[rasn(tag)]`attribute must be a list.")
+        }
+        if !content.is_empty() {
+            panic!("The `#[rasn(tag)]`attribute takes a maximum of two arguments.")
         }
 
-        tag.map(|(class, value)| Self::Value {
-            class,
-            value,
+        Ok(Self::Value {
+            class: tag.0,
+            value: tag.1,
             explicit,
         })
     }
