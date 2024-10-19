@@ -1,0 +1,12 @@
+[package]
+name = "rasn-cdt"
+version.workspace = true
+edition.workspace = true
+description = "Data types for the Compressed Data Type"
+license.workspace = true
+repository.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rasn = { path = "../..", version = "0.20" }
