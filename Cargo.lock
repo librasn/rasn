@@ -806,7 +806,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "rasn-atn-cpdlc"
+version = "0.20.2"
+dependencies = [
+ "rasn",
+]
+
+[[package]]
+name = "rasn-atn-ulcs"
+version = "0.20.2"
+dependencies = [
+ "rasn",
+]
+
+[[package]]
 name = "rasn-cap"
+version = "0.20.2"
+dependencies = [
+ "rasn",
+]
+
+[[package]]
+name = "rasn-cbr"
+version = "0.20.2"
+dependencies = [
+ "rasn",
+]
+
+[[package]]
+name = "rasn-cdt"
 version = "0.20.2"
 dependencies = [
  "rasn",
