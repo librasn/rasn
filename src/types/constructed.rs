@@ -214,7 +214,7 @@ mod tests {
 
         assert_eq!(set_a, set_b);
         assert_ne!(set_a, set_c);
-        let hasher = hashbrown::DefaultHashBuilder::default();
+        let hasher = hashbrown::hash_map::DefaultHashBuilder::default();
         let hashed_a = hasher.hash_one(&set_a);
         let hashed_c = hasher.hash_one(set_c);
         assert_ne!(hashed_a, hashed_c);

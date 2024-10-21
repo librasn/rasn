@@ -36,6 +36,7 @@ pub struct Attribute {
 
 #[cfg(test)]
 mod tests {
+    use base64::prelude::{Engine as _, BASE64_STANDARD};
     use pretty_assertions::assert_eq;
 
     use alloc::{borrow::Cow, string::ToString, vec};
@@ -163,7 +164,7 @@ mod tests {
 
         let data_bin = rasn::der::encode(&data).unwrap();
         let txt = "MEEGCSqGSIb3DQEJBzASBgcqhkjOPQIBMQcGBSuBBAAiMBYGCSqGSIb3DQEJDjEJBgcrBgEBAQEWBggqhkjOPQQDAw==";
-        let bin = base64::decode(txt).unwrap();
+        let bin = BASE64_STANDARD.decode(txt).unwrap();
         assert_eq!(data_bin, bin);
         let decoded_data = rasn::der::decode::<CsrAttrs>(&bin);
         assert!(decoded_data.is_ok());
@@ -238,7 +239,7 @@ mod tests {
 
         let data_bin = rasn::der::encode(&data).unwrap();
         let txt = "MHwGBysGAQEBARYwIgYDiDcBMRsTGVBhcnNlIFNFVCBhcyAyLjk5OS4xIGRhdGEGCSqGSIb3DQEJBzAsBgOINwIxJQYDiDcDBgOINwQTGVBhcnNlIFNFVCBhcyAyLjk5OS4yIGRhdGEGCSskAwMCCAEBCwYJYIZIAWUDBAIC";
-        let bin = base64::decode(txt).unwrap();
+        let bin = BASE64_STANDARD.decode(txt).unwrap();
         assert_eq!(bin, data_bin);
         let decoded_data = rasn::der::decode::<CsrAttrs>(&bin);
         assert!(decoded_data.is_ok());

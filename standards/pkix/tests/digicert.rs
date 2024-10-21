@@ -7,9 +7,9 @@ use rasn_pkix::*;
 fn it_works() {
     let contents = pem::parse(include_bytes!("data/DigiCertAssuredIDTLSCA.crt.pem")).unwrap();
 
-    let cert: rasn_pkix::Certificate = rasn::der::decode(&contents.contents).unwrap();
+    let cert: rasn_pkix::Certificate = rasn::der::decode(contents.contents()).unwrap();
 
-    assert_eq!(contents.contents, rasn::der::encode(&cert).unwrap());
+    assert_eq!(contents.contents(), rasn::der::encode(&cert).unwrap());
 }
 
 #[test]
