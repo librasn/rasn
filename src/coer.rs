@@ -967,21 +967,21 @@ mod tests {
         struct Sequence4 {
             a: bool,
         }
-        // round_trip!(
-        //     coer,
-        //     Sequence3,
-        //     Sequence3 { a: true, b: None },
-        //     &[0x00, 0xff]
-        // );
-        // round_trip!(
-        //     coer,
-        //     Sequence3,
-        //     Sequence3 {
-        //         a: true,
-        //         b: Some(Sequence4 { a: true })
-        //     },
-        //     &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
-        // );
+        round_trip!(
+            coer,
+            Sequence3,
+            Sequence3 { a: true, b: None },
+            &[0x00, 0xff]
+        );
+        round_trip!(
+            coer,
+            Sequence3,
+            Sequence3 {
+                a: true,
+                b: Some(Sequence4 { a: true })
+            },
+            &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
+        );
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(automatic_tags)]
         #[non_exhaustive]
