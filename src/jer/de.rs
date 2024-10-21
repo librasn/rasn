@@ -2,12 +2,7 @@
 
 use serde_json::Value;
 
-use crate::{
-    de::Error,
-    error::*,
-    types::{fields::Fields, *},
-    Decode,
-};
+use crate::{de::Error, error::*, types::*, Decode};
 
 macro_rules! decode_jer_value {
     ($decoder_fn:expr, $input:expr) => {
