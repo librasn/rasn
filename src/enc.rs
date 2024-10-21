@@ -57,19 +57,16 @@ pub trait Encode: AsnType {
 }
 
 /// A **data format** encode any ASN.1 data type.
-/// Const `FC` is the count of root components in sequence or set.
+/// Const `RC` is the count of root components in sequence or set.
+/// Const `EC` is the count of extension components in sequence or set.
 pub trait Encoder<const RC: usize = 0, const EC: usize = 0> {
+    /// The associated success type returned on success.
     type Ok;
     /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
+    /// Helper type for encoding recursive `Encoder` instances with different `RC` or  `EC` values.
     type AnyEncoder<const R: usize, const E: usize>: Encoder<RC, EC, Ok = Self::Ok, Error = Self::Error>
         + Encoder;
-    // type AnyEncoder<const R: usize, const E: usize>: Encoder<
-    //     R,
-    //     E,
-    //     Ok = Self::Ok,
-    //     Error = Self::Error,
-    // >;
 
     /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;
