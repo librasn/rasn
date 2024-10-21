@@ -135,10 +135,17 @@ mod tests {
 
     #[test]
     fn explicit_empty_tag() {
-        type EmptyTag = Explicit<C0, Option<()>>;
+        use crate as rasn;
+        use rasn::prelude::*;
+        #[derive(Debug, AsnType, Encode, Decode, PartialEq)]
+        struct EmptyTag {
+            #[rasn(tag(explicit(0)))]
+            a: Option<()>,
+        }
 
-        let value = EmptyTag::new(None);
-        let data = &[0xA0, 0][..];
+        let value = EmptyTag { a: None };
+        // Absent field - only sequence tag present with length of 0
+        let data = &[0x30, 0][..];
 
         assert_eq!(data, &*crate::ber::encode(&value).unwrap());
         assert_eq!(value, crate::ber::decode::<EmptyTag>(data).unwrap());

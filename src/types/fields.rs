@@ -3,7 +3,7 @@
 use crate::types::{Tag, TagTree};
 
 /// Represents all of the values that make up a given value in ASN.1.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Fields<const N: usize> {
     fields: [Field; N],
     has_required: bool,
@@ -32,28 +32,6 @@ impl<const N: usize> Fields<N> {
             has_required,
             number_optional_default,
         }
-    }
-    /// Returns the field at the given index in a Sequence/Set.
-    pub const fn get_field(&self, index: usize) -> Option<&Field> {
-        let mut i = 0;
-        while i < self.fields.len() {
-            if self.fields[i].index == index {
-                return Some(&self.fields[i]);
-            }
-            i += 1;
-        }
-        None
-    }
-    /// Returns the field at the given index in a Sequence/Set as mutable.
-    pub fn get_field_mut(&mut self, index: usize) -> Option<&mut Field> {
-        let mut i = 0;
-        while i < self.fields.len() {
-            if self.fields[i].index == index {
-                return Some(&mut self.fields[i]);
-            }
-            i += 1;
-        }
-        None
     }
 
     /// Returns the number of fields.
@@ -88,19 +66,20 @@ impl<const N: usize> Fields<N> {
     }
 
     /// Returns the canonical sorted version of `self`.
-    pub const fn canonised(self) -> Self {
+    pub const fn canonised(&self) -> Self {
         self.canonical_sort()
     }
 
-    /// Sorts the fields by their canonical tag order.
+    /// Sorts the fields by their canonical tag order in constant matter.
     pub const fn canonical_sort(mut self) -> Self {
+        let len = self.fields.len();
         let mut i = 0;
-        while i < self.fields.len() {
+        while i < len {
             let mut j = i + 1;
-            while j < self.fields.len() {
-                if self.fields[i].tag_tree.smallest_tag().value
-                    > self.fields[j].tag_tree.smallest_tag().value
-                {
+            while j < len {
+                let tag_i = self.fields[i].tag_tree.smallest_tag();
+                let tag_j = self.fields[j].tag_tree.smallest_tag();
+                if tag_i.const_cmp(&tag_j) as usize == core::cmp::Ordering::Greater as usize {
                     let temp = self.fields[i];
                     self.fields[i] = self.fields[j];
                     self.fields[j] = temp;
@@ -114,46 +93,12 @@ impl<const N: usize> Fields<N> {
 
     /// Returns an iterator over all fields.
     pub fn iter(&self) -> impl Iterator<Item = Field> + '_ {
-        self.fields.iter().cloned()
+        self.fields.iter().copied()
     }
 
     /// Returns an iterator over identifiers for all fields.
     pub fn identifiers(&self) -> impl Iterator<Item = &str> + '_ {
         self.fields.iter().map(|f| f.name)
-    }
-    /// Finds the field by index and sets its presence to be true.
-    pub fn set_field_present_by_index(&mut self, index: usize) -> bool {
-        let field = self.get_field_mut(index);
-        match field {
-            Some(f) => {
-                f.present = true;
-                true
-            }
-            None => false,
-        }
-    }
-    pub const fn get_overall_presence_bitmap(&self) -> [bool; N] {
-        let mut i = 0;
-        let mut bitmap = [false; N];
-        while i < self.fields.len() {
-            bitmap[i] = self.fields[i].present;
-            i += 1;
-        }
-        bitmap
-    }
-    pub const fn get_optional_default_presence_bitmap(&self) -> ([bool; N], usize) {
-        let mut i = 0;
-        // Second index for getting bitmap for the beginning, not used indexes can be dropped.
-        let mut y = 0;
-        let mut bitmap = [false; N];
-        while i < self.fields.len() {
-            if self.fields[i].is_optional_or_default() {
-                bitmap[y] = self.fields[i].present;
-                y += 1;
-            }
-            i += 1;
-        }
-        (bitmap, self.number_of_optional_and_default_fields())
     }
 }
 
@@ -176,8 +121,6 @@ pub struct Field {
     pub tag_tree: TagTree,
     /// The presence requirement of the field.
     pub presence: FieldPresence,
-    /// Whether the field value is present in optional or default fields.
-    pub present: bool,
     /// The name of the field.
     pub name: &'static str,
 }
@@ -195,7 +138,6 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Required,
-            present: true,
             name,
         }
     }
@@ -210,7 +152,6 @@ impl Field {
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Required,
-            present: true,
             name,
         }
     }
@@ -227,7 +168,6 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Optional,
-            present: false,
             name,
         }
     }
@@ -242,7 +182,6 @@ impl Field {
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Optional,
-            present: false,
             name,
         }
     }
@@ -259,7 +198,6 @@ impl Field {
             tag,
             tag_tree,
             presence: FieldPresence::Default,
-            present: false,
             name,
         }
     }
@@ -274,13 +212,8 @@ impl Field {
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Default,
-            present: false,
             name,
         }
-    }
-    /// Change the current presence of the field to be true.
-    pub fn set_present(&mut self) {
-        self.present = true;
     }
 }
 

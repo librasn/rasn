@@ -74,19 +74,6 @@ pub trait Encoder<const RC: usize = 0, const EC: usize = 0> {
     /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;
 
-    fn update_index(&mut self);
-
-    /// increase field index counter
-    // fn set_combined_fields<'a>(&mut self, fields: &'a [&'a crate::types::fields::Field]);
-
-    /// Set the presence bits for optional or default fields, for both root component list and extensions.
-    fn set_presence_bits<const R: usize, const E: usize>(
-        // fn set_presence_bits(
-        &mut self,
-        fields: types::fields::Fields<R>,
-        extended_fields: Option<types::fields::Fields<E>>,
-    );
-
     /// Encode an unknown ASN.1 value.
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error>;
 
@@ -227,6 +214,7 @@ pub trait Encoder<const RC: usize = 0, const EC: usize = 0> {
     /// Const `R` is the count of root components in sequence or set.
     /// Const `E` is the count of extension components in sequence or set.
     /// Generic `C` is the sequence value.
+    /// NOTE: If you implement this manually, make sure to encode fields in the same order
     fn encode_sequence<const R: usize, const E: usize, C, F>(
         &mut self,
         tag: Tag,

@@ -765,16 +765,8 @@ impl<'a> FieldConfig<'a> {
 
         let encode = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
-                let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;);
-                if self.is_option_type() {
-                    quote! {
-                        if #this #field.is_some() {
-                            #encode
-                        }
-                    }
-                } else {
-                    encode
-                }
+                // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
+                quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;)
             } else if self.extension_addition {
                 let constraints = self
                     .constraints

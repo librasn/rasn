@@ -22,7 +22,7 @@ fn extensions() {
             _i: Integer,
         }
 
-        encoder.encode_sequence::<2, Sequence, _>(Tag::SEQUENCE, |encoder| {
+        encoder.encode_sequence::<2, 0, Sequence, _>(Tag::SEQUENCE, |encoder| {
             encoder.encode_bool(Tag::BOOL, true)?;
             encoder.encode_integer::<u32>(Tag::INTEGER, Constraints::default(), &0u32)?;
             Ok(())
