@@ -1377,16 +1377,16 @@ mod tests {
             pub is: Option<OctetString>,
             pub late: Option<Integer>,
         }
-        // round_trip!(
-        //     coer,
-        //     SequenceOptionals,
-        //     SequenceOptionals {
-        //         it: 1.into(),
-        //         is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
-        //         late: None
-        //     },
-        //     &[0b10000000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03]
-        // );
+        round_trip!(
+            coer,
+            SequenceOptionals,
+            SequenceOptionals {
+                it: 1.into(),
+                is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
+                late: None
+            },
+            &[0b10000000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03]
+        );
         #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
         #[non_exhaustive]
         pub struct SequenceDuplicatesExtended {
