@@ -16,7 +16,6 @@ fn test_cms_signed() {
     let info = decode::<ContentInfo>(SIGNED_DATA).unwrap();
     assert_eq!(CONTENT_SIGNED_DATA, info.content_type);
     let data = decode::<SignedData>(info.content.as_bytes()).unwrap();
-    // println!("{:#?}", data);
 
     assert_eq!(CONTENT_DATA, data.encap_content_info.content_type);
 
@@ -30,7 +29,6 @@ fn test_cms_encrypted() {
     let info = decode::<ContentInfo>(ENCRYPTED_DATA).unwrap();
     assert_eq!(CONTENT_ENVELOPED_DATA, info.content_type);
     let data = decode::<EnvelopedData>(info.content.as_bytes()).unwrap();
-    println!("{:#?}", data);
 
     assert_eq!(CONTENT_DATA, data.encrypted_content_info.content_type);
 
