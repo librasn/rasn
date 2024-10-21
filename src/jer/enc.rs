@@ -8,7 +8,7 @@ type ValueMap = Map<alloc::string::String, Value>;
 
 use crate::{
     error::{EncodeError, JerEncodeErrorKind},
-    types::{fields::Fields, variants, Constraints, IntegerType, Tag},
+    types::{variants, Constraints, IntegerType, Tag},
 };
 
 /// Encodes Rust structures into JSON Encoding Rules data.
@@ -70,14 +70,6 @@ impl crate::Encoder for Encoder {
 
     type Error = EncodeError;
     type AnyEncoder<const R: usize, const E: usize> = Encoder;
-
-    fn set_presence_bits<const N: usize, const E: usize>(
-        &mut self,
-        _field: crate::types::fields::Fields<N>,
-        _extended_field: Option<crate::types::fields::Fields<E>>,
-    ) {
-    }
-    fn update_index(&mut self) {}
 
     fn encode_any(&mut self, t: Tag, value: &crate::types::Any) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(t, Constraints::default(), &value.contents)

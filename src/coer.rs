@@ -973,21 +973,21 @@ mod tests {
         struct Sequence4 {
             a: bool,
         }
-        // round_trip!(
-        //     coer,
-        //     Sequence3,
-        //     Sequence3 { a: true, b: None },
-        //     &[0x00, 0xff]
-        // );
-        // round_trip!(
-        //     coer,
-        //     Sequence3,
-        //     Sequence3 {
-        //         a: true,
-        //         b: Some(Sequence4 { a: true })
-        //     },
-        //     &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
-        // );
+        round_trip!(
+            coer,
+            Sequence3,
+            Sequence3 { a: true, b: None },
+            &[0x00, 0xff]
+        );
+        round_trip!(
+            coer,
+            Sequence3,
+            Sequence3 {
+                a: true,
+                b: Some(Sequence4 { a: true })
+            },
+            &[0x80, 0xff, 0x02, 0x07, 0x80, 0x01, 0xff]
+        );
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(automatic_tags)]
         #[non_exhaustive]
@@ -1050,6 +1050,47 @@ mod tests {
             },
             &[68, 1, 1, 8, 17, 18, 19, 20, 21, 22, 23, 24, 1, 1]
         );
+        round_trip!(
+            coer,
+            ExtendedOptional,
+            ExtendedOptional {
+                value: 0.into(),
+                integer1: Some(1.into()),
+                octet1: None,
+                integer2: Some(2.into()),
+                octet2: None,
+                integer3: Some(3.into()),
+                octet3: Some(vec![4, 5, 6].into()),
+                integer4: Some(7.into()),
+                octet4: None,
+                integer5: Some(8.into()),
+                octet5: None
+            },
+            &[
+                0b1101_0110, // optional/default bitfield
+                0x01,
+                0x00,
+                0x01,
+                0x01,
+                0x01,
+                0x02,
+                0x01,
+                0x03,
+                0x03,
+                0x04,
+                0x05,
+                0x06,
+                0x02, // length of the extension bitfield
+                0x04, // unused bits the following byte (4 extensions)
+                0b1010_0000,
+                0x02, // Open type length
+                0x01,
+                0x07,
+                0x02,
+                0x01,
+                0x08
+            ]
+        );
         // Preamble that takes two bytes
         #[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
         #[rasn(automatic_tags)]
@@ -1110,21 +1151,32 @@ mod tests {
         #[rasn(set, tag(application, 0))]
         struct Foo {
             #[rasn(tag(explicit(444)))]
-            a: Integer,
+            a: Option<Integer>,
             #[rasn(tag(explicit(5)))]
-            b: Integer,
+            b: Option<Integer>,
             #[rasn(tag(application, 9))]
-            c: Integer,
+            c: Option<Integer>,
         }
         round_trip!(
             coer,
             Foo,
             Foo {
-                a: 5.into(),
-                b: 6.into(),
-                c: 7.into(),
+                a: Some(5.into()),
+                b: Some(6.into()),
+                c: Some(7.into()),
             },
-            &[0x01, 0x07, 0x01, 0x06, 0x01, 0x05]
+            &[0b1110_0000, 0x01, 0x07, 0x01, 0x06, 0x01, 0x05]
+        );
+        round_trip!(
+            coer,
+            Foo,
+            Foo {
+                a: None,
+                b: None,
+                c: Some(1.into()),
+            },
+            // Also preamble is ordered by tag
+            &[0b1000_0000, 0x01, 0x01]
         );
     }
     #[test]
@@ -1369,13 +1421,13 @@ mod tests {
             SequenceDuplicatesExtended,
             SequenceDuplicatesExtended {
                 it: 1.into(),
-                is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
+                is: Some(OctetString::from_static(&[0x02, 0x03, 0x04])),
                 late: None,
-                today: OctetString::from_static(&[0x01, 0x02, 0x03])
+                today: OctetString::from_static(&[0x05, 0x06, 0x07])
             },
             &[
-                0b11000000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03, 0x02, 0x07, 0b10000000, 0x04, 0x03,
-                0x01, 0x02, 0x03
+                0b11000000, 0x01, 0x01, 0x03, 0x02, 0x03, 0x04, 0x02, 0x07, 0b10000000, 0x04, 0x03,
+                0x05, 0x06, 0x07
             ]
         );
     }

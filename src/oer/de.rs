@@ -840,11 +840,13 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let (bitmap, extensible_present) = self.parse_preamble::<RC, EC, SET>()?;
 
         let field_map = SET::FIELDS
+            .canonised()
             .optional_and_default_fields()
             .zip(bitmap.into_iter().map(|b| *b))
             .collect::<alloc::collections::BTreeMap<_, _>>();
 
         let decoder_fields = SET::FIELDS
+            .canonised()
             .optional_and_default_fields()
             .zip(bitmap.into_iter().map(|b| *b))
             .collect();

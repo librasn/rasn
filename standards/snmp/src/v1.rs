@@ -1,9 +1,6 @@
 //! Version 1 (RFC 1157)
 
-use rasn::{
-    types::{Integer, ObjectIdentifier, OctetString},
-    AsnType, Decode, Encode,
-};
+use rasn::prelude::*;
 use smi::v1::{NetworkAddress, ObjectName, ObjectSyntax, TimeTicks};
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]

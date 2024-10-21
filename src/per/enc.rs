@@ -163,6 +163,7 @@ impl Encoder {
             .get_mut(&(self.current_field_index, tag))
         {
             *b = bit;
+            self.current_field_index += 1;
         }
         Ok(())
     }
@@ -804,15 +805,6 @@ impl crate::Encoder for Encoder {
 
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
-    }
-    fn update_index(&mut self) {
-        self.current_field_index += 1;
-    }
-    fn set_presence_bits<const N: usize, const E: usize>(
-        &mut self,
-        _field: crate::types::fields::Fields<N>,
-        _extended_field: Option<crate::types::fields::Fields<E>>,
-    ) {
     }
 
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {

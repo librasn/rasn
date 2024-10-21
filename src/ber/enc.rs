@@ -323,14 +323,6 @@ impl crate::Encoder for Encoder {
     fn codec(&self) -> Codec {
         Self::codec(self)
     }
-    fn update_index(&mut self) {}
-
-    fn set_presence_bits<const N: usize, const E: usize>(
-        &mut self,
-        _field: crate::types::fields::Fields<N>,
-        _extended_field: Option<crate::types::fields::Fields<E>>,
-    ) {
-    }
 
     fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
@@ -604,9 +596,11 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut encoder = Self::new(self.config);
-        value.encode(&mut encoder)?;
-        self.encode_constructed(tag, &encoder.output);
+        if value.is_present() {
+            let mut encoder = Self::new(self.config);
+            value.encode(&mut encoder)?;
+            self.encode_constructed(tag, &encoder.output);
+        }
         Ok(())
     }
 
