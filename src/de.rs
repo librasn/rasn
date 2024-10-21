@@ -62,17 +62,12 @@ pub trait Decode: Sized + AsnType {
 pub trait Decoder<const RFC: usize = 0, const EFC: usize = 0>: Sized {
     /// The associated success type returned on success.
     type Ok;
+    // TODO, when associated type defaults are stabilized, use this instead?
     /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
     /// Helper type for decoding nested instances of `Decoder` with different fields.
     type AnyDecoder<const R: usize, const E: usize>: Decoder<RFC, EFC, Ok = Self::Ok, Error = Self::Error>
         + Decoder;
-
-    // pub trait Decoder: Sized {
-    // TODO, when associated type defaults are stabilized, use this instead?
-    // type Error = crate::error::DecodeError;
-    /// The associated error type of the decoder.
-    // type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
 
     /// Returns codec variant of `Codec` that current decoder is decoding.
     #[must_use]
@@ -219,7 +214,6 @@ pub trait Decoder<const RFC: usize = 0, const EFC: usize = 0>: Sized {
     where
         SET: Decode + crate::types::Constructed<RC, EC>,
         FIELDS: Decode,
-        // D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
 

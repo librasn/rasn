@@ -797,7 +797,6 @@ impl Encoder {
 }
 
 impl crate::Encoder for Encoder {
-    // impl crate::Encoder for Encoder {
     // impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC, EFC> {
     type Ok = ();
     type Error = Error;

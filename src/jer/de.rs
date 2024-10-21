@@ -315,29 +315,17 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(Self::date_from_value, self.stack)
     }
 
-    // fn decode_set<const RC: usize, const EC: usize, FIELDS, SET, D, F>(
-    //     &mut self,
-    //     _t: Tag,
-    //     decode_fn: D,
-    //     field_fn: F,
-    // ) -> Result<SET, Self::Error>
-    // where
-    //     SET: crate::Decode + Constructed<RC, EC>,
-    //     FIELDS: crate::Decode,
-    //     D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
-    //     F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
-    // {
     fn decode_set<const RC: usize, const EC: usize, FIELDS, SET, D, F>(
         &mut self,
-        _: Tag,
+        _t: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode + Constructed<RC, EC>,
-        FIELDS: Decode,
-        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
-        F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
+        SET: crate::Decode + Constructed<RC, EC>,
+        FIELDS: crate::Decode,
+        D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
+        F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
         let mut last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
         let value_map = last
