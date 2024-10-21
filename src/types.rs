@@ -312,9 +312,9 @@ impl<T: AsnType, const N: usize> AsnType for [T; N] {
     const CONSTRAINTS: Constraints = constraints!(size_constraint!(N));
 }
 
-// impl<T> AsnType for &'_ [T] {
-//     const TAG: Tag = Tag::SEQUENCE;
-// }
+impl<T> AsnType for &'_ [T] {
+    const TAG: Tag = Tag::SEQUENCE;
+}
 
 impl AsnType for Any {
     const TAG: Tag = Tag::EOC;

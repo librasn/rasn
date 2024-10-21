@@ -160,8 +160,6 @@ pub fn derive_struct_impl(
         quote! {
             #choice_def
             let codec = decoder.codec();
-            // const RC_COUNT: usize = Self::FIELDS.len();
-            // const EC_COUNT: usize = Self::FIELDS.len();
             #(#field_type_defs)*
 
             decoder.decode_set::<#count_root_fields, #count_extended_fields, #choice_name, _, _, _>(tag, |decoder, index, tag| {

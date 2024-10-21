@@ -65,6 +65,7 @@ pub trait Decode: Sized + AsnType {
 pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     /// The associated success type returned on success.
     type Ok;
+    // TODO, when associated type defaults are stabilized, use this instead?
     /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
     /// Helper type for decoding nested instances of `Decoder` with different fields.

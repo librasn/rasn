@@ -317,7 +317,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_set<const RC: usize, const EC: usize, FIELDS, SET, D, F>(
         &mut self,
-        _: Tag,
+        _t: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
