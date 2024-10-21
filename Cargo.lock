@@ -851,6 +851,7 @@ dependencies = [
 name = "rasn-cms"
 version = "0.20.2"
 dependencies = [
+ "pretty_assertions",
  "rasn",
  "rasn-pkix",
 ]
