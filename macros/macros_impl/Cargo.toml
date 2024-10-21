@@ -1,18 +1,17 @@
 [package]
-name = "rasn-derive"
+name = "rasn-derive-impl"
 version.workspace = true
 categories = ["encoding", "no-std", "parser-implementations"]
 edition.workspace = true
-description = "Derive macros for rasn."
+description = "Derive macro impls for rasn-derive."
 license.workspace = true
-exclude = ["fuzzing"]
 keywords = ["asn1", "der", "ber", "cer", "per"]
 repository.workspace = true
 
-[lib]
-proc-macro = true
-
 [dependencies]
 syn = { version = "2.0.79", features = ["extra-traits"] }
+quote = "1.0.37"
 proc-macro2 = "1.0.88"
-rasn-derive-impl = {  path = "macros_impl" }
+itertools = "0.13"
+uuid = { version = "1.11.0", default-features = false, features = ["v4"] }
+either = { version = "1.13.0", default-features = false }

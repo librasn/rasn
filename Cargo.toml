@@ -13,7 +13,7 @@ edition.workspace = true
 bench = false
 
 [workspace]
-members = [".", "macros", "standards/*"]
+members = [".", "macros", "macros/macros_impl", "standards/*"]
 exclude = ["fuzzing"]
 
 [workspace.package]

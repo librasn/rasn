@@ -993,6 +993,15 @@ dependencies = [
 name = "rasn-derive"
 version = "0.20.2"
 dependencies = [
+ "proc-macro2",
+ "rasn-derive-impl",
+ "syn",
+]
+
+[[package]]
+name = "rasn-derive-impl"
+version = "0.20.2"
+dependencies = [
  "either",
  "itertools 0.13.0",
  "proc-macro2",
