@@ -70,10 +70,11 @@ pub struct Encoder<'a, const RFC: usize = 0, const EFC: usize = 0> {
     options: EncoderOptions,
     output: alloc::borrow::Cow<'a, RefCell<Vec<u8>>>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
-    extension_fields: Vec<Option<Vec<u8>>>,
+    extension_fields: [Option<Vec<u8>>; EFC],
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
     root_bitfield: (usize, [(bool, Tag); RFC]),
+    extension_bitfield: (usize, [bool; EFC]),
     number_optional_default_fields: usize,
     recursio_check: Option<Tag>,
 }
@@ -102,10 +103,11 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             options,
             output: Cow::Owned(RefCell::new(Vec::with_capacity(base_capacity))),
             set_output: <_>::default(),
-            extension_fields: <_>::default(),
+            extension_fields: [(); EFC].map(|_| None),
             is_extension_sequence: bool::default(),
             parent_output_length: <_>::default(),
             root_bitfield: (0, [(false, Tag::new_private(0)); RFC]),
+            extension_bitfield: (0, [false; EFC]),
             number_optional_default_fields: 0,
             recursio_check: None,
         }
@@ -117,8 +119,9 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             options,
             output: Cow::Borrowed(output),
             root_bitfield: (0, [(false, Tag::new_private(u32::MAX)); RFC]),
+            extension_bitfield: (0, [false; EFC]),
             set_output: <_>::default(),
-            extension_fields: <_>::default(),
+            extension_fields: [(); EFC].map(|_| None),
             is_extension_sequence: bool::default(),
             parent_output_length: <_>::default(),
             number_optional_default_fields: 0,
@@ -162,6 +165,14 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             }
             self.root_bitfield.1[self.root_bitfield.0] = (bit, tag);
             self.root_bitfield.0 += 1;
+        }
+    }
+    fn set_extension_presence(&mut self, bit: bool) {
+        // Applies only for SEQUENCE and SET types (EFC > 0)
+        // Compiler should optimize this out
+        if EFC > 0 {
+            self.extension_bitfield.1[self.extension_bitfield.0] = bit;
+            self.extension_bitfield.0 += 1;
         }
     }
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
@@ -507,9 +518,10 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             (preamble[..needed].len() + missing_bits + C::IS_EXTENSIBLE as usize) % 8 == 0
         );
         if needed > 0 || C::IS_EXTENSIBLE {
-            self.output
-                .borrow_mut()
-                .extend(preamble[..needed + missing_bits].domain());
+            // `.as_raw_slice` seems to be faster than `BitSlice::domain()`
+            self.output.borrow_mut().extend_from_slice(
+                &preamble.as_raw_slice()[..(needed + missing_bits + C::IS_EXTENSIBLE as usize) / 8],
+            );
         }
         // Section 16.3 ### Encodings of the components in the extension root ###
         if option_bitfield[..needed].iter().any(|(bit, _tag)| *bit) || required_present {
@@ -523,30 +535,28 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             return Ok(());
         }
         // Section 16.4 ### Extension addition presence bitmap ###
-        let extension_fields = core::mem::take(&mut encoder.extension_fields);
-        let bitfield_length = extension_fields.len();
 
         let mut extension_bitmap_buffer: BitArray<[u8; EC], Msb0> = BitArray::default();
-        #[allow(clippy::cast_possible_truncation)]
-        let missing_bits: u8 = if bitfield_length > 0 {
-            (8 - (bitfield_length & 7) as u8) & 7
-        } else {
-            0
-        };
-        debug_assert!((bitfield_length + 8 + missing_bits as usize) % 8 == 0);
-        self.encode_length((8 + bitfield_length + missing_bits as usize) / 8)?;
+        let missing_bits: u8 = if EC > 0 { (8 - (EC & 7) as u8) & 7 } else { 0 };
+        debug_assert!((EC + 8 + missing_bits as usize) % 8 == 0);
+        self.encode_length((8 + EC + missing_bits as usize) / 8)?;
         self.output.borrow_mut().extend(missing_bits.to_be_bytes());
-        for (i, bit) in extension_fields.iter().enumerate() {
+        for (i, bit) in encoder.extension_fields.iter().enumerate() {
             extension_bitmap_buffer.set(i, bit.is_some());
         }
         // The size of EC is always at least 1 byte if extensions present, so full octet will always fit
-        self.output
-            .borrow_mut()
-            .extend(extension_bitmap_buffer[..bitfield_length + missing_bits as usize].domain());
+        self.output.borrow_mut().extend_from_slice(
+            &extension_bitmap_buffer.as_raw_slice()[..(EC + missing_bits as usize) / 8],
+        );
+
         // Section 16.5 # Encodings of the components in the extension addition group, as open type
-        for field in extension_fields.iter().filter_map(Option::as_ref) {
+        for field in encoder
+            .extension_fields
+            .iter_mut()
+            .filter_map(Option::as_mut)
+        {
             self.encode_length(field.len())?;
-            self.output.borrow_mut().extend(field);
+            self.output.borrow_mut().append(field);
         }
         self.extend(tag)?;
         Ok(())
@@ -965,10 +975,12 @@ impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC,
         let buffer_end = self.output.borrow().len();
         if value.is_present() {
             E::encode_with_tag_and_constraints(&value, self, tag, constraints)?;
-            self.extension_fields
-                .push(Some(self.output.borrow_mut().split_off(buffer_end)));
+            self.extension_fields[self.extension_bitfield.0] =
+                Some(self.output.borrow_mut().split_off(buffer_end));
+            self.set_extension_presence(true);
         } else {
-            self.extension_fields.push(None);
+            self.extension_fields[self.extension_bitfield.0] = None;
+            self.set_extension_presence(false);
         }
         Ok(())
     }
@@ -980,7 +992,9 @@ impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC,
         E: Encode + Constructed<RL, EL>,
     {
         let Some(value) = value else {
-            self.extension_fields.push(None);
+            // self.extension_fields.push(None);
+            self.extension_fields[self.extension_bitfield.0] = None;
+            self.set_extension_presence(false);
             return Ok(());
         };
         let buffer_end = self.output.borrow().len();
@@ -989,7 +1003,8 @@ impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC,
         self.is_extension_sequence = false;
 
         let output = self.output.borrow_mut().split_off(buffer_end);
-        self.extension_fields.push(Some(output));
+        self.extension_fields[self.extension_bitfield.0] = Some(output);
+        self.set_extension_presence(true);
         Ok(())
     }
 }
