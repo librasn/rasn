@@ -2,6 +2,7 @@
 //
 // Modifications:
 // Adds other rasn codecs to the benchmark
+// Adds optional and extended fields for `Color`
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use rasn::{ber, oer, uper};
@@ -13,6 +14,9 @@ pub mod world3d {
     use rasn::prelude::*;
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq)]
     #[rasn(automatic_tags)]
+    #[non_exhaustive]
+    // When adding an identical value constraints also on top of similar base type,
+    // the constraints override is also benchmarked
     pub struct Color {
         #[rasn(value("0..=255"))]
         pub r: u8,
@@ -22,10 +26,22 @@ pub mod world3d {
         pub b: u8,
         #[rasn(value("0..=65335"))]
         pub a: u16,
+        #[rasn(value("0..=4_294_967_295"))]
+        pub w: Option<u32>,
+        #[rasn(extension_addition)]
+        #[rasn(value("0..=18_446_744_073_709_551_615"))]
+        pub extension: Option<u64>,
     }
     impl Color {
-        pub fn new(r: u8, g: u8, b: u8, a: u16) -> Self {
-            Self { r, g, b, a }
+        pub fn new(r: u8, g: u8, b: u8, a: u16, w: Option<u32>, extension: Option<u64>) -> Self {
+            Self {
+                r,
+                g,
+                b,
+                a,
+                w,
+                extension,
+            }
         }
     }
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq)]
@@ -65,7 +81,11 @@ pub mod world3d {
 
 pub fn build_sample_rasn() -> world3d::World {
     use world3d::*;
-    let color = Color::new(42, 128, 77, 12312);
+    let color = Color::new(
+        42, 128, 77, 12312, None,
+        None, // Some(123123123),
+             // Some(123123123123123123),
+    );
     let elements = (0..10).map(|_| color.clone()).collect::<Vec<_>>();
     let column = Column { elements };
     let rows = (0..10).map(|_| column.clone()).collect::<Vec<_>>();

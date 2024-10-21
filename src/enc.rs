@@ -57,11 +57,16 @@ pub trait Encode: AsnType {
 }
 
 /// A **data format** encode any ASN.1 data type.
-pub trait Encoder {
-    /// The associated type returned on encoding success.
+/// Const `RC` is the count of root components in sequence or set.
+/// Const `EC` is the count of extension components in sequence or set.
+pub trait Encoder<const RC: usize = 0, const EC: usize = 0> {
+    /// The associated success type returned on success.
     type Ok;
     /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
+    /// Helper type for encoding recursive `Encoder` instances with different `RC` or  `EC` values.
+    type AnyEncoder<const R: usize, const E: usize>: Encoder<RC, EC, Ok = Self::Ok, Error = Self::Error>
+        + Encoder;
 
     /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;
@@ -202,14 +207,19 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `SEQUENCE` value.
-    fn encode_sequence<C, F>(
+    ///
+    /// Const `R` is the count of root components in sequence or set.
+    /// Const `E` is the count of extension components in sequence or set.
+    /// Generic `C` is the sequence value.
+    /// NOTE: If you implement this manually, make sure to encode fields in the same order
+    fn encode_sequence<const R: usize, const E: usize, C, F>(
         &mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+        C: crate::types::Constructed<R, E>,
+        F: FnOnce(&mut Self::AnyEncoder<R, E>) -> Result<(), Self::Error>;
 
     /// Encode a `SEQUENCE OF` value.
     fn encode_sequence_of<E: Encode>(
@@ -220,10 +230,17 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `SET` value.
-    fn encode_set<C, F>(&mut self, tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+    ///
+    /// Const `N` is the count of root components in sequence or set.
+    /// Generic `C` is the set value.
+    fn encode_set<const R: usize, const E: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        value: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+        C: crate::types::Constructed<R, E>,
+        F: FnOnce(&mut Self::AnyEncoder<R, E>) -> Result<(), Self::Error>;
 
     /// Encode a `SET OF` value.
     fn encode_set_of<E: Encode + Eq + core::hash::Hash>(
@@ -353,12 +370,12 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a extension addition group value.
-    fn encode_extension_addition_group<E>(
+    fn encode_extension_addition_group<const RL: usize, const EL: usize, E>(
         &mut self,
         value: Option<&E>,
     ) -> Result<Self::Ok, Self::Error>
     where
-        E: Encode + crate::types::Constructed;
+        E: Encode + crate::types::Constructed<RL, EL>;
 }
 
 /// A generic error that occurred while trying to encode ASN.1.

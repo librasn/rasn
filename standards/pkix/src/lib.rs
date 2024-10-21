@@ -6,7 +6,7 @@ extern crate alloc;
 pub mod attribute_certificate;
 pub mod est;
 
-use rasn::{types::*, Decode, Encode};
+use rasn::prelude::*;
 
 pub type InvalidityDate = GeneralizedTime;
 pub type CertificateIssuer = GeneralNames;

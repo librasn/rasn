@@ -97,7 +97,9 @@ impl Encoder {
     fn codec(&self) -> crate::Codec {
         self.options.current_codec()
     }
-    fn new_set_encoder<C: crate::types::Constructed>(&self) -> Self {
+    fn new_set_encoder<const RL: usize, const EL: usize, C: crate::types::Constructed<RL, EL>>(
+        &self,
+    ) -> Self {
         let mut options = self.options;
         options.set_encoding = true;
         let mut encoder = Self::new(options);
@@ -111,14 +113,20 @@ impl Encoder {
                 )
             })
             .collect();
-        encoder.is_extension_sequence = C::EXTENDED_FIELDS.is_some();
+        encoder.is_extension_sequence = C::IS_EXTENSIBLE;
         encoder.parent_output_length = Some(self.output_length());
         encoder
     }
 
-    fn new_sequence_encoder<C: crate::types::Constructed>(&self) -> Self {
+    fn new_sequence_encoder<
+        const RL: usize,
+        const EL: usize,
+        C: crate::types::Constructed<RL, EL>,
+    >(
+        &self,
+    ) -> Self {
         let mut encoder = Self::new(self.options.without_set_encoding());
-        encoder.is_extension_sequence = C::EXTENDED_FIELDS.is_some();
+        encoder.is_extension_sequence = C::IS_EXTENSIBLE;
         encoder.field_bitfield = C::FIELDS
             .iter()
             .enumerate()
@@ -355,7 +363,11 @@ impl Encoder {
             .unwrap_or(width)
     }
 
-    fn encode_constructed<C: crate::types::Constructed>(
+    fn encode_constructed<
+        const RL: usize,
+        const EL: usize,
+        C: crate::types::Constructed<RL, EL>,
+    >(
         &mut self,
         tag: Tag,
         mut encoder: Self,
@@ -363,7 +375,7 @@ impl Encoder {
         self.set_bit(tag, true)?;
         let mut buffer = BitString::default();
 
-        if C::EXTENDED_FIELDS.is_some() {
+        if C::IS_EXTENSIBLE {
             buffer.push(encoder.extension_fields.iter().any(Option::is_some));
         }
 
@@ -589,7 +601,6 @@ impl Encoder {
                 buffer.extend(bytes);
             }
         }
-
         if self.options.set_encoding {
             self.set_output.insert(tag, set_buffer);
         }
@@ -786,12 +797,15 @@ impl Encoder {
 }
 
 impl crate::Encoder for Encoder {
+    // impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC, EFC> {
     type Ok = ();
     type Error = Error;
+    type AnyEncoder<const R: usize, const E: usize> = Encoder;
 
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
     }
+
     fn encode_any(&mut self, tag: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         self.set_bit(tag, true)?;
         self.encode_octet_string(tag, Constraints::default(), &value.contents)
@@ -1131,26 +1145,34 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_sequence<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_sequence<const RL: usize, const EL: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
+        C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
-        let mut encoder = self.new_sequence_encoder::<C>();
+        let mut encoder = self.new_sequence_encoder::<RL, EL, C>();
         (encoder_scope)(&mut encoder)?;
-        self.encode_constructed::<C>(tag, encoder)
+        self.encode_constructed::<RL, EL, C>(tag, encoder)
     }
 
-    fn encode_set<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_set<const RL: usize, const EL: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
+        C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
-        let mut set = self.new_set_encoder::<C>();
+        let mut set = self.new_set_encoder::<RL, EL, C>();
 
         (encoder_scope)(&mut set)?;
 
-        self.encode_constructed::<C>(tag, set)
+        self.encode_constructed::<RL, EL, C>(tag, set)
     }
 
     fn encode_choice<E: Encode + crate::types::Choice>(
@@ -1259,12 +1281,12 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_extension_addition_group<E>(
+    fn encode_extension_addition_group<const RL: usize, const EL: usize, E>(
         &mut self,
         value: Option<&E>,
     ) -> Result<Self::Ok, Self::Error>
     where
-        E: Encode + crate::types::Constructed,
+        E: Encode + crate::types::Constructed<RL, EL>,
     {
         let Some(value) = value else {
             self.set_bit(E::TAG, false)?;
@@ -1273,7 +1295,7 @@ impl crate::Encoder for Encoder {
         };
 
         self.set_bit(E::TAG, true)?;
-        let mut encoder = self.new_sequence_encoder::<E>();
+        let mut encoder = self.new_sequence_encoder::<RL, EL, E>();
         encoder.is_extension_sequence = true;
         value.encode(&mut encoder)?;
 
