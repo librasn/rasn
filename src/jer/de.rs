@@ -293,6 +293,12 @@ impl crate::Decoder for Decoder {
                 )
             })
     }
+    fn decode_optional_with_explicit_prefix<D: Decode>(
+        &mut self,
+        _: Tag,
+    ) -> Result<Option<D>, Self::Error> {
+        self.decode_optional()
+    }
 
     fn decode_explicit_prefix<D: crate::Decode>(&mut self, _t: Tag) -> Result<D, Self::Error> {
         D::decode(self)
@@ -395,8 +401,20 @@ impl crate::Decoder for Decoder {
         self.decode_optional()
     }
 
-    fn decode_extension_addition_with_constraints<D>(
+    fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
         &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> core::result::Result<Option<D>, Self::Error>
+    where
+        D: Decode,
+    {
+        self.decode_extension_addition_with_tag_and_constraints::<D>(tag, constraints)
+    }
+
+    fn decode_extension_addition_with_tag_and_constraints<D>(
+        &mut self,
+        _: Tag,
         _: Constraints,
     ) -> Result<Option<D>, Self::Error>
     where

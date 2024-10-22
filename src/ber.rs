@@ -402,5 +402,19 @@ mod tests {
             },
             &[0x30, 0x03, 0x80, 0x01, 0x2A]
         );
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq)]
+        #[non_exhaustive]
+        pub struct ExtendedExplicitInteger {
+            #[rasn(extension_addition)]
+            #[rasn(tag(explicit(5)))]
+            pub extension: u64,
+        }
+
+        round_trip!(
+            ber,
+            ExtendedExplicitInteger,
+            ExtendedExplicitInteger { extension: 42 },
+            &[0x30, 0x05, 0xA5, 0x03, 0x02, 0x01, 0x2A]
+        );
     }
 }

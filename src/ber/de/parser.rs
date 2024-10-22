@@ -21,11 +21,7 @@ pub(crate) fn parse_value<'input>(
     })?;
 
     if let Some(tag) = tag {
-        // When decoding extended field, the implicit/explicit tag value is not carried and we will likely fail here
-        // if we assert all tag classes.
-        if tag.class != Class::Universal {
-            BerDecodeErrorKind::assert_tag(tag, identifier.tag)?;
-        }
+        BerDecodeErrorKind::assert_tag(tag, identifier.tag)?;
     }
 
     let (input, contents) = parse_contents(config, identifier, input)

@@ -182,6 +182,11 @@ pub trait Decoder: Sized {
 
     /// Decode an ASN.1 value that has been explicitly prefixed with `tag` from the available input.
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D, Self::Error>;
+    /// Decode an optional ASN.1 type that has been explicitly prefixed with `tag` from the available input.
+    fn decode_optional_with_explicit_prefix<D: Decode>(
+        &mut self,
+        tag: Tag,
+    ) -> Result<Option<D>, Self::Error>;
     /// Decode a `UtcTime` identified by `tag` from the available input.
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime, Self::Error>;
     /// Decode a `GeneralizedTime` identified by `tag` from the available input.
@@ -276,13 +281,49 @@ pub trait Decoder: Sized {
             .unwrap_or_else(default_fn))
     }
 
-    /// Decode a extension addition value in a `SEQUENCE` or `SET`.
+    /// Decode an extension addition value in a `SEQUENCE` or `SET`.
     fn decode_extension_addition<D>(&mut self) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
     {
         self.decode_extension_addition_with_constraints(Constraints::default())
     }
+    /// Decode an extension addition with explicit tag in a `SEQUENCE` or `SET`.
+    fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error>
+    where
+        D: Decode;
+
+    /// Decode an optional extension addition with explicit tag in a `SEQUENCE` or `SET`.
+
+    /// Decode an extension addition value with tag in a `SEQUENCE` or `SET`.
+    fn decode_extension_addition_with_tag<D>(&mut self, tag: Tag) -> Result<Option<D>, Self::Error>
+    where
+        D: Decode,
+    {
+        self.decode_extension_addition_with_tag_and_constraints(tag, Constraints::default())
+    }
+    /// Decode an extension addition with constraints in a `SEQUENCE` or `SET`
+    fn decode_extension_addition_with_constraints<D>(
+        &mut self,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error>
+    where
+        D: Decode,
+    {
+        self.decode_extension_addition_with_tag_and_constraints(D::TAG, constraints)
+    }
+    /// Decode a extension addition value with tag and constraints in a `SEQUENCE` or `SET`.
+    fn decode_extension_addition_with_tag_and_constraints<D>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Option<D>, Self::Error>
+    where
+        D: Decode;
 
     /// Decode a `DEFAULT` value in a `SEQUENCE`'s or `SET`'s extension
     fn decode_extension_addition_with_default<D: Decode, F: FnOnce() -> D>(
@@ -290,6 +331,18 @@ pub trait Decoder: Sized {
         default_fn: F,
     ) -> Result<D, Self::Error> {
         self.decode_extension_addition_with_default_and_constraints(
+            default_fn,
+            Constraints::default(),
+        )
+    }
+    /// Decode a `DEFAULT` value with tag in a `SEQUENCE`'s or `SET`'s extension
+    fn decode_extension_addition_with_default_and_tag<D: Decode, F: FnOnce() -> D>(
+        &mut self,
+        tag: Tag,
+        default_fn: F,
+    ) -> Result<D, Self::Error> {
+        self.decode_extension_addition_with_default_and_tag_and_constraints::<D, F>(
+            tag,
             default_fn,
             Constraints::default(),
         )
@@ -305,14 +358,20 @@ pub trait Decoder: Sized {
             .decode_extension_addition_with_constraints::<D>(constraints)?
             .unwrap_or_else(default_fn))
     }
-
-    /// Decode an extension addition with constraints in a `SEQUENCE` or `SET`
-    fn decode_extension_addition_with_constraints<D>(
+    /// Decode a `DEFAULT` value with tag and constraints in a `SEQUENCE`'s or `SET`'s extension
+    fn decode_extension_addition_with_default_and_tag_and_constraints<
+        D: Decode,
+        F: FnOnce() -> D,
+    >(
         &mut self,
+        tag: Tag,
+        default_fn: F,
         constraints: Constraints,
-    ) -> Result<Option<D>, Self::Error>
-    where
-        D: Decode;
+    ) -> Result<D, Self::Error> {
+        Ok(self
+            .decode_extension_addition_with_tag_and_constraints::<D>(tag, constraints)?
+            .unwrap_or_else(default_fn))
+    }
 
     /// Decode a extension addition group in a `SEQUENCE` or `SET`.
     fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
