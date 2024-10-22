@@ -652,7 +652,7 @@ impl crate::Decoder for Decoder<'_> {
             // If there are no fields, or the input is empty and we know that
             // all fields are optional or default fields, we call the default
             // initializer and skip calling the decode function at all.
-            if D::FIELDS.is_empty()
+            if D::FIELDS.is_empty() && D::EXTENDED_FIELDS.is_none()
                 || (D::FIELDS.len() == D::FIELDS.number_of_optional_and_default_fields()
                     && decoder.input.is_empty())
             {
