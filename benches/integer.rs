@@ -28,19 +28,37 @@ pub mod world3d {
         pub a: u16,
         #[rasn(value("0..=4_294_967_295"))]
         pub w: Option<u32>,
+        #[rasn(value("0..=4_294_967_295"))]
+        pub l: Option<u32>,
         #[rasn(extension_addition)]
         #[rasn(value("0..=18_446_744_073_709_551_615"))]
         pub extension: Option<u64>,
+        #[rasn(extension_addition)]
+        #[rasn(value("0..=18_446_744_073_709_551_615"))]
+        pub second_extension: Option<u64>,
     }
     impl Color {
-        pub fn new(r: u8, g: u8, b: u8, a: u16, w: Option<u32>, extension: Option<u64>) -> Self {
+        #[allow(clippy::too_many_arguments)]
+        pub fn new(
+            r: u8,
+            g: u8,
+            b: u8,
+            a: u16,
+            w: Option<u32>,
+            l: Option<u32>,
+            extension: Option<u64>,
+            second_extension: Option<u64>,
+        ) -> Self {
+            // pub fn new(r: u8, g: u8, b: u8, a: u16) -> Self {
             Self {
                 r,
                 g,
                 b,
                 a,
                 w,
+                l,
                 extension,
+                second_extension,
             }
         }
     }
@@ -82,9 +100,14 @@ pub mod world3d {
 pub fn build_sample_rasn() -> world3d::World {
     use world3d::*;
     let color = Color::new(
-        42, 128, 77, 12312, None,
-        None, // Some(123123123),
-             // Some(123123123123123123),
+        42,
+        128,
+        i8::MAX as u8,
+        i16::MAX as u16,
+        Some(i32::MAX as u32),
+        Some(i32::MAX as u32),
+        Some(i64::MAX as u64),
+        Some(i64::MAX as u64),
     );
     let elements = (0..10).map(|_| color.clone()).collect::<Vec<_>>();
     let column = Column { elements };
