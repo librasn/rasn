@@ -211,7 +211,7 @@ pub trait Encoder<const RC: usize = 0, const EC: usize = 0> {
     /// Const `R` is the count of root components in sequence or set.
     /// Const `E` is the count of extension components in sequence or set.
     /// Generic `C` is the sequence value.
-    /// NOTE: If you implement this manually, make sure to encode fields in the same order
+    /// NOTE: If you implement this manually, make sure to encode fields in the same order and pass the correct count of fields.
     fn encode_sequence<const R: usize, const E: usize, C, F>(
         &mut self,
         tag: Tag,

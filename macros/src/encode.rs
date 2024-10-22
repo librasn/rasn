@@ -12,7 +12,7 @@ pub fn derive_struct_impl(
     let mut number_root_fields: usize = 0;
     let mut number_extended_fields: usize = 0;
 
-    // Set logic for setting presence bits in compile time
+    // Count the number of root and extended fields so that encoder can know the number of fields in advance
     for (i, field) in container.fields.iter().enumerate() {
         let field_config = FieldConfig::new(field, config);
         let field_encoding = field_config.encode(i, true);

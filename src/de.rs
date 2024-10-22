@@ -109,7 +109,6 @@ pub trait Decoder<const RFC: usize = 0, const EFC: usize = 0>: Sized {
     where
         D: crate::types::Constructed<RC, EC>,
         DF: FnOnce() -> D,
-        // F: FnOnce(&mut Self) -> Result<D, Self::Error>;
         F: FnOnce(&mut Self::AnyDecoder<RC, EC>) -> Result<D, Self::Error>;
     /// Decode a `SEQUENCE OF D` where `D: Decode` identified by `tag` from the available input.
     fn decode_sequence_of<D: Decode>(
