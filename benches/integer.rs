@@ -163,16 +163,16 @@ fn oer_rasn_dec(c: &mut Criterion) {
         })
     });
 }
-fn ber_rasn_dec(c: &mut Criterion) {
-    let w = build_sample_rasn();
-    let encoded = ber::encode(&w).unwrap();
+// fn ber_rasn_dec(c: &mut Criterion) {
+//     let w = build_sample_rasn();
+//     let encoded = ber::encode(&w).unwrap();
 
-    c.bench_function("RASN/decode BER - sample.asn", |b| {
-        b.iter(|| {
-            let _ = ber::decode::<world3d::World>(&encoded).unwrap();
-        })
-    });
-}
+//     c.bench_function("RASN/decode BER - sample.asn", |b| {
+//         b.iter(|| {
+//             let _ = ber::decode::<world3d::World>(&encoded).unwrap();
+//         })
+//     });
+// }
 
 criterion_group!(
     benches,
@@ -181,6 +181,6 @@ criterion_group!(
     oer_rasn_enc,
     oer_rasn_dec,
     ber_rasn_enc,
-    ber_rasn_dec
+    // ber_rasn_dec
 );
 criterion_main!(benches);
