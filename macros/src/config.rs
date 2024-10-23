@@ -1223,7 +1223,8 @@ impl StringValue {
             let string = if content.peek(syn::LitStr) {
                 content.parse::<syn::LitStr>()?.value()
             } else if content.peek(syn::Ident) {
-                panic!("StringValue2: {:?}", content);
+                let path: syn::Path = content.parse()?;
+                path.require_ident()?.to_string()
             } else {
                 panic!("StringValue Unsupported meta item: {:?}", content);
             };
