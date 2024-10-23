@@ -166,6 +166,6 @@ criterion_group!(
     oer_rasn_enc,
     oer_rasn_dec,
     ber_rasn_enc,
-    // ber_rasn_dec
+    ber_rasn_dec
 );
 criterion_main!(benches);
