@@ -75,7 +75,6 @@ pub struct Encoder<'a, const RFC: usize = 0, const EFC: usize = 0> {
     root_bitfield: (usize, [(bool, Tag); RFC]),
     extension_bitfield: (usize, [bool; EFC]),
     number_optional_default_fields: usize,
-    recursio_check: Option<Tag>,
 }
 
 // ITU-T X.696 8.2.1 Only the following constraints are OER-visible:
@@ -107,7 +106,6 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             root_bitfield: (0, [(false, Tag::new_private(0)); RFC]),
             extension_bitfield: (0, [false; EFC]),
             number_optional_default_fields: 0,
-            recursio_check: None,
         }
     }
 
@@ -122,7 +120,6 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             extension_fields: [(); EFC].map(|_| None),
             is_extension_sequence: bool::default(),
             number_optional_default_fields: 0,
-            recursio_check: None,
         }
     }
 
@@ -832,10 +829,8 @@ impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC,
     ) -> Result<Self::Ok, Self::Error> {
         // Whether we have a choice type being encoded
         if V::TAG == Tag::EOC {
-            self.set_bit(tag, true);
             value.encode(self)
         } else {
-            self.set_bit(tag, true);
             value.encode_with_tag(self, tag)
         }
     }

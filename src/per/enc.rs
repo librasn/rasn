@@ -76,7 +76,6 @@ pub struct Encoder<const RFC: usize = 0, const EFC: usize = 0> {
     extension_fields: [Option<Vec<u8>>; EFC],
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
-    recursio_check: Option<Tag>,
 }
 
 impl<const RFC: usize, const EFC: usize> Encoder<RFC, EFC> {
@@ -92,7 +91,6 @@ impl<const RFC: usize, const EFC: usize> Encoder<RFC, EFC> {
             is_extension_sequence: <_>::default(),
             extension_fields: [(); EFC].map(|_| None),
             parent_output_length: <_>::default(),
-            recursio_check: None,
         }
     }
     fn codec(&self) -> crate::Codec {
