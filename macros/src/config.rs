@@ -1009,8 +1009,6 @@ impl<'a> FieldConfig<'a> {
                             #tag,
                             <#ty as #crate_root::AsnType>::CONSTRAINTS) #or_else #handle_extension)
                     }
-
-                    // quote!(decoder.decode_explicit_prefix(#tag) #or_else)
                 }
                 (Some(false), Some(path), true) => {
                     quote!(

@@ -297,8 +297,6 @@ pub trait Decoder: Sized {
     where
         D: Decode;
 
-    /// Decode an optional extension addition with explicit tag in a `SEQUENCE` or `SET`.
-
     /// Decode an extension addition value with tag in a `SEQUENCE` or `SET`.
     fn decode_extension_addition_with_tag<D>(&mut self, tag: Tag) -> Result<Option<D>, Self::Error>
     where
