@@ -146,10 +146,10 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
     }
 
     /// Sets the presence of a `OPTIONAL` or `DEFAULT` field in the bitfield.
-    /// The presence is ordered based on the field index.
+    /// The presence is ordered based on the field appearance order in the schema.
     fn set_presence(&mut self, tag: Tag, bit: bool) {
         // Applies only for SEQUENCE and SET types (RFC > 0)
-        // Compiler should optimize this out
+        // Compiler should optimize this out otherwise
         if RFC > 0 {
             if self.number_optional_default_fields < self.root_bitfield.0 + 1 {
                 // Fields should be encoded in order
