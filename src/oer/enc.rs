@@ -58,7 +58,7 @@ impl Default for EncoderOptions {
     }
 }
 
-impl<const FC: usize> Default for Encoder<'_, FC> {
+impl Default for Encoder<'_, 0, 0> {
     fn default() -> Self {
         Self::new(EncoderOptions::coer(), 0)
     }
@@ -860,7 +860,6 @@ impl<'a, const RFC: usize, const EFC: usize> crate::Encoder for Encoder<'a, RFC,
         _: Constraints,
     ) -> Result<Self::Ok, Self::Error> {
         // It seems that constraints here are not C/OER visible? No mention in standard...
-        // self.current_field_index += 1;
         self.encode_unconstrained_integer(&value.len(), false)?;
         self.output
             .borrow_mut()
