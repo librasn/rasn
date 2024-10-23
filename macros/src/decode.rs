@@ -43,6 +43,9 @@ pub fn derive_struct_impl(
             }
         }
     } else if config.set {
+        if container.fields.is_empty() {
+            panic!("`struct`s without any fields are not currently supported as `set`s.")
+        }
         let field_names = container.fields.iter().map(|field| field.ident.clone());
         let field_names2 = field_names.clone();
         let required_field_names = container
