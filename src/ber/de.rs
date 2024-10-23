@@ -652,7 +652,7 @@ impl crate::Decoder for Decoder<'_> {
             // If there are no fields, or the input is empty and we know that
             // all fields are optional or default fields, we call the default
             // initializer and skip calling the decode function at all.
-            if D::FIELDS.is_empty()
+            if D::FIELDS.is_empty() && D::EXTENDED_FIELDS.is_none()
                 || (D::FIELDS.len() == D::FIELDS.number_of_optional_and_default_fields()
                     && decoder.input.is_empty())
             {
@@ -670,6 +670,14 @@ impl crate::Decoder for Decoder<'_> {
 
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D> {
         self.parse_constructed_contents(tag, false, D::decode)
+    }
+    fn decode_optional_with_explicit_prefix<D: Decode>(
+        &mut self,
+        tag: Tag,
+    ) -> Result<Option<D>, Self::Error> {
+        self.decode_explicit_prefix(tag)
+            .map(Some)
+            .or_else(|_| Ok(None))
     }
 
     fn decode_set<FIELDS, SET, D, F>(
@@ -736,15 +744,27 @@ impl crate::Decoder for Decoder<'_> {
         D::from_tag(self, identifier.tag)
     }
 
-    fn decode_extension_addition_with_constraints<D>(
+    fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
         &mut self,
+        tag: Tag,
+        _constraints: Constraints,
+    ) -> core::result::Result<Option<D>, Self::Error>
+    where
+        D: Decode,
+    {
+        self.decode_explicit_prefix(tag).map(Some)
+    }
+
+    fn decode_extension_addition_with_tag_and_constraints<D>(
+        &mut self,
+        tag: Tag,
         // Constraints are irrelevant using BER
         _: Constraints,
     ) -> core::result::Result<Option<D>, Self::Error>
     where
         D: Decode,
     {
-        <Option<D>>::decode(self)
+        <Option<D>>::decode_with_tag(self, tag)
     }
 
     fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(

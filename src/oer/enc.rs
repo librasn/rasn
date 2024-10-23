@@ -872,12 +872,9 @@ impl crate::Encoder for Encoder<'_> {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        if let Some((_, true)) = self.field_bitfield.get(&(self.current_field_index, tag)) {
-            value.encode(self)
-        } else if !self
-            .field_bitfield
-            .contains_key(&(self.current_field_index, tag))
-        {
+        // Whether we have a choice type being encoded
+        if V::TAG == Tag::EOC {
+            self.set_bit(tag, true);
             value.encode(self)
         } else {
             self.set_bit(tag, true);

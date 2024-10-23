@@ -1296,6 +1296,26 @@ mod tests {
             },
             &[0b10000000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03]
         );
+
+        #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
+        pub struct SequenceOptionalsExplicit {
+            #[rasn(tag(explicit(0)))]
+            pub it: Integer,
+            #[rasn(tag(explicit(1)))]
+            pub is: Option<OctetString>,
+            #[rasn(tag(explicit(2)))]
+            pub late: Option<Integer>,
+        }
+        round_trip!(
+            coer,
+            SequenceOptionalsExplicit,
+            SequenceOptionalsExplicit {
+                it: 42.into(),
+                is: None,
+                late: None
+            },
+            &[0, 1, 42]
+        );
         #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
         #[non_exhaustive]
         pub struct SequenceDuplicatesExtended {

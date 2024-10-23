@@ -880,9 +880,20 @@ impl crate::Decoder for Decoder<'_> {
 
         Ok(value)
     }
+    fn decode_optional_with_explicit_prefix<D: Decode>(
+        &mut self,
+        tag: Tag,
+    ) -> Result<Option<D>, Self::Error> {
+        self.decode_optional_with_tag(tag)
+    }
 
-    fn decode_explicit_prefix<D: Decode>(&mut self, _: Tag) -> Result<D> {
-        D::decode(self)
+    fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D> {
+        // Whether we have a choice here
+        if D::TAG == Tag::EOC {
+            D::decode(self)
+        } else {
+            D::decode_with_tag(self, tag)
+        }
     }
 
     fn decode_set<FIELDS, SET, D, F>(
@@ -1066,8 +1077,20 @@ impl crate::Decoder for Decoder<'_> {
         D::decode(&mut decoder).map(Some)
     }
 
-    fn decode_extension_addition_with_constraints<D>(
+    fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
         &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> core::result::Result<Option<D>, Self::Error>
+    where
+        D: Decode,
+    {
+        self.decode_extension_addition_with_tag_and_constraints::<D>(tag, constraints)
+    }
+
+    fn decode_extension_addition_with_tag_and_constraints<D>(
+        &mut self,
+        _: Tag,
         constraints: Constraints,
     ) -> core::result::Result<Option<D>, Self::Error>
     where

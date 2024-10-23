@@ -916,17 +916,18 @@ impl<'a> FieldConfig<'a> {
                 self.constraints.has_constraints(),
             ) {
                 (Some(true), _, _) => {
-                    let or_else = if self.is_option_type() {
-                        quote!(.ok())
+                    if self.is_option_type() {
+                        quote!(
+                            decoder.decode_optional_with_explicit_prefix(#tag)?
+                        )
                     } else if self.is_default_type() {
-                        quote!(.ok().unwrap_or_else(#default_fn))
+                        quote!(
+                            decoder.decode_optional_with_explicit_prefix(#tag)?.unwrap_or_else(#default_fn)
+                        )
                     } else {
                         // False positive
-                        #[allow(clippy::redundant_clone)]
-                        or_else.clone()
-                    };
-
-                    quote!(decoder.decode_explicit_prefix(#tag) #or_else)
+                        quote!(decoder.decode_explicit_prefix(#tag) #or_else)
+                    }
                 }
                 (Some(false), Some(path), true) => {
                     quote!(
@@ -979,13 +980,61 @@ impl<'a> FieldConfig<'a> {
 
         if self.extension_addition {
             match (
+                (self.tag.is_some() || self.container_config.automatic_tags)
+                    .then(|| self.tag.as_ref().map_or(false, |tag| tag.is_explicit())),
                 self.default.as_ref().map(|path| {
                     path.as_ref()
                         .map_or(quote!(<_>::default), |path| quote!(#path))
                 }),
                 self.constraints.has_constraints(),
             ) {
-                (Some(path), true) => {
+                (Some(true), _, constraints) => {
+                    let or_else = if self.is_option_type() {
+                        quote!(.ok())
+                    } else if self.is_default_type() {
+                        quote!(.ok().unwrap_or_else(#default_fn))
+                    } else {
+                        // False positive
+                        #[allow(clippy::redundant_clone)]
+                        or_else.clone()
+                    };
+                    if constraints {
+                        quote!(
+                            decoder.decode_extension_addition_with_explicit_tag_and_constraints(
+                                #tag,
+                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                                ) #or_else #handle_extension)
+                    } else {
+                        quote!(decoder.decode_extension_addition_with_explicit_tag_and_constraints(
+                            #tag,
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS) #or_else #handle_extension)
+                    }
+                }
+                (Some(false), Some(path), true) => {
+                    quote!(
+                        decoder.decode_extension_addition_with_default_and_tag_and_constraints(
+                            #tag,
+                            #path,
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                        ) #or_else
+                    )
+                }
+                (Some(false), None, true) => {
+                    quote!(
+                        <_>::decode_extension_addition_with_tag_and_constraints(
+                            decoder,
+                            #tag,
+                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                        ) #or_else #handle_extension
+                    )
+                }
+                (Some(false), Some(path), false) => {
+                    quote!(decoder.decode_extension_addition_with_default_and_tag(#tag, #path) #or_else)
+                }
+                (Some(false), None, false) => {
+                    quote!(<_>::decode_extension_addition_with_tag(decoder, #tag) #or_else #handle_extension)
+                }
+                (None, Some(path), true) => {
                     quote!(
                         decoder.decode_extension_addition_with_default_and_constraints(
                             #path,
@@ -993,21 +1042,21 @@ impl<'a> FieldConfig<'a> {
                         ) #or_else
                     )
                 }
-                (Some(path), false) => {
+                (None, Some(path), false) => {
                     quote!(
                         decoder.decode_extension_addition_with_default(
                             #path,
                         ) #or_else
                     )
                 }
-                (None, true) => {
+                (None, None, true) => {
                     quote!(
                         decoder.decode_extension_addition_with_constraints(
                             <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
                         ) #or_else
                     )
                 }
-                (None, false) => {
+                (None, None, false) => {
                     quote! {
                         decoder.decode_extension_addition() #or_else #handle_extension
                     }

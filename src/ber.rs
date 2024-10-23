@@ -383,4 +383,38 @@ mod tests {
             &[0x1f, 0x1f, 0x08, 0x32, 0x30, 0x31, 0x32, 0x31, 0x32, 0x32, 0x31]
         );
     }
+    #[test]
+    fn test_extended_sequence() {
+        use crate as rasn;
+        use rasn::prelude::*;
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[non_exhaustive]
+        pub struct ExtendedInteger {
+            #[rasn(extension_addition)]
+            pub extension: Option<u64>,
+        }
+        round_trip!(
+            ber,
+            ExtendedInteger,
+            ExtendedInteger {
+                extension: Some(42)
+            },
+            &[0x30, 0x03, 0x80, 0x01, 0x2A]
+        );
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq)]
+        #[non_exhaustive]
+        pub struct ExtendedExplicitInteger {
+            #[rasn(extension_addition)]
+            #[rasn(tag(explicit(5)))]
+            pub extension: u64,
+        }
+
+        round_trip!(
+            ber,
+            ExtendedExplicitInteger,
+            ExtendedExplicitInteger { extension: 42 },
+            &[0x30, 0x05, 0xA5, 0x03, 0x02, 0x01, 0x2A]
+        );
+    }
 }
