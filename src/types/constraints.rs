@@ -155,6 +155,7 @@ pub enum Constraint {
     /// The value itself is extensible, only valid for constructed types,
     /// choices, or enumerated values.
     Extensible,
+    /// Empty constraint.
     Empty,
 }
 
