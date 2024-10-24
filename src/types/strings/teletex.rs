@@ -56,7 +56,7 @@ impl AsnType for TeletexString {
 }
 
 impl Encode for TeletexString {
-    fn encode_with_tag_and_constraints<E: Encoder>(
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
         tag: Tag,

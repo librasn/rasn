@@ -35,7 +35,7 @@ impl Decode for BitString {
 }
 
 impl Encode for BitString {
-    fn encode_with_tag_and_constraints<E: Encoder>(
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
         tag: Tag,
@@ -50,7 +50,7 @@ impl AsnType for BitStr {
 }
 
 impl Encode for BitStr {
-    fn encode_with_tag_and_constraints<E: Encoder>(
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
         tag: Tag,
@@ -83,7 +83,7 @@ impl<const N: usize> Decode for FixedBitString<N> {
 }
 
 impl<const N: usize> Encode for FixedBitString<N> {
-    fn encode_with_tag_and_constraints<E: Encoder>(
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
         tag: Tag,

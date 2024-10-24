@@ -146,7 +146,7 @@ mod tests {
         }
 
         impl crate::Encode for CustomInt {
-            fn encode_with_tag_and_constraints<E: crate::Encoder>(
+            fn encode_with_tag_and_constraints<'b, E: crate::Encoder<'b>>(
                 &self,
                 encoder: &mut E,
                 tag: Tag,

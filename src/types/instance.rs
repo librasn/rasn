@@ -34,7 +34,7 @@ impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
 }
 
 impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
-    fn encode_with_tag_and_constraints<EN: crate::Encoder>(
+    fn encode_with_tag_and_constraints<'b, EN: crate::Encoder<'b>>(
         &self,
         encoder: &mut EN,
         tag: Tag,
