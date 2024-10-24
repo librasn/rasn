@@ -3,9 +3,8 @@
 use super::IntegerType;
 use num_bigint::BigInt;
 
+// TODO type can have multiple constraints of same kind, up to infinite
 const SUPPORTED_CONSTRAINTS_COUNT: usize = 5;
-/// The default empty constraints.
-pub const DEFAULT_CONSTRAINTS: Constraints = Constraints::NONE;
 
 /// A set of constraints for a given type on what kinds of values are allowed.
 /// Used in certain codecs to optimise encoding and decoding values.

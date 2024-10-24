@@ -1032,11 +1032,16 @@ impl<'a> FieldConfig<'a> {
                         or_else.clone()
                     };
                     if constraints {
-                        quote!(
-                            decoder.decode_extension_addition_with_explicit_tag_and_constraints(
-                                #tag,
-                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                                ) #or_else #handle_extension)
+                        {
+                            quote!(
+                                const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
+                                    #constraints
+                                ));
+                                decoder.decode_extension_addition_with_explicit_tag_and_constraints(
+                                    #tag,
+                                    #constraint_name
+                                    ) #or_else #handle_extension)
+                        }
                     } else {
                         quote!(decoder.decode_extension_addition_with_explicit_tag_and_constraints(
                             #tag,
@@ -1045,20 +1050,28 @@ impl<'a> FieldConfig<'a> {
                 }
                 (Some(false), Some(path), true) => {
                     quote!(
+                        const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
+                            #constraints
+                        ));
                         decoder.decode_extension_addition_with_default_and_tag_and_constraints(
                             #tag,
                             #path,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else
+                            #constraint_name
+                            ) #or_else
                     )
                 }
                 (Some(false), None, true) => {
                     quote!(
-                        <_>::decode_extension_addition_with_tag_and_constraints(
-                            decoder,
-                            #tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else #handle_extension
+                        {
+                            const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
+                                #constraints
+                            ));
+                            <_>::decode_extension_addition_with_tag_and_constraints(
+                                decoder,
+                                #tag,
+                                #constraint_name
+                            ) #or_else #handle_extension
+                        }
                     )
                 }
                 (Some(false), Some(path), false) => {
