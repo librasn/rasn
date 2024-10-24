@@ -12,6 +12,7 @@ use alloc::{
 };
 
 use crate::{
+    oer::EncodingRules,
     types::{
         self,
         fields::{Field, Fields},
