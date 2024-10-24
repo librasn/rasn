@@ -34,7 +34,34 @@ pub fn derive_struct_impl(
                 encode
             }
         } else {
+            // let constraint_name = format_ident!("ENCODE_DELEGATE_CONSTRAINTS");
+            // let constraints = config
+            //     .constraints
+            //     .const_expr(crate_root)
+            //     .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
+            // print!("{:?}", config.identifier);
+            // print!("{:?}", config);
+            // println!("{}", quote!(#constraints));
             quote!(
+                // const #constraint_name : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&<#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
+                //     #constraints
+                // ));
+                // let (data, test) = <#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
+                //     constraints
+                // );
+                let merged  = <#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
+                    constraints
+                );
+                // dbg!(&data[..test]);
+                // dbg!(&test);
+                // let constraint : #crate_root::types::Constraints = #crate_root::types::Constraints::new(&data[..test]);
+                // dbg!(&constraint);
+                // let merged = <#ty as #crate_root::AsnType>::CONSTRAINTS.merge(constraint);
+                let merged_constraints : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&merged);
+                // dbg!(constraintts);
+                // dbg!(#constraint_name);
+                // dbg!(&constraints);
+                // dbg!(<#ty as #crate_root::AsnType>::CONSTRAINTS);
                 match tag {
                     #crate_root::types::Tag::EOC => {
                         self.0.encode(encoder)
@@ -44,7 +71,13 @@ pub fn derive_struct_impl(
                             &self.0,
                             encoder,
                             tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints)
+                            // data,
+                            // constraints
+                            // Correct but misses override..
+                            // #constraint_name
+                            merged_constraints
+                            // Empty
+                            // <#ty as #crate_root::AsnType>::CONSTRAINTS,
                         )
                     }
                 }
@@ -82,7 +115,7 @@ pub fn derive_struct_impl(
     quote! {
         #[allow(clippy::mutable_key_type)]
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
-            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<(), EN::Error> {
                 #(#vars)*
 
                 #encode_impl

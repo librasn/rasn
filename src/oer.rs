@@ -1,8 +1,6 @@
 //! Codec for Octet Encoding Rules (OER).
 //! Encodes in canonical format (COER), and decodes in more versatile format (OER).
 
-mod ranges;
-
 pub mod de;
 pub mod enc;
 
