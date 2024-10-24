@@ -6,6 +6,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.3](https://github.com/librasn/rasn/compare/rasn-v0.20.2...rasn-v0.20.3) - 2024-10-24
+
+### Added
+
+- Add Compressed Data Type crate
+- Add CBR crate
+- Add ATN ULCS crate
+- Add ATN-CPDLC crate
+
+### Fixed
+
+- pin release-plz version until fixed ([#353](https://github.com/librasn/rasn/pull/353))
+- decoding of extended fields in sequence in BER ([#351](https://github.com/librasn/rasn/pull/351))
+- Fix most issues related to dependency update, except hashbrown version ([#349](https://github.com/librasn/rasn/pull/349))
+
+### Other
+
+- Add other X.509 libraries to bench
+- Disallow structs without fields for a `set` ([#352](https://github.com/librasn/rasn/pull/352))
+- update dependencies
+- update lockfile
+- fmt
+- update lockfile
+- Create FUNDING.yml
+
 ## [0.20.2](https://github.com/librasn/rasn/compare/rasn-v0.20.1...rasn-v0.20.2) - 2024-10-18
 
 ### Fixed
