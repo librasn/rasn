@@ -93,4 +93,7 @@ iai = "0.1.1"
 once_cell = "1.20.2"
 pretty_assertions.workspace = true
 rasn-pkix = { path = "standards/pkix" }
+rustls-webpki = "0.102.8"
+x509-cert = "0.2.5"
+x509-certificate = "0.23.1"
 x509-parser = "0.16"
