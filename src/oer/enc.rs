@@ -7,6 +7,7 @@ use core::cell::RefCell;
 use num_traits::ToPrimitive;
 
 use crate::{
+    oer::EncodingRules,
     types::{
         fields::FieldPresence, Any, BitStr, BitString, BmpString, Choice, Constraints, Constructed,
         Date, Enumerated, GeneralString, GeneralizedTime, Ia5String, IntegerType, NumericString,
