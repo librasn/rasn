@@ -172,7 +172,7 @@ pub struct Clearance {
     security_categories: Option<SetOf<SecurityCategory>>,
 }
 
-#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Default, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(delegate)]
 pub struct ClassList(pub BitString);
 

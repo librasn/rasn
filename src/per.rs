@@ -18,7 +18,7 @@ pub(crate) fn decode<T: crate::Decode>(
     options: de::DecoderOptions,
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
-    T::decode(&mut crate::per::de::Decoder::new(
+    T::decode(&mut crate::per::de::Decoder::<0, 0>::new(
         crate::types::BitStr::from_slice(input),
         options,
     ))
@@ -29,7 +29,7 @@ pub(crate) fn encode<T: crate::Encode>(
     options: enc::EncoderOptions,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
-    let mut enc = crate::per::enc::Encoder::new(options);
+    let mut enc = crate::per::enc::Encoder::<0, 0>::new(options);
 
     value.encode(&mut enc)?;
 
@@ -43,7 +43,7 @@ pub(crate) fn decode_with_constraints<T: crate::Decode>(
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
     T::decode_with_constraints(
-        &mut crate::per::de::Decoder::new(crate::types::BitStr::from_slice(input), options),
+        &mut crate::per::de::Decoder::<0, 0>::new(crate::types::BitStr::from_slice(input), options),
         constraints,
     )
 }
@@ -54,7 +54,7 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
-    let mut enc = crate::per::enc::Encoder::new(options);
+    let mut enc = crate::per::enc::Encoder::<0, 0>::new(options);
 
     value.encode_with_constraints(&mut enc, constraints)?;
 

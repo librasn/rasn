@@ -15,7 +15,7 @@ use crate::types::Constraints;
 /// # Errors
 /// Returns `DecodeError` if `input` is not valid OER encoding specific to the expected type.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
-    T::decode(&mut Decoder::new(
+    T::decode(&mut Decoder::<0, 0>::new(
         crate::types::BitStr::from_slice(input),
         de::DecoderOptions::oer(),
     ))
@@ -26,7 +26,7 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
 /// Returns `EncodeError` if `value` cannot be encoded as COER, usually meaning that constraints
 /// are not met.
 pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    let mut enc = Encoder::new(enc::EncoderOptions::coer());
+    let mut enc = Encoder::<0>::new(enc::EncoderOptions::coer(), core::mem::size_of::<T>());
     value.encode(&mut enc)?;
     Ok(enc.output())
 }
@@ -40,7 +40,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
     input: &[u8],
 ) -> Result<T, DecodeError> {
     T::decode_with_constraints(
-        &mut Decoder::new(
+        &mut Decoder::<0, 0>::new(
             crate::types::BitStr::from_slice(input),
             de::DecoderOptions::oer(),
         ),
@@ -56,7 +56,7 @@ pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    let mut enc = Encoder::new(enc::EncoderOptions::coer());
+    let mut enc = Encoder::<0>::new(enc::EncoderOptions::coer(), core::mem::size_of::<T>());
     value.encode_with_constraints(&mut enc, constraints)?;
     Ok(enc.output())
 }

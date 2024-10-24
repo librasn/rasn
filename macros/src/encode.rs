@@ -8,12 +8,25 @@ pub fn derive_struct_impl(
 ) -> proc_macro2::TokenStream {
     let crate_root = &config.crate_root;
 
-    let list: Vec<_> = container
-        .fields
-        .iter()
-        .enumerate()
-        .map(|(i, field)| FieldConfig::new(field, config).encode(i, true))
-        .collect();
+    let mut field_encodings = Vec::with_capacity(container.fields.len());
+    let mut number_root_fields: usize = 0;
+    let mut number_extended_fields: usize = 0;
+
+    // Count the number of root and extended fields so that encoder can know the number of fields in advance
+    for (i, field) in container.fields.iter().enumerate() {
+        let field_config = FieldConfig::new(field, config);
+        let field_encoding = field_config.encode(i, true);
+
+        if field_config.is_extension() {
+            number_extended_fields += 1;
+        } else {
+            number_root_fields += 1;
+        }
+
+        field_encodings.push(quote! {
+            #field_encoding
+        });
+    }
 
     generics.add_trait_bounds(crate_root, quote::format_ident!("Encode"));
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -23,16 +36,8 @@ pub fn derive_struct_impl(
 
         if let Some(tag) = config.tag.as_ref().filter(|tag| tag.is_explicit()) {
             let tag = tag.to_tokens(crate_root);
-            let encode = quote!(encoder.encode_explicit_prefix(#tag, &self.0).map(drop));
-            if is_option_type(ty) {
-                quote! {
-                    if &self.0.is_some() {
-                        #encode
-                    }
-                }
-            } else {
-                encode
-            }
+            // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
+            quote!(encoder.encode_explicit_prefix(#tag, &self.0).map(drop))
         } else {
             quote!(
                 match tag {
@@ -57,9 +62,9 @@ pub fn derive_struct_impl(
             .unwrap_or_else(|| quote!(encode_sequence));
 
         let encode_impl = quote! {
-            encoder.#operation::<Self, _>(tag, |encoder| {
-                #(#list)*
-
+            // In order to avoid unnecessary allocations, we provide the constant field counts to the encoder when encoding sequences and sets.
+            encoder.#operation::<#number_root_fields, #number_extended_fields, Self, _>(tag, |encoder| {
+                #(#field_encodings)*
                 Ok(())
             }).map(drop)
         };

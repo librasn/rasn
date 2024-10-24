@@ -69,6 +69,13 @@ pub trait AsnType {
     /// Identifier of an ASN.1 type as specified in the original specification
     /// if not identical with the identifier of `Self`
     const IDENTIFIER: Option<&'static str> = None;
+
+    /// Whether the type is present with value. `OPTIONAL` fields are common in `SEQUENCE` or `SET`.
+    ///
+    /// Custom implementation is only used for `OPTIONAL` type.
+    fn is_present(&self) -> bool {
+        true
+    }
 }
 
 /// A `CHOICE` value.
@@ -272,6 +279,10 @@ impl AsnType for str {
 impl<T: AsnType> AsnType for &'_ T {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
+
+    fn is_present(&self) -> bool {
+        (*self).is_present()
+    }
 }
 
 impl<T: AsnType> AsnType for Box<T> {
@@ -286,6 +297,10 @@ impl<T: AsnType> AsnType for alloc::vec::Vec<T> {
 impl<T: AsnType> AsnType for Option<T> {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
+
+    fn is_present(&self) -> bool {
+        self.is_some()
+    }
 }
 
 impl<T> AsnType for SetOf<T> {

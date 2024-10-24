@@ -13,8 +13,7 @@
 //! **NOTE**: the document differs from the actual implementation. This crate contains the structures used in actual signing.
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Neg};
 
-use rasn::types::{Any, BitString, BmpString, Ia5String, ObjectIdentifier, OctetString, Oid};
-use rasn::{AsnType, Decode, Encode};
+use rasn::prelude::*;
 use rasn_pkix::AlgorithmIdentifier;
 
 pub const SPC_INDIRECT_DATA_OBJID: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_PRIVATE_ENTERPRISES_MICROSOFT_SPC_INDIRECT_DATA_OBJID;

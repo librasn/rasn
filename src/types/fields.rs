@@ -1,46 +1,56 @@
 //! Representing all fields for a `SEQUENCE` or `SET` type.
 
-use alloc::borrow::Cow;
-
 use crate::types::{Tag, TagTree};
 
 /// Represents all of the values that make up a given value in ASN.1.
-#[derive(Debug, Clone)]
-pub struct Fields {
-    fields: Cow<'static, [Field]>,
+#[derive(Debug, Clone, Copy)]
+pub struct Fields<const N: usize> {
+    fields: [Field; N],
+    has_required: bool,
+    number_optional_default: usize,
 }
 
-impl Fields {
-    /// Creates a new set of fields from a given value.
-    pub const fn new(fields: Cow<'static, [Field]>) -> Self {
-        Self { fields }
-    }
-
-    /// Creates an empty set of fields.
-    pub const fn empty() -> Self {
-        Self::new(Cow::Borrowed(&[]))
-    }
-
+impl<const N: usize> Fields<N> {
     /// Creates a set of fields from a static set.
-    pub const fn from_static(fields: &'static [Field]) -> Self {
+    pub const fn from_static(fields: [Field; N]) -> Self {
+        let mut i = 0;
+        let (has_required, number_optional_default) = {
+            let mut required = false;
+            let mut number_opts = 0;
+            while i < fields.len() {
+                if fields[i].is_not_optional_or_default() {
+                    required = true;
+                } else {
+                    number_opts += 1;
+                }
+                i += 1;
+            }
+            (required, number_opts)
+        };
         Self {
-            fields: Cow::Borrowed(fields),
+            fields,
+            has_required,
+            number_optional_default,
         }
     }
 
     /// Returns the number of fields.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.fields.len()
     }
 
     /// Returns whether the set doesn't contain any fields.
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.fields.is_empty()
     }
 
     /// Returns whether the set contains any fields.
-    pub fn is_not_empty(&self) -> bool {
+    pub const fn is_not_empty(&self) -> bool {
         !self.is_empty()
+    }
+    /// Checks if any field is required.
+    pub const fn has_required_field(&self) -> bool {
+        self.has_required
     }
 
     /// Returns an iterator over all fields which are [FieldPresence::Optional] or
@@ -51,26 +61,39 @@ impl Fields {
 
     /// Returns the number of fields which are [FieldPresence::Optional] or
     /// [FieldPresence::Default].
-    pub fn number_of_optional_and_default_fields(&self) -> usize {
-        self.optional_and_default_fields().count()
+    pub const fn number_of_optional_and_default_fields(&self) -> usize {
+        self.number_optional_default
     }
 
     /// Returns the canonical sorted version of `self`.
-    pub fn canonised(mut self) -> Self {
-        self.canonical_sort();
-        self
+    pub const fn canonised(&self) -> Self {
+        self.canonical_sort()
     }
 
-    /// Sorts the fields by their canonical tag order.
-    pub fn canonical_sort(&mut self) {
-        self.fields
-            .to_mut()
-            .sort_by(|a, b| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+    /// Sorts the fields by their canonical tag order in constant matter.
+    pub const fn canonical_sort(mut self) -> Self {
+        let len = self.fields.len();
+        let mut i = 0;
+        while i < len {
+            let mut j = i + 1;
+            while j < len {
+                let tag_i = self.fields[i].tag_tree.smallest_tag();
+                let tag_j = self.fields[j].tag_tree.smallest_tag();
+                if tag_i.const_cmp(&tag_j) as usize == core::cmp::Ordering::Greater as usize {
+                    let temp = self.fields[i];
+                    self.fields[i] = self.fields[j];
+                    self.fields[j] = temp;
+                }
+                j += 1;
+            }
+            i += 1;
+        }
+        self
     }
 
     /// Returns an iterator over all fields.
     pub fn iter(&self) -> impl Iterator<Item = Field> + '_ {
-        self.fields.iter().cloned()
+        self.fields.iter().copied()
     }
 
     /// Returns an iterator over identifiers for all fields.
@@ -79,26 +102,24 @@ impl Fields {
     }
 }
 
-impl Default for Fields {
-    fn default() -> Self {
-        Self::empty()
-    }
-}
+impl<const N: usize> core::ops::Deref for Fields<N> {
+    type Target = [Field];
 
-impl From<Cow<'static, [Field]>> for Fields {
-    fn from(fields: Cow<'static, [Field]>) -> Self {
-        Self::new(fields)
+    fn deref(&self) -> &Self::Target {
+        &self.fields
     }
 }
 
 /// Represents a field in a `SET` or `SEQUENCE` type.
-#[derive(Debug, Clone, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
 pub struct Field {
+    /// The index of the field (order number in `SEQUENCE` or `SET`).
+    pub index: usize,
     /// The tag for the field.
     pub tag: Tag,
     /// The tree of tags for the field, if the field is a `CHOICE` type.
     pub tag_tree: TagTree,
-    /// The presence of the field.
+    /// The presence requirement of the field.
     pub presence: FieldPresence,
     /// The name of the field.
     pub name: &'static str,
@@ -106,8 +127,14 @@ pub struct Field {
 
 impl Field {
     /// Creates a new field with [FieldPresence::Required] from the given values.
-    pub const fn new_required(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
+    pub const fn new_required(
+        index: usize,
+        tag: Tag,
+        tag_tree: TagTree,
+        name: &'static str,
+    ) -> Self {
         Self {
+            index,
             tag,
             tag_tree,
             presence: FieldPresence::Required,
@@ -116,8 +143,12 @@ impl Field {
     }
 
     /// Creates a new field with [FieldPresence::Required] from `T::AsnType`.
-    pub const fn new_required_type<T: crate::types::AsnType>(name: &'static str) -> Self {
+    pub const fn new_required_type<T: crate::types::AsnType>(
+        index: usize,
+        name: &'static str,
+    ) -> Self {
         Self {
+            index,
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Required,
@@ -126,8 +157,14 @@ impl Field {
     }
 
     /// Creates a new field with [FieldPresence::Optional] from the given values.
-    pub const fn new_optional(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
+    pub const fn new_optional(
+        index: usize,
+        tag: Tag,
+        tag_tree: TagTree,
+        name: &'static str,
+    ) -> Self {
         Self {
+            index,
             tag,
             tag_tree,
             presence: FieldPresence::Optional,
@@ -136,8 +173,12 @@ impl Field {
     }
 
     /// Creates a new field with [FieldPresence::Optional] from `T::AsnType`.
-    pub const fn new_optional_type<T: crate::types::AsnType>(name: &'static str) -> Self {
+    pub const fn new_optional_type<T: crate::types::AsnType>(
+        index: usize,
+        name: &'static str,
+    ) -> Self {
         Self {
+            index,
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Optional,
@@ -146,8 +187,14 @@ impl Field {
     }
 
     /// Creates a new field with [FieldPresence::Default] from the given values.
-    pub const fn new_default(tag: Tag, tag_tree: TagTree, name: &'static str) -> Self {
+    pub const fn new_default(
+        index: usize,
+        tag: Tag,
+        tag_tree: TagTree,
+        name: &'static str,
+    ) -> Self {
         Self {
+            index,
             tag,
             tag_tree,
             presence: FieldPresence::Default,
@@ -156,8 +203,12 @@ impl Field {
     }
 
     /// Creates a new field with [FieldPresence::Default] from `T::AsnType`.
-    pub const fn new_default_type<T: crate::types::AsnType>(name: &'static str) -> Self {
+    pub const fn new_default_type<T: crate::types::AsnType>(
+        index: usize,
+        name: &'static str,
+    ) -> Self {
         Self {
+            index,
             tag: T::TAG,
             tag_tree: T::TAG_TREE,
             presence: FieldPresence::Default,
