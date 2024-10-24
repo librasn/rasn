@@ -63,6 +63,7 @@ pub trait AsnType {
     /// `Leaf` that points [`Self::TAG`].
     const TAG_TREE: TagTree = TagTree::Leaf(Self::TAG);
 
+    /// The constraints for this type.
     const CONSTRAINTS: Constraints<'static> = Constraints::NONE;
 
     /// Identifier of an ASN.1 type as specified in the original specification
