@@ -852,11 +852,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             .collect();
 
         let fields = {
-            let extended_fields_len = if let Some(extended_fields) = SET::EXTENDED_FIELDS {
-                extended_fields.len()
-            } else {
-                0
-            };
+            let extended_fields_len = SET::EXTENDED_FIELDS.then(|fields| fields.len()).unwrap_or_default();
             let mut fields = Vec::with_capacity(SET::FIELDS.len() + extended_fields_len);
             let mut set_decoder = Decoder::new(self.input.0, self.options);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
