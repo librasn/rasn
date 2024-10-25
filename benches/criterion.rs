@@ -29,7 +29,13 @@ fn x509(c: &mut Criterion) {
         b.iter(|| black_box(rasn::der::decode::<rasn_pkix::Certificate>(data).unwrap()))
     });
     group.bench_function("x509-parser", |b| {
-        b.iter(|| black_box(<x509_parser::certificate::X509Certificate as x509_parser::prelude::FromDer<x509_parser::error::X509Error>>::from_der(data)))
+        b.iter(|| {
+            black_box(
+                <x509_parser::certificate::X509Certificate as x509_parser::prelude::FromDer<
+                    x509_parser::error::X509Error,
+                >>::from_der(data),
+            )
+        })
     });
     group.bench_function("x509-cert", |b| {
         b.iter(|| black_box(<x509_cert::Certificate as x509_cert::der::Decode>::from_der(data)))
