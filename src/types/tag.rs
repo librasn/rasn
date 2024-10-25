@@ -4,6 +4,9 @@ pub(crate) use self::consts::*;
 use alloc::string::ToString;
 
 /// The class of tag identifying its category.
+///
+/// The order of the variants is equal to the canonical type order for tags,
+/// which allows us to use [Ord] to get the canonical ordering.
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
     /// Types defined in X.680.
@@ -56,6 +59,25 @@ pub struct Tag {
     pub class: Class,
     /// The sub-class of the tag.
     pub value: u32,
+}
+impl Tag {
+    /// Constant implementation for [Ord] for [Tag].
+    pub const fn const_cmp(&self, other: &Tag) -> core::cmp::Ordering {
+        if (self.class as u8) < (other.class as u8) {
+            core::cmp::Ordering::Less
+        } else if (self.class as u8) > (other.class as u8) {
+            core::cmp::Ordering::Greater
+        } else {
+            // Classes are equal, compare values
+            if self.value < other.value {
+                core::cmp::Ordering::Less
+            } else if self.value > other.value {
+                core::cmp::Ordering::Greater
+            } else {
+                core::cmp::Ordering::Equal
+            }
+        }
+    }
 }
 
 /// Implement display for Tag; represents `class` as string and `value` as number.
@@ -183,7 +205,7 @@ impl Tag {
 /// For most types this is only ever one level deep, except for CHOICE enums
 /// which will contain a set of nodes, that either point to a `Leaf` or another
 /// level of `Choice`.
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum TagTree {
     /// The end of branch in the tree.
     Leaf(Tag),

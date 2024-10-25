@@ -1,5 +1,5 @@
 //! Version 2 (RFC 3416)
-use rasn::{AsnType, Decode, Encode};
+use rasn::prelude::*;
 
 pub use smi::v2::{IpAddress, ObjectName, ObjectSyntax, TimeTicks};
 
@@ -173,7 +173,7 @@ mod tests {
             //          }
             //       }
             //    }
-            
+
             // SEQUENCE -> Message
             0x30, 0x3C,
 
@@ -185,13 +185,13 @@ mod tests {
 
                 // "public"
                 0x06, 0x70, 0x75, 0x62, 0x6C, 0x69, 0x63,
-            
+
             // application constructed tag 2 -> Response
             0xA2, 0x2F,
 
                 // INTEGER -> request_id
                 0x02, 0x04, 0x54, 0x52, 0x5D, 0x76,
-                
+
                 // INTEGER -> error_status
                 0x02, 0x01, 0x00,
 

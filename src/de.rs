@@ -59,11 +59,17 @@ pub trait Decode: Sized + AsnType {
 }
 
 /// A **data format** decode any ASN.1 data type.
-pub trait Decoder: Sized {
-    // TODO, when associated type defaults are stabilized, use this instead?
-    // type Error = crate::error::DecodeError;
-    /// The associated error type of the decoder.
+///
+/// Const `RCL` is the count of root components in the root component list of a sequence or set.
+/// Const `ECL` is the count of extension additions in the extension addition component type list in a sequence or set.
+pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
+    /// The associated success type returned on success.
+    type Ok;
+    /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::DecodeError> + From<crate::error::DecodeError>;
+    /// Helper type for decoding nested instances of `Decoder` with different fields.
+    type AnyDecoder<const R: usize, const E: usize>: Decoder<RCL, ECL, Ok = Self::Ok, Error = Self::Error>
+        + Decoder;
 
     /// Returns codec variant of `Codec` that current decoder is decoding.
     #[must_use]
@@ -96,16 +102,23 @@ pub trait Decoder: Sized {
     ) -> Result<types::ObjectIdentifier, Self::Error>;
     /// Decode a `SEQUENCE` identified by `tag` from the available input. Returning
     /// a new `Decoder` containing the sequence's contents to be decoded.
-    fn decode_sequence<D, DF, F>(
+    ///
+    /// Const `RC` is the count of root components in a sequence.
+    /// Const `EC` is the count of extension addition components in a sequence.
+    /// Generic `D` is the sequence type.
+    /// Generic `DF` is the closure that will initialize the sequence with default values, typically when no values are present.
+    /// Generic `F` is the closure that will decode the sequence by decoding the fields in the order as defined in the type.
+    /// NOTE: If you implement this manually, make sure to decode fields in the same order and pass the correct count of fields.
+    fn decode_sequence<const RC: usize, const EC: usize, D, DF, F>(
         &mut self,
         tag: Tag,
         default_initializer_fn: Option<DF>,
         decode_fn: F,
     ) -> Result<D, Self::Error>
     where
-        D: crate::types::Constructed,
+        D: crate::types::Constructed<RC, EC>,
         DF: FnOnce() -> D,
-        F: FnOnce(&mut Self) -> Result<D, Self::Error>;
+        F: FnOnce(&mut Self::AnyDecoder<RC, EC>) -> Result<D, Self::Error>;
     /// Decode a `SEQUENCE OF D` where `D: Decode` identified by `tag` from the available input.
     fn decode_sequence_of<D: Decode>(
         &mut self,
@@ -200,16 +213,23 @@ pub trait Decoder: Sized {
     /// and `FIELDS` must represent a `CHOICE` with a variant for each field
     /// from `SET`. As with `SET`s the field order is not guarenteed, so you'll
     /// have map from `Vec<FIELDS>` to `SET` in `decode_operation`.
-    fn decode_set<FIELDS, SET, D, F>(
+    ///
+    /// Const `RC` is the count of root components in a sequence.
+    /// Const `EC` is the count of extension addition components in a sequence.
+    /// Generic `FIELDS` is the choice type, used by `F` to map the decoded field values correctly.
+    /// Generic `SET` is the set type.
+    /// Generic `D` is the closure that will decode the set by decoding the fields in the order as defined in the type.
+    /// Generic `F` is the closure that will map the `FIELDS` to the set.
+    fn decode_set<const RC: usize, const EC: usize, FIELDS, SET, D, F>(
         &mut self,
         tag: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode + crate::types::Constructed,
+        SET: Decode + crate::types::Constructed<RC, EC>,
         FIELDS: Decode,
-        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
+        D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
 
     /// Decode an the optional value in a `SEQUENCE` or `SET`.
@@ -372,7 +392,15 @@ pub trait Decoder: Sized {
     }
 
     /// Decode a extension addition group in a `SEQUENCE` or `SET`.
-    fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
+    ///
+    /// Const `RC` is the count of root components in a sequence.
+    /// Const `EC` is the count of extension addition components in a sequence.
+    /// Generic `D` is the type of the extension addition group.
+    fn decode_extension_addition_group<
+        const RC: usize,
+        const EC: usize,
+        D: Decode + crate::types::Constructed<RC, EC>,
+    >(
         &mut self,
     ) -> Result<Option<D>, Self::Error>;
 }

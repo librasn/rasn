@@ -318,10 +318,12 @@ impl Encoder {
 impl crate::Encoder for Encoder {
     type Ok = ();
     type Error = EncodeError;
+    type AnyEncoder<const R: usize, const E: usize> = Encoder;
 
     fn codec(&self) -> Codec {
         Self::codec(self)
     }
+
     fn encode_any(&mut self, _: Tag, value: &types::Any) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
             return Err(BerEncodeErrorKind::AnyInSet.into());
@@ -594,15 +596,21 @@ impl crate::Encoder for Encoder {
         tag: Tag,
         value: &V,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut encoder = Self::new(self.config);
-        value.encode(&mut encoder)?;
-        self.encode_constructed(tag, &encoder.output);
+        if value.is_present() {
+            let mut encoder = Self::new(self.config);
+            value.encode(&mut encoder)?;
+            self.encode_constructed(tag, &encoder.output);
+        }
         Ok(())
     }
 
-    fn encode_sequence<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_sequence<const RC: usize, const EC: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
+        C: crate::types::Constructed<RC, EC>,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut encoder = Self::new(self.config);
@@ -614,9 +622,13 @@ impl crate::Encoder for Encoder {
         Ok(())
     }
 
-    fn encode_set<C, F>(&mut self, tag: Tag, encoder_scope: F) -> Result<Self::Ok, Self::Error>
+    fn encode_set<const RC: usize, const EC: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        encoder_scope: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
+        C: crate::types::Constructed<RC, EC>,
         F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
     {
         let mut encoder = Self::new_set(self.config);
@@ -638,12 +650,12 @@ impl crate::Encoder for Encoder {
     }
 
     /// Encode a extension addition group value.
-    fn encode_extension_addition_group<E>(
+    fn encode_extension_addition_group<const RC: usize, const EC: usize, E>(
         &mut self,
         value: Option<&E>,
     ) -> Result<Self::Ok, Self::Error>
     where
-        E: Encode + crate::types::Constructed,
+        E: Encode + crate::types::Constructed<RC, EC>,
     {
         value.encode(self)
     }
@@ -795,19 +807,19 @@ mod tests {
 
         struct Set;
 
-        impl crate::types::Constructed for Set {
-            const FIELDS: crate::types::fields::Fields =
-                crate::types::fields::Fields::from_static(&[
-                    crate::types::fields::Field::new_required(C0::TAG, C0::TAG_TREE, "field1"),
-                    crate::types::fields::Field::new_required(C1::TAG, C1::TAG_TREE, "field2"),
-                    crate::types::fields::Field::new_required(C2::TAG, C2::TAG_TREE, "field3"),
+        impl crate::types::Constructed<3, 0> for Set {
+            const FIELDS: crate::types::fields::Fields<3> =
+                crate::types::fields::Fields::from_static([
+                    crate::types::fields::Field::new_required(0, C0::TAG, C0::TAG_TREE, "field1"),
+                    crate::types::fields::Field::new_required(1, C1::TAG, C1::TAG_TREE, "field2"),
+                    crate::types::fields::Field::new_required(2, C2::TAG, C2::TAG_TREE, "field3"),
                 ]);
         }
 
         let output = {
             let mut encoder = Encoder::new_set(EncoderOptions::ber());
             encoder
-                .encode_set::<Set, _>(Tag::SET, |encoder| {
+                .encode_set::<3, 0, Set, _>(Tag::SET, |encoder| {
                     field3.encode(encoder)?;
                     field2.encode(encoder)?;
                     field1.encode(encoder)?;

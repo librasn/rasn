@@ -70,15 +70,15 @@ impl DecoderOptions {
 }
 
 /// Decodes Octet Encoding Rules (OER) data into Rust data structures.
-pub struct Decoder<'input> {
+pub struct Decoder<'input, const RFC: usize = 0, const EFC: usize = 0> {
     input: InputSlice<'input>,
     options: DecoderOptions,
     fields: VecDeque<(Field, bool)>,
-    extension_fields: Option<Fields>,
+    extension_fields: Option<Fields<EFC>>,
     extensions_present: Option<Option<VecDeque<(Field, bool)>>>,
 }
 
-impl<'input> Decoder<'input> {
+impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     /// Creates a new Decoder from the given input and options.
     #[must_use]
     pub fn new(input: &'input crate::types::BitStr, options: DecoderOptions) -> Self {
@@ -372,9 +372,9 @@ impl<'input> Decoder<'input> {
             .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
-    fn parse_optional_and_default_field_bitmap(
+    fn parse_optional_and_default_field_bitmap<const RC: usize>(
         &mut self,
-        fields: &Fields,
+        fields: &Fields<RC>,
     ) -> Result<InputSlice<'input>, DecodeError> {
         let (input, bitset) =
             nom::bytes::streaming::take(fields.number_of_optional_and_default_fields())(self.input)
@@ -461,17 +461,19 @@ impl<'input> Decoder<'input> {
     }
 
     /// Parse preamble, returns field bitmap and if extensible is present
-    fn parse_preamble<D>(&mut self) -> Result<(InputSlice, bool), DecodeError>
+    fn parse_preamble<const RC: usize, const EC: usize, D>(
+        &mut self,
+    ) -> Result<(InputSlice, bool), DecodeError>
     where
-        D: Constructed,
+        D: Constructed<RC, EC>,
     {
-        let is_extensible = D::EXTENDED_FIELDS.is_some();
+        let is_extensible = D::IS_EXTENSIBLE;
         let extensible_present = if is_extensible {
             self.parse_one_bit()?
         } else {
             false
         };
-        let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
+        let bitmap = self.parse_optional_and_default_field_bitmap::<RC>(&D::FIELDS)?;
         let preamble_length = if is_extensible {
             1usize + bitmap.len()
         } else {
@@ -483,9 +485,10 @@ impl<'input> Decoder<'input> {
         Ok((bitmap, extensible_present))
     }
 }
-
-impl crate::Decoder for Decoder<'_> {
+impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'input, RFC, EFC> {
+    type Ok = ();
     type Error = DecodeError;
+    type AnyDecoder<const R: usize, const E: usize> = Decoder<'input, R, E>;
 
     fn codec(&self) -> Codec {
         self.codec()
@@ -576,16 +579,15 @@ impl crate::Decoder for Decoder<'_> {
             .decode_object_identifier_from_bytes(self.extract_data_by_length(length)?.as_bytes())
     }
 
-    fn decode_sequence<D, DF: FnOnce() -> D, F>(
+    fn decode_sequence<const RC: usize, const EC: usize, D, DF: FnOnce() -> D, F>(
         &mut self,
         _: Tag,
         default_initializer_fn: Option<DF>,
         decode_fn: F,
     ) -> Result<D, Self::Error>
     where
-        D: Constructed,
-
-        F: FnOnce(&mut Self) -> Result<D, Self::Error>,
+        D: Constructed<RC, EC>,
+        F: FnOnce(&mut Self::AnyDecoder<RC, EC>) -> Result<D, Self::Error>,
     {
         // If there are no fields then the sequence is empty
         // Or if all fields are optional and default and there is no data
@@ -602,7 +604,7 @@ impl crate::Decoder for Decoder<'_> {
             ));
         }
         // ### PREAMBLE ###
-        let (bitmap, extensible_present) = self.parse_preamble::<D>()?;
+        let (bitmap, extensible_present) = self.parse_preamble::<RC, EC, D>()?;
         // ### ENDS
         let fields = D::FIELDS
             .optional_and_default_fields()
@@ -610,7 +612,7 @@ impl crate::Decoder for Decoder<'_> {
             .collect();
 
         let value = {
-            let mut sequence_decoder = Self::new(self.input.0, self.options);
+            let mut sequence_decoder = Decoder::new(self.input.0, self.options);
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
             sequence_decoder.extensions_present = extensible_present.then_some(None);
             sequence_decoder.fields = fields;
@@ -823,47 +825,38 @@ impl crate::Decoder for Decoder<'_> {
         crate::der::de::Decoder::parse_date_string(&string)
     }
 
-    fn decode_set<FIELDS, SET, D, F>(
+    fn decode_set<const RC: usize, const EC: usize, FIELDS, SET, D, F>(
         &mut self,
         _: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode + Constructed,
+        SET: Decode + Constructed<RC, EC>,
         FIELDS: Decode,
-        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
+        D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        let (bitmap, extensible_present) = self.parse_preamble::<SET>()?;
+        let (bitmap, extensible_present) = self.parse_preamble::<RC, EC, SET>()?;
 
         let field_map = SET::FIELDS
+            .canonised()
             .optional_and_default_fields()
             .zip(bitmap.into_iter().map(|b| *b))
             .collect::<alloc::collections::BTreeMap<_, _>>();
 
-        let decoder_fields = SET::FIELDS
-            .optional_and_default_fields()
-            .zip(bitmap.into_iter().map(|b| *b))
-            .collect();
-
         let fields = {
-            let mut fields = Vec::with_capacity(
-                SET::FIELDS.len() + SET::EXTENDED_FIELDS.unwrap_or_default().len(),
-            );
-            let mut set_decoder = Self::new(self.input.0, self.options);
+            let extended_fields_len = SET::EXTENDED_FIELDS.map_or(0, |fields| fields.len());
+            let mut fields = Vec::with_capacity(SET::FIELDS.len() + extended_fields_len);
+            let mut set_decoder = Decoder::new(self.input.0, self.options);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
             set_decoder.extensions_present = extensible_present.then_some(None);
-            set_decoder.fields = decoder_fields;
+            set_decoder.fields = field_map.clone().into_iter().collect();
 
-            let mut field_indices = SET::FIELDS.iter().enumerate().collect::<Vec<_>>();
-            field_indices.sort_by(|(_, a), (_, b)| {
-                a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag())
-            });
-            for (indice, field) in field_indices {
+            for field in SET::FIELDS.canonised().iter() {
                 match field_map.get(&field).copied() {
                     Some(true) | None => {
-                        fields.push(decode_fn(&mut set_decoder, indice, field.tag)?);
+                        fields.push(decode_fn(&mut set_decoder, field.index, field.tag)?);
                     }
                     Some(false) => {}
                 }
@@ -902,7 +895,7 @@ impl crate::Decoder for Decoder<'_> {
             let options = self.options;
             let length = self.decode_length()?;
             let bytes = self.extract_data_by_length(length)?;
-            let mut decoder = Decoder::new(&bytes, options);
+            let mut decoder = Decoder::<0, 0>::new(&bytes, options);
             D::from_tag(&mut decoder, tag)
         } else {
             return Err(OerDecodeErrorKind::invalid_tag_variant_on_choice(
@@ -981,11 +974,16 @@ impl crate::Decoder for Decoder<'_> {
         // Values of the extensions are only left, encoded as Open type
         // TODO vec without conversion to bitslice
         let bytes = self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
-        let mut decoder = Decoder::new(bitvec::slice::BitSlice::from_slice(&bytes), self.options);
+        let mut decoder =
+            Decoder::<0, 0>::new(bitvec::slice::BitSlice::from_slice(&bytes), self.options);
         D::decode_with_constraints(&mut decoder, constraints).map(Some)
     }
 
-    fn decode_extension_addition_group<D: Decode + Constructed>(
+    fn decode_extension_addition_group<
+        const RC: usize,
+        const EC: usize,
+        D: Decode + Constructed<RC, EC>,
+    >(
         &mut self,
     ) -> Result<Option<D>, Self::Error> {
         if !self.parse_extension_header()? {
@@ -1001,7 +999,8 @@ impl crate::Decoder for Decoder<'_> {
         // Values of the extensions are only left, inner type encoded as Open type
         // TODO vec without conversion to bitslice
         let bytes = self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
-        let mut decoder = Decoder::new(bitvec::slice::BitSlice::from_slice(&bytes), self.options);
+        let mut decoder =
+            Decoder::<0, 0>::new(bitvec::slice::BitSlice::from_slice(&bytes), self.options);
         D::decode(&mut decoder).map(Some)
     }
 }
@@ -1032,12 +1031,12 @@ mod tests {
     #[test]
     fn test_decode_length_invalid() {
         let data: BitString = BitString::from_slice(&[0xffu8]);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         // Length determinant is > 127 without subsequent bytes
         assert!(decoder.decode_length().is_err());
         // Still missing some data
         let data: BitString = BitString::from_slice(&[0xffu8, 0xff]);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         // Length determinant is > 127 without subsequent bytes
         assert!(decoder.decode_length().is_err());
     }
@@ -1055,16 +1054,16 @@ mod tests {
 
         // # SHORT FORM
         let data: BitString = BitString::from_slice(&[0x01u8, 0xff]);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), 1);
         let data: BitString = BitString::from_slice(&[0x03u8, 0xff, 0xff, 0xfe]);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), 3);
         // Max for short form
         let mut data: [u8; 0x80] = [0xffu8; 0x80];
         data[0] = 0x7f; // length determinant
         let data: BitString = BitString::from_slice(&data);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), 127);
 
         // # LONG FORM
@@ -1078,7 +1077,7 @@ mod tests {
         combined[3..].copy_from_slice(&data);
 
         let data: BitString = BitString::from_slice(&combined);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         assert_eq!(decoder.decode_length().unwrap(), 258usize);
     }
     #[test]
@@ -1095,7 +1094,7 @@ mod tests {
             0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
             0xff, 0xff, 0xff, 0xff,
         ]);
-        let mut decoder = Decoder::new(&vc, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&vc, DecoderOptions::oer());
         let number = BigInt::from(256).pow(127) - 1;
         let constraints = Constraints::default();
         let new_number: BigInt = decoder
@@ -1112,7 +1111,7 @@ mod tests {
         combined[..1].copy_from_slice(&length);
         combined[1..=(usize::BITS / 8u32) as usize].copy_from_slice(&length_determinant);
         let data: BitString = BitString::from_slice(&combined);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         let new_length = decoder.decode_length().unwrap();
         assert_eq!(new_length, usize::MAX);
         // Test length > usize::MAX
@@ -1124,7 +1123,7 @@ mod tests {
         combined[..1].copy_from_slice(&length);
         combined[1..=(usize::BITS / 8u32 + 1) as usize].copy_from_slice(&length_determinant);
         let data: BitString = BitString::from_slice(&combined);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         let new_length = decoder.decode_length();
         assert!(new_length.is_err());
     }
@@ -1132,28 +1131,28 @@ mod tests {
     fn test_integer_decode_with_constraints() {
         const CONSTRAINT_1: Constraints = constraints!(value_constraint!(0, 255));
         let data = BitString::from_slice(&[0x01u8]);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         let decoded_int: i32 = decoder
             .decode_integer_with_constraints(&CONSTRAINT_1)
             .unwrap();
         assert_eq!(decoded_int, 1);
 
         let data = BitString::from_slice(&[0xffu8]);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         let decoded_int: i64 = decoder
             .decode_integer_with_constraints(&CONSTRAINT_1)
             .unwrap();
         assert_eq!(decoded_int, 255);
 
         let data = BitString::from_slice(&[0xffu8, 0xff]);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         let decoded_int: BigInt = decoder
             .decode_integer_with_constraints(&CONSTRAINT_1)
             .unwrap();
         assert_eq!(decoded_int, 255.into());
 
         let data = BitString::from_slice(&[0x02u8, 0xff, 0x01]);
-        let mut decoder = Decoder::new(&data, DecoderOptions::oer());
+        let mut decoder = Decoder::<0, 0>::new(&data, DecoderOptions::oer());
         const CONSTRAINT_2: Constraints = Constraints::default();
         let decoded_int: BigInt = decoder
             .decode_integer_with_constraints(&CONSTRAINT_2)

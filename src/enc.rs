@@ -57,11 +57,17 @@ pub trait Encode: AsnType {
 }
 
 /// A **data format** encode any ASN.1 data type.
-pub trait Encoder {
-    /// The associated type returned on encoding success.
+///
+/// Const `RCL` is the count of root components in the root component list of a sequence or set.
+/// Const `ECL` is the count of extension additions in the extension addition component type list in a sequence or set.
+pub trait Encoder<const RCL: usize = 0, const ECL: usize = 0> {
+    /// The associated success type returned on success.
     type Ok;
     /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
+    /// Helper type for encoding recursive `Encoder` instances with different `RCL` or  `ECL` values.
+    type AnyEncoder<const R: usize, const E: usize>: Encoder<RCL, ECL, Ok = Self::Ok, Error = Self::Error>
+        + Encoder;
 
     /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;
@@ -202,14 +208,20 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `SEQUENCE` value.
-    fn encode_sequence<C, F>(
+    ///
+    /// Const `RC` is the count of root components in a sequence.
+    /// Const `EC` is the count of extension addition components in a sequence.
+    /// Generic `C` is the sequence type.
+    /// Generic `F` is the closure that will encode the sequence by encoding the fields in the order as defined in the type.
+    /// NOTE: If you implement this manually, make sure to encode fields in the same order and pass the correct count of fields.
+    fn encode_sequence<const RC: usize, const EC: usize, C, F>(
         &mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+        C: crate::types::Constructed<RC, EC>,
+        F: FnOnce(&mut Self::AnyEncoder<RC, EC>) -> Result<(), Self::Error>;
 
     /// Encode a `SEQUENCE OF` value.
     fn encode_sequence_of<E: Encode>(
@@ -220,10 +232,20 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `SET` value.
-    fn encode_set<C, F>(&mut self, tag: Tag, value: F) -> Result<Self::Ok, Self::Error>
+    ///
+    /// Const `RC` is the count of root components in a set.
+    /// Const `EC` is the count of extension addition components in a set.
+    /// Generic `C` is the set type.
+    /// Generic `F` is the closure that will encode the set fields in appearance order. Encoder will rearrange them in the correct order later.
+    /// NOTE: If you implement this manually, make sure to encode fields in the same order and pass the correct count of fields.
+    fn encode_set<const RC: usize, const EC: usize, C, F>(
+        &mut self,
+        tag: Tag,
+        value: F,
+    ) -> Result<Self::Ok, Self::Error>
     where
-        C: crate::types::Constructed,
-        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+        C: crate::types::Constructed<RC, EC>,
+        F: FnOnce(&mut Self::AnyEncoder<RC, EC>) -> Result<(), Self::Error>;
 
     /// Encode a `SET OF` value.
     fn encode_set_of<E: Encode + Eq + core::hash::Hash>(
@@ -353,12 +375,16 @@ pub trait Encoder {
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a extension addition group value.
-    fn encode_extension_addition_group<E>(
+    ///
+    /// Const `RC` is the count of root components in sequence or set.
+    /// Const `EC` is the count of extension components in sequence or set.
+    /// `E` is the type of the extension addition group value being encoded.
+    fn encode_extension_addition_group<const RC: usize, const EC: usize, E>(
         &mut self,
         value: Option<&E>,
     ) -> Result<Self::Ok, Self::Error>
     where
-        E: Encode + crate::types::Constructed;
+        E: Encode + crate::types::Constructed<RC, EC>;
 }
 
 /// A generic error that occurred while trying to encode ASN.1.

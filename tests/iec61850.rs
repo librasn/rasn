@@ -1,4 +1,4 @@
-use rasn::{types::*, Decode, Encode};
+use rasn::prelude::*;
 
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(choice)]

@@ -1,5 +1,5 @@
 use chrono::{FixedOffset, TimeZone, Utc};
-use rasn::{types::*, AsnType, Decode, Encode};
+use rasn::prelude::*;
 
 #[derive(AsnType, Decode, Encode)]
 pub struct Bench {

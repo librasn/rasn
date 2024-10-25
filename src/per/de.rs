@@ -54,17 +54,17 @@ impl DecoderOptions {
 }
 
 /// Decodes Packed Encoding Rules (PER) data into Rust data structures.
-pub struct Decoder<'input> {
+pub struct Decoder<'input, const RFC: usize = 0, const EFC: usize = 0> {
     input: InputSlice<'input>,
     options: DecoderOptions,
     /// When the decoder contains fields, we check against optional or default
     /// fields to know the presence of those fields.
     fields: VecDeque<(Field, bool)>,
-    extension_fields: Option<Fields>,
+    extension_fields: Option<Fields<EFC>>,
     extensions_present: Option<Option<VecDeque<(Field, bool)>>>,
 }
 
-impl<'input> Decoder<'input> {
+impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     /// Returns the currently selected codec.
     pub fn codec(&self) -> crate::Codec {
         self.options.current_codec()
@@ -141,9 +141,9 @@ impl<'input> Decoder<'input> {
         }
     }
 
-    fn parse_optional_and_default_field_bitmap(
+    fn parse_optional_and_default_field_bitmap<const RC: usize>(
         &mut self,
-        fields: &Fields,
+        fields: &Fields<RC>,
     ) -> Result<InputSlice<'input>> {
         let (input, bitset) =
             nom::bytes::streaming::take(fields.number_of_optional_and_default_fields())(self.input)
@@ -637,9 +637,10 @@ impl<'input> Decoder<'input> {
         }
     }
 }
-
-impl crate::Decoder for Decoder<'_> {
+impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'input, RFC, EFC> {
+    type Ok = ();
     type Error = DecodeError;
+    type AnyDecoder<const R: usize, const E: usize> = Decoder<'input, R, E>;
 
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
@@ -846,26 +847,25 @@ impl crate::Decoder for Decoder<'_> {
             .map(|seq| SetOf::from_vec(seq))
     }
 
-    fn decode_sequence<D, DF, F>(
+    fn decode_sequence<const RC: usize, const EC: usize, D, DF, F>(
         &mut self,
         _: Tag,
         _: Option<DF>,
         decode_fn: F,
     ) -> Result<D, Self::Error>
     where
-        D: crate::types::Constructed,
+        D: crate::types::Constructed<RC, EC>,
         DF: FnOnce() -> D,
-        F: FnOnce(&mut Self) -> Result<D, Self::Error>,
+        F: FnOnce(&mut Self::AnyDecoder<RC, EC>) -> Result<D, Self::Error>,
     {
-        let is_extensible = D::EXTENDED_FIELDS
-            .is_some()
+        let is_extensible = D::IS_EXTENSIBLE
             .then(|| self.parse_one_bit())
             .transpose()?
             .unwrap_or_default();
         let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
 
         let value = {
-            let mut sequence_decoder = Self::new(self.input(), self.options);
+            let mut sequence_decoder = Decoder::new(self.input(), self.options);
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
             sequence_decoder.extensions_present = is_extensible.then_some(None);
             sequence_decoder.fields = D::FIELDS
@@ -896,25 +896,24 @@ impl crate::Decoder for Decoder<'_> {
         }
     }
 
-    fn decode_set<FIELDS, SET, D, F>(
+    fn decode_set<const RC: usize, const EC: usize, FIELDS, SET, D, F>(
         &mut self,
         _: Tag,
         decode_fn: D,
         field_fn: F,
     ) -> Result<SET, Self::Error>
     where
-        SET: Decode + crate::types::Constructed,
+        SET: Decode + crate::types::Constructed<RC, EC>,
         FIELDS: Decode,
-        D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
+        D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        let is_extensible = SET::EXTENDED_FIELDS
-            .is_some()
+        let is_extensible = SET::IS_EXTENSIBLE
             .then(|| self.parse_one_bit())
             .transpose()?
             .unwrap_or_default();
 
-        let bitmap = self.parse_optional_and_default_field_bitmap(&SET::FIELDS)?;
+        let bitmap = self.parse_optional_and_default_field_bitmap::<RC>(&SET::FIELDS)?;
         let field_map = SET::FIELDS
             .optional_and_default_fields()
             .zip(bitmap.into_iter().map(|b| *b))
@@ -922,7 +921,7 @@ impl crate::Decoder for Decoder<'_> {
 
         let fields = {
             let mut fields = Vec::new();
-            let mut set_decoder = Self::new(self.input(), self.options);
+            let mut set_decoder = Decoder::new(self.input(), self.options);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
             set_decoder.extensions_present = is_extensible.then_some(None);
             set_decoder.fields = SET::FIELDS
@@ -1048,14 +1047,18 @@ impl crate::Decoder for Decoder<'_> {
 
         if is_extensible {
             let bytes = self.decode_octets()?;
-            let mut decoder = Decoder::new(&bytes, self.options);
+            let mut decoder = Decoder::<0, 0>::new(&bytes, self.options);
             D::from_tag(&mut decoder, *tag)
         } else {
             D::from_tag(self, *tag)
         }
     }
 
-    fn decode_extension_addition_group<D: Decode + crate::types::Constructed>(
+    fn decode_extension_addition_group<
+        const RC: usize,
+        const EC: usize,
+        D: Decode + crate::types::Constructed<RC, EC>,
+    >(
         &mut self,
     ) -> Result<Option<D>, Self::Error> {
         if !self.parse_extension_header()? {
@@ -1072,7 +1075,7 @@ impl crate::Decoder for Decoder<'_> {
         }
 
         let bytes = self.decode_octets()?;
-        let mut decoder = Decoder::new(&bytes, self.options);
+        let mut decoder = Decoder::<RC, EC>::new(&bytes, self.options);
 
         D::decode(&mut decoder).map(Some)
     }
@@ -1110,7 +1113,7 @@ impl crate::Decoder for Decoder<'_> {
         }
 
         let bytes = self.decode_octets()?;
-        let mut decoder = Decoder::new(&bytes, self.options);
+        let mut decoder = Decoder::<0, 0>::new(&bytes, self.options);
 
         D::decode_with_constraints(&mut decoder, constraints).map(Some)
     }
