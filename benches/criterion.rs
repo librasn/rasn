@@ -19,9 +19,10 @@ fn rasn(c: &mut Criterion) {
         }}
     }
 
-    bench_encoding_rules!(ber, der, cer, uper);
+    bench_encoding_rules!(ber, der, cer, uper, oer);
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn x509(c: &mut Criterion) {
     let data: &[u8] = include_bytes!("../standards/pkix/tests/data/letsencrypt-x3.crt");
     let mut group = c.benchmark_group("X.509");
@@ -46,5 +47,9 @@ fn x509(c: &mut Criterion) {
     group.finish();
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 criterion_group!(codec, x509, rasn);
+
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+criterion_group!(codec, rasn);
 criterion_main!(codec);
