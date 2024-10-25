@@ -845,28 +845,18 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             .zip(bitmap.into_iter().map(|b| *b))
             .collect::<alloc::collections::BTreeMap<_, _>>();
 
-        let decoder_fields = SET::FIELDS
-            .canonised()
-            .optional_and_default_fields()
-            .zip(bitmap.into_iter().map(|b| *b))
-            .collect();
-
         let fields = {
-            let extended_fields_len = SET::EXTENDED_FIELDS.then(|fields| fields.len()).unwrap_or_default();
+            let extended_fields_len = SET::EXTENDED_FIELDS.map_or(0, |fields| fields.len());
             let mut fields = Vec::with_capacity(SET::FIELDS.len() + extended_fields_len);
             let mut set_decoder = Decoder::new(self.input.0, self.options);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
             set_decoder.extensions_present = extensible_present.then_some(None);
-            set_decoder.fields = decoder_fields;
+            set_decoder.fields = field_map.clone().into_iter().collect();
 
-            let mut field_indices = SET::FIELDS.iter().enumerate().collect::<Vec<_>>();
-            field_indices.sort_by(|(_, a), (_, b)| {
-                a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag())
-            });
-            for (indice, field) in field_indices {
+            for field in SET::FIELDS.canonised().iter() {
                 match field_map.get(&field).copied() {
                     Some(true) | None => {
-                        fields.push(decode_fn(&mut set_decoder, indice, field.tag)?);
+                        fields.push(decode_fn(&mut set_decoder, field.index, field.tag)?);
                     }
                     Some(false) => {}
                 }

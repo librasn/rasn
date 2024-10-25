@@ -65,20 +65,23 @@ impl EncoderOptions {
 }
 
 /// Encodes Rust data structures into Canonical Packed Encoding Rules (CPER) data.
+///
+/// Const `RCL` is the count of root components in the root component list of a sequence or set.
+/// Const `ECL` is the count of extension additions in the extension addition component type list in a sequence or set.
 #[derive(Debug)]
-pub struct Encoder<const RFC: usize = 0, const EFC: usize = 0> {
+pub struct Encoder<const RCL: usize = 0, const ECL: usize = 0> {
     options: EncoderOptions,
     output: BitString,
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
     number_optional_default_fields: usize,
-    root_bitfield: (usize, [(bool, Tag); RFC]),
-    extension_bitfield: (usize, [bool; EFC]),
-    extension_fields: [Option<Vec<u8>>; EFC],
+    root_bitfield: (usize, [(bool, Tag); RCL]),
+    extension_bitfield: (usize, [bool; ECL]),
+    extension_fields: [Option<Vec<u8>>; ECL],
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
 }
 
-impl<const RFC: usize, const EFC: usize> Encoder<RFC, EFC> {
+impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     /// Constructs a new encoder from the provided options.
     pub fn new(options: EncoderOptions) -> Self {
         Self {
@@ -86,10 +89,10 @@ impl<const RFC: usize, const EFC: usize> Encoder<RFC, EFC> {
             output: <_>::default(),
             set_output: <_>::default(),
             number_optional_default_fields: 0,
-            root_bitfield: (0, [(false, Tag::new_private(0)); RFC]),
-            extension_bitfield: (0, [false; EFC]),
+            root_bitfield: (0, [(false, Tag::new_private(0)); RCL]),
+            extension_bitfield: (0, [false; ECL]),
             is_extension_sequence: <_>::default(),
-            extension_fields: [(); EFC].map(|_| None),
+            extension_fields: [(); ECL].map(|_| None),
             parent_output_length: <_>::default(),
         }
     }
@@ -140,9 +143,9 @@ impl<const RFC: usize, const EFC: usize> Encoder<RFC, EFC> {
     /// Sets the presence of a `OPTIONAL` or `DEFAULT` field in the bitfield.
     /// The presence is ordered based on the field index.
     fn set_presence(&mut self, tag: Tag, bit: bool) {
-        // Applies only for SEQUENCE and SET types (RFC > 0)
+        // Applies only for SEQUENCE and SET types (RCL > 0)
         // Compiler should optimize this out
-        if RFC > 0 {
+        if RCL > 0 {
             if self.number_optional_default_fields < self.root_bitfield.0 + 1 {
                 // Fields should be encoded in order
                 // When the presence of optional extension field is set, we end up here
@@ -154,9 +157,9 @@ impl<const RFC: usize, const EFC: usize> Encoder<RFC, EFC> {
         }
     }
     fn set_extension_presence(&mut self, bit: bool) {
-        // Applies only for SEQUENCE and SET types (EFC > 0)
+        // Applies only for SEQUENCE and SET types (ECL > 0)
         // Compiler should optimize this out when not present
-        if EFC > 0 {
+        if ECL > 0 {
             self.extension_bitfield.1[self.extension_bitfield.0] = bit;
             self.extension_bitfield.0 += 1;
         }

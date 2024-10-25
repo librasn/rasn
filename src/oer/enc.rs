@@ -65,15 +65,18 @@ impl Default for Encoder<'_, 0, 0> {
 }
 
 /// COER encoder. A subset of OER to provide canonical and unique encoding.
+///
+/// Const `RCL` is the count of root components in the root component list of a sequence or set.
+/// Const `ECL` is the count of extension additions in the extension addition component type list in a sequence or set.
 #[derive(Debug)]
-pub struct Encoder<'a, const RFC: usize = 0, const EFC: usize = 0> {
+pub struct Encoder<'a, const RCL: usize = 0, const ECL: usize = 0> {
     options: EncoderOptions,
     output: alloc::borrow::Cow<'a, RefCell<Vec<u8>>>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
-    extension_fields: [Option<Vec<u8>>; EFC],
+    extension_fields: [Option<Vec<u8>>; ECL],
     is_extension_sequence: bool,
-    root_bitfield: (usize, [(bool, Tag); RFC]),
-    extension_bitfield: (usize, [bool; EFC]),
+    root_bitfield: (usize, [(bool, Tag); RCL]),
+    extension_bitfield: (usize, [bool; ECL]),
     number_optional_default_fields: usize,
 }
 
@@ -93,7 +96,7 @@ pub struct Encoder<'a, const RFC: usize = 0, const EFC: usize = 0> {
 
 // Tags are encoded only as part of the encoding of a choice type, where the tag indicates
 // which alternative of the choice type is the chosen alternative (see 20.1).
-impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
+impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
     /// Constructs a new encoder with its own buffer from the provided options.
     #[must_use]
     pub fn new(options: EncoderOptions, base_capacity: usize) -> Self {
@@ -101,10 +104,10 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             options,
             output: Cow::Owned(RefCell::new(Vec::with_capacity(base_capacity))),
             set_output: <_>::default(),
-            extension_fields: [(); EFC].map(|_| None),
+            extension_fields: [(); ECL].map(|_| None),
             is_extension_sequence: bool::default(),
-            root_bitfield: (0, [(false, Tag::new_private(0)); RFC]),
-            extension_bitfield: (0, [false; EFC]),
+            root_bitfield: (0, [(false, Tag::new_private(0)); RCL]),
+            extension_bitfield: (0, [false; ECL]),
             number_optional_default_fields: 0,
         }
     }
@@ -115,9 +118,9 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
             options,
             output: Cow::Borrowed(output),
             set_output: <_>::default(),
-            root_bitfield: (0, [(false, Tag::new_private(0)); RFC]),
-            extension_bitfield: (0, [false; EFC]),
-            extension_fields: [(); EFC].map(|_| None),
+            root_bitfield: (0, [(false, Tag::new_private(0)); RCL]),
+            extension_bitfield: (0, [false; ECL]),
+            extension_fields: [(); ECL].map(|_| None),
             is_extension_sequence: bool::default(),
             number_optional_default_fields: 0,
         }
@@ -148,9 +151,9 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
     /// Sets the presence of a `OPTIONAL` or `DEFAULT` field in the bitfield.
     /// The presence is ordered based on the field appearance order in the schema.
     fn set_presence(&mut self, tag: Tag, bit: bool) {
-        // Applies only for SEQUENCE and SET types (RFC > 0)
+        // Applies only for SEQUENCE and SET types (RCL > 0)
         // Compiler should optimize this out otherwise
-        if RFC > 0 {
+        if RCL > 0 {
             if self.number_optional_default_fields < self.root_bitfield.0 + 1 {
                 // Fields should be encoded in order
                 // When the presence of optional extension field is set, we end up here
@@ -162,9 +165,9 @@ impl<'a, const RFC: usize, const EFC: usize> Encoder<'a, RFC, EFC> {
         }
     }
     fn set_extension_presence(&mut self, bit: bool) {
-        // Applies only for SEQUENCE and SET types (EFC > 0)
+        // Applies only for SEQUENCE and SET types (ECL > 0)
         // Compiler should optimize this out when not present
-        if EFC > 0 {
+        if ECL > 0 {
             self.extension_bitfield.1[self.extension_bitfield.0] = bit;
             self.extension_bitfield.0 += 1;
         }
