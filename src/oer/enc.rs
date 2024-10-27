@@ -1,9 +1,7 @@
 //! Encoding Rust structures into Octet Encoding Rules data.
 
-use alloc::{borrow::Cow, rc::Rc, vec::Vec};
+use alloc::vec::Vec;
 use bitvec::prelude::*;
-use core::cell::{Cell, RefCell};
-use core::marker::PhantomData;
 use num_traits::ToPrimitive;
 
 use crate::{
@@ -73,14 +71,12 @@ impl Default for EncoderOptions {
 pub struct Encoder<'buffer, const RCL: usize = 0, const ECL: usize = 0> {
     options: EncoderOptions,
     output: &'buffer mut Vec<u8>,
-    // output: Rc<RefCell<Vec<u8>>>,
     set_output: alloc::collections::BTreeMap<Tag, Vec<u8>>,
     extension_fields: [Option<Vec<u8>>; ECL],
     is_extension_sequence: bool,
     root_bitfield: (usize, [(bool, Tag); RCL]),
     extension_bitfield: (usize, [bool; ECL]),
     number_optional_default_fields: usize,
-    _marker: PhantomData<&'buffer ()>,
 }
 
 // ITU-T X.696 8.2.1 Only the following constraints are OER-visible:
@@ -106,15 +102,12 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         Self {
             options,
             output: buffer,
-            // output: Cow::Owned(RefCell::new(Vec::with_capacity(base_capacity))),
-            // output: Rc::new(RefCell::new(Vec::with_capacity(base_capacity))),
             set_output: <_>::default(),
             extension_fields: [(); ECL].map(|_| None),
             is_extension_sequence: bool::default(),
             root_bitfield: (0, [(false, Tag::new_private(0)); RCL]),
             extension_bitfield: (0, [false; ECL]),
             number_optional_default_fields: 0,
-            _marker: PhantomData,
         }
     }
 
@@ -131,7 +124,6 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
             extension_fields: [(); ECL].map(|_| None),
             is_extension_sequence: bool::default(),
             number_optional_default_fields: 0,
-            _marker: PhantomData,
         }
     }
 
@@ -142,8 +134,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
     /// Takes and returns the current output buffer, clearing the internal storage.
     #[must_use]
     pub fn output(&mut self) -> Vec<u8> {
-        // core::mem::take(&mut *self.output.borrow_mut())
-        core::mem::take(&mut self.output.as_mut())
+        core::mem::take(self.output)
     }
 
     // `BTreeMap` is used to maintain the order of the fields in [SET], relying on the `Ord` trait of the [Tag] type.
@@ -185,8 +176,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
     fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
         if self.options.set_encoding {
             // If not using mem::take here, remember to call output.clear() after encoding
-            self.set_output
-                .insert(tag, core::mem::take(&mut self.output));
+            self.set_output.insert(tag, core::mem::take(self.output));
         }
         Ok(())
     }
@@ -473,7 +463,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
     fn encode_constructed<const RC: usize, const EC: usize, C: Constructed<RC, EC>>(
         &mut self,
         tag: Tag,
-        mut encoder: Encoder<RC, EC>,
+        preamble_start: usize,
     ) -> Result<(), EncodeError> {
         // ### PREAMBLE ###
         // Section 16.2.2
@@ -481,24 +471,22 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         let mut preamble_index = 0;
         let mut extensions_present = false;
         if C::IS_EXTENSIBLE {
-            extensions_present = encoder.extension_bitfield.1.iter().any(|b| *b);
+            extensions_present = self.extension_bitfield.1.iter().any(|b| *b);
             // In case we have no any components in the root component list, we need to set extension present bit with other means later on
             if RC > 0 {
                 preamble.set(0, extensions_present);
                 preamble_index += 1;
             }
         }
-        let required_present = C::FIELDS.has_required_field();
         // Section 16.2.3
-        let (needed, option_bitfield) = if encoder.options.set_encoding {
+        let (needed, option_bitfield) = if self.options.set_encoding {
             // In set encoding, tags must be unique so we just sort them to be in canonical order for preamble
-            encoder
-                .root_bitfield
+            self.root_bitfield
                 .1
                 .sort_by(|(_, tag1), (_, tag2)| tag1.cmp(tag2));
-            encoder.root_bitfield
+            self.root_bitfield
         } else {
-            encoder.root_bitfield
+            self.root_bitfield
         };
         debug_assert!(C::FIELDS.number_of_optional_and_default_fields() == needed);
         for (bit, _tag) in option_bitfield[..needed].iter() {
@@ -516,21 +504,22 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
                 self.output
                     .push(if extensions_present { 0b1000_0000 } else { 0 });
             } else {
-                self.output
-                    .extend_from_slice(&preamble.as_raw_slice()[..total_bits / 8]);
+                // replace reserved preamble position with correct values, starting from preamble_start index
+                if self.options.set_encoding {
+                    self.output
+                        .extend_from_slice(&preamble.as_raw_slice()[..total_bits / 8]);
+                } else {
+                    self.output[preamble_start..preamble_start + total_bits / 8]
+                        .copy_from_slice(&preamble.as_raw_slice()[..total_bits / 8]);
+                }
             }
         }
         // Section 16.3 ### Encodings of the components in the extension root ###
-        if option_bitfield[..needed].iter().any(|(bit, _tag)| *bit) || required_present {
-            if encoder.options.set_encoding {
-                encoder.collect_set();
-            }
-            self.output.append(&mut encoder.output());
-        }
         if !C::IS_EXTENSIBLE || !extensions_present {
             self.extend(tag)?;
             return Ok(());
         }
+
         // Section 16.4 ### Extension addition presence bitmap ###
 
         let mut extension_bitmap_buffer: BitArray<[u8; EC], Msb0> = BitArray::default();
@@ -538,7 +527,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         debug_assert!((EC + 8 + missing_bits as usize) % 8 == 0);
         self.encode_length((8 + EC + missing_bits as usize) / 8)?;
         self.output.extend(missing_bits.to_be_bytes());
-        for (i, bit) in encoder.extension_bitfield.1.iter().enumerate() {
+        for (i, bit) in self.extension_bitfield.1.iter().enumerate() {
             extension_bitmap_buffer.set(i, *bit);
         }
         // The size of EC is always at least 1 byte if extensions present, so full octet will always fit
@@ -546,12 +535,10 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
             &extension_bitmap_buffer.as_raw_slice()[..(EC + missing_bits as usize) / 8],
         );
 
+        let mut extension_data =
+            core::mem::replace(&mut self.extension_fields, [(); EFC].map(|_| None));
         // Section 16.5 # Encodings of the components in the extension addition group, as open type
-        for field in encoder
-            .extension_fields
-            .iter_mut()
-            .filter_map(Option::as_mut)
-        {
+        for field in extension_data.iter_mut().filter_map(Option::as_mut) {
             self.encode_length(field.len())?;
             self.output.append(field);
         }
@@ -867,11 +854,6 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         C: Constructed<RL, EL>,
         F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
     {
-        // let out = match &self.output {
-        //     Cow::Borrowed(buf) => buf,
-        //     Cow::Owned(buf) => buf,
-        // };
-        // let output_clone = Rc::clone(&self.output);
         let mut encoder =
             Encoder::<'this, RL, EL>::from_buffer(self.options.without_set_encoding(), self.output);
         encoder.number_optional_default_fields = C::FIELDS.number_of_optional_and_default_fields();
@@ -884,95 +866,8 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         {
             encoder.output.push(0);
         }
-
         encoder_scope(&mut encoder)?;
-        // ### PREAMBLE ###
-        // Section 16.2.2
-        let mut preamble = BitArray::<[u8; RL], Msb0>::default();
-        let mut preamble_index = 0;
-        let mut extensions_present = false;
-        if C::IS_EXTENSIBLE {
-            extensions_present = encoder.extension_bitfield.1.iter().any(|b| *b);
-            // In case we have no any components in the root component list, we need to set extension present bit with other means later on
-            if RL > 0 {
-                preamble.set(0, extensions_present);
-                preamble_index += 1;
-            }
-        }
-        let required_present = C::FIELDS.has_required_field();
-        // Section 16.2.3
-        let (needed, option_bitfield) = if encoder.options.set_encoding {
-            // In set encoding, tags must be unique so we just sort them to be in canonical order for preamble
-            encoder
-                .root_bitfield
-                .1
-                .sort_by(|(_, tag1), (_, tag2)| tag1.cmp(tag2));
-            encoder.root_bitfield
-        } else {
-            encoder.root_bitfield
-        };
-        debug_assert!(C::FIELDS.number_of_optional_and_default_fields() == needed);
-        for (bit, _tag) in option_bitfield[..needed].iter() {
-            preamble.set(preamble_index, *bit);
-            preamble_index += 1;
-        }
-        // 16.2.4 - fill missing bits from full octet with zeros
-        let missing_bits = (8 - ((C::IS_EXTENSIBLE as usize + needed) & 7)) & 7;
-        let total_bits = C::IS_EXTENSIBLE as usize + needed + missing_bits;
-        debug_assert!(total_bits % 8 == 0);
-        // Whether we need preamble
-        if needed > 0 || C::IS_EXTENSIBLE {
-            // `.as_raw_slice` seems to be faster than `BitSlice::domain()`
-            if RL == 0 && C::IS_EXTENSIBLE {
-                // self.output
-                //     .push(if extensions_present { 0b1000_0000 } else { 0 });
-            } else {
-                // replace reserved preamble position with correct values, starting from preamble_start index
-                // self.output[preamble_start..preamble_start + total_bits / 8]
-                //     .copy_from_slice(&preamble.as_raw_slice()[..total_bits / 8]);
-                // self.output
-                //     .borrow_mut()
-                //     .extend_from_slice(&preamble.as_raw_slice()[..total_bits / 8]);
-            }
-        }
-        // Section 16.3 ### Encodings of the components in the extension root ###
-        // if option_bitfield[..needed].iter().any(|(bit, _tag)| *bit) || required_present {
-        if encoder.options.set_encoding {
-            encoder.collect_set();
-        }
-        // encoder.output.borrow_mut().append(&mut encoder.output());
-        // }
-        if !C::IS_EXTENSIBLE || !extensions_present {
-            // self.extend(tag)?;
-            return Ok(());
-        }
-        // Section 16.4 ### Extension addition presence bitmap ###
-
-        let mut extension_bitmap_buffer: BitArray<[u8; EL], Msb0> = BitArray::default();
-        let missing_bits: u8 = if EL > 0 { (8 - (EL & 7) as u8) & 7 } else { 0 };
-        debug_assert!((EL + 8 + missing_bits as usize) % 8 == 0);
-        // self.encode_length((8 + EL + missing_bits as usize) / 8)?;
-        // self.output.extend(missing_bits.to_be_bytes());
-        for (i, bit) in encoder.extension_bitfield.1.iter().enumerate() {
-            extension_bitmap_buffer.set(i, *bit);
-        }
-        // The size of EC is always at least 1 byte if extensions present, so full octet will always fit
-        // self.output.extend_from_slice(
-        //     &extension_bitmap_buffer.as_raw_slice()[..(EL + missing_bits as usize) / 8],
-        // );
-
-        // Section 16.5 # Encodings of the components in the extension addition group, as open type
-        for field in encoder
-            .extension_fields
-            .iter_mut()
-            .filter_map(Option::as_mut)
-        {
-            // self.encode_length(field.len())?;
-            // self.output.append(field);
-        }
-        // self.extend(tag)?;
-        Ok(())
-        // self.encode_constructed::<RL, EL, C>(tag, encoder)
+        encoder.encode_constructed::<RL, EL, C>(tag, preamble_start)
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -1013,8 +908,8 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         {
             encoder_scope(&mut encoder)?;
         }
-        // self.encode_constructed::<RL, EL, C>(tag, encoder)?;
-        // self.collect_set();
+        encoder.encode_constructed::<RL, EL, C>(tag, 0)?;
+        encoder.collect_set();
         Ok(())
     }
 
@@ -1142,7 +1037,7 @@ mod tests {
         const CONSTRAINT_1: Constraints = constraints!(value_constraint!(0, 255));
         // let mut encoder = Encoder::<0>::default();
         let mut buffer = vec![];
-        let mut encoder = Encoder::new(EncoderOptions::coer(), &mut buffer);
+        let mut encoder = Encoder::<0, 0>::new(EncoderOptions::coer(), &mut buffer);
         let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &CONSTRAINT_1, &244);
         assert!(result.is_ok());
         let v = vec![244u8];
@@ -1158,7 +1053,7 @@ mod tests {
         let constraints = Constraints::default();
         // let mut encoder = Encoder::<0>::default();
         let mut buffer = vec![];
-        let mut encoder = Encoder::new(EncoderOptions::coer(), &mut buffer);
+        let mut encoder = Encoder::<0, 0>::new(EncoderOptions::coer(), &mut buffer);
         let result =
             encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &BigInt::from(244));
         assert!(result.is_ok());
@@ -1179,7 +1074,7 @@ mod tests {
         let constraints = Constraints::default();
         // let mut encoder = Encoder::<0>::default();
         let mut buffer = vec![];
-        let mut encoder = Encoder::new(EncoderOptions::coer(), &mut buffer);
+        let mut encoder = Encoder::<0, 0>::new(EncoderOptions::coer(), &mut buffer);
 
         // Signed integer with byte length of 128
         // Needs long form to represent
@@ -1214,7 +1109,7 @@ mod tests {
             Medium(Integer),
         }
         let mut buffer = vec![];
-        let mut encoder = Encoder::new(EncoderOptions::coer(), &mut buffer);
+        let mut encoder = Encoder::<0, 0>::new(EncoderOptions::coer(), &mut buffer);
         // let mut encoder = Encoder::<0>::default();
 
         let choice = Choice::Normal(333.into());
