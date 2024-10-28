@@ -3,8 +3,10 @@
 // Modifications:
 // Adds other rasn codecs to the benchmark
 // Adds optional and extended fields for `Color`
+// Use macros to generate the tests
+// Wrap with black_box to prevent the compiler from optimizing out the code
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rasn::{ber, oer, uper};
 
 #[allow(non_camel_case_types, non_snake_case, non_upper_case_globals, unused)]
@@ -117,61 +119,45 @@ pub fn build_sample_rasn() -> world3d::World {
     World { depth }
 }
 
-fn uper_rasn_enc(c: &mut Criterion) {
-    c.bench_function("RASN/encode UPER - sample.asn", |b| {
-        b.iter(|| {
+macro_rules! rasn_enc_fn {
+    ($fn_name:ident, $codec:ident) => {
+        fn $fn_name(c: &mut Criterion) {
+            let items = build_sample_rasn();
+            c.bench_function(
+                &format!(
+                    "RASN/encode {} - extended integer sample",
+                    stringify!($codec).to_uppercase()
+                ),
+                |b| b.iter(|| black_box($codec::encode(&items).unwrap())),
+            );
+        }
+    };
+}
+
+macro_rules! rasn_dec_fn {
+    ($fn_name:ident, $codec:ident) => {
+        fn $fn_name(c: &mut Criterion) {
             let w = build_sample_rasn();
-            let _ = uper::encode(&w).unwrap();
-        })
-    });
-}
-fn oer_rasn_enc(c: &mut Criterion) {
-    c.bench_function("RASN/encode OER - sample.asn", |b| {
-        b.iter(|| {
-            let w = build_sample_rasn();
-            let _ = oer::encode(&w).unwrap();
-        })
-    });
-}
-fn ber_rasn_enc(c: &mut Criterion) {
-    c.bench_function("RASN/encode BER - sample.asn", |b| {
-        b.iter(|| {
-            let w = build_sample_rasn();
-            let _ = ber::encode(&w).unwrap();
-        })
-    });
+            let encoded = $codec::encode(&w).unwrap();
+
+            c.bench_function(
+                &format!(
+                    "RASN/decode {} - extended integer sample",
+                    stringify!($codec).to_uppercase()
+                ),
+                |b| b.iter(|| black_box($codec::decode::<world3d::World>(&encoded).unwrap())),
+            );
+        }
+    };
 }
 
-fn uper_rasn_dec(c: &mut Criterion) {
-    let w = build_sample_rasn();
-    let encoded = uper::encode(&w).unwrap();
+rasn_enc_fn!(uper_rasn_enc, uper);
+rasn_enc_fn!(oer_rasn_enc, oer);
+rasn_enc_fn!(ber_rasn_enc, ber);
 
-    c.bench_function("RASN/decode UPER - sample.asn", |b| {
-        b.iter(|| {
-            let _ = uper::decode::<world3d::World>(&encoded).unwrap();
-        })
-    });
-}
-fn oer_rasn_dec(c: &mut Criterion) {
-    let w = build_sample_rasn();
-    let encoded = oer::encode(&w).unwrap();
-
-    c.bench_function("RASN/decode OER - sample.asn", |b| {
-        b.iter(|| {
-            let _ = oer::decode::<world3d::World>(&encoded).unwrap();
-        })
-    });
-}
-fn ber_rasn_dec(c: &mut Criterion) {
-    let w = build_sample_rasn();
-    let encoded = ber::encode(&w).unwrap();
-
-    c.bench_function("RASN/decode BER - sample.asn", |b| {
-        b.iter(|| {
-            let _ = ber::decode::<world3d::World>(&encoded).unwrap();
-        })
-    });
-}
+rasn_dec_fn!(uper_rasn_dec, uper);
+rasn_dec_fn!(oer_rasn_dec, oer);
+rasn_dec_fn!(ber_rasn_dec, ber);
 
 criterion_group!(
     benches,
