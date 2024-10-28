@@ -408,20 +408,20 @@ impl TryFrom<Bounded<usize>> for Value {
 pub struct Size(pub(crate) Bounded<usize>);
 
 impl Size {
-    #[must_use]
     /// Creates a varying range constraint.
+    #[must_use]
     pub const fn new(range: Bounded<usize>) -> Self {
         Self(range)
     }
 
-    #[must_use]
     /// Creates a fixed size constraint.
+    #[must_use]
     pub const fn fixed(length: usize) -> Self {
         Self(Bounded::Single(length))
     }
 
-    #[must_use]
     /// Returns whether the size is fixed.
+    #[must_use]
     pub const fn is_fixed(&self) -> bool {
         matches!(self.0, Bounded::Single(_))
     }
@@ -490,7 +490,6 @@ pub enum Bounded<T> {
 impl<T> Bounded<T> {
     /// Calculates the the amount of bytes that are required to represent integer `value`.
     /// Particularly useful for OER codec
-    #[inline(always)]
     const fn octet_size_by_range(value: i128) -> Option<u8> {
         let abs_value = value.unsigned_abs();
         Some(if abs_value <= u8::MAX as u128 {
