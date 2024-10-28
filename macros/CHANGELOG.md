@@ -6,6 +6,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.3](https://github.com/librasn/rasn/compare/rasn-derive-v0.20.2...rasn-derive-v0.20.3) - 2024-10-28
+
+### Fixed
+
+- Don't override generics impl in proc-macros on encode impl ([#354](https://github.com/librasn/rasn/pull/354))
+- decoding of extended fields in sequence in BER ([#351](https://github.com/librasn/rasn/pull/351))
+
+### Other
+
+- Optimize field presence tracking of default/optional/extended fields ([#324](https://github.com/librasn/rasn/pull/324))
+- Disallow structs without fields for a `set` ([#352](https://github.com/librasn/rasn/pull/352))
+- update dependencies
+
 ## [0.20.2](https://github.com/librasn/rasn/compare/rasn-derive-v0.20.1...rasn-derive-v0.20.2) - 2024-10-18
 
 ### Fixed

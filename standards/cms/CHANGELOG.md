@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.3](https://github.com/librasn/rasn/compare/rasn-cms-v0.20.2...rasn-cms-v0.20.3) - 2024-10-28
+
+### Fixed
+
+- Fix most issues related to dependency update, except hashbrown version ([#349](https://github.com/librasn/rasn/pull/349))
+
+### Other
+
+- Optimize field presence tracking of default/optional/extended fields ([#324](https://github.com/librasn/rasn/pull/324))
+
 ## [0.20.2](https://github.com/librasn/rasn/compare/rasn-cms-v0.20.1...rasn-cms-v0.20.2) - 2024-10-18
 
 ### Fixed
