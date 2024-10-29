@@ -19,4 +19,3 @@ proc-macro2 = "1.0.88"
 itertools = "0.13"
 uuid = { version = "1.11.0", default-features = false, features = ["v4"] }
 either = { version = "1.13.0", default-features = false }
-rayon = "1.10.0"
