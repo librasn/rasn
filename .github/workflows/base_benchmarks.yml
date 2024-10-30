@@ -12,6 +12,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: bencherdev/bencher@main
       - run: cargo install iai-callgrind-runner@0.14.0
+      - run: sudo apt update && sudo apt install -y valgrind
       - name: Track base branch benchmarks with Bencher
         run: |
           bencher run \
