@@ -1254,14 +1254,12 @@ impl StringValue {
                 values.push(StringRange::Range(start, end + is_inclusive as u32));
             }
         }
-
         let into_flat_set = |constraints: Vec<_>| {
-            use rayon::prelude::*;
             let mut set = constraints
                 .iter()
                 .flat_map(|from| match from {
                     StringRange::Single(value) => vec![*value],
-                    StringRange::Range(start, end) => (*start..*end).into_par_iter().collect(),
+                    StringRange::Range(start, end) => (*start..*end).collect::<Vec<u32>>(),
                 })
                 .collect::<Vec<u32>>();
             set.sort();
