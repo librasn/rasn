@@ -52,6 +52,7 @@ test = true
 name = "iai"
 path = "benches/iai.rs"
 harness = false
+bench = false
 
 [[bench]]
 name = "criterion_integer"
