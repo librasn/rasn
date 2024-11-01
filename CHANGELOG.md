@@ -6,6 +6,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0](https://github.com/librasn/rasn/compare/rasn-v0.20.2...rasn-v0.21.0) - 2024-11-01
+
+### Fixed
+
+- split iai and criterion benches, use correct adapters ([#366](https://github.com/librasn/rasn/pull/366))
+- cleanup some unnecessary dependencies ([#362](https://github.com/librasn/rasn/pull/362))
+- remove version pin from release-plz ([#356](https://github.com/librasn/rasn/pull/356))
+- Don't override generics impl in proc-macros on encode impl ([#354](https://github.com/librasn/rasn/pull/354))
+- pin release-plz version until fixed ([#353](https://github.com/librasn/rasn/pull/353))
+- decoding of extended fields in sequence in BER ([#351](https://github.com/librasn/rasn/pull/351))
+- Fix most issues related to dependency update, except hashbrown version ([#349](https://github.com/librasn/rasn/pull/349))
+
+### Other
+
+- Update README.md
+- Update README.md
+- Remove dependency on rayon ([#363](https://github.com/librasn/rasn/pull/363))
+- Extract proc macro into own crate ([#364](https://github.com/librasn/rasn/pull/364))
+- Update base_benchmarks.yml
+- Attempt to fix base benchmarks on CI ([#365](https://github.com/librasn/rasn/pull/365))
+- Update base_benchmarks.yml
+- Update base_benchmarks.yml
+- Create base_benchmarks.yml
+- Update from iai to iai-callgrind ([#358](https://github.com/librasn/rasn/pull/358))
+- black box integer test, use macros ([#360](https://github.com/librasn/rasn/pull/360))
+- Optimize field presence tracking of default/optional/extended fields ([#324](https://github.com/librasn/rasn/pull/324))
+- run x509 benches only on x86_64 or aarch64 ([#355](https://github.com/librasn/rasn/pull/355))
+- Add other X.509 libraries to bench
+- update dependencies
+- update lockfile
+- update lockfile
+- Create FUNDING.yml
+
 ## [0.20.2](https://github.com/librasn/rasn/compare/rasn-v0.20.1...rasn-v0.20.2) - 2024-10-18
 
 ### Fixed
