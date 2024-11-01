@@ -85,7 +85,7 @@ snafu = { version = "0.8.5", default-features = false, features = [
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = { version = "0.5.1", default-features = false, features = ["plotters", "cargo_bench_support"] }
 iai-callgrind = "0.14.0"
 once_cell = "1.20.2"
 pretty_assertions.workspace = true
