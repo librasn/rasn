@@ -1,19 +1,3 @@
-#[macro_use]
-extern crate quote;
-
-mod asn_type;
-mod config;
-mod decode;
-mod encode;
-mod r#enum;
-mod ext;
-mod tag;
-
-use config::Config;
-use syn::DataStruct;
-
-const CRATE_NAME: &str = "rasn";
-
 /// Helper function print out the derive.
 fn __print_stream(stream: proc_macro2::TokenStream) -> proc_macro::TokenStream {
     println!("{}", stream);
@@ -27,39 +11,9 @@ fn __print_stream(stream: proc_macro2::TokenStream) -> proc_macro::TokenStream {
 /// on available attributes.
 #[proc_macro_derive(Decode, attributes(rasn))]
 pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let config = Config::from_attributes(&input);
-    let name = input.ident;
-    let generics = input.generics;
-    let crate_root = &config.crate_root;
-
-    match input.data {
-        // Unit structs are treated as ASN.1 NULL values.
-        syn::Data::Struct(DataStruct {
-            fields: syn::Fields::Unit,
-            ..
-        }) => quote! {
-            impl #crate_root::Decode for #name {
-                fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(
-                    decoder: &mut D,
-                    tag: #crate_root::types::Tag,
-                    _: #crate_root::prelude::Constraints,
-                ) -> Result<Self, D::Error> {
-                    decoder.decode_null(tag).map(|_| #name)
-                }
-            }
-        },
-        syn::Data::Struct(v) => decode::derive_struct_impl(name, generics, v, &config),
-        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
-            name,
-            generics,
-            variants,
-            config,
-        }
-        .impl_decode(),
-        _ => panic!("Union types are not supported."),
-    }
-    .into()
+    rasn_derive_impl::decode_derive_inner(input.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 /// An automatic derive of the `Encode` trait.
@@ -69,42 +23,9 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 /// on available attributes.
 #[proc_macro_derive(Encode, attributes(rasn))]
 pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // Parse the input tokens into a syntax tree
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let config = Config::from_attributes(&input);
-
-    let name = input.ident;
-    let generics = input.generics;
-    let crate_root = &config.crate_root;
-
-    match input.data {
-        // Unit structs are treated as ASN.1 NULL values.
-        syn::Data::Struct(DataStruct {
-            fields: syn::Fields::Unit,
-            ..
-        }) => quote! {
-            impl #crate_root::Encode for #name {
-                fn encode_with_tag_and_constraints<E: #crate_root::Encoder>(
-                    &self,
-                    encoder: &mut E,
-                    tag: #crate_root::types::Tag,
-                    _: #crate_root::prelude::Constraints,
-                ) -> Result<(), E::Error> {
-                    encoder.encode_null(tag).map(drop)
-                }
-            }
-        },
-        syn::Data::Struct(v) => encode::derive_struct_impl(name, generics, v, &config),
-        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
-            name,
-            generics,
-            variants,
-            config,
-        }
-        .impl_encode(),
-        _ => todo!(),
-    }
-    .into()
+    rasn_derive_impl::encode_derive_inner(input.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
 
 /// An automatic derive of the `AsnType` trait.
@@ -127,22 +48,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 ///   uses the inner `T` type for implementing the trait.
 #[proc_macro_derive(AsnType, attributes(rasn))]
 pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    // Parse the input tokens into a syntax tree
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let config = Config::from_attributes(&input);
-    let name = input.ident;
-    let generics = input.generics;
-
-    match input.data {
-        syn::Data::Struct(v) => asn_type::derive_struct_impl(name, generics, v, &config),
-        syn::Data::Enum(syn::DataEnum { variants, .. }) => r#enum::Enum {
-            name,
-            generics,
-            variants,
-            config,
-        }
-        .impl_asntype(),
-        _ => panic!("Union types are not supported."),
-    }
-    .into()
+    rasn_derive_impl::asn_type_derive_inner(input.into())
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
 }
