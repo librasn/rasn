@@ -3,6 +3,7 @@
 
 extern crate alloc;
 
+pub mod algorithms;
 pub mod attribute_certificate;
 pub mod est;
 
