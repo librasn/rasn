@@ -31,6 +31,7 @@ pub type MessageId = u32;
 /// We can use Rust `String` type to represent this type, see
 /// <https://github.com/librasn/rasn/issues/304> and <https://www.unicode.org/faq/unicode_iso.html>
 #[derive(AsnType, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+#[rasn(tag(universal, 4))]
 pub struct LdapString(pub String);
 
 impl core::ops::Deref for LdapString {
@@ -61,11 +62,11 @@ impl rasn::Encode for LdapString {
     fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
         &self,
         encoder: &mut EN,
-        _tag: rasn::types::Tag,
+        tag: rasn::types::Tag,
         constraints: rasn::types::Constraints,
     ) -> core::result::Result<(), EN::Error> {
         encoder.encode_octet_string(
-            rasn::types::Tag::OCTET_STRING,
+            tag,
             constraints,
             self.0.as_bytes(),
         )?;
@@ -75,10 +76,10 @@ impl rasn::Encode for LdapString {
 impl rasn::Decode for LdapString {
     fn decode_with_tag_and_constraints<D: rasn::Decoder>(
         decoder: &mut D,
-        _tag: rasn::types::Tag,
+        tag: rasn::types::Tag,
         constraints: rasn::types::Constraints,
     ) -> core::result::Result<Self, D::Error> {
-        String::from_utf8(decoder.decode_octet_string(rasn::types::Tag::OCTET_STRING, constraints)?)
+        String::from_utf8(decoder.decode_octet_string(tag, constraints)?)
             .map_err(|error| {
                 rasn::de::Error::custom(
                     alloc::format!("LdapString not valid UTF-8: {error}"),
