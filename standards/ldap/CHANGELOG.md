@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0](https://github.com/librasn/rasn/compare/rasn-ldap-v0.20.2...rasn-ldap-v0.21.0) - 2024-11-12
+
+### Fixed
+
+- *(ldap)* correct tag handing in Decoder and Encoder impls for LdapString ([#369](https://github.com/librasn/rasn/pull/369))
+
 ## [0.20.2](https://github.com/librasn/rasn/compare/rasn-ldap-v0.20.1...rasn-ldap-v0.20.2) - 2024-10-18
 
 ### Fixed

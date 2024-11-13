@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0](https://github.com/librasn/rasn/compare/rasn-credssp-v0.20.2...rasn-credssp-v0.21.0) - 2024-11-12
+
+### Other
+
+- Update README.md
+
 ## [0.8.0](https://github.com/XAMPPRocky/rasn/compare/rasn-cap-v0.7.0...rasn-cap-v0.8.0) - 2023-07-11
 
 ### Other
