@@ -536,7 +536,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         );
 
         let mut extension_data =
-            core::mem::replace(&mut self.extension_fields, [(); EFC].map(|_| None));
+            core::mem::replace(&mut self.extension_fields, [(); ECL].map(|_| None));
         // Section 16.5 # Encodings of the components in the extension addition group, as open type
         for field in extension_data.iter_mut().filter_map(Option::as_mut) {
             self.encode_length(field.len())?;

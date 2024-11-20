@@ -331,11 +331,7 @@ impl Enum {
         };
 
         quote! {
-<<<<<<< HEAD
-            fn encode_with_tag_and_constraints<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<(), EN::Error> {
-=======
-            fn encode_with_tag_and_constraints<'b, 'constraints, EN: #crate_root::Encoder<'b>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
->>>>>>> 7fe16e7 (Save work for lifetime version of nested output,buffer, RC seems better)
+            fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<(), EN::Error> {
                 #operation
             }
         }
