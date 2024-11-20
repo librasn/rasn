@@ -65,11 +65,7 @@ impl rasn::Encode for LdapString {
         tag: rasn::types::Tag,
         constraints: rasn::types::Constraints,
     ) -> core::result::Result<(), EN::Error> {
-        encoder.encode_octet_string(
-            tag,
-            constraints,
-            self.0.as_bytes(),
-        )?;
+        encoder.encode_octet_string(tag, constraints, self.0.as_bytes())?;
         Ok(())
     }
 }
