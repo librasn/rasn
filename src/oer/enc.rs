@@ -96,23 +96,8 @@ pub struct Encoder<'buffer, const RCL: usize = 0, const ECL: usize = 0> {
 // Tags are encoded only as part of the encoding of a choice type, where the tag indicates
 // which alternative of the choice type is the chosen alternative (see 20.1).
 impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
-    /// Constructs a new encoder with its own buffer from the provided options.
     #[must_use]
-    pub fn new(options: EncoderOptions, buffer: &'buffer mut Vec<u8>) -> Self {
-        Self {
-            options,
-            output: buffer,
-            set_output: <_>::default(),
-            extension_fields: [(); ECL].map(|_| None),
-            is_extension_sequence: bool::default(),
-            root_bitfield: (0, [(false, Tag::new_private(0)); RCL]),
-            extension_bitfield: (0, [false; ECL]),
-            number_optional_default_fields: 0,
-        }
-    }
-
     /// Constructs a new encoder from options that borrows the buffer from output.
-    // pub fn from_buffer(options: EncoderOptions, output: &'buffer RefCell<Vec<u8>>) -> Self {
     pub fn from_buffer(options: EncoderOptions, output: &'buffer mut Vec<u8>) -> Self {
         // pub fn from_buffer(options: EncoderOptions, output: &'buffer RefCell<Vec<u8>>) -> Self {
         Self {
@@ -879,8 +864,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         // It seems that constraints here are not C/OER visible? No mention in standard...
         self.encode_unconstrained_integer(&value.len(), false)?;
         self.output.reserve(core::mem::size_of_val(value));
-        // let output_clone = Rc::clone(&self.output);
-        // let mut encoder = Encoder::<0>::from_buffer(self.options, output_clone);
+
         let mut encoder = Encoder::<0>::from_buffer(self.options, self.output);
         {
             for one in value {
@@ -898,12 +882,11 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     ) -> Result<Self::Ok, Self::Error>
     where
         C: Constructed<RL, EL>,
-        // F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
         F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut options = self.options;
         options.set_encoding = true;
-        let mut encoder = Encoder::<RL, EL>::new(options, self.output);
+        let mut encoder = Encoder::<RL, EL>::from_buffer(options, self.output);
         encoder.number_optional_default_fields = C::FIELDS.number_of_optional_and_default_fields();
         {
             encoder_scope(&mut encoder)?;
@@ -1035,9 +1018,8 @@ mod tests {
     #[test]
     fn test_encode_integer_manual_setup() {
         const CONSTRAINT_1: Constraints = constraints!(value_constraint!(0, 255));
-        // let mut encoder = Encoder::<0>::default();
         let mut buffer = vec![];
-        let mut encoder = Encoder::<0, 0>::new(EncoderOptions::coer(), &mut buffer);
+        let mut encoder = Encoder::<0, 0>::from_buffer(EncoderOptions::coer(), &mut buffer);
         let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &CONSTRAINT_1, &244);
         assert!(result.is_ok());
         let v = vec![244u8];
@@ -1051,9 +1033,8 @@ mod tests {
     fn test_integer_with_length_determinant() {
         // Using defaults, no limits
         let constraints = Constraints::default();
-        // let mut encoder = Encoder::<0>::default();
         let mut buffer = vec![];
-        let mut encoder = Encoder::<0, 0>::new(EncoderOptions::coer(), &mut buffer);
+        let mut encoder = Encoder::<0, 0>::from_buffer(EncoderOptions::coer(), &mut buffer);
         let result =
             encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &BigInt::from(244));
         assert!(result.is_ok());
@@ -1072,9 +1053,8 @@ mod tests {
     #[test]
     fn test_large_lengths() {
         let constraints = Constraints::default();
-        // let mut encoder = Encoder::<0>::default();
         let mut buffer = vec![];
-        let mut encoder = Encoder::<0, 0>::new(EncoderOptions::coer(), &mut buffer);
+        let mut encoder = Encoder::<0, 0>::from_buffer(EncoderOptions::coer(), &mut buffer);
 
         // Signed integer with byte length of 128
         // Needs long form to represent
@@ -1109,8 +1089,7 @@ mod tests {
             Medium(Integer),
         }
         let mut buffer = vec![];
-        let mut encoder = Encoder::<0, 0>::new(EncoderOptions::coer(), &mut buffer);
-        // let mut encoder = Encoder::<0>::default();
+        let mut encoder = Encoder::<0, 0>::from_buffer(EncoderOptions::coer(), &mut buffer);
 
         let choice = Choice::Normal(333.into());
         choice.encode(&mut encoder).unwrap();

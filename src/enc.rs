@@ -64,14 +64,14 @@ pub trait Encode: AsnType {
 ///
 /// Const `RCL` is the count of root components in the root component list of a sequence or set.
 /// Const `ECL` is the count of extension additions in the extension addition component type list in a sequence or set.
-pub trait Encoder<'buffer, const RCL: usize = 0, const ECL: usize = 0> {
+pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     /// The associated success type returned on success.
     type Ok;
     /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
     /// Helper type for encoding recursive `Encoder` instances with different `RCL` or  `ECL` values.
-    type AnyEncoder<'this, const R: usize, const E: usize>: Encoder<
-        'this,
+    type AnyEncoder<'other_encoder, const R: usize, const E: usize>: Encoder<
+        'other_encoder,
         RCL,
         ECL,
         Ok = Self::Ok,
