@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(not(test), no_std)]
+// #![cfg_attr(not(test), no_std)]
 #![warn(missing_docs)]
 
 extern crate alloc;
@@ -141,7 +141,7 @@ mod tests {
 
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
-            const CONSTRAINTS: Constraints<'static> =
+            const CONSTRAINTS: Constraints =
                 macros::constraints!(macros::value_constraint!(start: 127));
         }
 

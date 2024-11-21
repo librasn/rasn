@@ -66,7 +66,7 @@ impl<const N: usize> core::ops::DerefMut for FixedOctetString<N> {
 
 impl<const N: usize> AsnType for FixedOctetString<N> {
     const TAG: Tag = Tag::OCTET_STRING;
-    const CONSTRAINTS: Constraints<'static> = constraints!(size_constraint!(N));
+    const CONSTRAINTS: Constraints = constraints!(size_constraint!(N));
 }
 
 impl<const N: usize> Decode for FixedOctetString<N> {

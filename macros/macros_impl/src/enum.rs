@@ -116,7 +116,7 @@ impl Enum {
                 const VARIANTS: &'static [#crate_root::types::TagTree] = &[
                     #(#base_variants),*
                 ];
-                const VARIANCE_CONSTRAINT: #crate_root::types::Constraints<'static> = #variance_constraint;
+                const VARIANCE_CONSTRAINT: #crate_root::types::Constraints = #variance_constraint;
                 const EXTENDED_VARIANTS: Option<&'static [#crate_root::types::TagTree]> = #extended_const_variants;
                 const IDENTIFIERS: &'static [&'static str] = &[
                     #(#identifiers),*

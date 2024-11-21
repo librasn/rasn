@@ -54,7 +54,7 @@ pub fn derive_struct_impl(
                 // let (data, test) = <#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
                 //     constraints
                 // );
-                let merged  = <#ty as #crate_root::AsnType>::CONSTRAINTS.merge(
+                let merged  = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(
                     constraints
                 );
                 // dbg!(&data[..test]);
@@ -62,7 +62,7 @@ pub fn derive_struct_impl(
                 // let constraint : #crate_root::types::Constraints = #crate_root::types::Constraints::new(&data[..test]);
                 // dbg!(&constraint);
                 // let merged = <#ty as #crate_root::AsnType>::CONSTRAINTS.merge(constraint);
-                let merged_constraints : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&merged);
+                // let merged_constraints : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&merged);
                 // dbg!(constraintts);
                 // dbg!(#constraint_name);
                 // dbg!(&constraints);
@@ -80,7 +80,8 @@ pub fn derive_struct_impl(
                             // constraints
                             // Correct but misses override..
                             // #constraint_name
-                            merged_constraints
+                            merged
+                            // merged_constraints
                             // Empty
                             // <#ty as #crate_root::AsnType>::CONSTRAINTS,
                         )

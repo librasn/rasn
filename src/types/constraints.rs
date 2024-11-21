@@ -4,42 +4,81 @@ use super::IntegerType;
 use num_bigint::BigInt;
 
 // TODO type can have multiple constraints of same kind, up to infinite
-const SUPPORTED_CONSTRAINTS_COUNT: usize = 5;
+// const SUPPORTED_CONSTRAINTS_COUNT: usize = 5;
+
+// ASN.1 has typically union and intersection constraints
+// add union and intersection methods?
+// Typically constraints must match all the constraints applied to them, so unless specified otherwise
+// we should use intersection for these constraints.
 
 /// A set of constraints for a given type on what kinds of values are allowed.
 /// Used in certain codecs to optimise encoding and decoding values.
+///
+/// The effective constraint is typically the intersection or union among other constraints.
+/// As a result, we can store one constraint of each kind, updated with the latest constraint.
+///
+/// TODO architecture needs a re-design - multple different-style value constraints are allowed
+/// for example, value constraint can have multiple single values, or a range of values which do not overlap.
 #[derive(Debug, Clone)]
-pub struct Constraints<'constraint>(pub &'constraint [Constraint]);
+#[non_exhaustive]
+pub struct Constraints {
+    value: Option<Extensible<Value>>,
+    size: Option<Extensible<Size>>,
+    permitted_alphabet: Option<Extensible<PermittedAlphabet>>,
+    extensible: bool,
+}
 
-impl<'constraint> Constraints<'constraint> {
+impl<'constraint> Constraints {
     /// Empty constraints.
-    pub const NONE: Self = Self(&[]);
+    pub const NONE: Self = Self {
+        value: None,
+        size: None,
+        permitted_alphabet: None,
+        extensible: false,
+    };
 
     /// Creates a new set of constraints from a given slice.
     pub const fn new(constraints: &'constraint [Constraint]) -> Self {
-        Self(constraints)
-    }
-    /// Returns the inner constraints.
-    pub const fn inner(&self) -> &'constraint [Constraint] {
-        self.0
-    }
-    /// We currently only support 5 different constraint types, which includes the empty constraint.
-    /// `usize` is used to drop the empty ones, which are needed to initialize the array.
-    pub const fn from_fixed_size(
-        merged: &'constraint ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize),
-    ) -> Self {
-        if merged.1 == 0 {
-            return Self::NONE;
-        }
-        struct ConstraintArray<'a, const N: usize>(&'a [Constraint; N]);
-
-        impl<'a, const N: usize> ConstraintArray<'a, N> {
-            const fn as_slice(&self) -> &'a [Constraint] {
-                self.0
+        let mut value: Option<Extensible<Value>> = None;
+        let mut size: Option<Extensible<Size>> = None;
+        let mut permitted_alphabet: Option<Extensible<PermittedAlphabet>> = None;
+        let mut extensible = false;
+        let mut i = 0;
+        while i < constraints.len() {
+            match constraints[i] {
+                Constraint::Value(v) => {
+                    value = match value {
+                        Some(value) => Some(value.intersect(&v)),
+                        None => Some(v),
+                    };
+                }
+                Constraint::Size(s) => {
+                    size = if let Some(size) = size {
+                        Some(size.intersect(&s))
+                    } else {
+                        Some(s)
+                    };
+                }
+                Constraint::PermittedAlphabet(p) => {
+                    permitted_alphabet = if let Some(perm) = permitted_alphabet {
+                        Some(perm.intersect(&p))
+                    } else {
+                        Some(p)
+                    };
+                }
+                Constraint::Extensible => {
+                    extensible = true;
+                }
+                Constraint::Empty => {}
             }
+            i += 1;
         }
-        let array = ConstraintArray(&merged.0);
-        Self::new(array.as_slice())
+        Self {
+            value,
+            size,
+            permitted_alphabet,
+            extensible,
+        }
     }
 
     /// A const variant of the default function.
@@ -49,94 +88,71 @@ impl<'constraint> Constraints<'constraint> {
 
     /// Merges a set of constraints with another set, if they don't exist.
     /// This function should be only used on compile-time.
-    #[inline(always)]
-    pub const fn merge(self, rhs: Self) -> ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize) {
-        let rhs = rhs.0;
-        let mut array: [Constraint; SUPPORTED_CONSTRAINTS_COUNT] =
-            [Constraint::Empty; SUPPORTED_CONSTRAINTS_COUNT];
+    pub const fn intersect(&self, rhs: Constraints) -> Self {
+        let value = match (self.value, rhs.value) {
+            (Some(value), Some(rhs_value)) => Some(value.intersect(&rhs_value)),
+            (Some(value), None) => Some(value),
+            (None, Some(rhs_value)) => Some(rhs_value),
+            (None, None) => None,
+        };
+        let size = match (self.size, rhs.size) {
+            (Some(size), Some(rhs_size)) => Some(size.intersect(&rhs_size)),
+            (Some(size), None) => Some(size),
+            (None, Some(rhs_size)) => Some(rhs_size),
+            (None, None) => None,
+        };
+        let permitted_alphabet = match (self.permitted_alphabet, rhs.permitted_alphabet) {
+            (Some(perm), Some(rhs_perm)) => Some(perm.intersect(&rhs_perm)),
+            (Some(perm), None) => Some(perm),
+            (None, Some(rhs_perm)) => Some(rhs_perm),
+            (None, None) => None,
+        };
+        let extensible = self.extensible || rhs.extensible;
 
-        if rhs.len() > SUPPORTED_CONSTRAINTS_COUNT {
-            panic!("Overriding constraint is larger than we have different constraint types")
+        Self {
+            value,
+            size,
+            permitted_alphabet,
+            extensible,
         }
-
-        // Copy rhs first to the array
-        let mut copy_index = 0;
-        while copy_index < rhs.len() {
-            array[copy_index] = rhs[copy_index];
-            copy_index += 1;
-        }
-        let mut si = 0;
-        while si < self.0.len() {
-            let mut found = false;
-            let mut ri = 0;
-            while ri < rhs.len() {
-                if self.0[si].kind().eq(&rhs[ri].kind()) {
-                    found = true;
-                    break;
-                }
-                ri += 1;
-            }
-
-            if !found {
-                if copy_index >= SUPPORTED_CONSTRAINTS_COUNT {
-                    panic!("attempting to copy into greater index than we have different constraint types")
-                }
-                array[copy_index] = self.0[si];
-                copy_index += 1;
-            }
-
-            si += 1;
-        }
-
-        (array, copy_index)
     }
 
     /// Returns the size constraint from the set, if available.
     pub const fn size(&self) -> Option<&Extensible<Size>> {
-        let mut i = 0;
-        while i < self.0.len() {
-            if let Some(size) = self.0[i].to_size() {
-                return Some(size);
-            }
-            i += 1;
-        }
-        None
+        self.size.as_ref()
     }
 
     /// Returns the permitted alphabet constraint from the set, if available.
     pub const fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
-        let mut i = 0;
-        while i < self.0.len() {
-            if let Some(alpha) = self.0[i].as_permitted_alphabet() {
-                return Some(alpha);
-            }
-            i += 1;
-        }
-        None
+        self.permitted_alphabet.as_ref()
     }
 
     /// Returns whether any of the constraints are extensible.
     pub const fn extensible(&self) -> bool {
-        let mut i = 0;
-        while i < self.0.len() {
-            if self.0[i].is_extensible() {
+        if self.extensible {
+            return true;
+        }
+        if let Some(value) = &self.value {
+            if value.extensible.is_some() {
                 return true;
             }
-            i += 1;
+        }
+        if let Some(size) = &self.size {
+            if size.extensible.is_some() {
+                return true;
+            }
+        }
+        if let Some(permitted_alphabet) = &self.permitted_alphabet {
+            if permitted_alphabet.extensible.is_some() {
+                return true;
+            }
         }
         false
     }
 
     /// Returns the value constraint from the set, if available.
     pub const fn value(&self) -> Option<&Extensible<Value>> {
-        let mut i = 0;
-        while i < self.0.len() {
-            if let Some(value) = self.0[i].as_value() {
-                return Some(value);
-            }
-            i += 1;
-        }
-        None
+        self.value.as_ref()
     }
 }
 
@@ -200,6 +216,29 @@ impl Constraint {
             Self::Empty => 4,
         }
     }
+    // pub const fn intersect(&self, other: &Self) -> Self {
+    //     // TODO implement intersection of extensible constraints
+    //     match (self, other) {
+    //         (Self::Value(a), Self::Value(b)) => {
+    //             let is_extensible = a.extensible.is_some() || b.extensible.is_some();
+    //             let a = a.constraint.intersect(&b.constraint);
+    //             Self::Value(Extensible::new(a).set_extensible(is_extensible))
+    //         }
+    //         (Self::Size(a), Self::Size(b)) => {
+    //             let is_extensible = a.extensible.is_some() || b.extensible.is_some();
+    //             let a = a.constraint.intersect(&b.constraint);
+    //             Self::Size(Extensible::new(a).set_extensible(is_extensible))
+    //         }
+    //         (Self::PermittedAlphabet(a), Self::PermittedAlphabet(b)) => {
+    //             let is_extensible = a.extensible.is_some() || b.extensible.is_some();
+    //             let a = a.constraint.intersect(&b.constraint);
+    //             Self::PermittedAlphabet(Extensible::new(a).set_extensible(is_extensible))
+    //         }
+    //         (Self::Extensible, Self::Extensible) => Self::Extensible,
+    //         (Self::Empty, _) | (_, Self::Empty) => Self::Empty,
+    //         _ => Self::Extensible,
+    //     }
+    // }
 
     /// Returns the value constraint, if set.
     pub const fn as_value(&self) -> Option<&Extensible<Value>> {
@@ -255,6 +294,7 @@ pub struct Extensible<T: 'static> {
     pub constraint: T,
     /// Whether the constraint is extensible, and if it is, a list of extensible
     /// constraints.
+    /// Extensibility means that the allowed constraint values can change, not type of the constraint itself.
     pub extensible: Option<&'static [T]>,
 }
 
@@ -295,6 +335,56 @@ impl<T> Extensible<T> {
     pub const fn extensible_with_constraints(mut self, constraints: Option<&'static [T]>) -> Self {
         self.extensible = constraints;
         self
+    }
+}
+
+impl Extensible<Value> {
+    /// Intersects two extensible value constraints.
+    pub const fn intersect(&self, other: &Self) -> Self {
+        let extensible = match (self.extensible, other.extensible) {
+            (Some(a), Some(_)) => Some(a),
+            (Some(a), None) => None,
+            (None, Some(b)) => None,
+            (None, None) => None,
+        };
+        let constraint = self.constraint.intersect(&other.constraint);
+        match extensible {
+            Some(ext_ref) => Self::new_extensible(constraint, ext_ref),
+            None => Self::new(constraint),
+        }
+    }
+}
+impl Extensible<Size> {
+    /// Intersects two extensible size constraints.
+    pub const fn intersect(&self, other: &Self) -> Self {
+        let extensible = match (self.extensible, other.extensible) {
+            (Some(a), Some(_)) => Some(a),
+            (Some(_), None) => None,
+            (None, Some(_)) => None,
+            (None, None) => None,
+        };
+        let constraint = self.constraint.intersect(&other.constraint);
+        match extensible {
+            Some(ext_ref) => Self::new_extensible(constraint, ext_ref),
+            None => Self::new(constraint),
+        }
+    }
+}
+impl Extensible<PermittedAlphabet> {
+    /// Intersects two extensible permitted alphabet constraints.
+    pub const fn intersect(&self, other: &Self) -> Self {
+        // Extensiblity status might not be correct
+        let extensible = match (self.extensible, other.extensible) {
+            (Some(a), Some(_b)) => Some(a),
+            (Some(_), None) => None,
+            (None, Some(_)) => None,
+            (None, None) => None,
+        };
+        let constraint = self.constraint.intersect(&other.constraint);
+        match extensible {
+            Some(ext_ref) => Self::new_extensible(constraint, ext_ref),
+            None => Self::new(constraint),
+        }
     }
 }
 
@@ -353,6 +443,16 @@ impl Value {
     /// Gets the range of the value constraint.
     pub const fn get_range(&self) -> Option<u8> {
         self.range
+    }
+    /// Intersect between two `Value` constraints
+    pub const fn intersect(&self, other: &Self) -> Self {
+        let value = self.value.intersect(other.value);
+        let (signed, range) = value.range_in_bytes();
+        Self {
+            value,
+            signed,
+            range,
+        }
     }
 }
 
@@ -430,6 +530,10 @@ impl Size {
     pub const fn is_range(&self) -> bool {
         matches!(self.0, Bounded::Range { .. })
     }
+    #[must_use]
+    pub const fn intersect(&self, other: &Self) -> Self {
+        Self(self.0.intersect(other.0))
+    }
 }
 
 impl core::ops::Deref for Size {
@@ -459,6 +563,14 @@ impl PermittedAlphabet {
     /// Returns the range of allowed possible values.
     pub const fn as_inner(&self) -> &'static [u32] {
         self.0
+    }
+    /// Intersect between two `PermittedAlphabet` constraints.
+    ///
+    /// TODO not currently possible to intersect
+    /// because new instance requires a static lifetime,
+    /// so we just override for now.
+    pub const fn intersect(&self, other: &Self) -> Self {
+        Self(other.0)
     }
 }
 
@@ -549,6 +661,86 @@ impl<T> Bounded<T> {
             Self::Range { start, end } => (start.as_ref(), end.as_ref()),
             Self::Single(value) => (Some(value), Some(value)),
             _ => (None, None),
+        }
+    }
+}
+
+impl Bounded<i128> {
+    /// Intersect the values of two bounded ranges.
+    pub const fn intersect(&self, other: Self) -> Self {
+        match (self, other) {
+            (Self::None, _) | (_, Self::None) => Self::None,
+            (Self::Single(a), Self::Single(b)) if *a == b => Self::Single(*a),
+            (
+                Self::Single(a),
+                Self::Range {
+                    start: Some(b),
+                    end: Some(c),
+                },
+            ) if *a >= b && *a <= c => Self::Single(*a),
+            (
+                Self::Range {
+                    start: Some(b),
+                    end: Some(c),
+                },
+                Self::Single(a),
+            ) if a >= *b && a <= *c => Self::Single(a),
+            (
+                Self::Range {
+                    start: Some(a),
+                    end: Some(b),
+                },
+                Self::Range {
+                    start: Some(c),
+                    end: Some(d),
+                },
+            ) if *a <= d && *b >= c => Self::Range {
+                // usize is unsigned, so we can't have negative values
+                // usize always < i128::MAX
+                start: Some(max_signed(*a, c)),
+                end: Some(min(*b, d)),
+            },
+            _ => Self::None,
+        }
+    }
+}
+
+impl Bounded<usize> {
+    /// Intersect the values of two bounded ranges.
+    pub const fn intersect(&self, other: Self) -> Self {
+        match (self, other) {
+            (Self::None, _) | (_, Self::None) => Self::None,
+            (Self::Single(a), Self::Single(b)) if *a == b => Self::Single(*a),
+            (
+                Self::Single(a),
+                Self::Range {
+                    start: Some(b),
+                    end: Some(c),
+                },
+            ) if *a >= b && *a <= c => Self::Single(*a),
+            (
+                Self::Range {
+                    start: Some(b),
+                    end: Some(c),
+                },
+                Self::Single(a),
+            ) if a >= *b && a <= *c => Self::Single(a),
+            (
+                Self::Range {
+                    start: Some(a),
+                    end: Some(b),
+                },
+                Self::Range {
+                    start: Some(c),
+                    end: Some(d),
+                },
+            ) if *a <= d && *b >= c => Self::Range {
+                // usize is unsigned, so we can't have negative values
+                // usize always < i128::MAX
+                start: Some(max_unsigned(*a as u128, c as u128) as usize),
+                end: Some(min(*b as i128, d as i128) as usize),
+            },
+            _ => Self::None,
         }
     }
 }
@@ -659,11 +851,18 @@ impl From<Extensible<PermittedAlphabet>> for Constraint {
         Self::PermittedAlphabet(size)
     }
 }
+const fn max_signed(a: i128, b: i128) -> i128 {
+    [a, b][(a < b) as usize]
+}
+
+const fn max_unsigned(a: u128, b: u128) -> u128 {
+    [a, b][(a < b) as usize]
+}
+const fn min(a: i128, b: i128) -> i128 {
+    [a, b][(a > b) as usize]
+}
 
 impl Bounded<i128> {
-    const fn max(&self, a: u128, b: u128) -> u128 {
-        [a, b][(a < b) as usize]
-    }
     /// Returns the sign and the range in bytes of the constraint.
     pub const fn range_in_bytes(&self) -> (bool, Option<u8>) {
         match self {
@@ -675,8 +874,8 @@ impl Bounded<i128> {
                 let is_signed = *start < 0;
                 let end_abs = end.unsigned_abs();
                 let start_abs = start.unsigned_abs();
-                let max = self.max(start_abs, end_abs);
-                let octets = Self::octet_size_by_range(max as i128);
+                let bound_max = max_unsigned(start_abs, end_abs);
+                let octets = Self::octet_size_by_range(bound_max as i128);
                 (is_signed, octets)
             }
             Self::Range {
@@ -817,10 +1016,8 @@ mod tests {
             .set_extensible(false),
         );
         const LESS_INNER: Constraints = rasn::types::Constraints::new(&[INNER]);
-        dbg!(LESS_INNER);
-        dbg!(<NameString as rasn::AsnType>::CONSTRAINTS);
-        const MERGED: ([Constraint; SUPPORTED_CONSTRAINTS_COUNT], usize) =
-            <NameString as rasn::AsnType>::CONSTRAINTS.merge(rasn::types::Constraints::new(&[
+        const MERGED: Constraints =
+            <NameString as rasn::AsnType>::CONSTRAINTS.intersect(Constraints::new(&[
                 rasn::types::Constraint::Size(
                     rasn::types::constraints::Extensible::new(rasn::types::constraints::Size::new(
                         rasn::types::constraints::Bounded::single_value(1i128 as usize),
@@ -828,21 +1025,19 @@ mod tests {
                     .set_extensible(false),
                 ),
             ]));
-        dbg!(MERGED);
-
         const FIELD_CONSTRAINT_0: rasn::types::Constraints =
-            rasn::types::Constraints::from_fixed_size(
-                &<NameString as rasn::AsnType>::CONSTRAINTS.merge(rasn::types::Constraints::new(
-                    &[rasn::types::Constraint::Size(
+            // rasn::types::Constraints::from_fixed_size(
+            <NameString as rasn::AsnType>::CONSTRAINTS.intersect(Constraints::new(&[
+                    rasn::types::Constraint::Size(
                         rasn::types::constraints::Extensible::new(
                             rasn::types::constraints::Size::new(
                                 rasn::types::constraints::Bounded::single_value(1i128 as usize),
                             ),
                         )
                         .set_extensible(false),
-                    )],
-                )),
-            );
+                    ),
+                ]));
+        // );
         dbg!(FIELD_CONSTRAINT_0);
     }
     // #[test]

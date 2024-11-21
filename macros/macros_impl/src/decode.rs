@@ -33,9 +33,9 @@ pub fn derive_struct_impl(
                 .const_expr(crate_root)
                 .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
             quote! {
-                const #constraint_name : #crate_root::types::Constraints = #constraints;
-                let merged = #constraint_name.merge(constraints);
-                let constraints : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&merged);
+                const #constraint_name : #crate_root::types::Constraints = <#ty as #crate_root::AsnType>::CONSTRAINTS;
+                let CONSTRAINTS: #crate_root::types::Constraints  = #constraint_name.intersect(constraints);
+                // let constraints : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&merged);
                 match tag {
                     #crate_root::types::Tag::EOC => {
                         Ok(Self(<#ty>::decode(decoder)?))
@@ -44,7 +44,8 @@ pub fn derive_struct_impl(
                         <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
                             decoder,
                             tag,
-                            constraints
+                            // constraints
+                            CONSTRAINTS
                         ).map(Self)
                     }
                 }
