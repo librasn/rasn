@@ -664,15 +664,14 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             ));
         }
 
-        let effective_range =
-            value_range
-                .constraint
-                .effective_integer_value(value.to_i128().ok_or_else(|| {
-                    Error::integer_type_conversion_failed(
-                        "Value too large for i128 type - outside of type constraint".to_string(),
-                        self.codec(),
-                    )
-                })?);
+        let effective_range = value_range
+            .constraint
+            .effective_value(value.to_i128().ok_or_else(|| {
+                Error::integer_type_conversion_failed(
+                    "Value too large for i128 type - outside of type constraint".to_string(),
+                    self.codec(),
+                )
+            })?);
         let unsigned_ref;
         let signed_ref;
         let needed: usize;

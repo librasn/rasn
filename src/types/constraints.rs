@@ -3,14 +3,6 @@
 use super::IntegerType;
 use num_bigint::BigInt;
 
-// TODO type can have multiple constraints of same kind, up to infinite
-// const SUPPORTED_CONSTRAINTS_COUNT: usize = 5;
-
-// ASN.1 has typically union and intersection constraints
-// add union and intersection methods?
-// Typically constraints must match all the constraints applied to them, so unless specified otherwise
-// we should use intersection for these constraints.
-
 /// A set of constraints for a given type on what kinds of values are allowed.
 /// Used in certain codecs to optimise encoding and decoding values.
 ///
@@ -18,8 +10,10 @@ use num_bigint::BigInt;
 /// As a result, we can store one constraint of each kind, updated with the latest constraint.
 ///
 /// TODO architecture needs a re-design - multple different-style value constraints are allowed
-/// for example, value constraint can have multiple single values, or a range of values which do not overlap.
-#[derive(Debug, Clone)]
+/// for example, value constraint can have multiple single values, or a range of values which do not overlap, and are effective at the same time.
+/// This is challenging to implement in compile-time, and we may need to use runtime checks.
+/// E.g effective constraint can have up to infinite single value constraints, and overal constraint value is not continuous.
+#[derive(Debug, Copy, Clone)]
 #[non_exhaustive]
 pub struct Constraints {
     value: Option<Extensible<Value>>,
@@ -69,7 +63,6 @@ impl<'constraint> Constraints {
                 Constraint::Extensible => {
                     extensible = true;
                 }
-                Constraint::Empty => {}
             }
             i += 1;
         }
@@ -86,8 +79,7 @@ impl<'constraint> Constraints {
         Self::NONE
     }
 
-    /// Merges a set of constraints with another set, if they don't exist.
-    /// This function should be only used on compile-time.
+    /// Creates an intersection of two constraint sets.
     pub const fn intersect(&self, rhs: Constraints) -> Self {
         let value = match (self.value, rhs.value) {
             (Some(value), Some(rhs_value)) => Some(value.intersect(&rhs_value)),
@@ -117,12 +109,12 @@ impl<'constraint> Constraints {
         }
     }
 
-    /// Returns the size constraint from the set, if available.
+    /// Returns the effective size constraint, if available.
     pub const fn size(&self) -> Option<&Extensible<Size>> {
         self.size.as_ref()
     }
 
-    /// Returns the permitted alphabet constraint from the set, if available.
+    /// Returns the effective permitted alphabet constraint, if available.
     pub const fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
         self.permitted_alphabet.as_ref()
     }
@@ -170,8 +162,6 @@ pub enum Constraint {
     /// The value itself is extensible, only valid for constructed types,
     /// choices, or enumerated values.
     Extensible,
-    /// Empty constraint.
-    Empty,
 }
 
 /// The discriminant of [Constraint] values.
@@ -182,7 +172,6 @@ pub enum ConstraintDiscriminant {
     Size,
     PermittedAlphabet,
     Extensible,
-    Empty,
 }
 impl ConstraintDiscriminant {
     /// Constant equality check.
@@ -199,12 +188,7 @@ impl Constraint {
             Self::Size(_) => ConstraintDiscriminant::Size,
             Self::PermittedAlphabet(_) => ConstraintDiscriminant::PermittedAlphabet,
             Self::Extensible => ConstraintDiscriminant::Extensible,
-            Self::Empty => ConstraintDiscriminant::Empty,
         }
-    }
-    /// Returns the default constraint, which is an empty constraint.
-    pub const fn default() -> Self {
-        Self::Empty
     }
     /// Returns the discriminant as an `isize` integer.
     pub const fn variant_as_isize(&self) -> isize {
@@ -213,32 +197,8 @@ impl Constraint {
             Self::Size(_) => 1,
             Self::PermittedAlphabet(_) => 2,
             Self::Extensible => 3,
-            Self::Empty => 4,
         }
     }
-    // pub const fn intersect(&self, other: &Self) -> Self {
-    //     // TODO implement intersection of extensible constraints
-    //     match (self, other) {
-    //         (Self::Value(a), Self::Value(b)) => {
-    //             let is_extensible = a.extensible.is_some() || b.extensible.is_some();
-    //             let a = a.constraint.intersect(&b.constraint);
-    //             Self::Value(Extensible::new(a).set_extensible(is_extensible))
-    //         }
-    //         (Self::Size(a), Self::Size(b)) => {
-    //             let is_extensible = a.extensible.is_some() || b.extensible.is_some();
-    //             let a = a.constraint.intersect(&b.constraint);
-    //             Self::Size(Extensible::new(a).set_extensible(is_extensible))
-    //         }
-    //         (Self::PermittedAlphabet(a), Self::PermittedAlphabet(b)) => {
-    //             let is_extensible = a.extensible.is_some() || b.extensible.is_some();
-    //             let a = a.constraint.intersect(&b.constraint);
-    //             Self::PermittedAlphabet(Extensible::new(a).set_extensible(is_extensible))
-    //         }
-    //         (Self::Extensible, Self::Extensible) => Self::Extensible,
-    //         (Self::Empty, _) | (_, Self::Empty) => Self::Empty,
-    //         _ => Self::Extensible,
-    //     }
-    // }
 
     /// Returns the value constraint, if set.
     pub const fn as_value(&self) -> Option<&Extensible<Value>> {
@@ -279,7 +239,6 @@ impl Constraint {
             Self::Size(size) => size.extensible.is_some(),
             Self::PermittedAlphabet(alphabet) => alphabet.extensible.is_some(),
             Self::Extensible => true,
-            Self::Empty => false,
         }
     }
 }
@@ -338,82 +297,40 @@ impl<T> Extensible<T> {
     }
 }
 
-impl Extensible<Value> {
-    /// Intersects two extensible value constraints.
-    pub const fn intersect(&self, other: &Self) -> Self {
-        let extensible = match (self.extensible, other.extensible) {
-            (Some(a), Some(_)) => Some(a),
-            (Some(a), None) => None,
-            (None, Some(b)) => None,
-            (None, None) => None,
-        };
-        let constraint = self.constraint.intersect(&other.constraint);
-        match extensible {
-            Some(ext_ref) => Self::new_extensible(constraint, ext_ref),
-            None => Self::new(constraint),
-        }
-    }
+macro_rules! impl_extensible {
+    ($($type:ty),+) => {
+        $(
+            impl Extensible<$type> {
+                /// Intersects two extensible constraints.
+                pub const fn intersect(&self, other: &Self) -> Self {
+                    // All lost in our use case? https://stackoverflow.com/questions/33524834/whats-the-result-set-operation-of-extensible-constraints-in-asn-1
+                    // ASN.1 treats serially applied constraints differently from nested extensible constraints?
+                    // We currently support only serially applied constraints.
+                    let extensible = match (self.extensible, other.extensible) {
+                        (Some(a), Some(_)) => Some(a),
+                        (Some(_), None) => None,
+                        (None, Some(_)) => None,
+                        (None, None) => None,
+                    };
+                    let constraint = self.constraint.intersect(&other.constraint);
+                    match extensible {
+                        Some(ext_ref) => Self::new_extensible(constraint, ext_ref),
+                        None => Self::new(constraint),
+                    }
+                }
+            }
+            impl From<$type> for Extensible<$type> {
+                fn from(value: $type) -> Self {
+                    Self {
+                        constraint: value,
+                        extensible: None,
+                    }
+                }
+            }
+        )+
+    };
 }
-impl Extensible<Size> {
-    /// Intersects two extensible size constraints.
-    pub const fn intersect(&self, other: &Self) -> Self {
-        let extensible = match (self.extensible, other.extensible) {
-            (Some(a), Some(_)) => Some(a),
-            (Some(_), None) => None,
-            (None, Some(_)) => None,
-            (None, None) => None,
-        };
-        let constraint = self.constraint.intersect(&other.constraint);
-        match extensible {
-            Some(ext_ref) => Self::new_extensible(constraint, ext_ref),
-            None => Self::new(constraint),
-        }
-    }
-}
-impl Extensible<PermittedAlphabet> {
-    /// Intersects two extensible permitted alphabet constraints.
-    pub const fn intersect(&self, other: &Self) -> Self {
-        // Extensiblity status might not be correct
-        let extensible = match (self.extensible, other.extensible) {
-            (Some(a), Some(_b)) => Some(a),
-            (Some(_), None) => None,
-            (None, Some(_)) => None,
-            (None, None) => None,
-        };
-        let constraint = self.constraint.intersect(&other.constraint);
-        match extensible {
-            Some(ext_ref) => Self::new_extensible(constraint, ext_ref),
-            None => Self::new(constraint),
-        }
-    }
-}
-
-impl From<Value> for Extensible<Value> {
-    fn from(value: Value) -> Self {
-        Self {
-            constraint: value,
-            extensible: None,
-        }
-    }
-}
-
-impl From<Size> for Extensible<Size> {
-    fn from(size: Size) -> Self {
-        Self {
-            constraint: size,
-            extensible: None,
-        }
-    }
-}
-
-impl From<PermittedAlphabet> for Extensible<PermittedAlphabet> {
-    fn from(alphabet: PermittedAlphabet) -> Self {
-        Self {
-            constraint: alphabet,
-            extensible: None,
-        }
-    }
-}
+impl_extensible!(Value, Size, PermittedAlphabet);
 
 /// A single or range of numeric values a type can be.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -530,6 +447,7 @@ impl Size {
     pub const fn is_range(&self) -> bool {
         matches!(self.0, Bounded::Range { .. })
     }
+    /// Intersect between two `Size` constraints
     #[must_use]
     pub const fn intersect(&self, other: &Self) -> Self {
         Self(self.0.intersect(other.0))
@@ -603,18 +521,13 @@ impl<T> Bounded<T> {
     /// Calculates the the amount of bytes that are required to represent integer `value`.
     /// Particularly useful for OER codec
     const fn octet_size_by_range(value: i128) -> Option<u8> {
-        let abs_value = value.unsigned_abs();
-        Some(if abs_value <= u8::MAX as u128 {
-            1
-        } else if abs_value <= u16::MAX as u128 {
-            2
-        } else if abs_value <= u32::MAX as u128 {
-            4
-        } else if abs_value <= u64::MAX as u128 {
-            8
-        } else {
-            return None;
-        })
+        match value.unsigned_abs() {
+            x if x <= u8::MAX as u128 => Some(1),
+            x if x <= u16::MAX as u128 => Some(2),
+            x if x <= u32::MAX as u128 => Some(4),
+            x if x <= u64::MAX as u128 => Some(8),
+            _ => None,
+        }
     }
     /// Creates a bounded range that starts from value and has no end.
     pub const fn start_from(value: T) -> Self {
@@ -665,86 +578,6 @@ impl<T> Bounded<T> {
     }
 }
 
-impl Bounded<i128> {
-    /// Intersect the values of two bounded ranges.
-    pub const fn intersect(&self, other: Self) -> Self {
-        match (self, other) {
-            (Self::None, _) | (_, Self::None) => Self::None,
-            (Self::Single(a), Self::Single(b)) if *a == b => Self::Single(*a),
-            (
-                Self::Single(a),
-                Self::Range {
-                    start: Some(b),
-                    end: Some(c),
-                },
-            ) if *a >= b && *a <= c => Self::Single(*a),
-            (
-                Self::Range {
-                    start: Some(b),
-                    end: Some(c),
-                },
-                Self::Single(a),
-            ) if a >= *b && a <= *c => Self::Single(a),
-            (
-                Self::Range {
-                    start: Some(a),
-                    end: Some(b),
-                },
-                Self::Range {
-                    start: Some(c),
-                    end: Some(d),
-                },
-            ) if *a <= d && *b >= c => Self::Range {
-                // usize is unsigned, so we can't have negative values
-                // usize always < i128::MAX
-                start: Some(max_signed(*a, c)),
-                end: Some(min(*b, d)),
-            },
-            _ => Self::None,
-        }
-    }
-}
-
-impl Bounded<usize> {
-    /// Intersect the values of two bounded ranges.
-    pub const fn intersect(&self, other: Self) -> Self {
-        match (self, other) {
-            (Self::None, _) | (_, Self::None) => Self::None,
-            (Self::Single(a), Self::Single(b)) if *a == b => Self::Single(*a),
-            (
-                Self::Single(a),
-                Self::Range {
-                    start: Some(b),
-                    end: Some(c),
-                },
-            ) if *a >= b && *a <= c => Self::Single(*a),
-            (
-                Self::Range {
-                    start: Some(b),
-                    end: Some(c),
-                },
-                Self::Single(a),
-            ) if a >= *b && a <= *c => Self::Single(a),
-            (
-                Self::Range {
-                    start: Some(a),
-                    end: Some(b),
-                },
-                Self::Range {
-                    start: Some(c),
-                    end: Some(d),
-                },
-            ) if *a <= d && *b >= c => Self::Range {
-                // usize is unsigned, so we can't have negative values
-                // usize always < i128::MAX
-                start: Some(max_unsigned(*a as u128, c as u128) as usize),
-                end: Some(min(*b as i128, d as i128) as usize),
-            },
-            _ => Self::None,
-        }
-    }
-}
-
 impl<T: Copy + IntegerType> Bounded<T> {
     /// Assuming T is an integer, returns the minimum possible bound, or zero
     /// if not present.
@@ -756,65 +589,76 @@ impl<T: Copy + IntegerType> Bounded<T> {
     }
 }
 
-impl<T: num_traits::WrappingSub<Output = T> + num_traits::SaturatingAdd<Output = T> + From<u8>>
-    Bounded<T>
-{
-    /// Returns the number representing the difference between the lower and upper bound.
-    pub fn range(&self) -> Option<T> {
-        match self {
-            Self::Single(_) => Some(T::from(1u8)),
-            Self::Range {
-                start: Some(start),
-                end: Some(end),
-            } => Some(end.wrapping_sub(start).saturating_add(&1.into())),
-            _ => None,
-        }
-    }
-}
-
-impl<T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + core::cmp::PartialOrd> Bounded<T>
-where
-    for<'a> &'a T: core::ops::Sub<Output = T>,
-{
-    /// Returns the effective value which is either the number, or the positive
-    /// offset of that number from the start of the value range. `Either::Left`
-    /// represents the positive offset, and `Either::Right` represents
-    /// the number.
-    pub fn effective_value(&self, value: T) -> either::Either<T, T> {
-        match self {
-            Self::Range {
-                start: Some(start), ..
-            } => {
-                debug_assert!(&value >= start);
-                either::Left(&value - start)
+macro_rules! impl_bounded_range {
+    ($($type:ty),+) => {
+        $(
+            impl Bounded<$type> {
+                /// Returns the number representing the difference between the lower and upper bound.
+                pub const fn range(&self) -> Option<$type> {
+                    match self {
+                        Self::Single(_) => Some(1),
+                        Self::Range {
+                            start: Some(start),
+                            end: Some(end),
+                        } => Some(end.wrapping_sub(*start).saturating_add(1)),
+                        _ => None,
+                    }
+                }
+                /// Returns the effective value which is either the number, or the positive
+                /// offset of that number from the start of the value range. `Either::Left`
+                /// represents the positive offset, and `Either::Right` represents
+                /// the number.
+                pub const fn effective_value(&self, value: $type) -> either::Either<$type, $type> {
+                    match self {
+                        Self::Range {
+                            start: Some(start), ..
+                        } => {
+                            debug_assert!(value >= *start);
+                            either::Left(value - *start)
+                        }
+                        _ => either::Right(value),
+                    }
+                }
+                /// Intersect the values of two bounded ranges.
+                pub const fn intersect(&self, other: Self) -> Self {
+                    match (self, other) {
+                        (Self::None, _) | (_, Self::None) => Self::None,
+                        (Self::Single(a), Self::Single(b)) if *a == b => Self::Single(*a),
+                        (
+                            Self::Single(a),
+                            Self::Range {
+                                start: Some(b),
+                                end: Some(c),
+                            },
+                        ) if *a >= b && *a <= c => Self::Single(*a),
+                        (
+                            Self::Range {
+                                start: Some(b),
+                                end: Some(c),
+                            },
+                            Self::Single(a),
+                        ) if a >= *b && a <= *c => Self::Single(a),
+                        (
+                            Self::Range {
+                                start: Some(a),
+                                end: Some(b),
+                            },
+                            Self::Range {
+                                start: Some(c),
+                                end: Some(d),
+                            },
+                        ) if *a <= d && *b >= c => Self::Range {
+                            start: Some(max(*a as i128, c as i128) as $type),
+                            end: Some(min(*b as i128, d as i128) as $type),
+                        },
+                        _ => Self::None,
+                    }
+                }
             }
-            _ => either::Right(value),
-        }
-    }
+        )+
+    };
 }
-
-impl<T> Bounded<T>
-where
-    T: core::ops::Sub<Output = T> + core::fmt::Debug + Default + PartialOrd<T>,
-{
-    /// The same as [`Self::effective_value`] except using [`crate::types::Integer<I>`].
-    pub fn effective_integer_value<I>(self, value: I) -> either::Either<I, I>
-    where
-        I: IntegerType + core::ops::Sub<Output = I>,
-        I: From<T> + PartialOrd,
-    {
-        if let Bounded::Range {
-            start: Some(start), ..
-        } = self
-        {
-            let start = I::from(start);
-            debug_assert!(value >= start);
-            either::Left(value - start)
-        } else {
-            either::Right(value)
-        }
-    }
-}
+impl_bounded_range!(i128, usize);
 
 impl From<Value> for Constraint {
     fn from(size: Value) -> Self {
@@ -851,7 +695,7 @@ impl From<Extensible<PermittedAlphabet>> for Constraint {
         Self::PermittedAlphabet(size)
     }
 }
-const fn max_signed(a: i128, b: i128) -> i128 {
+const fn max(a: i128, b: i128) -> i128 {
     [a, b][(a < b) as usize]
 }
 
@@ -989,115 +833,10 @@ impl<T: core::fmt::Display> core::fmt::Display for Bounded<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as rasn;
-    use crate::prelude::*;
 
     #[test]
     fn range() {
-        let constraints = Bounded::new(0, 255);
+        let constraints = Bounded::new(0, 255usize);
         assert_eq!(256, constraints.range().unwrap());
     }
-    #[test]
-    fn test_merge_constraints() {
-        #[derive(AsnType, Decode, Debug, PartialEq)]
-        #[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64"))]
-        pub struct NameString(pub VisibleString);
-
-        #[derive(AsnType, Decode, Debug, PartialEq)]
-        #[rasn(tag(application, 1))]
-        pub struct InitialString {
-            #[rasn(size(1))]
-            pub initial: NameString,
-        }
-        const INNER: Constraint = rasn::types::Constraint::Size(
-            rasn::types::constraints::Extensible::new(rasn::types::constraints::Size::new(
-                rasn::types::constraints::Bounded::single_value(1i128 as usize),
-            ))
-            .set_extensible(false),
-        );
-        const LESS_INNER: Constraints = rasn::types::Constraints::new(&[INNER]);
-        const MERGED: Constraints =
-            <NameString as rasn::AsnType>::CONSTRAINTS.intersect(Constraints::new(&[
-                rasn::types::Constraint::Size(
-                    rasn::types::constraints::Extensible::new(rasn::types::constraints::Size::new(
-                        rasn::types::constraints::Bounded::single_value(1i128 as usize),
-                    ))
-                    .set_extensible(false),
-                ),
-            ]));
-        const FIELD_CONSTRAINT_0: rasn::types::Constraints =
-            // rasn::types::Constraints::from_fixed_size(
-            <NameString as rasn::AsnType>::CONSTRAINTS.intersect(Constraints::new(&[
-                    rasn::types::Constraint::Size(
-                        rasn::types::constraints::Extensible::new(
-                            rasn::types::constraints::Size::new(
-                                rasn::types::constraints::Bounded::single_value(1i128 as usize),
-                            ),
-                        )
-                        .set_extensible(false),
-                    ),
-                ]));
-        // );
-        dbg!(FIELD_CONSTRAINT_0);
-    }
-    // #[test]
-    // fn test_nested_extensible() {
-    //     #[derive(AsnType, Encode, Decode, Debug, PartialEq)]
-    //     #[rasn(tag(application, 2), delegate, value("0..=9999", extensible))]
-    //     pub struct ExtensibleEmployeeNumber(pub Integer);
-
-    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-    //     #[rasn(
-    //         tag(application, 3),
-    //         delegate,
-    //         from("0..=9"),
-    //         size(8, extensible, "9..=20")
-    //     )]
-    //     pub struct ExtensibleDate(pub VisibleString);
-
-    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-    //     #[rasn(delegate, from("a..=z", "A..=Z", "-", "."), size("1..=64", extensible))]
-    //     pub struct ExtensibleNameString(pub VisibleString);
-
-    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-    //     #[rasn(tag(application, 1))]
-    //     #[non_exhaustive]
-    //     pub struct ExtensibleName {
-    //         pub given_name: ExtensibleNameString,
-    //         #[rasn(size(1))]
-    //         pub initial: ExtensibleNameString,
-    //         pub family_name: ExtensibleNameString,
-    //     }
-    //     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-    //     #[rasn(set)]
-    //     #[non_exhaustive]
-    //     pub struct ExtensibleChildInformation {
-    //         name: ExtensibleName,
-    //         #[rasn(tag(explicit(0)))]
-    //         date_of_birth: ExtensibleDate,
-    //     }
-
-    //     #[derive(AsnType, Encode, Decode, Debug, PartialEq)]
-    //     #[rasn(set, tag(application, 0))]
-    //     #[non_exhaustive]
-    //     pub struct ExtensiblePersonnelRecord {
-    //         pub name: ExtensibleName,
-    //         #[rasn(tag(explicit(0)))]
-    //         pub title: VisibleString,
-    //         pub number: ExtensibleEmployeeNumber,
-    //         #[rasn(tag(explicit(1)))]
-    //         pub date_of_hire: ExtensibleDate,
-    //         #[rasn(tag(explicit(2)))]
-    //         pub name_of_spouse: ExtensibleName,
-    //         #[rasn(tag(3), default, size(2, extensible))]
-    //         pub children: Option<Vec<ExtensibleChildInformation>>,
-    //     }
-    // #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-    // #[rasn(set)]
-    // #[non_exhaustive]
-    // pub struct ExtensibleTest {
-    //     name: ExtensibleName,
-    //     #[rasn(tag(1), size(1, extensible))]
-    //     record: ExtensiblePersonnelRecord,
-    // }
 }

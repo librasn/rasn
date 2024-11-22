@@ -365,7 +365,7 @@ impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
                     self.codec(),
                 ));
             }
-            let (sign, octets) = if value.extensible.is_some() {
+            let (signed, octets) = if value.extensible.is_some() {
                 (true, None)
             } else {
                 (value.constraint.get_sign(), value.constraint.get_range())
@@ -374,10 +374,10 @@ impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
                 self.encode_constrained_integer_with_padding(
                     usize::from(octets),
                     value_to_enc,
-                    sign,
+                    signed,
                 )?;
             } else {
-                self.encode_unconstrained_integer(value_to_enc, sign)?;
+                self.encode_unconstrained_integer(value_to_enc, signed)?;
             }
         } else {
             self.encode_unconstrained_integer(value_to_enc, true)?;
@@ -455,8 +455,8 @@ impl<'a, const RCL: usize, const ECL: usize> Encoder<'a, RCL, ECL> {
             }
         }
         // Prior checks before encoding with length determinant
-        let max_permitted_length = usize::MAX / 8; // In compile time, no performance penalty?
-        if length > max_permitted_length {
+        const MAX_PERMITTED_LENGTH: usize = usize::MAX / 8;
+        if length > MAX_PERMITTED_LENGTH {
             return Err(EncodeError::length_exceeds_platform_size(self.codec()));
         }
         Ok(false)

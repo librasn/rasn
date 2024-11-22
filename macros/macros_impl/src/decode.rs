@@ -27,15 +27,22 @@ pub fn derive_struct_impl(
                 decoder.decode_explicit_prefix::<#ty>(tag).map(Self)
             }
         } else {
-            let constraint_name = format_ident!("DELEGATE_DECODE_CONSTRAINT");
             let constraints = config
                 .constraints
                 .const_expr(crate_root)
                 .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
+            let constraint_name = format_ident!("DELEGATE_DECODE_CONSTRAINT");
+            let constraint_def = if generics.params.is_empty() {
+                quote! {
+                    let #constraint_name: #crate_root::types::Constraints  = const {<#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(#constraints)}.intersect(constraints);
+                }
+            } else {
+                quote! {
+                    let #constraint_name: #crate_root::types::Constraints  = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(constraints).intersect(const {#constraints });
+                }
+            };
             quote! {
-                const #constraint_name : #crate_root::types::Constraints = <#ty as #crate_root::AsnType>::CONSTRAINTS;
-                let CONSTRAINTS: #crate_root::types::Constraints  = #constraint_name.intersect(constraints);
-                // let constraints : #crate_root::types::Constraints = #crate_root::types::Constraints::from_fixed_size(&merged);
+                #constraint_def
                 match tag {
                     #crate_root::types::Tag::EOC => {
                         Ok(Self(<#ty>::decode(decoder)?))
@@ -44,8 +51,7 @@ pub fn derive_struct_impl(
                         <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
                             decoder,
                             tag,
-                            // constraints
-                            CONSTRAINTS
+                            #constraint_name
                         ).map(Self)
                     }
                 }
