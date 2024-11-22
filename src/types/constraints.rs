@@ -23,7 +23,7 @@ pub struct Constraints {
     extensible: bool,
 }
 
-impl<'constraint> Constraints {
+impl Constraints {
     /// Empty constraints.
     pub const NONE: Self = Self {
         value: None,
@@ -33,7 +33,7 @@ impl<'constraint> Constraints {
     };
 
     /// Creates a new set of constraints from a given slice.
-    pub const fn new(constraints: &'constraint [Constraint]) -> Self {
+    pub const fn new(constraints: &[Constraint]) -> Self {
         let mut value: Option<Extensible<Value>> = None;
         let mut size: Option<Extensible<Size>> = None;
         let mut permitted_alphabet: Option<Extensible<PermittedAlphabet>> = None;
