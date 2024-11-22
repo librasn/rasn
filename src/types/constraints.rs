@@ -9,10 +9,11 @@ use num_bigint::BigInt;
 /// The effective constraint is typically the intersection or union among other constraints.
 /// As a result, we can store one constraint of each kind, updated with the latest constraint.
 ///
-/// TODO architecture needs a re-design - multple different-style value constraints are allowed
-/// for example, value constraint can have multiple single values, or a range of values which do not overlap, and are effective at the same time.
+/// TODO architecture needs a re-design - multiple constraints with same type are allowed forming on non-contiguous set of values.
+/// We can't currently present this.
+/// For example, value constraint can have multiple single values, or a range of values which do not overlap, and are effective at the same time.
 /// This is challenging to implement in compile-time, and we may need to use runtime checks.
-/// E.g effective constraint can have up to infinite single value constraints, and overal constraint value is not continuous.
+/// E.g effective constraint can have up to infinite single value constraints, and overall constraint value is not continuous.
 #[derive(Debug, Copy, Clone)]
 #[non_exhaustive]
 pub struct Constraints {
@@ -149,8 +150,6 @@ impl<'constraint> Constraints {
 }
 
 /// The set of possible constraints a given value can have.
-///
-/// Do not change the amount of variants in this enum without changing the `SUPPORTED_CONSTRAINTS_COUNT` constant.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Constraint {
     /// A set of possible values which the type can be.
