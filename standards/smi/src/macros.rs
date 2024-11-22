@@ -83,7 +83,7 @@ macro_rules! opaque_impls {
         }
 
         impl $crate::rasn::Encode for $name {
-            fn encode_with_tag_and_constraints<EN: $crate::rasn::Encoder>(
+            fn encode_with_tag_and_constraints<'encoder, EN: $crate::rasn::Encoder<'encoder>>(
                 &self,
                 encoder: &mut EN,
                 tag: $crate::rasn::types::Tag,
@@ -185,7 +185,7 @@ macro_rules! object_type {
         }
 
         impl $crate::rasn::Encode for $name {
-            fn encode_with_tag_and_constraints<EN: $crate::rasn::Encoder>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints,) -> Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'encoder, EN: $crate::rasn::Encoder<'encoder>>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints,) -> Result<(), EN::Error> {
                 self.0.encode_with_tag_and_constraints(encoder, tag, constraints)
             }
         }

@@ -59,7 +59,7 @@ impl From<&str> for LdapString {
 
 #[allow(clippy::mutable_key_type)]
 impl rasn::Encode for LdapString {
-    fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
+    fn encode_with_tag_and_constraints<'encoder, EN: rasn::Encoder<'encoder>>(
         &self,
         encoder: &mut EN,
         tag: rasn::types::Tag,

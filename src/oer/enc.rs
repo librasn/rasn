@@ -57,12 +57,6 @@ impl Default for EncoderOptions {
     }
 }
 
-// impl Default for Encoder<'_, 0, 0> {
-//     fn default() -> Self {
-//         Self::new(EncoderOptions::coer(), 0)
-//     }
-// }
-
 /// COER encoder. A subset of OER to provide canonical and unique encoding.
 ///
 /// Const `RCL` is the count of root components in the root component list of a sequence or set.
@@ -99,7 +93,6 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
     #[must_use]
     /// Constructs a new encoder from options that borrows the buffer from output.
     pub fn from_buffer(options: EncoderOptions, output: &'buffer mut Vec<u8>) -> Self {
-        // pub fn from_buffer(options: EncoderOptions, output: &'buffer RefCell<Vec<u8>>) -> Self {
         Self {
             options,
             output,
@@ -449,6 +442,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         &mut self,
         tag: Tag,
         preamble_start: usize,
+        set_output: Option<&mut alloc::collections::BTreeMap<Tag, Vec<u8>>>,
     ) -> Result<(), EncodeError> {
         // ### PREAMBLE ###
         // Section 16.2.2
@@ -501,7 +495,9 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         }
         // Section 16.3 ### Encodings of the components in the extension root ###
         if !C::IS_EXTENSIBLE || !extensions_present {
-            self.extend(tag)?;
+            if let Some(set_output) = set_output {
+                set_output.insert(tag, core::mem::take(self.output));
+            }
             return Ok(());
         }
 
@@ -527,7 +523,10 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
             self.encode_length(field.len())?;
             self.output.append(field);
         }
-        self.extend(tag)?;
+        // Encoding inside of set...
+        if let Some(set_output) = set_output {
+            set_output.insert(tag, core::mem::take(self.output));
+        }
         Ok(())
     }
 }
@@ -809,27 +808,6 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         }
     }
 
-    // fn encode_sequence<'this, const RL: usize, const EL: usize, C, F>(
-    //     &'this mut self,
-    //     tag: Tag,
-    //     encoder_scope: F,
-    // ) -> Result<Self::Ok, Self::Error>
-    // where
-    //     C: Constructed<RL, EL>,
-    //     // F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
-    //     F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
-    // {
-    //     let mut encoder = Encoder::<'this, '_, RL, EL>::from_buffer(
-    //         self.options.without_set_encoding(),
-    //         match &self.output {
-    //             Cow::Borrowed(buf) => buf,
-    //             Cow::Owned(buf) => buf,
-    //         },
-    //     );
-    //     encoder.number_optional_default_fields = C::FIELDS.number_of_optional_and_default_fields();
-    //     encoder_scope(&mut encoder)?;
-    //     self.encode_constructed::<RL, EL, C>(tag, encoder)
-    // }
     fn encode_sequence<'this, const RL: usize, const EL: usize, C, F>(
         &'this mut self,
         tag: Tag,
@@ -840,7 +818,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut encoder =
-            Encoder::<'this, RL, EL>::from_buffer(self.options.without_set_encoding(), self.output);
+            Encoder::<'_, RL, EL>::from_buffer(self.options.without_set_encoding(), self.output);
         encoder.number_optional_default_fields = C::FIELDS.number_of_optional_and_default_fields();
 
         // reserve bytes for preamble
@@ -852,7 +830,16 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
             encoder.output.push(0);
         }
         encoder_scope(&mut encoder)?;
-        encoder.encode_constructed::<RL, EL, C>(tag, preamble_start)
+        if self.options.set_encoding {
+            encoder.encode_constructed::<RL, EL, C>(
+                tag,
+                preamble_start,
+                Some(&mut self.set_output),
+            )?;
+        } else {
+            encoder.encode_constructed::<RL, EL, C>(tag, preamble_start, None)?;
+        }
+        Ok(())
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -884,14 +871,11 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         C: Constructed<RL, EL>,
         F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
     {
-        let mut options = self.options;
-        options.set_encoding = true;
-        let mut encoder = Encoder::<RL, EL>::from_buffer(options, self.output);
+        self.options.set_encoding = true;
+        let mut encoder = Encoder::<RL, EL>::from_buffer(self.options, self.output);
         encoder.number_optional_default_fields = C::FIELDS.number_of_optional_and_default_fields();
-        {
-            encoder_scope(&mut encoder)?;
-        }
-        encoder.encode_constructed::<RL, EL, C>(tag, 0)?;
+        encoder_scope(&mut encoder)?;
+        encoder.encode_constructed::<RL, EL, C>(tag, 0, None)?;
         encoder.collect_set();
         Ok(())
     }

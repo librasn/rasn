@@ -611,7 +611,6 @@ impl<'buffer> crate::Encoder<'buffer> for Encoder {
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RC, EC>,
-        // F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
         F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, 0, 0>) -> Result<(), Self::Error>,
     {
         let mut encoder = Self::new(self.config);
@@ -630,7 +629,6 @@ impl<'buffer> crate::Encoder<'buffer> for Encoder {
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RC, EC>,
-        // F: FnOnce(&mut Self) -> Result<Self::Ok, Self::Error>,
         F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, 0, 0>) -> Result<(), Self::Error>,
     {
         let mut encoder = Self::new_set(self.config);
