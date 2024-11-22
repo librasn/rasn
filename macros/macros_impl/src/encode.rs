@@ -11,11 +11,22 @@ pub fn derive_struct_impl(
     let mut field_encodings = Vec::with_capacity(container.fields.len());
     let mut number_root_fields: usize = 0;
     let mut number_extended_fields: usize = 0;
+    let type_params: Vec<_> = generics
+        .params
+        .iter()
+        .filter_map(|param| {
+            if let syn::GenericParam::Type(type_param) = param {
+                Some(type_param.ident.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
 
     // Count the number of root and extended fields so that encoder can know the number of fields in advance
     for (i, field) in container.fields.iter().enumerate() {
         let field_config = FieldConfig::new(field, config);
-        let field_encoding = field_config.encode(i, true);
+        let field_encoding = field_config.encode(i, true, &type_params);
 
         if field_config.is_extension() {
             number_extended_fields += 1;

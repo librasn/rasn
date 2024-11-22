@@ -38,12 +38,9 @@ fn test_sequence_with_generics_issue_193() {
         hello_selection,
         rasn::oer::decode::<Messages<Hello>>(&encoded).unwrap()
     )
-
-    // #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-    // #[rasn(delegate, automatic_tags, size("1..", "-5"))]
-    // pub struct World(String);
 }
 
+// This test is just for checking that generics will compile
 #[test]
 fn test_sequence_with_generic_and_constraints() {
     #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -55,5 +52,21 @@ fn test_sequence_with_generic_and_constraints() {
         id: Integer,
         #[rasn(size("1.."))]
         extn: SequenceOf<T>,
+    }
+    #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+    #[rasn(automatic_tags)]
+    #[rasn(delegate)]
+    #[rasn(size("4"))]
+    pub struct ConstrainedDelegateBlock<T: LeetTrait>(T);
+
+    #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+    #[rasn(automatic_tags)]
+    #[rasn(choice)]
+    enum ConstrainedBlockEnum<T: LeetTrait> {
+        First(Integer),
+        #[rasn(size("1.."))]
+        Second(T),
+        #[rasn(value("5"))]
+        Third(T),
     }
 }

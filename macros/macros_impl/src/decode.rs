@@ -201,7 +201,18 @@ pub fn derive_struct_impl(
                 count_root_fields += 1;
             }
 
-            list.push(field_config.decode_field_def(&name, i));
+            let type_params: Vec<_> = generics
+                .params
+                .iter()
+                .filter_map(|param| {
+                    if let syn::GenericParam::Type(type_param) = param {
+                        Some(type_param.ident.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            list.push(field_config.decode_field_def(&name, i, &type_params));
         }
 
         let fields = match container.fields {

@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use quote::ToTokens;
-use syn::{parenthesized, LitStr, Path, PathArguments, Token, Type, UnOp};
+use syn::{parenthesized, Ident, LitStr, Path, Token, Type, UnOp};
 
 use crate::{ext::TypeExt, tag::Tag};
 
@@ -756,7 +756,12 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
-    pub fn encode(&self, context: usize, use_self: bool) -> proc_macro2::TokenStream {
+    pub fn encode(
+        &self,
+        context: usize,
+        use_self: bool,
+        type_params: &[Ident],
+    ) -> proc_macro2::TokenStream {
         let this = use_self.then(|| quote!(self.));
         let tag = self.tag(context);
         let i = syn::Index::from(context);
@@ -767,18 +772,22 @@ impl<'a> FieldConfig<'a> {
             .map(|name| quote!(#name))
             .unwrap_or_else(|| quote!(#i));
         let mut ty = self.field.ty.clone();
-        let has_generics = if let Type::Path(ty) = &ty {
-            ty.path
-                .segments
-                .last()
-                .map(|seg| !matches!(seg.arguments, PathArguments::None))
-                .unwrap_or(false)
-        } else {
-            false
-        };
         let crate_root = &self.container_config.crate_root;
         ty.strip_lifetimes();
         let default_fn = self.default_fn();
+        let has_generics = !type_params.is_empty() && {
+            if let Type::Path(ref ty) = ty {
+                ty.path.segments.iter().any(|seg| {
+                    let type_string = seg.into_token_stream().to_string();
+                    let type_parts: Vec<&str> = type_string.split(" ").collect();
+                    type_params
+                        .iter()
+                        .any(|param| type_parts.contains(&param.to_string().as_str()))
+                })
+            } else {
+                false
+            }
+        };
         let constraint_name = format_ident!("FIELD_CONSTRAINT_{}", context);
         let constraints = self
             .constraints
@@ -883,13 +892,23 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
-    pub fn decode_field_def(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+    pub fn decode_field_def(
+        &self,
+        name: &syn::Ident,
+        context: usize,
+        type_params: &[Ident],
+    ) -> proc_macro2::TokenStream {
         let lhs = self.field.ident.as_ref().map(|i| quote!(#i :));
-        let decode_op = self.decode(name, context);
+        let decode_op = self.decode(name, context, type_params);
         quote!(#lhs #decode_op)
     }
 
-    pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+    pub fn decode(
+        &self,
+        name: &syn::Ident,
+        context: usize,
+        type_params: &[Ident],
+    ) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         let ty = &self.field.ty;
         let ident = format!(
@@ -901,19 +920,22 @@ impl<'a> FieldConfig<'a> {
                 .map(|ident| ident.to_string())
                 .unwrap_or_else(|| context.to_string())
         );
-
         let or_else = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error.into(), decoder.codec()))?);
         let default_fn = self.default_fn();
 
         let tag = self.tag(context);
-        let has_generics = if let Type::Path(ty) = &ty {
-            ty.path
-                .segments
-                .last()
-                .map(|seg| !matches!(seg.arguments, PathArguments::None))
-                .unwrap_or(false)
-        } else {
-            false
+        let has_generics = !type_params.is_empty() && {
+            if let Type::Path(ty) = ty {
+                ty.path.segments.iter().any(|seg| {
+                    let type_string = seg.into_token_stream().to_string();
+                    let type_parts: Vec<&str> = type_string.split(" ").collect();
+                    type_params
+                        .iter()
+                        .any(|param| type_parts.contains(&param.to_string().as_str()))
+                })
+            } else {
+                false
+            }
         };
         let constraint_name = format_ident!("CONSTRAINT_{}", context);
         let constraints = self.constraints.const_expr(crate_root);

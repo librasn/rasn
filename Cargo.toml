@@ -32,12 +32,6 @@ std = []
 backtraces = ["std", "snafu/backtrace"]
 compiler = ["rasn-compiler"]
 
-[profile.dev]
-# debug = 0
-
-[profile.bench]
-debug = true
-
 [profile.bench-lto]
 inherits = "bench"
 opt-level = 3
@@ -62,7 +56,7 @@ bench = false
 
 [[bench]]
 name = "criterion_integer"
-path = "benches/integer_basic.rs"
+path = "benches/integer.rs"
 harness = false
 test = true
 
