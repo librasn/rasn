@@ -664,15 +664,14 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             ));
         }
 
-        let effective_range =
-            value_range
-                .constraint
-                .effective_integer_value(value.to_i128().ok_or_else(|| {
-                    Error::integer_type_conversion_failed(
-                        "Value too large for i128 type - outside of type constraint".to_string(),
-                        self.codec(),
-                    )
-                })?);
+        let effective_range = value_range
+            .constraint
+            .effective_value(value.to_i128().ok_or_else(|| {
+                Error::integer_type_conversion_failed(
+                    "Value too large for i128 type - outside of type constraint".to_string(),
+                    self.codec(),
+                )
+            })?);
         let unsigned_ref;
         let signed_ref;
         let needed: usize;
@@ -1368,7 +1367,7 @@ mod tests {
 
         impl crate::AsnType for CustomInt {
             const TAG: Tag = Tag::INTEGER;
-            const CONSTRAINTS: Constraints<'static> = constraints!(value_constraint!(end: 65535));
+            const CONSTRAINTS: Constraints = constraints!(value_constraint!(end: 65535));
         }
 
         impl crate::Encode for CustomInt {

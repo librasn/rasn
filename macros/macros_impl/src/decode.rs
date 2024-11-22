@@ -27,7 +27,22 @@ pub fn derive_struct_impl(
                 decoder.decode_explicit_prefix::<#ty>(tag).map(Self)
             }
         } else {
+            let constraints = config
+                .constraints
+                .const_expr(crate_root)
+                .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
+            let constraint_name = format_ident!("DELEGATE_DECODE_CONSTRAINT");
+            let constraint_def = if generics.params.is_empty() {
+                quote! {
+                    let #constraint_name: #crate_root::types::Constraints  = const {<#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(#constraints)}.intersect(constraints);
+                }
+            } else {
+                quote! {
+                    let #constraint_name: #crate_root::types::Constraints  = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(constraints).intersect(const {#constraints });
+                }
+            };
             quote! {
+                #constraint_def
                 match tag {
                     #crate_root::types::Tag::EOC => {
                         Ok(Self(<#ty>::decode(decoder)?))
@@ -36,7 +51,7 @@ pub fn derive_struct_impl(
                         <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
                             decoder,
                             tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints),
+                            #constraint_name
                         ).map(Self)
                     }
                 }
@@ -186,7 +201,18 @@ pub fn derive_struct_impl(
                 count_root_fields += 1;
             }
 
-            list.push(field_config.decode_field_def(&name, i));
+            let type_params: Vec<_> = generics
+                .params
+                .iter()
+                .filter_map(|param| {
+                    if let syn::GenericParam::Type(type_param) = param {
+                        Some(type_param.ident.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            list.push(field_config.decode_field_def(&name, i, &type_params));
         }
 
         let fields = match container.fields {
@@ -254,7 +280,7 @@ pub fn derive_struct_impl(
 
     quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-            fn decode_with_tag_and_constraints<'constraints, D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<Self, D::Error> {
                 #decode_impl
             }
         }

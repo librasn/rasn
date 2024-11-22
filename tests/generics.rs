@@ -1,14 +1,13 @@
 use rasn::prelude::*;
+pub trait LeetTrait {
+    type Leet: Encode + Decode + core::fmt::Debug + Clone;
+
+    fn leet(&self) -> Self::Leet;
+}
 
 // https://github.com/librasn/rasn/issues/193
 #[test]
 fn test_sequence_with_generics_issue_193() {
-    pub trait LeetTrait {
-        type Leet: Encode + Decode + core::fmt::Debug + Clone;
-
-        fn leet(&self) -> Self::Leet;
-    }
-
     #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
     #[rasn(choice, automatic_tags)]
     pub enum Messages<T: LeetTrait> {
@@ -39,4 +38,35 @@ fn test_sequence_with_generics_issue_193() {
         hello_selection,
         rasn::oer::decode::<Messages<Hello>>(&encoded).unwrap()
     )
+}
+
+// This test is just for checking that generics will compile
+#[test]
+fn test_sequence_with_generic_and_constraints() {
+    #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+    #[rasn(automatic_tags)]
+    pub struct ConstrainedBlock<T>
+    where
+        T: LeetTrait,
+    {
+        id: Integer,
+        #[rasn(size("1.."))]
+        extn: SequenceOf<T>,
+    }
+    #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+    #[rasn(automatic_tags)]
+    #[rasn(delegate)]
+    #[rasn(size("4"))]
+    pub struct ConstrainedDelegateBlock<T: LeetTrait>(T);
+
+    #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
+    #[rasn(automatic_tags)]
+    #[rasn(choice)]
+    enum ConstrainedBlockEnum<T: LeetTrait> {
+        First(Integer),
+        #[rasn(size("1.."))]
+        Second(T),
+        #[rasn(value("5"))]
+        Third(T),
+    }
 }

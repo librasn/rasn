@@ -12,7 +12,7 @@ use alloc::{
 };
 
 use crate::{
-    oer::{ranges, EncodingRules},
+    oer::EncodingRules,
     types::{
         self,
         fields::{Field, Fields},
@@ -270,27 +270,31 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     ) -> Result<I, DecodeError> {
         // Only 'value' constraint is OER visible for integer
         if let Some(value) = constraints.value() {
-            ranges::determine_integer_size_and_sign(value, self.input, |_, sign, octets| {
-                let integer = self.decode_integer_from_bytes::<I>(sign, octets.map(usize::from))?;
-                // if the value is too large for a i128, the constraint isn't satisfied
-                if let Some(constraint_integer) = integer.to_i128() {
-                    if value.constraint.contains(&constraint_integer) {
-                        Ok(integer)
-                    } else {
-                        Err(DecodeError::value_constraint_not_satisfied(
-                            integer.to_bigint().unwrap_or_default(),
-                            value.constraint.0,
-                            self.codec(),
-                        ))
-                    }
+            let (signed, octets) = if value.extensible.is_some() {
+                (true, None)
+            } else {
+                (value.constraint.get_sign(), value.constraint.get_range())
+            };
+            let integer = self.decode_integer_from_bytes::<I>(signed, octets.map(usize::from))?;
+            // if the value is too large for a i128, the constraint isn't satisfied
+            if let Some(constraint_integer) = integer.to_i128() {
+                if value.constraint.contains(&constraint_integer) {
+                    Ok(integer)
                 } else {
                     Err(DecodeError::value_constraint_not_satisfied(
                         integer.to_bigint().unwrap_or_default(),
-                        value.constraint.0,
+                        value.constraint.value,
                         self.codec(),
                     ))
                 }
-            })
+            } else {
+                Err(DecodeError::value_constraint_not_satisfied(
+                    integer.to_bigint().unwrap_or_default(),
+                    value.constraint.value,
+                    self.codec(),
+                ))
+            }
+            // })
         } else {
             // No constraints
             self.decode_integer_from_bytes::<I>(true, None)
@@ -352,7 +356,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     fn parse_known_multiplier_string<
         T: crate::types::strings::StaticPermittedAlphabet
             + crate::types::AsnType
-            + TryFrom<Vec<u8>, Error = crate::error::strings::PermittedAlphabetError>,
+            + for<'a> TryFrom<&'a [u8], Error = crate::error::strings::PermittedAlphabetError>,
     >(
         &mut self,
         constraints: &Constraints,
@@ -360,15 +364,13 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         if let Some(size) = constraints.size() {
             // Fixed size, only data is included
             if size.constraint.is_fixed() && size.extensible.is_none() {
-                let data = self
-                    .extract_data_by_length(*size.constraint.as_start().unwrap())
-                    .map(|data| data.as_bytes().to_vec())?;
-                return T::try_from(data)
+                let data = self.extract_data_by_length(*size.constraint.as_start().unwrap())?;
+                return T::try_from(data.as_bytes())
                     .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()));
             }
         }
         let length = self.decode_length()?;
-        T::try_from(self.extract_data_by_length(length)?.as_bytes().to_vec())
+        T::try_from(self.extract_data_by_length(length)?.as_bytes())
             .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 

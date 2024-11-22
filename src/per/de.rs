@@ -7,7 +7,6 @@ use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
     THIRTY_TWO_K,
 };
-use crate::types::{IntegerType, SetOf};
 use crate::{
     de::Error as _,
     types::{
@@ -15,7 +14,7 @@ use crate::{
         constraints::{self, Extensible},
         fields::{Field, Fields},
         strings::{should_be_indexed, StaticPermittedAlphabet},
-        Constraints, Enumerated, Tag,
+        Constraints, Enumerated, IntegerType, SetOf, Tag,
     },
     Decode,
 };

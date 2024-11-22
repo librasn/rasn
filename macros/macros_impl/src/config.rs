@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use quote::ToTokens;
-use syn::{parenthesized, LitStr, Path, Token, UnOp};
+use syn::{parenthesized, Ident, LitStr, Path, Token, Type, UnOp};
 
 use crate::{ext::TypeExt, tag::Tag};
 
@@ -15,9 +15,8 @@ pub struct Constraints {
 
 impl Constraints {
     pub fn const_static_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
-        self.const_expr(crate_root).map(
-            |expr| quote!(const CONSTRAINTS: #crate_root::types::Constraints<'static> = #expr;),
-        )
+        self.const_expr(crate_root)
+            .map(|expr| quote!(const CONSTRAINTS: #crate_root::types::Constraints = #expr;))
     }
 
     pub fn attribute_tokens(&self) -> Option<proc_macro2::TokenStream> {
@@ -505,6 +504,8 @@ impl<'config> VariantConfig<'config> {
         let tag_tree = self.tag_tree(context);
         let ident = &self.variant.ident;
         let is_explicit = self.has_explicit_tag();
+        let constraint_name = format_ident!("DECODE_CONSTRAINT_{}", context);
+        let mut const_constraint = quote! {};
 
         let decode_op = match &self.variant.fields {
             syn::Fields::Unit => {
@@ -536,12 +537,18 @@ impl<'config> VariantConfig<'config> {
                             .map(|path| quote!(#path))
                             .unwrap_or_else(|| quote!(<_>::default));
                         if let Some(constraints) = constraints {
-                            quote!(decoder.decode_default_with_tag_and_constraints(tag, #path, #constraints))
+                            const_constraint = quote! {
+                                const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
+                            };
+                            quote!(decoder.decode_default_with_tag_and_constraints(tag, #path, #constraint_name))
                         } else {
                             quote!(decoder.decode_default_with_tag(tag, #path))
                         }
                     } else if let Some(constraints) = constraints {
-                        quote!(<_>::decode_with_tag_and_constraints(decoder, tag, #constraints))
+                        const_constraint = quote! {
+                            const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
+                        };
+                        quote!(<_>::decode_with_tag_and_constraints(decoder, tag, #constraint_name))
                     } else {
                         quote!(<_>::decode_with_tag(decoder, tag))
                     }
@@ -587,6 +594,7 @@ impl<'config> VariantConfig<'config> {
 
         quote! {
             if #crate_root::types::TagTree::tag_contains(&tag, &[#tag_tree]) {
+                #const_constraint
                 return #decode_op
             }
         }
@@ -748,7 +756,12 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
-    pub fn encode(&self, context: usize, use_self: bool) -> proc_macro2::TokenStream {
+    pub fn encode(
+        &self,
+        context: usize,
+        use_self: bool,
+        type_params: &[Ident],
+    ) -> proc_macro2::TokenStream {
         let this = use_self.then(|| quote!(self.));
         let tag = self.tag(context);
         let i = syn::Index::from(context);
@@ -762,36 +775,59 @@ impl<'a> FieldConfig<'a> {
         let crate_root = &self.container_config.crate_root;
         ty.strip_lifetimes();
         let default_fn = self.default_fn();
+        let has_generics = !type_params.is_empty() && {
+            if let Type::Path(ref ty) = ty {
+                ty.path.segments.iter().any(|seg| {
+                    let type_string = seg.into_token_stream().to_string();
+                    let type_parts: Vec<&str> = type_string.split(" ").collect();
+                    type_params
+                        .iter()
+                        .any(|param| type_parts.contains(&param.to_string().as_str()))
+                })
+            } else {
+                false
+            }
+        };
+        let constraint_name = format_ident!("FIELD_CONSTRAINT_{}", context);
+        let constraints = self
+            .constraints
+            .const_expr(&self.container_config.crate_root)
+            .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
+        let constraint_def = if has_generics {
+            quote! {
+                let #constraint_name: #crate_root::types::Constraints  = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(const {#constraints});
+            }
+        } else {
+            quote! {
+                const #constraint_name : #crate_root::types::Constraints = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(
+                    #constraints
+                );
+            }
+        };
 
         let encode = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
                 // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
                 quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;)
             } else if self.extension_addition {
-                let constraints = self
-                    .constraints
-                    .const_expr(&self.container_config.crate_root)
-                    .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
                 quote!(
+                    #constraint_def
                     encoder.encode_extension_addition(
                         #tag,
-                        <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                        #constraint_name,
                         &#this #field
                     )?;
                 )
             } else if self.extension_addition_group {
                 quote!(encoder.encode_extension_addition_group(#this #field.as_ref())?;)
             } else {
-                let constraints = self
-                    .constraints
-                    .const_expr(&self.container_config.crate_root)
-                    .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
                 match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
                         quote!(
+                            #constraint_def
                             encoder.encode_default_with_tag_and_constraints(
                                 #tag,
-                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                                #constraint_name,
                                 &#this #field,
                                 #default_fn
                             )?;
@@ -799,10 +835,11 @@ impl<'a> FieldConfig<'a> {
                     }
                     (true, false) => {
                         quote!(
+                            #constraint_def
                             #this #field.encode_with_tag_and_constraints(
                                 encoder,
                                 #tag,
-                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                                #constraint_name,
                                 #default_fn
                             )?;
                         )
@@ -814,14 +851,11 @@ impl<'a> FieldConfig<'a> {
                 }
             }
         } else if self.extension_addition {
-            let constraints = self
-                .constraints
-                .const_expr(&self.container_config.crate_root)
-                .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
             quote!(
+                #constraint_def
                 encoder.encode_extension_addition(
                     #tag,
-                    <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                    #constraint_name,
                     &#this #field
                 )?;
             )
@@ -830,25 +864,21 @@ impl<'a> FieldConfig<'a> {
         } else {
             match (self.constraints.has_constraints(), self.default.is_some()) {
                 (true, true) => {
-                    let constraints = self
-                        .constraints
-                        .const_expr(&self.container_config.crate_root);
                     quote!(
+                        #constraint_def
                         encoder.encode_default_with_constraints(
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            #constraint_name,
                             &#this #field,
                             #default_fn
                         )?;
                     )
                 }
                 (true, false) => {
-                    let constraints = self
-                        .constraints
-                        .const_expr(&self.container_config.crate_root);
                     quote!(
+                        #constraint_def
                         #this #field.encode_with_constraints(
                             encoder,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
+                            #constraint_name,
                         )?;
                     )
                 }
@@ -862,13 +892,23 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
-    pub fn decode_field_def(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+    pub fn decode_field_def(
+        &self,
+        name: &syn::Ident,
+        context: usize,
+        type_params: &[Ident],
+    ) -> proc_macro2::TokenStream {
         let lhs = self.field.ident.as_ref().map(|i| quote!(#i :));
-        let decode_op = self.decode(name, context);
+        let decode_op = self.decode(name, context, type_params);
         quote!(#lhs #decode_op)
     }
 
-    pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+    pub fn decode(
+        &self,
+        name: &syn::Ident,
+        context: usize,
+        type_params: &[Ident],
+    ) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         let ty = &self.field.ty;
         let ident = format!(
@@ -880,12 +920,36 @@ impl<'a> FieldConfig<'a> {
                 .map(|ident| ident.to_string())
                 .unwrap_or_else(|| context.to_string())
         );
-
         let or_else = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error.into(), decoder.codec()))?);
         let default_fn = self.default_fn();
 
         let tag = self.tag(context);
+        let has_generics = !type_params.is_empty() && {
+            if let Type::Path(ty) = ty {
+                ty.path.segments.iter().any(|seg| {
+                    let type_string = seg.into_token_stream().to_string();
+                    let type_parts: Vec<&str> = type_string.split(" ").collect();
+                    type_params
+                        .iter()
+                        .any(|param| type_parts.contains(&param.to_string().as_str()))
+                })
+            } else {
+                false
+            }
+        };
+        let constraint_name = format_ident!("CONSTRAINT_{}", context);
         let constraints = self.constraints.const_expr(crate_root);
+        let constraint_def = if has_generics {
+            quote! {
+                let #constraint_name: #crate_root::types::Constraints  = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(const {#constraints});
+            }
+        } else {
+            quote! {
+                const #constraint_name : #crate_root::types::Constraints = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(
+                    #constraints
+                );
+            }
+        };
         let handle_extension = if self.is_not_option_or_default_type() {
             quote!(.ok_or_else(|| {
                 #crate_root::de::Error::field_error(#ident, #crate_root::error::DecodeError::required_extension_not_present(#tag, decoder.codec()), decoder.codec())})?)
@@ -922,46 +986,50 @@ impl<'a> FieldConfig<'a> {
                     }
                 }
                 (Some(false), Some(path), true) => {
-                    quote!(
+                    quote!({
+                        #constraint_def
                         decoder.decode_default_with_tag_and_constraints(
                             #tag,
                             #path,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else
+                            #constraint_name,
+                        ) #or_else }
                     )
                 }
                 (Some(false), Some(path), false) => {
                     quote!(decoder.decode_default_with_tag(#tag, #path) #or_else)
                 }
                 (Some(false), None, true) => {
-                    quote!(
+                    quote!({
+                        #constraint_def
                         <_>::decode_with_tag_and_constraints(
                             decoder,
                             #tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else
+                            #constraint_name,
+                        ) #or_else }
                     )
                 }
                 (Some(false), None, false) => {
                     quote!(<_>::decode_with_tag(decoder, #tag) #or_else)
                 }
                 (None, Some(path), true) => {
-                    quote!(
+                    quote!({
+                        #constraint_def
                         decoder.decode_default_with_constraints(
                             #path,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else
+                            #constraint_name,
+                        ) #or_else }
                     )
                 }
                 (None, Some(path), false) => {
                     quote!(decoder.decode_default(#path) #or_else)
                 }
                 (None, None, true) => {
-                    quote!(
+                    quote!({
+                        #constraint_def
                         <_>::decode_with_constraints(
                             decoder,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else
+                            #constraint_name,
+                        ) #or_else }
                     )
                 }
                 (None, None, false) => {
@@ -991,11 +1059,14 @@ impl<'a> FieldConfig<'a> {
                         or_else.clone()
                     };
                     if constraints {
-                        quote!(
-                            decoder.decode_extension_addition_with_explicit_tag_and_constraints(
-                                #tag,
-                                <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                                ) #or_else #handle_extension)
+                        {
+                            quote!(
+                                #constraint_def
+                                decoder.decode_extension_addition_with_explicit_tag_and_constraints(
+                                    #tag,
+                                    #constraint_name
+                                    ) #or_else #handle_extension)
+                        }
                     } else {
                         quote!(decoder.decode_extension_addition_with_explicit_tag_and_constraints(
                             #tag,
@@ -1004,20 +1075,24 @@ impl<'a> FieldConfig<'a> {
                 }
                 (Some(false), Some(path), true) => {
                     quote!(
+                        #constraint_def
                         decoder.decode_extension_addition_with_default_and_tag_and_constraints(
                             #tag,
                             #path,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else
+                            #constraint_name
+                            ) #or_else
                     )
                 }
                 (Some(false), None, true) => {
                     quote!(
-                        <_>::decode_extension_addition_with_tag_and_constraints(
-                            decoder,
-                            #tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else #handle_extension
+                        {
+                            #constraint_def
+                            <_>::decode_extension_addition_with_tag_and_constraints(
+                                decoder,
+                                #tag,
+                                #constraint_name
+                            ) #or_else #handle_extension
+                        }
                     )
                 }
                 (Some(false), Some(path), false) => {
@@ -1028,10 +1103,12 @@ impl<'a> FieldConfig<'a> {
                 }
                 (None, Some(path), true) => {
                     quote!(
+                        {
+                        #constraint_def
                         decoder.decode_extension_addition_with_default_and_constraints(
                             #path,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else
+                            #constraint_name,
+                        ) #or_else }
                     )
                 }
                 (None, Some(path), false) => {
@@ -1042,10 +1119,11 @@ impl<'a> FieldConfig<'a> {
                     )
                 }
                 (None, None, true) => {
-                    quote!(
+                    quote!({
+                        #constraint_def
                         decoder.decode_extension_addition_with_constraints(
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(#constraints),
-                        ) #or_else
+                            #constraint_name,
+                        ) #or_else }
                     )
                 }
                 (None, None, false) => {

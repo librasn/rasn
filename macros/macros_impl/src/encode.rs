@@ -11,11 +11,22 @@ pub fn derive_struct_impl(
     let mut field_encodings = Vec::with_capacity(container.fields.len());
     let mut number_root_fields: usize = 0;
     let mut number_extended_fields: usize = 0;
+    let type_params: Vec<_> = generics
+        .params
+        .iter()
+        .filter_map(|param| {
+            if let syn::GenericParam::Type(type_param) = param {
+                Some(type_param.ident.clone())
+            } else {
+                None
+            }
+        })
+        .collect();
 
     // Count the number of root and extended fields so that encoder can know the number of fields in advance
     for (i, field) in container.fields.iter().enumerate() {
         let field_config = FieldConfig::new(field, config);
-        let field_encoding = field_config.encode(i, true);
+        let field_encoding = field_config.encode(i, true, &type_params);
 
         if field_config.is_extension() {
             number_extended_fields += 1;
@@ -39,7 +50,18 @@ pub fn derive_struct_impl(
             // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
             quote!(encoder.encode_explicit_prefix(#tag, &self.0).map(drop))
         } else {
+            let constraint_name = quote::format_ident!("effective_constraint");
+            let constraint_def = if generics.params.is_empty() {
+                quote! {
+                    let #constraint_name: #crate_root::types::Constraints  = const {<#ty as #crate_root::AsnType>::CONSTRAINTS}.intersect(constraints);
+                }
+            } else {
+                quote! {
+                    let #constraint_name: #crate_root::types::Constraints  = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(constraints);
+                }
+            };
             quote!(
+                #constraint_def
                 match tag {
                     #crate_root::types::Tag::EOC => {
                         self.0.encode(encoder)
@@ -49,7 +71,7 @@ pub fn derive_struct_impl(
                             &self.0,
                             encoder,
                             tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS.override_constraints(constraints)
+                            #constraint_name
                         )
                     }
                 }
@@ -87,7 +109,7 @@ pub fn derive_struct_impl(
     quote! {
         #[allow(clippy::mutable_key_type)]
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
-            fn encode_with_tag_and_constraints<'constraints, EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints<'constraints>) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<EN: #crate_root::Encoder>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<(), EN::Error> {
                 #(#vars)*
 
                 #encode_impl
