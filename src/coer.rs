@@ -17,18 +17,21 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
 /// Returns `EncodeError` if `value` cannot be encoded as COER, usually meaning that constraints
 /// are not met.
 pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    // let mut enc = Encoder::<0>::new(enc::EncoderOptions::coer(), core::mem::size_of::<T>());
     let mut buffer = alloc::vec::Vec::with_capacity(core::mem::size_of::<T>());
     let mut enc = Encoder::<0>::from_buffer(enc::EncoderOptions::coer(), &mut buffer);
     value.encode(&mut enc)?;
     Ok(enc.output())
 }
-/// Variant of `encode` that writes to a pre-allocated buffer.
+/// Attempts to encode `value` of type `T` to COER.
+/// Variant of `encode` that writes to a provided existing `buffer``.
+///
+/// # Errors
+/// Returns `EncodeError` if `value` cannot be encoded as COER, usually meaning that constraints
+/// are not met.
 pub fn encode_buf<T: crate::Encode>(
     value: &T,
     buffer: &mut alloc::vec::Vec<u8>,
 ) -> Result<(), EncodeError> {
-    // let mut enc = Encoder::<0>::new(enc::EncoderOptions::coer(), core::mem::size_of::<T>());
     let mut enc = Encoder::<0>::from_buffer(enc::EncoderOptions::coer(), buffer);
     value.encode(&mut enc)?;
     Ok(())
@@ -54,7 +57,6 @@ pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, EncodeError> {
-    // let mut enc = Encoder::<0>::new(enc::EncoderOptions::coer(), core::mem::size_of::<T>());
     let mut buffer = alloc::vec::Vec::with_capacity(core::mem::size_of::<T>());
     let mut enc = Encoder::<0>::from_buffer(enc::EncoderOptions::coer(), &mut buffer);
     value.encode_with_constraints(&mut enc, constraints)?;
