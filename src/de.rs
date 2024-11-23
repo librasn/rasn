@@ -137,6 +137,14 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Vec<u8>, Self::Error>;
+    /// Decode a constrained fixed-size `OCTET STRING` identified by `tag` from the available input.
+    ///
+    /// This function exist to improve decoding performance of fixed-size single range constrained octet strings.
+    fn decode_fixed_octet_string<const N: usize>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<[u8; N], Self::Error>;
     /// Decode a `UTF8 STRING` identified by `tag` from the available input.
     fn decode_utf8_string(
         &mut self,

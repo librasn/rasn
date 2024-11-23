@@ -678,6 +678,17 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.extract_data_by_length(length)
             .map(|data| data.to_vec())
     }
+    fn decode_fixed_octet_string<const N: usize>(
+        &mut self,
+        _: Tag,
+        _: Constraints,
+    ) -> Result<[u8; N], Self::Error> {
+        // We don't check constraints - we assume that type has a correct size
+        let data = self.extract_data_by_length(N)?;
+        let mut array = [0u8; N];
+        array.copy_from_slice(data.as_bytes());
+        Ok(array)
+    }
 
     fn decode_utf8_string(
         &mut self,

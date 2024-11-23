@@ -702,6 +702,17 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
         Ok(octet_string.into_vec())
     }
+    fn decode_fixed_octet_string<const N: usize>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<[u8; N], Self::Error> {
+        // TODO optimize this
+        let data = self.decode_octet_string(tag, constraints)?;
+        let mut array = [0u8; N];
+        array.copy_from_slice(data.as_slice());
+        Ok(array)
+    }
 
     fn decode_null(&mut self, _: Tag) -> Result<()> {
         Ok(())

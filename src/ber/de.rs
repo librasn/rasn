@@ -454,6 +454,17 @@ impl<'input> crate::Decoder for Decoder<'input> {
             Ok(buffer)
         }
     }
+    fn decode_fixed_octet_string<const N: usize>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<[u8; N], Self::Error> {
+        // BER is not aware of the constraints
+        let data = self.decode_octet_string(tag, constraints)?;
+        let mut array = [0u8; N];
+        array.copy_from_slice(data.as_slice());
+        Ok(array)
+    }
 
     fn decode_null(&mut self, tag: Tag) -> Result<()> {
         let (_, contents) = self.parse_primitive_value(tag)?;

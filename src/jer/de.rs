@@ -192,6 +192,17 @@ impl crate::Decoder for Decoder {
     ) -> Result<alloc::vec::Vec<u8>, Self::Error> {
         decode_jer_value!(Self::octet_string_from_value, self.stack)
     }
+    fn decode_fixed_octet_string<const N: usize>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<[u8; N], Self::Error> {
+        // Size constraints for Octet Strings are not JER visible
+        let data = self.decode_octet_string(tag, constraints)?;
+        let mut array = [0u8; N];
+        array.copy_from_slice(data.as_slice());
+        Ok(array)
+    }
 
     fn decode_utf8_string(&mut self, _t: Tag, _c: Constraints) -> Result<Utf8String, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)

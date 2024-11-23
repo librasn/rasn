@@ -75,18 +75,17 @@ impl<const N: usize> Decode for FixedOctetString<N> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder
-            .decode_octet_string(tag, constraints)?
-            .try_into()
-            .map(Self)
-            .map_err(|vec| {
-                D::Error::from(crate::error::DecodeError::fixed_string_conversion_failed(
-                    Tag::OCTET_STRING,
-                    vec.len(),
-                    N,
-                    decoder.codec(),
-                ))
-            })
+        let codec = decoder.codec();
+        let octet_string = decoder.decode_fixed_octet_string::<N>(tag, constraints)?;
+        let len = octet_string.as_ref().len();
+        octet_string.as_ref().try_into().map(Self).map_err(|_| {
+            D::Error::from(crate::error::DecodeError::fixed_string_conversion_failed(
+                Tag::OCTET_STRING,
+                len,
+                N,
+                codec,
+            ))
+        })
     }
 }
 
