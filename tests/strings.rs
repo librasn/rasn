@@ -1,6 +1,6 @@
 // Test whether constrained OctetString and FixedOctetString are equal
 use rasn::prelude::*;
-use rasn::{ber, oer, uper};
+use rasn::{ber, jer, oer, uper};
 
 #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
 #[rasn(automatic_tags)]
@@ -106,3 +106,4 @@ macro_rules! test_decode_eq {
 test_decode_eq!(test_uper_octet_eq, uper);
 test_decode_eq!(test_oer_octet_eq, oer);
 test_decode_eq!(test_ber_octet_eq, ber);
+test_decode_eq!(test_jer_octet_eq, jer);
