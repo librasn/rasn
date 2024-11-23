@@ -31,7 +31,7 @@ pub fn derive_struct_impl(
                 .constraints
                 .const_expr(crate_root)
                 .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
-            let constraint_name = format_ident!("DELEGATE_DECODE_CONSTRAINT");
+            let constraint_name = format_ident!("delegate_constraint");
             let constraint_def = if generics.params.is_empty() {
                 quote! {
                     let #constraint_name: #crate_root::types::Constraints  = const {<#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(#constraints)}.intersect(constraints);
