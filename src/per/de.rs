@@ -2,6 +2,7 @@
 
 use alloc::{collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
+use nom::AsBytes;
 
 use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
@@ -704,13 +705,16 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     }
     fn decode_fixed_octet_string<const N: usize>(
         &mut self,
-        tag: Tag,
-        constraints: Constraints,
+        _: Tag,
+        _: Constraints,
     ) -> Result<[u8; N], Self::Error> {
-        // TODO optimize this
-        let data = self.decode_octet_string(tag, constraints)?;
+        // We don't check constraints - we assume that type has a correct size
+        let (input, data) = nom::bytes::streaming::take(N * 8)(self.input)
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+        self.input = input;
         let mut array = [0u8; N];
-        array.copy_from_slice(data.as_slice());
+        debug_assert_eq!(data.len(), N * 8);
+        array.copy_from_slice(data.as_bytes());
         Ok(array)
     }
 

@@ -684,7 +684,9 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         _: Constraints,
     ) -> Result<[u8; N], Self::Error> {
         // We don't check constraints - we assume that type has a correct size
-        let data = self.extract_data_by_length(N)?;
+        let (input, data) = nom::bytes::streaming::take(N * 8)(self.input)
+            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+        self.input = input;
         let mut array = [0u8; N];
         array.copy_from_slice(data.as_bytes());
         Ok(array)
