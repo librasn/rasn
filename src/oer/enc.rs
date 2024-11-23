@@ -2,7 +2,6 @@
 
 use alloc::vec::Vec;
 use bitvec::prelude::*;
-use nom::AsBytes;
 use num_traits::ToPrimitive;
 
 use crate::{
@@ -929,21 +928,28 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_choice<E: Encode + Choice>(
         &mut self,
         _: Constraints,
-        _tag: Tag,
+        tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
     ) -> Result<Self::Ok, Self::Error> {
-        let buffer_end = self.output.len();
-        let tag = encode_fn(self)?;
-        let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
-        let mut output = self.output.split_off(buffer_end);
+        // Encode tag
         let mut tag_buffer: BitArray<[u8; core::mem::size_of::<Tag>() + 1], Msb0> =
             BitArray::default();
         let needed = self.encode_tag(tag, tag_buffer.as_mut_bitslice());
         self.output
             .extend_from_slice(&tag_buffer.as_raw_slice()[..(needed / 8)]);
+
+        let buffer_end = self.output.len();
+        // Encode the value
+        let _tag = encode_fn(self)?;
+        debug_assert_eq!(_tag, tag);
+        let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
         if is_root_extension {
-            self.output.append(&mut output);
+            // all good, correct data in the buffer already
         } else {
+            // Extension with length determinant
+            // Unfortunatelly, we really cannot avoid extra allocating here
+            // We don't know the length of the data length before encoding
+            let mut output = self.output.split_off(buffer_end);
             self.encode_length(output.len())?;
             self.output.append(&mut output);
         }
