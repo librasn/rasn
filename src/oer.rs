@@ -13,10 +13,7 @@ use crate::types::Constraints;
 /// # Errors
 /// Returns `DecodeError` if `input` is not valid OER encoding specific to the expected type.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
-    T::decode(&mut Decoder::<0, 0>::new(
-        crate::types::BitStr::from_slice(input),
-        de::DecoderOptions::oer(),
-    ))
+    T::decode(&mut Decoder::<0, 0>::new(input, de::DecoderOptions::oer()))
 }
 /// Attempts to encode `value` of type `T` to OER.
 ///
@@ -38,10 +35,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
     input: &[u8],
 ) -> Result<T, DecodeError> {
     T::decode_with_constraints(
-        &mut Decoder::<0, 0>::new(
-            crate::types::BitStr::from_slice(input),
-            de::DecoderOptions::oer(),
-        ),
+        &mut Decoder::<0, 0>::new(input, de::DecoderOptions::oer()),
         constraints,
     )
 }
