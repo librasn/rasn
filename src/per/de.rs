@@ -1,6 +1,6 @@
 //! Decoding Packed Encoding Rules data into Rust structures.
 
-use alloc::{collections::VecDeque, string::ToString, vec::Vec};
+use alloc::{borrow::Cow, collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
 use nom::AsBytes;
 
@@ -689,33 +689,24 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.parse_integer::<I>(constraints)
     }
 
-    fn decode_octet_string(&mut self, _: Tag, constraints: Constraints) -> Result<Vec<u8>> {
-        let mut octet_string = types::BitString::default();
+    fn decode_octet_string<'b, T: TryFrom<Cow<'b, [u8]>>>(
+        &'b mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<T> {
+        let mut octet_string: Cow<'_, [u8]> = Cow::Owned(Vec::new());
         let codec = self.codec();
 
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
 
-            octet_string.extend(&*part);
+            octet_string = Cow::Owned(part.as_bytes().into());
             Ok(input)
         })?;
-
-        Ok(octet_string.into_vec())
-    }
-    fn decode_fixed_octet_string<const N: usize>(
-        &mut self,
-        _: Tag,
-        _: Constraints,
-    ) -> Result<[u8; N], Self::Error> {
-        // We don't check constraints - we assume that type has a correct size
-        let (input, data) = nom::bytes::streaming::take(N * 8)(self.input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        self.input = input;
-        let mut array = [0u8; N];
-        debug_assert_eq!(data.len(), N * 8);
-        array.copy_from_slice(data.as_bytes());
-        Ok(array)
+        let len = octet_string.len();
+        T::try_from(octet_string)
+            .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, len, 0, codec))
     }
 
     fn decode_null(&mut self, _: Tag) -> Result<()> {
@@ -804,25 +795,30 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::GeneralString> {
-        <types::GeneralString>::try_from(self.decode_octet_string(tag, constraints)?).map_err(|e| {
-            DecodeError::string_conversion_failed(Tag::GENERAL_STRING, e.to_string(), self.codec())
-        })
+        <types::GeneralString>::try_from(self.decode_octet_string::<Vec<u8>>(tag, constraints)?)
+            .map_err(|e| {
+                DecodeError::string_conversion_failed(
+                    Tag::GENERAL_STRING,
+                    e.to_string(),
+                    self.codec(),
+                )
+            })
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let bytes = self.decode_octet_string(tag, Constraints::default())?;
+        let bytes = self.decode_octet_string::<Cow<[u8]>>(tag, Constraints::default())?;
 
         crate::ber::decode(&bytes)
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
-        let bytes = self.decode_octet_string(tag, Constraints::default())?;
+        let bytes = self.decode_octet_string::<Cow<[u8]>>(tag, Constraints::default())?;
 
         crate::ber::decode(&bytes)
     }
 
     fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
-        let bytes = self.decode_octet_string(tag, Constraints::default())?;
+        let bytes = self.decode_octet_string::<Cow<[u8]>>(tag, Constraints::default())?;
 
         crate::ber::decode(&bytes)
     }

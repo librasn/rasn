@@ -6,6 +6,7 @@
 // the encoding itself without knowledge of the type being encoded ITU-T X.696 (6.2).
 
 use alloc::{
+    borrow::Cow,
     string::{String, ToString},
     vec::Vec,
 };
@@ -198,7 +199,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     /// Since we rely on memory and `BitSlice`, we cannot handle larger data length than `0x1fff_ffff_ffff_ffff`
     /// 'length' is the length of the data in bytes (octets)
     /// Returns the data
-    fn extract_data_by_length(&mut self, length: usize) -> Result<InputSlice, DecodeError> {
+    fn extract_data_by_length(&mut self, length: usize) -> Result<&'input [u8], DecodeError> {
         if length == 0 {
             return Ok(&[]);
         }
@@ -653,43 +654,33 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             .map(|seq| SetOf::from_vec(seq))
     }
 
-    fn decode_octet_string(
-        &mut self,
-        _: Tag,
+    // fn decode_octet_string<'b, T: Into<Vec<u8>> + TryFrom<&'b [u8]>>(
+    fn decode_octet_string<'b, T: TryFrom<Cow<'b, [u8]>>>(
+        &'b mut self,
+        tag: Tag,
         constraints: Constraints,
-    ) -> Result<Vec<u8>, Self::Error> {
+    ) -> Result<T, Self::Error> {
+        let codec = self.codec();
         if let Some(size) = constraints.size() {
             // Fixed size, only data is included
             if size.constraint.is_fixed() && size.extensible.is_none() {
-                let data = self
-                    .extract_data_by_length(*size.constraint.as_start().ok_or_else(|| {
+                let data =
+                    self.extract_data_by_length(*size.constraint.as_start().ok_or_else(|| {
                         DecodeError::size_constraint_not_satisfied(
                             None,
                             "Fixed size constraint should have value when decoding Octet String"
                                 .to_string(),
                             self.codec(),
                         )
-                    })?)
-                    .map(|data| data.to_vec());
-                return data;
+                    })?)?;
+                return T::try_from(Cow::Borrowed(data))
+                    .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, 0, 0, codec));
             }
         }
         let length = self.decode_length()?;
-        self.extract_data_by_length(length)
-            .map(|data| data.to_vec())
-    }
-    fn decode_fixed_octet_string<const N: usize>(
-        &mut self,
-        _: Tag,
-        _: Constraints,
-    ) -> Result<[u8; N], Self::Error> {
-        // We don't check constraints - we assume that type has a correct size
-        let (input, data) = nom::bytes::streaming::take(N * 8)(self.input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        self.input = input;
-        let mut array = [0u8; N];
-        array.copy_from_slice(data.as_bytes());
-        Ok(array)
+        let data = self.extract_data_by_length(length)?;
+        T::try_from(Cow::Borrowed(data))
+            .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, 0, 0, codec))
     }
 
     fn decode_utf8_string(
@@ -976,8 +967,10 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
         // Values of the extensions are only left, encoded as Open type
         // TODO vec without conversion to bitslice
-        let bytes = self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
-        let mut decoder = Decoder::<0, 0>::new(&bytes, self.options);
+        let options = self.options;
+        let bytes: Cow<[u8]> =
+            self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
+        let mut decoder = Decoder::<0, 0>::new(&bytes, options);
         D::decode_with_constraints(&mut decoder, constraints).map(Some)
     }
 
@@ -1000,8 +993,10 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
         // Values of the extensions are only left, inner type encoded as Open type
         // TODO vec without conversion to bitslice
-        let bytes = self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
-        let mut decoder = Decoder::<0, 0>::new(&bytes, self.options);
+        let options = self.options;
+        let bytes: Cow<[u8]> =
+            self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
+        let mut decoder = Decoder::<0, 0>::new(&bytes, options);
         D::decode(&mut decoder).map(Some)
     }
 }

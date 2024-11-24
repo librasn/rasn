@@ -3,6 +3,7 @@
 use serde_json::Value;
 
 use crate::{de::Error, error::*, types::*, Decode};
+use alloc::borrow::Cow;
 
 macro_rules! decode_jer_value {
     ($decoder_fn:expr, $input:expr) => {
@@ -185,23 +186,15 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(|v| self.set_of_from_value(v), self.stack)
     }
 
-    fn decode_octet_string(
-        &mut self,
-        _t: Tag,
-        _c: Constraints,
-    ) -> Result<alloc::vec::Vec<u8>, Self::Error> {
-        decode_jer_value!(Self::octet_string_from_value, self.stack)
-    }
-    fn decode_fixed_octet_string<const N: usize>(
-        &mut self,
+    fn decode_octet_string<'b, T: TryFrom<Cow<'b, [u8]>>>(
+        &'b mut self,
         tag: Tag,
-        constraints: Constraints,
-    ) -> Result<[u8; N], Self::Error> {
-        // Size constraints for Octet Strings are not JER visible
-        let data = self.decode_octet_string(tag, constraints)?;
-        let mut array = [0u8; N];
-        array.copy_from_slice(data.as_slice());
-        Ok(array)
+        _c: Constraints,
+    ) -> Result<T, Self::Error> {
+        let string = decode_jer_value!(Self::octet_string_from_value, self.stack)?;
+        let len = string.len();
+        T::try_from(Cow::Owned(string))
+            .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, len, 0, self.codec()))
     }
 
     fn decode_utf8_string(&mut self, _t: Tag, _c: Constraints) -> Result<Utf8String, Self::Error> {
