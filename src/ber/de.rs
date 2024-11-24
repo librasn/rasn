@@ -416,6 +416,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Constraints,
     ) -> Result<T> {
         let (identifier, contents) = self.parse_value(tag)?;
+        let codec = self.codec();
 
         if identifier.is_primitive() {
             match contents {

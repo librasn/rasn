@@ -3,6 +3,7 @@
 use serde_json::Value;
 
 use crate::{de::Error, error::*, types::*, Decode};
+use alloc::borrow::Cow;
 
 macro_rules! decode_jer_value {
     ($decoder_fn:expr, $input:expr) => {
