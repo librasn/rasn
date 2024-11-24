@@ -315,7 +315,7 @@ impl Encoder {
     }
 }
 
-impl<'buffer> crate::Encoder<'buffer> for Encoder {
+impl crate::Encoder<'_> for Encoder {
     type Ok = ();
     type Error = EncodeError;
     type AnyEncoder<'this, const R: usize, const E: usize> = Encoder;

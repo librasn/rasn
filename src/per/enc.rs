@@ -779,7 +779,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     }
 }
 
-impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer> for Encoder<RFC, EFC> {
+impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC> {
     type Ok = ();
     type Error = Error;
     type AnyEncoder<'this, const R: usize, const E: usize> = Encoder<R, E>;
