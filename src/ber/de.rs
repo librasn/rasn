@@ -12,7 +12,7 @@ use crate::{
     },
     Decode,
 };
-use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
+use alloc::{borrow::Cow, borrow::ToOwned, string::ToString, vec::Vec};
 use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, TimeZone};
 use parser::ParseNumberError;
 
@@ -410,12 +410,16 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
     }
 
-    fn decode_octet_string(&mut self, tag: Tag, _: Constraints) -> Result<Vec<u8>> {
+    fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
+        &'b mut self,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<T> {
         let (identifier, contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
             match contents {
-                Some(c) => Ok(c.to_vec()),
+                Some(c) => Ok(T::from(c)),
                 None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
             }
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
@@ -450,8 +454,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
                 self.parse_eoc()?;
             }
-
-            Ok(buffer)
+            Ok(T::from(buffer))
         }
     }
 
@@ -503,8 +506,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::VisibleString, Self::Error> {
-        types::VisibleString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
+        types::VisibleString::try_from(
+            self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
+                .as_ref(),
+        )
+        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
     fn decode_ia5_string(
@@ -512,8 +518,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::Ia5String> {
-        types::Ia5String::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
+        types::Ia5String::try_from(
+            self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
+                .as_ref(),
+        )
+        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
     fn decode_printable_string(
@@ -521,8 +530,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::PrintableString> {
-        types::PrintableString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
+        types::PrintableString::try_from(
+            self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
+                .as_ref(),
+        )
+        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
     fn decode_numeric_string(
@@ -530,8 +542,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::NumericString> {
-        types::NumericString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
+        types::NumericString::try_from(
+            self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
+                .as_ref(),
+        )
+        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
     fn decode_teletex_string(
@@ -539,8 +554,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::TeletexString> {
-        types::TeletexString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
+        types::TeletexString::try_from(
+            self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
+                .as_ref(),
+        )
+        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
     fn decode_bmp_string(
@@ -548,8 +566,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::BmpString> {
-        types::BmpString::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
+        types::BmpString::try_from(
+            self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
+                .as_ref(),
+        )
+        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
     fn decode_utf8_string(
@@ -572,8 +593,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::GeneralString> {
-        <types::GeneralString>::try_from(self.decode_octet_string(tag, constraints)?)
-            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
+        <types::GeneralString>::try_from(
+            self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
+                .as_ref(),
+        )
+        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {

@@ -185,12 +185,12 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(|v| self.set_of_from_value(v), self.stack)
     }
 
-    fn decode_octet_string(
-        &mut self,
-        _t: Tag,
+    fn decode_octet_string<'b, T: From<alloc::vec::Vec<u8>> + From<&'b [u8]>>(
+        &'b mut self,
+        _: Tag,
         _c: Constraints,
-    ) -> Result<alloc::vec::Vec<u8>, Self::Error> {
-        decode_jer_value!(Self::octet_string_from_value, self.stack)
+    ) -> Result<T, Self::Error> {
+        decode_jer_value!(Self::octet_string_from_value, self.stack).map(T::from)
     }
 
     fn decode_utf8_string(&mut self, _t: Tag, _c: Constraints) -> Result<Utf8String, Self::Error> {

@@ -60,6 +60,12 @@ path = "benches/integer.rs"
 harness = false
 test = true
 
+[[bench]]
+name = "criterion_strings"
+path = "benches/strings.rs"
+harness = false
+test = true
+
 [dependencies]
 bitvec.workspace = true
 bytes = { version = "1.7.2", default-features = false }
