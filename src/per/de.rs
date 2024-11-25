@@ -2,7 +2,6 @@
 
 use alloc::{borrow::Cow, collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
-use nom::AsBytes;
 
 use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
