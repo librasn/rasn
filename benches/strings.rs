@@ -1,7 +1,7 @@
 //! Benchmarking the decoding of constrained octet strings
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rasn::prelude::*;
-use rasn::{oer, uper};
+use rasn::{ber, oer, uper};
 
 #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
 #[rasn(automatic_tags)]
@@ -117,9 +117,11 @@ macro_rules! rasn_dec_fixed_octet_fn {
 
 rasn_dec_octet_fn!(uper_octet, uper);
 rasn_dec_octet_fn!(oer_octet, oer);
+rasn_dec_octet_fn!(ber_octet, ber);
 
 rasn_dec_fixed_octet_fn!(uper_fixed_octet, uper);
 rasn_dec_fixed_octet_fn!(oer_fixed_octet, oer);
+rasn_dec_fixed_octet_fn!(ber_fixed_octet, ber);
 
 criterion_group!(
     benches,
@@ -127,5 +129,7 @@ criterion_group!(
     uper_fixed_octet,
     oer_octet,
     oer_fixed_octet,
+    ber_octet,
+    ber_fixed_octet
 );
 criterion_main!(benches);

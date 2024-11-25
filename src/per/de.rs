@@ -693,17 +693,19 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         _: Tag,
         constraints: Constraints,
     ) -> Result<T> {
-        let mut octet_string = types::BitString::default();
+        let mut octet_string = Vec::new();
         let codec = self.codec();
 
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
 
-            octet_string.extend(&*part);
+            let mut bytes = part.to_bitvec();
+            bytes.force_align();
+            octet_string.extend_from_slice(bytes.as_raw_slice());
             Ok(input)
         })?;
-        Ok(T::from(octet_string.into_vec()))
+        Ok(T::from(octet_string))
     }
 
     fn decode_null(&mut self, _: Tag) -> Result<()> {

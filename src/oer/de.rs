@@ -962,7 +962,6 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         }
 
         // Values of the extensions are only left, encoded as Open type
-        // TODO vec without conversion to bitslice
         let options = self.options;
         let bytes: Cow<[u8]> =
             self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
@@ -988,7 +987,6 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         }
 
         // Values of the extensions are only left, inner type encoded as Open type
-        // TODO vec without conversion to bitslice
         let options = self.options;
         let bytes: Cow<[u8]> =
             self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
