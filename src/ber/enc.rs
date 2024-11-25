@@ -604,14 +604,14 @@ impl crate::Encoder<'_> for Encoder {
         Ok(())
     }
 
-    fn encode_sequence<'this, const RC: usize, const EC: usize, C, F>(
-        &'this mut self,
+    fn encode_sequence<'b, const RC: usize, const EC: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RC, EC>,
-        F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, 0, 0>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, 0, 0>) -> Result<(), Self::Error>,
     {
         let mut encoder = Self::new(self.config);
 
@@ -622,14 +622,14 @@ impl crate::Encoder<'_> for Encoder {
         Ok(())
     }
 
-    fn encode_set<'this, const RC: usize, const EC: usize, C, F>(
-        &'this mut self,
+    fn encode_set<'b, const RC: usize, const EC: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RC, EC>,
-        F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, 0, 0>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, 0, 0>) -> Result<(), Self::Error>,
     {
         let mut encoder = Self::new_set(self.config);
 

@@ -308,15 +308,14 @@ impl crate::Encoder<'_> for Encoder {
         value.encode(self)
     }
 
-    fn encode_sequence<'this, const RL: usize, const EL: usize, C, F>(
-        &'this mut self,
+    fn encode_sequence<'b, const RL: usize, const EL: usize, C, F>(
+        &'b mut self,
         __t: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
-        // F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
-        F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut field_names = C::FIELDS
             .iter()
@@ -356,15 +355,14 @@ impl crate::Encoder<'_> for Encoder {
         )?))
     }
 
-    fn encode_set<'this, const RL: usize, const EL: usize, C, F>(
-        &'this mut self,
+    fn encode_set<'b, const RL: usize, const EL: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         value: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
-        // F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
-        F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         self.encode_sequence::<RL, EL, C, F>(tag, value)
     }

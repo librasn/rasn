@@ -890,14 +890,14 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         }
     }
 
-    fn encode_sequence<'this, const RL: usize, const EL: usize, C, F>(
-        &'this mut self,
+    fn encode_sequence<'b, const RL: usize, const EL: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: Constructed<RL, EL>,
-        F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut encoder = Encoder::<'_, RL, EL>::from_buffer(
             self.options.without_set_encoding(),
@@ -944,14 +944,14 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         Ok(())
     }
 
-    fn encode_set<'this, const RL: usize, const EL: usize, C, F>(
-        &'this mut self,
+    fn encode_set<'b, const RL: usize, const EL: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: Constructed<RL, EL>,
-        F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut options = self.options;
         options.set_encoding = true;

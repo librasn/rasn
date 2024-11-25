@@ -78,9 +78,6 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         Error = Self::Error,
     >;
 
-    // type AnyEncoder<const R: usize, const E: usize>: Encoder<RC, EC, Ok = Self::Ok, Error = Self::Error>
-    //     + Encoder;
-
     /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;
 

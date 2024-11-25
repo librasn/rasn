@@ -1099,30 +1099,28 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         Ok(())
     }
 
-    fn encode_sequence<'this, const RL: usize, const EL: usize, C, F>(
-        &'this mut self,
+    fn encode_sequence<'b, const RL: usize, const EL: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
-        // F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
-        F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut encoder = self.new_sequence_encoder::<RL, EL, C>();
         (encoder_scope)(&mut encoder)?;
         self.encode_constructed::<RL, EL, C>(tag, encoder)
     }
 
-    fn encode_set<'this, const RL: usize, const EL: usize, C, F>(
-        &'this mut self,
+    fn encode_set<'b, const RL: usize, const EL: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
-        // F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
-        F: for<'b> FnOnce(&'b mut Self::AnyEncoder<'this, RL, EL>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut set = self.new_set_encoder::<RL, EL, C>();
 

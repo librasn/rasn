@@ -24,7 +24,7 @@ pub fn encode<T: crate::Encode>(value: &T) -> Result<alloc::vec::Vec<u8>, Encode
     Ok(enc.output())
 }
 /// Attempts to encode `value` of type `T` to COER.
-/// Variant of `encode` that writes to a provided existing `buffer``.
+/// Variant of `encode` that writes to a provided existing `buffer`.
 ///
 /// # Errors
 /// Returns `EncodeError` if `value` cannot be encoded as COER, usually meaning that constraints
@@ -963,16 +963,16 @@ mod tests {
             #[rasn(extension_addition)]
             c: Option<bool>,
         }
-        // round_trip!(
-        //     coer,
-        //     Sequence2,
-        //     Sequence2 {
-        //         a: true,
-        //         b: Some(true),
-        //         c: Some(true)
-        //     },
-        //     &[0x80, 0xff, 0x02, 0x06, 0xc0, 0x01, 0xff, 0x01, 0xff]
-        // );
+        round_trip!(
+            coer,
+            Sequence2,
+            Sequence2 {
+                a: true,
+                b: Some(true),
+                c: Some(true)
+            },
+            &[0x80, 0xff, 0x02, 0x06, 0xc0, 0x01, 0xff, 0x01, 0xff]
+        );
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(automatic_tags)]
         #[non_exhaustive]
@@ -986,12 +986,12 @@ mod tests {
         struct Sequence4 {
             a: bool,
         }
-        // round_trip!(
-        //     coer,
-        //     Sequence3,
-        //     Sequence3 { a: true, b: None },
-        //     &[0x00, 0xff]
-        // );
+        round_trip!(
+            coer,
+            Sequence3,
+            Sequence3 { a: true, b: None },
+            &[0x00, 0xff]
+        );
         round_trip!(
             coer,
             Sequence3,
