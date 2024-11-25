@@ -57,6 +57,9 @@ impl Default for EncoderOptions {
     }
 }
 
+// Meta information about the current encoding state.
+// Particularly related to encoding the presense of optional fields and extensions, and positioning
+// encoded bytes in the buffer with a minimal amount of allocations.
 #[derive(Debug, Clone, Copy)]
 struct ConstructedCursor<const RC: usize, const EC: usize> {
     number_optional_default: usize,
@@ -70,6 +73,7 @@ struct ConstructedCursor<const RC: usize, const EC: usize> {
 }
 
 impl<const RC: usize, const EC: usize> ConstructedCursor<RC, EC> {
+    // See Section 16 in ITU-T X.696 (02/2021)
     const fn new(number_optional_default: usize, is_extensible: bool) -> Self {
         let preamble_missing_bits =
             (8 - ((is_extensible as usize + number_optional_default) & 7)) & 7;
@@ -78,7 +82,8 @@ impl<const RC: usize, const EC: usize> ConstructedCursor<RC, EC> {
         );
         let preamble_width =
             (number_optional_default + is_extensible as usize + preamble_missing_bits) / 8;
-        let extension_missing_bits: u8 = if EC > 0 { (8 - (EC & 7) as u8) & 7 } else { 0 };
+        let extension_missing_bits: u8 =
+            ((EC > 0) as u8).wrapping_neg() & ((8 - (EC & 7) as u8) & 7);
         debug_assert!((EC + extension_missing_bits as usize) % 8 == 0);
         let extension_bitfield_width = (EC + extension_missing_bits as usize) / 8;
         let extension_bitmap_width = 1 + extension_bitfield_width;
@@ -131,8 +136,7 @@ pub struct Encoder<'buffer, const RCL: usize = 0, const ECL: usize = 0> {
     is_extension_sequence: bool,
     root_bitfield: (usize, [(bool, Tag); RCL]),
     extension_bitfield: (usize, [bool; ECL]),
-    // Tracks the position in the output buffer where extension fields are encoded.
-    // If extension cursor is zero - no extension fields are present.
+    // Tracks the position in the output buffer where the preamble and extension fields should/are encoded.
     cursor: ConstructedCursor<RCL, ECL>,
     // Sometimes we need to encode data into separate buffer before length can be calculated.
     // Using a separate buffer comes with a trade-off of reduced allocation count vs. peak memory usage.
@@ -157,7 +161,7 @@ pub struct Encoder<'buffer, const RCL: usize = 0, const ECL: usize = 0> {
 // which alternative of the choice type is the chosen alternative (see 20.1).
 impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
     #[must_use]
-    /// Constructs a new encoder from options and existing `buffer`.
+    /// Constructs a new encoder from options and existing `buffer` and worker buffer.
     pub fn from_buffer(
         options: EncoderOptions,
         output: &'buffer mut Vec<u8>,
