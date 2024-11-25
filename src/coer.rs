@@ -9,10 +9,7 @@ use crate::types::Constraints;
 /// # Errors
 /// Returns `DecodeError` if `input` is not valid COER encoding specific to the expected type.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
-    T::decode(&mut Decoder::<0, 0>::new(
-        crate::types::BitStr::from_slice(input),
-        de::DecoderOptions::coer(),
-    ))
+    T::decode(&mut Decoder::<0, 0>::new(input, de::DecoderOptions::coer()))
 }
 /// Attempts to encode `value` of type `T` to COER.
 ///
@@ -33,10 +30,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
     input: &[u8],
 ) -> Result<T, DecodeError> {
     T::decode_with_constraints(
-        &mut Decoder::<0, 0>::new(
-            crate::types::BitStr::from_slice(input),
-            de::DecoderOptions::coer(),
-        ),
+        &mut Decoder::<0, 0>::new(input, de::DecoderOptions::coer()),
         constraints,
     )
 }
