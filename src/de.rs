@@ -132,14 +132,13 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         constraints: Constraints,
     ) -> Result<types::SetOf<D>, Self::Error>;
     /// Decode a `OCTET STRING` identified by `tag` from the available input.
-    fn decode_octet_string<'b, T>(
-        &'b mut self,
+    fn decode_octet_string<'buf, T>(
+        &'buf mut self,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<T, Self::Error>
     where
-        // T: Into<Vec<u8>> + TryFrom<&'b [u8]>;
-        T: From<alloc::borrow::Cow<'b, [u8]>>;
+        T: From<&'buf [u8]> + From<Vec<u8>>;
 
     /// Decode a `UTF8 STRING` identified by `tag` from the available input.
     fn decode_utf8_string(

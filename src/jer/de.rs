@@ -3,7 +3,6 @@
 use serde_json::Value;
 
 use crate::{de::Error, error::*, types::*, Decode};
-use alloc::borrow::Cow;
 
 macro_rules! decode_jer_value {
     ($decoder_fn:expr, $input:expr) => {
@@ -186,15 +185,12 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(|v| self.set_of_from_value(v), self.stack)
     }
 
-    fn decode_octet_string<'b, T: TryFrom<Cow<'b, [u8]>>>(
+    fn decode_octet_string<'b, T: From<alloc::vec::Vec<u8>> + From<&'b [u8]>>(
         &'b mut self,
-        tag: Tag,
+        _: Tag,
         _c: Constraints,
     ) -> Result<T, Self::Error> {
-        let string = decode_jer_value!(Self::octet_string_from_value, self.stack)?;
-        let len = string.len();
-        T::try_from(Cow::Owned(string))
-            .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, len, 0, self.codec()))
+        decode_jer_value!(Self::octet_string_from_value, self.stack).map(T::from)
     }
 
     fn decode_utf8_string(&mut self, _t: Tag, _c: Constraints) -> Result<Utf8String, Self::Error> {

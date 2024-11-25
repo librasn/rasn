@@ -654,13 +654,11 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             .map(|seq| SetOf::from_vec(seq))
     }
 
-    // fn decode_octet_string<'b, T: Into<Vec<u8>> + TryFrom<&'b [u8]>>(
-    fn decode_octet_string<'b, T: TryFrom<Cow<'b, [u8]>>>(
+    fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
         &'b mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<T, Self::Error> {
-        let codec = self.codec();
         if let Some(size) = constraints.size() {
             // Fixed size, only data is included
             if size.constraint.is_fixed() && size.extensible.is_none() {
@@ -673,14 +671,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                             self.codec(),
                         )
                     })?)?;
-                return T::try_from(Cow::Borrowed(data))
-                    .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, 0, 0, codec));
+                return Ok(T::from(data));
             }
         }
         let length = self.decode_length()?;
         let data = self.extract_data_by_length(length)?;
-        T::try_from(Cow::Borrowed(data))
-            .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, 0, 0, codec))
+        Ok(T::from(data))
     }
 
     fn decode_utf8_string(

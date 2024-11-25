@@ -410,18 +410,16 @@ impl<'input> crate::Decoder for Decoder<'input> {
         }
     }
 
-    fn decode_octet_string<'b, T: TryFrom<Cow<'b, [u8]>>>(
+    fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
         &'b mut self,
         tag: Tag,
         _: Constraints,
     ) -> Result<T> {
         let (identifier, contents) = self.parse_value(tag)?;
-        let codec = self.codec();
 
         if identifier.is_primitive() {
             match contents {
-                Some(c) => Ok(T::try_from(Cow::Borrowed(c))
-                    .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, 0, 0, codec))?),
+                Some(c) => Ok(T::from(c)),
                 None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
             }
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
@@ -456,11 +454,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
                 self.parse_eoc()?;
             }
-
-            Ok(T::try_from(Cow::Owned(buffer))
-                .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, 0, 0, codec))?)
-
-            // Ok(buffer.ma)
+            Ok(T::from(buffer))
         }
     }
 

@@ -2,7 +2,6 @@
 
 use alloc::{borrow::Cow, collections::VecDeque, string::ToString, vec::Vec};
 use bitvec::field::BitField;
-use nom::AsBytes;
 
 use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
@@ -689,24 +688,22 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.parse_integer::<I>(constraints)
     }
 
-    fn decode_octet_string<'b, T: TryFrom<Cow<'b, [u8]>>>(
+    fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
         &'b mut self,
-        tag: Tag,
+        _: Tag,
         constraints: Constraints,
     ) -> Result<T> {
-        let mut octet_string: Cow<'_, [u8]> = Cow::Owned(Vec::new());
+        let mut octet_string = types::BitString::default();
         let codec = self.codec();
 
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
 
-            octet_string = Cow::Owned(part.as_bytes().into());
+            octet_string.extend(&*part);
             Ok(input)
         })?;
-        let len = octet_string.len();
-        T::try_from(octet_string)
-            .map_err(|_| DecodeError::fixed_string_conversion_failed(tag, len, 0, codec))
+        Ok(T::from(octet_string.into_vec()))
     }
 
     fn decode_null(&mut self, _: Tag) -> Result<()> {
