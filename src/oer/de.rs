@@ -163,7 +163,6 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                     self.codec(),
                 ));
             }
-            // Should not overflow, max size 8 x 127 = 1016 < u16::MAX
             let (data, rest) = self
                 .input
                 .split_at_checked(length as usize)
