@@ -23,7 +23,7 @@ use crate::{
     Codec, Decode,
 };
 
-use bitvec::{field::BitField, order::Msb0, slice::BitSlice, view::BitView};
+use bitvec::{field::BitField, order::Msb0, view::BitView};
 use nom::number::complete::be_u8;
 use num_traits::ToPrimitive;
 
@@ -433,27 +433,44 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
     fn parse_preamble<const RC: usize, const EC: usize, D>(
         &mut self,
-    ) -> Result<(&BitSlice<u8, Msb0>, bool), DecodeError>
+    ) -> Result<([bool; RC], bool), DecodeError>
     where
         D: Constructed<RC, EC>,
     {
         let is_extensible = D::IS_EXTENSIBLE;
         let preamble_width =
             D::FIELDS.number_of_optional_and_default_fields() + is_extensible as usize;
-        let preamble_bits = self
-            .extract_data_by_length((preamble_width + 7) / 8)?
-            .view_bits::<Msb0>();
-        let extensible_present = is_extensible && preamble_bits[0];
-        if preamble_bits[preamble_width..].not_any() {
-            Ok((
-                &preamble_bits[is_extensible as usize..preamble_width],
-                extensible_present,
-            ))
-        } else {
-            Err(OerDecodeErrorKind::invalid_preamble(
-                "Preamble unused bits should be all zero.".to_string(),
-            ))
+        let bytes = self.extract_data_by_length((preamble_width + 7) / 8)?;
+
+        let mut result = [false; RC];
+        let mut extensible_present = false;
+
+        // Process each preamble bit we need
+        for i in 0..preamble_width {
+            let byte_idx = i / 8;
+            let bit_idx = 7 - (i & 7);
+            let is_set: bool = (bytes[byte_idx] & (1 << bit_idx)) != 0;
+
+            if i == 0 && is_extensible {
+                extensible_present = is_set;
+            } else if i - (is_extensible as usize) < RC {
+                result[i - is_extensible as usize] = is_set;
+            }
         }
+
+        // Check that remaining bits are zero
+        let remaining_bits_start = preamble_width;
+        for i in remaining_bits_start..bytes.len() * 8 {
+            let byte_idx = i / 8;
+            let bit_idx = 7 - (i & 7);
+            if (bytes[byte_idx] & (1 << bit_idx)) != 0 {
+                return Err(OerDecodeErrorKind::invalid_preamble(
+                    "Preamble unused bits should be all zero.".to_string(),
+                ));
+            }
+        }
+
+        Ok((result, extensible_present))
     }
 }
 impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'input, RFC, EFC> {
@@ -577,17 +594,17 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let (bitmap, extensible_present) = self.parse_preamble::<RC, EC, D>()?;
         // ### ENDS
         let mut fields = ([None; RC], 0);
-        for (i, (field, is_present)) in D::FIELDS
+        D::FIELDS
             .optional_and_default_fields()
-            .zip(bitmap.into_iter().map(|b| *b))
+            .zip(bitmap)
             .enumerate()
-        {
-            if is_present {
-                fields.0[i] = Some(field);
-            } else {
-                fields.0[i] = None;
-            }
-        }
+            .for_each(|(i, (field, is_present))| {
+                if is_present {
+                    fields.0[i] = Some(field);
+                } else {
+                    fields.0[i] = None;
+                }
+            });
 
         let value = {
             let mut sequence_decoder = Decoder::new(self.input, self.options);
@@ -820,7 +837,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         for (i, (field, is_present)) in SET::FIELDS
             .canonised()
             .optional_and_default_fields()
-            .zip(bitmap.into_iter().map(|b| *b))
+            .zip(bitmap)
             .enumerate()
         {
             if is_present {
