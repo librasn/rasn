@@ -400,34 +400,33 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             .extension_fields
             .ok_or_else(|| DecodeError::type_not_extensible(self.codec()))?;
         // Must be at least 8 bits at this point or error is already raised
-        let bitfield = self
-            .extract_data_by_length(extensions_length)?
-            .view_bits::<Msb0>();
-        // Initial octet
-        let (unused_bits, bitfield) = bitfield.split_at(8);
-        let unused_bits: usize = unused_bits.load();
+        let bitfield_bytes = self.extract_data_by_length(extensions_length)?;
+        let (first_byte, bitfield) = bitfield_bytes.split_first().ok_or_else(|| {
+            OerDecodeErrorKind::invalid_extension_header("Missing initial octet".to_string())
+        })?;
+        let unused_bits = *first_byte as usize;
 
-        if unused_bits > bitfield.len() || unused_bits > 7 {
+        if unused_bits > 7 || unused_bits > bitfield.len() * 8 {
             return Err(OerDecodeErrorKind::invalid_extension_header(
                 "Invalid extension bitfield initial octet".to_string(),
             ));
         }
-        let needed = bitfield.len() - unused_bits;
-        let bitfield = &bitfield[..needed];
-
         let mut fields: [Option<Field>; EFC] = [None; EFC];
         for (i, field) in extension_fields.iter().enumerate() {
-            if field.is_not_optional_or_default() && !bitfield[i] {
+            let byte_idx = i / 8;
+            let bit_idx = 7 - (i & 7); // This gives us MSB0 ordering within each byte
+            let is_set = byte_idx < bitfield.len() && (bitfield[byte_idx] & (1 << bit_idx)) != 0;
+
+            if field.is_not_optional_or_default() && !is_set {
                 return Err(DecodeError::required_extension_not_present(
                     field.tag,
                     self.codec(),
                 ));
-            } else if bitfield[i] {
+            } else if is_set {
                 fields[i] = Some(field);
-            } else {
-                fields[i] = None;
             }
         }
+
         self.extensions_present = Some(Some((fields, 0)));
         Ok(true)
     }
