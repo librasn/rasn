@@ -779,10 +779,10 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     }
 }
 
-impl<const RFC: usize, const EFC: usize> crate::Encoder for Encoder<RFC, EFC> {
+impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC> {
     type Ok = ();
     type Error = Error;
-    type AnyEncoder<const R: usize, const E: usize> = Encoder<R, E>;
+    type AnyEncoder<'this, const R: usize, const E: usize> = Encoder<R, E>;
 
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
@@ -1099,28 +1099,28 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder for Encoder<RFC, EFC> {
         Ok(())
     }
 
-    fn encode_sequence<const RL: usize, const EL: usize, C, F>(
-        &mut self,
+    fn encode_sequence<'b, const RL: usize, const EL: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
-        F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut encoder = self.new_sequence_encoder::<RL, EL, C>();
         (encoder_scope)(&mut encoder)?;
         self.encode_constructed::<RL, EL, C>(tag, encoder)
     }
 
-    fn encode_set<const RL: usize, const EL: usize, C, F>(
-        &mut self,
+    fn encode_set<'b, const RL: usize, const EL: usize, C, F>(
+        &'b mut self,
         tag: Tag,
         encoder_scope: F,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
-        F: FnOnce(&mut Self::AnyEncoder<RL, EL>) -> Result<(), Self::Error>,
+        F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let mut set = self.new_set_encoder::<RL, EL, C>();
 
@@ -1371,7 +1371,7 @@ mod tests {
         }
 
         impl crate::Encode for CustomInt {
-            fn encode_with_tag_and_constraints<E: crate::Encoder>(
+            fn encode_with_tag_and_constraints<'b, E: crate::Encoder<'b>>(
                 &self,
                 encoder: &mut E,
                 tag: Tag,

@@ -287,7 +287,7 @@ pub mod interfaces {
     }
 
     impl rasn::Encode for Entry {
-        fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
+        fn encode_with_tag_and_constraints<'encoder, EN: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut EN,
             tag: Tag,

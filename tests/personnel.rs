@@ -17,7 +17,7 @@ pub struct PersonnelRecord {
 }
 
 impl rasn::Encode for PersonnelRecord {
-    fn encode_with_tag_and_constraints<EN: rasn::Encoder>(
+    fn encode_with_tag_and_constraints<'encoder, EN: rasn::Encoder<'encoder>>(
         &self,
         encoder: &mut EN,
         tag: rasn::types::Tag,

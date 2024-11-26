@@ -66,7 +66,7 @@ pub fn encode_derive_inner(
             ..
         }) => quote! {
             impl #crate_root::Encode for #name {
-                fn encode_with_tag_and_constraints<E: #crate_root::Encoder>(
+                fn encode_with_tag_and_constraints<'encoder, E: #crate_root::Encoder<'encoder>>(
                     &self,
                     encoder: &mut E,
                     tag: #crate_root::types::Tag,

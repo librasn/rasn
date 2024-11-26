@@ -437,7 +437,7 @@ pub trait IntegerType:
         codec: crate::Codec,
     ) -> Result<Self, crate::error::DecodeError>;
 
-    /// Returns minimum number defined by `usize` of signed Big-endian bytes needed to present the the.
+    /// Returns a minimum number of signed Big Endian bytes needed to present the integer, byte count defined by `usize`.
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize);
 
     /// Returns minimum number defined by `usize` of unsigned Big-endian bytes needed to present the the integer.

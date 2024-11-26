@@ -78,7 +78,7 @@ impl AsnType for VisibleString {
 }
 
 impl Encode for VisibleString {
-    fn encode_with_tag_and_constraints<E: Encoder>(
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
         tag: Tag,

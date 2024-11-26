@@ -235,7 +235,7 @@ mod tests {
         }
 
         impl crate::Encode for Set {
-            fn encode_with_tag_and_constraints<EN: crate::Encoder>(
+            fn encode_with_tag_and_constraints<'b, EN: crate::Encoder<'b>>(
                 &self,
                 encoder: &mut EN,
                 tag: crate::types::Tag,

@@ -71,7 +71,7 @@ pub enum ApplicationSyntax {
 pub struct ExtUtcTime(pub chrono::DateTime<chrono::Utc>);
 
 impl Encode for ExtUtcTime {
-    fn encode_with_tag_and_constraints<EN: Encoder>(
+    fn encode_with_tag_and_constraints<'encoder, EN: Encoder<'encoder>>(
         &self,
         encoder: &mut EN,
         tag: Tag,

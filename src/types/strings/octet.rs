@@ -97,7 +97,7 @@ impl<const N: usize> Decode for FixedOctetString<N> {
 }
 
 impl<const N: usize> Encode for FixedOctetString<N> {
-    fn encode_with_tag_and_constraints<E: Encoder>(
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
         tag: Tag,

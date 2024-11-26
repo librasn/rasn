@@ -730,15 +730,9 @@ impl Bounded<i128> {
     }
     /// Returns `true` if the given element is within the bounds of the constraint.
     /// Constraint type is `i128` here, so we can make checks based on that.
+    #[inline(always)]
     pub fn in_bound<I: IntegerType>(&self, element: &I) -> bool {
         match &self {
-            Self::Single(value) => {
-                if let Some(e) = element.to_i128() {
-                    e == *value
-                } else {
-                    false
-                }
-            }
             Self::Range { start, end } => {
                 start.as_ref().map_or(true, |&start| {
                     if let Some(e) = element.to_i128() {
@@ -757,6 +751,13 @@ impl Bounded<i128> {
                         false
                     }
                 })
+            }
+            Self::Single(value) => {
+                if let Some(e) = element.to_i128() {
+                    e == *value
+                } else {
+                    false
+                }
             }
             Self::None => true,
         }
