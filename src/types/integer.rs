@@ -511,11 +511,18 @@ macro_rules! integer_type_impl {
                     return Err(crate::error::DecodeError::integer_overflow(<$t1>::BITS, codec));
                 }
 
-                let mut array = [0u8; BYTE_SIZE];
-                let pad = if input[0] & 0x80 == 0 { 0 } else { 0xff };
-                array[..BYTE_SIZE - input.len()].fill(pad);
-                array[BYTE_SIZE - input.len()..].copy_from_slice(input);
-                Ok(Self::from_be_bytes(array))
+                // Use shifting to directly construct the primitive integer types
+                // Convert first byte with sign extension
+                 let mut result = (input[0] as $t1) << (BYTE_SIZE - 1) * 8;
+                 result >>= (BYTE_SIZE - input.len()) * 8;
+                 // // Handle remaining bytes
+                 // Add remaining bytes
+                 for (i, &byte) in input.iter().skip(1).enumerate() {
+                     result |= (byte as $t1) << (8 * (input.len() - 2 - i));
+                 }
+
+                Ok(result)
+
             }
 
             #[inline(always)]
@@ -622,9 +629,15 @@ macro_rules! integer_type_impl {
                     return Err(crate::error::DecodeError::integer_overflow(<$t1>::BITS, codec));
                 }
 
-                let mut array = [0u8; BYTE_SIZE];
-                array[BYTE_SIZE - input.len()..].copy_from_slice(input);
-                Ok(Self::from_be_bytes(array))
+                // Use shifting to directly construct the primitive integer types
+                let mut result: $t1 = 0;
+                // Calculate how many positions to shift each byte
+                let start_shift = (input.len() - 1) * 8;
+                for (i, &byte) in input.iter().enumerate() {
+                    let shift = start_shift - (i * 8);
+                    result |= (byte as $t1) << shift;
+                }
+                Ok(result)
             }
 
             // Getting signed bytes of an unsigned integer is challenging, because we don't want to truncate the value
