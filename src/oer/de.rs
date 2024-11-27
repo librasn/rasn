@@ -17,15 +17,14 @@ use crate::{
         self,
         fields::{Field, Fields},
         Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated,
-        GeneralString, GeneralizedTime, Ia5String, NumericString, ObjectIdentifier,
+        GeneralString, GeneralizedTime, Ia5String, IntegerType, NumericString, ObjectIdentifier,
         PrintableString, SetOf, Tag, TeletexString, UtcTime, VisibleString,
     },
     Codec, Decode,
 };
 
-use bitvec::{field::BitField, order::Msb0, view::BitView};
+use bitvec::{order::Msb0, view::BitView};
 use nom::number::complete::be_u8;
-use num_traits::ToPrimitive;
 
 // Max length for data type can be 2^1016, below presented as byte array of unsigned int
 #[allow(unused)]
@@ -167,20 +166,13 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             match result {
                 Ok((input, data)) => {
                     self.input = input;
-                    if data.len() > ((const { usize::BITS / 8 }) as usize) {
-                        return Err(DecodeError::length_exceeds_platform_width(
-                            "Length is larger than usize can present, and therefore unlikely that data can be processed.".to_string(),
-                            self.codec(),
-                        ));
-                    }
-                    let data = data.view_bits::<Msb0>();
-                    if self.options.encoding_rules.is_coer() && data.leading_zeros() > 8 {
+                    if self.options.encoding_rules.is_coer() && data.first() == Some(&0) {
                         return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
                             msg: "Length value should not have leading zeroes in COER".to_string(),
                         }
                         .into());
                     }
-                    let length = data.load_be::<usize>();
+                    let length = usize::try_from_unsigned_bytes(data, self.codec())?;
                     if length < 128 && self.options.encoding_rules.is_coer() {
                         return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
                             msg: "Length determinant could have been encoded in short form."
@@ -188,7 +180,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                         }
                         .into());
                     }
-                    Ok(length.to_usize().unwrap_or(0))
+                    Ok(length)
                 }
                 Err(e) => Err(e),
             }
@@ -627,36 +619,21 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     ) -> Result<Vec<D>, Self::Error> {
         let length_of_quantity = self.decode_length()?;
         let coer = self.options.encoding_rules.is_coer();
-        let length_bits = self.extract_data_by_length(length_of_quantity)?;
-        if coer && length_bits.view_bits::<Msb0>().leading_zeros() > 8 {
+        let length_bytes = self.extract_data_by_length(length_of_quantity)?;
+        if coer && length_bytes.first() == Some(&0) && length_bytes.len() > 1 {
             return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
                 msg: "Quantity value in 'sequence/set of' should not have leading zeroes in COER"
                     .to_string(),
             }
             .into());
         }
-        if length_bits.is_empty() {
-            return Err(DecodeError::length_exceeds_platform_width(
-                "Zero bits for quantity when decoding sequence of".to_string(),
-                self.codec(),
-            ));
-        }
-        if length_bits.len() > (const { usize::BITS / 8 }) as usize {
-            return Err(DecodeError::length_exceeds_platform_width(
-                "Quantity value too large for this platform when decoding sequence of".to_string(),
-                self.codec(),
-            ));
-        }
-
-        let length = length_bits.view_bits::<Msb0>().load_be::<usize>();
+        let length = usize::try_from_unsigned_bytes(length_bytes, self.codec())?;
         let mut sequence_of: Vec<D> = Vec::with_capacity(length);
-        let mut start = 1;
         let mut decoder = Self::new(self.input, self.options);
-        while start <= length {
+        for _ in 0..length {
             let value = D::decode(&mut decoder)?;
             self.input = decoder.input;
             sequence_of.push(value);
-            start += 1;
         }
         Ok(sequence_of)
     }

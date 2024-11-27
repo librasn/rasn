@@ -657,13 +657,10 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
                 // if value.is_empty() {
                 // } else
                 if size.constraint.contains(&value.len()) {
-                    let missing_bits: usize = (8 - value.len() % 8) % 8;
-                    let trailing = BitVec::<u8, Msb0>::repeat(false, missing_bits);
+                    let missing_bits: usize = (8 - (value.len() & 7)) & 7;
+                    bit_string_encoding.extend(value);
                     if missing_bits > 0 {
-                        bit_string_encoding.extend(value);
-                        bit_string_encoding.extend(trailing);
-                    } else {
-                        bit_string_encoding.extend(value);
+                        bit_string_encoding.extend(core::iter::repeat(false).take(missing_bits));
                     }
                     self.output
                         .extend_from_slice(bit_string_encoding.as_raw_slice());
