@@ -98,10 +98,7 @@ impl crate::Encoder<'_> for Encoder {
                 acc.push_str(&alloc::format!("{bit:02X?}"));
                 acc
             });
-        let json_value = if constraints
-            .size()
-            .map_or(false, |s| s.constraint.is_fixed())
-        {
+        let json_value = if constraints.size().is_some_and(|s| s.constraint.is_fixed()) {
             Value::String(bytes)
         } else {
             let mut value_map = ValueMap::new();

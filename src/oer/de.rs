@@ -24,16 +24,8 @@ use crate::{
 };
 
 use bitvec::{order::Msb0, view::BitView};
-use nom::number::complete::be_u8;
 
-// Max length for data type can be 2^1016, below presented as byte array of unsigned int
-#[allow(unused)]
-const MAX_LENGTH: [u8; 127] = [0xff; 127];
-#[allow(unused)]
-const MAX_LENGTH_LENGTH: usize = MAX_LENGTH.len();
 use crate::error::{CoerDecodeErrorKind, DecodeError, DecodeErrorKind, OerDecodeErrorKind};
-
-type InputSlice<'input> = &'input [u8];
 
 /// Options for configuring the [`Decoder`].
 #[derive(Clone, Copy, Debug)]
@@ -95,10 +87,14 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     }
 
     fn parse_one_byte(&mut self) -> Result<u8, DecodeError> {
-        let (input, byte) =
-            be_u8(self.input).map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        self.input = input;
-        Ok(byte)
+        let (first, rest) = self.input.split_first().ok_or_else(|| {
+            DecodeError::parser_fail(
+                "Unexpected end of data when parsing single byte from &[u8]".to_string(),
+                self.codec(),
+            )
+        })?;
+        self.input = rest;
+        Ok(*first)
     }
 
     fn parse_tag(&mut self) -> Result<Tag, DecodeError> {
@@ -159,31 +155,32 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 ));
             }
             // Should not overflow, max size 8 x 127 = 1016 < u16::MAX
-            let result: Result<(InputSlice, InputSlice), DecodeError> =
-                nom::bytes::streaming::take(length as u16)(self.input)
-                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()));
+            let (data, rest) = self
+                .input
+                .split_at_checked(length as usize)
+                .ok_or_else(|| {
+                    DecodeError::parser_fail(
+                        alloc::format!("Unexpected end of data when parsing length by length of length {} from &[u8]", length
+                            ),
+                        self.codec(),
+                    )
+                })?;
+            self.input = rest;
 
-            match result {
-                Ok((input, data)) => {
-                    self.input = input;
-                    if self.options.encoding_rules.is_coer() && data.first() == Some(&0) {
-                        return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
-                            msg: "Length value should not have leading zeroes in COER".to_string(),
-                        }
-                        .into());
-                    }
-                    let length = usize::try_from_unsigned_bytes(data, self.codec())?;
-                    if length < 128 && self.options.encoding_rules.is_coer() {
-                        return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
-                            msg: "Length determinant could have been encoded in short form."
-                                .to_string(),
-                        }
-                        .into());
-                    }
-                    Ok(length)
+            if self.options.encoding_rules.is_coer() && data.first() == Some(&0) {
+                return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                    msg: "Length value should not have leading zeroes in COER".to_string(),
                 }
-                Err(e) => Err(e),
+                .into());
             }
+            let length = usize::try_from_unsigned_bytes(data, self.codec())?;
+            if length < 128 && self.options.encoding_rules.is_coer() {
+                return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                    msg: "Length determinant could have been encoded in short form.".to_string(),
+                }
+                .into());
+            }
+            Ok(length)
         }
     }
 
@@ -195,10 +192,16 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         if length == 0 {
             return Ok(&[]);
         }
-        let (input, data) = nom::bytes::streaming::take(length)(self.input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-
-        self.input = input;
+        let (data, rest) = self.input.split_at_checked(length).ok_or_else(|| {
+            DecodeError::parser_fail(
+                alloc::format!(
+                    "Unexpected end of data when parsing &[u8] with length {}",
+                    length
+                ),
+                self.codec(),
+            )
+        })?;
+        self.input = rest;
         Ok(data)
     }
 
@@ -992,7 +995,9 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 #[allow(clippy::assertions_on_constants)]
 mod tests {
     use num_bigint::BigUint;
-
+    // Max length for data type can be 2^1016, below presented as byte array of unsigned int
+    const MAX_LENGTH: [u8; 127] = [0xff; 127];
+    const MAX_LENGTH_LENGTH: usize = MAX_LENGTH.len();
     use super::*;
     use crate::macros::{constraints, value_constraint};
     use crate::types::constraints::Constraints;

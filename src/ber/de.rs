@@ -203,7 +203,7 @@ impl<'input> Decoder<'input> {
             && string
                 .chars()
                 .nth(len - 5)
-                .map_or(false, |c| c == '+' || c == '-')
+                .is_some_and(|c| c == '+' || c == '-')
         {
             let naive = parse_without_timezone(&string[..len - 5])?;
             let sign = match string.chars().nth(len - 5) {

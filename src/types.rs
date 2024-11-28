@@ -129,7 +129,7 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
 
     /// Whether `self` is a variant contained in `Self::EXTENDED_VARIANTS`.
     fn is_extended_variant(&self) -> bool {
-        Self::EXTENDED_VARIANTS.map_or(false, |array| array.iter().any(|variant| variant == self))
+        Self::EXTENDED_VARIANTS.is_some_and(|array| array.iter().any(|variant| variant == self))
     }
 
     /// Returns the enumeration for the variant, if it's an extended variant

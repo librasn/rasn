@@ -262,7 +262,7 @@ pub fn derive_struct_impl(
     };
 
     let decode_impl =
-        if !config.delegate && config.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
+        if !config.delegate && config.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
             let tag = config.tag_for_struct(&container.fields);
             map_from_inner_type(
                 tag,

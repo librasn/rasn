@@ -11,7 +11,6 @@ pub struct AlgorithmIdShortForm(pub Integer);
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
-
 pub struct CompressedContent(pub OctetString);
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
