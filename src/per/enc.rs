@@ -233,7 +233,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         let string_length = value.len();
 
         let is_extended_value = self.encode_extensible_bit(constraints, &mut buffer, || {
-            constraints.size().map_or(false, |size_constraint| {
+            constraints.size().is_some_and(|size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&string_length)
             })
@@ -598,7 +598,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     ) -> Result<()> {
         let octet_string_length = value.len();
         let extensible_is_present = self.encode_extensible_bit(&constraints, buffer, || {
-            constraints.size().map_or(false, |size_constraint| {
+            constraints.size().is_some_and(|size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&octet_string_length)
             })
@@ -640,7 +640,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         buffer: &mut BitString,
     ) -> Result<()> {
         let is_extended_value = self.encode_extensible_bit(&constraints, buffer, || {
-            constraints.value().map_or(false, |value_range| {
+            constraints.value().is_some_and(|value_range| {
                 value_range.extensible.is_some() && value_range.constraint.in_bound(value)
             })
         });
@@ -801,7 +801,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         let mut buffer = BitString::default();
         let bit_string_length = value.len();
         let extensible_is_present = self.encode_extensible_bit(&constraints, &mut buffer, || {
-            constraints.size().map_or(false, |size_constraint| {
+            constraints.size().is_some_and(|size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&bit_string_length)
             })
@@ -814,7 +814,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             })?;
         } else if size.and_then(|size| size.constraint.range()) == Some(0) {
             // NO-OP
-        } else if size.map_or(false, |size| {
+        } else if size.is_some_and(|size| {
             size.constraint.range() == Some(1) && size.constraint.as_start() <= Some(&16)
         }) {
             // ITU-T X.691 (02/2021) §16: Bitstrings constrained to a fixed length less than or equal to 16 bits
@@ -1017,7 +1017,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         let options = self.options;
 
         self.encode_extensible_bit(&constraints, &mut buffer, || {
-            constraints.size().map_or(false, |size_constraint| {
+            constraints.size().is_some_and(|size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&values.len())
             })

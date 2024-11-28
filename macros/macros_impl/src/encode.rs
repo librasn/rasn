@@ -91,7 +91,7 @@ pub fn derive_struct_impl(
             }).map(drop)
         };
 
-        if config.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
+        if config.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
             map_to_inner_type(
                 config.tag.clone().unwrap(),
                 &name,

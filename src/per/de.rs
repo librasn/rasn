@@ -561,7 +561,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             total_length += length;
             if constraints
                 .permitted_alphabet()
-                .map_or(false, |alphabet| alphabet.constraint.len() == 1)
+                .is_some_and(|alphabet| alphabet.constraint.len() == 1)
             {
                 return Ok(input);
             }

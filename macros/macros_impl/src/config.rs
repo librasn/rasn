@@ -339,7 +339,7 @@ impl Config {
     }
 
     pub fn has_explicit_tag(&self) -> bool {
-        self.tag.as_ref().map_or(false, |tag| tag.is_explicit())
+        self.tag.as_ref().is_some_and(|tag| tag.is_explicit())
     }
 
     pub fn tag_for_struct(&self, fields: &syn::Fields) -> proc_macro2::TokenStream {
@@ -369,7 +369,7 @@ pub(crate) fn is_option_type(ty: &syn::Type) -> bool {
             .path
             .segments
             .last()
-            .map_or(false, |segment| segment.ident == "Option"),
+            .is_some_and(|segment| segment.ident == "Option"),
         syn::Type::Reference(syn::TypeReference { elem, .. }) => is_option_type(elem),
         _ => false,
     }
@@ -496,7 +496,7 @@ impl<'config> VariantConfig<'config> {
     }
 
     pub fn has_explicit_tag(&self) -> bool {
-        self.tag.as_ref().map_or(false, |tag| tag.is_explicit())
+        self.tag.as_ref().is_some_and(|tag| tag.is_explicit())
     }
 
     pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
@@ -806,7 +806,7 @@ impl<'a> FieldConfig<'a> {
         };
 
         let encode = if self.tag.is_some() || self.container_config.automatic_tags {
-            if self.tag.as_ref().map_or(false, |tag| tag.is_explicit()) {
+            if self.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
                 // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
                 quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;)
             } else if self.extension_addition {
@@ -964,7 +964,7 @@ impl<'a> FieldConfig<'a> {
         } else {
             match (
                 (self.tag.is_some() || self.container_config.automatic_tags)
-                    .then(|| self.tag.as_ref().map_or(false, |tag| tag.is_explicit())),
+                    .then(|| self.tag.as_ref().is_some_and(|tag| tag.is_explicit())),
                 self.default.as_ref().map(|path| {
                     path.as_ref()
                         .map_or(quote!(<_>::default), |path| quote!(#path))
@@ -1041,7 +1041,7 @@ impl<'a> FieldConfig<'a> {
         if self.extension_addition {
             match (
                 (self.tag.is_some() || self.container_config.automatic_tags)
-                    .then(|| self.tag.as_ref().map_or(false, |tag| tag.is_explicit())),
+                    .then(|| self.tag.as_ref().is_some_and(|tag| tag.is_explicit())),
                 self.default.as_ref().map(|path| {
                     path.as_ref()
                         .map_or(quote!(<_>::default), |path| quote!(#path))
