@@ -1,4 +1,5 @@
 // Test whether constrained OctetString and FixedOctetString are equal
+use bitvec::prelude::*;
 use rasn::prelude::*;
 use rasn::{ber, jer, oer, uper};
 
@@ -19,16 +20,22 @@ pub struct Hashes {
 #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
 #[rasn(automatic_tags)]
 pub struct ConstrainedHashes {
-    #[rasn(size("3"))]
     pub hashed3: FixedOctetString<3>,
-    #[rasn(size("8"))]
     pub hashed8: FixedOctetString<8>,
-    #[rasn(size("16"))]
     pub hashed16: FixedOctetString<16>,
-    #[rasn(size("32"))]
     pub hashed32: FixedOctetString<32>,
-    #[rasn(size("64"))]
     pub hashed64: FixedOctetString<64>,
+}
+#[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
+#[rasn(automatic_tags)]
+pub struct ConstrainedFixBitString {
+    pub hashed3: FixedBitString<3>,
+}
+#[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
+#[rasn(automatic_tags)]
+pub struct ConstrainedBitString {
+    #[rasn(size("3"))]
+    pub hashed3: BitString,
 }
 
 fn build_octet() -> Hashes {
@@ -92,6 +99,24 @@ macro_rules! test_decode_eq {
             let encoded_fixed = $codec::encode(&fixed_items).unwrap();
             let decoded = $codec::decode::<Hashes>(&encoded).unwrap();
             let decoded_fixed = $codec::decode::<ConstrainedHashes>(&encoded_fixed).unwrap();
+            let bits = BitString::from_bitslice(&BitVec::<u8, Msb0>::repeat(true, 3));
+            let bs = ConstrainedBitString {
+                hashed3: BitString::from(bits),
+            };
+            let bool_array = [true, true, true];
+            let mut bit_array: BitArray<[u8; 3], Msb0> = BitArray::ZERO;
+            for (i, &value) in bool_array.iter().enumerate() {
+                bit_array.set(i, value);
+            }
+            let bs_fixed = ConstrainedFixBitString { hashed3: bit_array };
+            let encoded_bs = $codec::encode(&bs).unwrap();
+            let encoded_bs_fixed = $codec::encode(&bs_fixed).unwrap();
+            let decoded_bs = $codec::decode::<ConstrainedBitString>(&encoded_bs).unwrap();
+            let decoded_bs_fixed =
+                $codec::decode::<ConstrainedFixBitString>(&encoded_bs_fixed).unwrap();
+            assert_eq!(bs, decoded_bs);
+            assert_eq!(encoded_bs, encoded_bs_fixed);
+            assert_eq!(bs_fixed, decoded_bs_fixed);
             assert_eq!(items, decoded);
             assert_eq!(encoded, encoded_fixed);
             assert_eq!(fixed_items, decoded_fixed);
