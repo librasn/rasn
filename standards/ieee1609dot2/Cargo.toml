@@ -1,0 +1,20 @@
+[package]
+name = "rasn-ieee1609dot2"
+version.workspace = true
+edition.workspace = true
+description = "ASN.1 definitions for IEEE Standard for Wireless Access in Vehicular Environments--Security Services for Application and Management Messages"
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+bon = { version = "3.1.1", default-features = false }
+rasn = { version = "0.22", path = "../.." }
+rasn-etsi-ts103097-extensions = { version = "0.22", path = "../ts103097extensions" }
+
+
+# [dependencies.ts103097]
+# version = "0.22"
+# path = "../ts103097"
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
