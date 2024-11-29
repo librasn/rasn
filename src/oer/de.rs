@@ -11,7 +11,11 @@ use alloc::{
     vec::Vec,
 };
 
+use core::num::NonZeroUsize;
+use nom::Needed;
+
 use crate::{
+    de::{Decode, Error as _},
     oer::EncodingRules,
     types::{
         self,
@@ -20,7 +24,7 @@ use crate::{
         GeneralString, GeneralizedTime, Ia5String, IntegerType, NumericString, ObjectIdentifier,
         PrintableString, SetOf, Tag, TeletexString, UtcTime, VisibleString,
     },
-    Codec, Decode,
+    Codec,
 };
 
 use bitvec::{order::Msb0, view::BitView};
@@ -190,7 +194,6 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     }
 
     /// Extracts data from input by length and updates the input
-    /// Since we rely on memory and `BitSlice`, we cannot handle larger data length than `0x1fff_ffff_ffff_ffff`
     /// 'length' is the length of the data in bytes (octets)
     /// Returns the data
     fn extract_data_by_length(&mut self, length: usize) -> Result<&'input [u8], DecodeError> {
@@ -198,11 +201,8 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             return Ok(&[]);
         }
         let (data, rest) = self.input.split_at_checked(length).ok_or_else(|| {
-            DecodeError::parser_fail(
-                alloc::format!(
-                    "Unexpected end of data when parsing &[u8] with length {}",
-                    length
-                ),
+            DecodeError::incomplete(
+                Needed::Size(NonZeroUsize::new(length - self.input.len()).unwrap()),
                 self.codec(),
             )
         })?;

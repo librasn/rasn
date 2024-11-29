@@ -518,9 +518,9 @@ pub enum DecodeErrorKind {
     },
 
     /// Input is provided as BIT slice for nom in UPER/APER.
-    /// On BER/CER/DER it is as BYTE slice.
+    /// On BER/CER/DER/OER/COER it is a BYTE slice.
     /// Hence, `needed` field can describe either bits or bytes depending on the codec.
-    #[snafu(display("Need more BITS to continue: ({:?}).", needed))]
+    #[snafu(display("Need more data to continue: ({:?}).", needed))]
     Incomplete {
         /// Amount of bits/bytes needed.
         needed: nom::Needed,
