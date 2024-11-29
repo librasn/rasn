@@ -11,6 +11,15 @@ use crate::types::Constraints;
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
     T::decode(&mut Decoder::<0, 0>::new(input, de::DecoderOptions::coer()))
 }
+/// Attempts to decode `T` from `input` using COER. Returns both `T` and reference to the remainder of the input.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid COER encoding specific to the expected type.
+pub fn decode_with_remainder<T: crate::Decode>(input: &[u8]) -> Result<(T, &[u8]), DecodeError> {
+    let decoder = &mut Decoder::<0, 0>::new(input, de::DecoderOptions::coer());
+    let decoded = T::decode(decoder)?;
+    Ok((decoded, decoder.remaining()))
+}
 /// Attempts to encode `value` of type `T` to COER.
 ///
 /// # Errors
@@ -1443,5 +1452,17 @@ mod tests {
                 0x05, 0x06, 0x07
             ]
         );
+    }
+    #[test]
+    fn test_decode_with_remainder() {
+        let bytes = vec![0x04, 0x01, 0x02, 0x03, 0x04, 0x05];
+        let (octets, remaining): (OctetString, &[u8]) =
+            rasn::coer::decode_with_remainder(&bytes).unwrap();
+        assert_eq!(octets, vec![0x01, 0x02, 0x03, 0x04]);
+        assert_eq!(remaining[0], 0x05);
+        let (octets, remaining): (OctetString, &[u8]) =
+            rasn::oer::decode_with_remainder(&bytes).unwrap();
+        assert_eq!(octets, vec![0x01, 0x02, 0x03, 0x04]);
+        assert_eq!(remaining[0], 0x05);
     }
 }

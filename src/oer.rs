@@ -15,6 +15,16 @@ use crate::types::Constraints;
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
     T::decode(&mut Decoder::<0, 0>::new(input, de::DecoderOptions::oer()))
 }
+
+/// Attempts to decode `T` from `input` using OER. Returns both `T` and reference to the remainder of the input.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid OER encoding specific to the expected type.
+pub fn decode_with_remainder<T: crate::Decode>(input: &[u8]) -> Result<(T, &[u8]), DecodeError> {
+    let decoder = &mut Decoder::<0, 0>::new(input, de::DecoderOptions::oer());
+    let decoded = T::decode(decoder)?;
+    Ok((decoded, decoder.remaining()))
+}
 /// Attempts to encode `value` of type `T` to OER.
 ///
 /// # Errors
