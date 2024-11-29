@@ -85,6 +85,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     fn codec(&self) -> Codec {
         self.options.current_codec()
     }
+    /// Returns reference to the remaining input data that has not been parsed.
+    #[must_use]
+    pub fn remaining(&self) -> &'input [u8] {
+        self.input
+    }
 
     fn parse_one_byte(&mut self) -> Result<u8, DecodeError> {
         let (first, rest) = self.input.split_first().ok_or_else(|| {
