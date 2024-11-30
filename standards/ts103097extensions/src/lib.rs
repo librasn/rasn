@@ -1,148 +1,196 @@
+#![cfg_attr(not(test), no_std)]
 extern crate alloc;
 use bon::Builder;
 use rasn::prelude::*;
-
-// In order to avoid cyclic dependencies, we make following weak types
-type HashedId8 = [u8; 8];
-type Time32 = u32;
 
 pub const EXTENSION_MODULE_VERSION: u8 = 1;
 pub const ETSI_TS103097_EXTENSION_MODULE_OID: &Oid =
     Oid::const_new(&[0, 4, 0, 5, 5, 103_097, 2, 1, 1]);
 
-pub const ETSI_TS102941_CRL_REQUEST_ID: EtsiTs103097HeaderInfoExtensionId =
-    EtsiTs103097HeaderInfoExtensionId(ExtId(1));
-pub const ETSI_TS102941_DELTA_CTL_REQUEST_ID: EtsiTs103097HeaderInfoExtensionId =
-    EtsiTs103097HeaderInfoExtensionId(ExtId(2));
+pub const ETSI_TS102941_CRL_REQUEST_ID: ExtId = ExtId(1);
+pub const ETSI_TS102941_DELTA_CTL_REQUEST_ID: ExtId = ExtId(2);
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+// In order to avoid cyclic dependencies, make "weak" types
+type HashedId8 = FixedOctetString<8>;
+type Time32 = u32;
+
+/// This type is used as an identifier for instances of ExtContent within an EXT-TYPE.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate, value("0..=255"))]
+pub struct ExtId(pub u8);
+
+impl From<u8> for ExtId {
+    fn from(item: u8) -> Self {
+        ExtId(item)
+    }
+}
+impl core::ops::Deref for ExtId {
+    type Target = u8;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// Adapted and moved from IEEE 1609.2-2022 Base Types as shared trait among these standards.
+/// T `EXT-TYPE` class defines objects in a form suitable for import into the definition of HeaderInfo.
+pub trait ExtType: AsnType + Encode + Decode {
+    type ExtContent: AsnType + Encode + Decode;
+    const EXT_ID: ExtId;
+}
+
+///  This parameterized type represents a (id, content) pair drawn from the set ExtensionTypes, which is constrained to contain objects defined by the class EXT-TYPE.
+#[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+pub struct Extension<T: ExtType> {
+    #[rasn(identifier = "id")]
+    pub id: ExtId,
+    #[rasn(identifier = "content")]
+    pub content: T::ExtContent,
+}
+
+#[derive(AsnType, Copy, Clone, Debug, Encode, Decode, PartialEq, Eq, Hash)]
+#[rasn(enumerated)]
+pub enum EtsiTs103097HeaderInfoExtensions {
+    CrlRequest,
+    DeltaCtlRequest,
+}
+impl EtsiTs103097HeaderInfoExtensions {
+    pub fn ext_id(&self) -> ExtId {
+        match self {
+            Self::CrlRequest => ETSI_TS102941_CRL_REQUEST_ID,
+            Self::DeltaCtlRequest => ETSI_TS102941_DELTA_CTL_REQUEST_ID,
+        }
+    }
+}
+
+#[derive(AsnType, Debug, Decode, Clone, PartialEq, Eq, Hash)]
+#[rasn(choice)]
+#[rasn(automatic_tags)]
 #[non_exhaustive]
-pub enum EtsiExtensionContent {
+pub enum EtsiExtContent {
     CrlRequest(EtsiTs102941CrlRequest),
     DeltaCtlRequest(EtsiTs102941DeltaCtlRequest),
 }
 
-#[derive(AsnType, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(automatic_tags)]
-pub struct EtsiOriginatingHeaderInfoExtension {
-    #[rasn(identifier = "id")]
-    pub id: u8,
-    #[rasn(identifier = "content")]
-    pub content: EtsiExtensionContent,
-}
-impl rasn::Encode for EtsiOriginatingHeaderInfoExtension {
+// Custom encode - we just pass the internal type to be encoded
+impl rasn::Encode for EtsiExtContent {
+    fn encode<'encoder, E: rasn::Encoder<'encoder>>(
+        &self,
+        encoder: &mut E,
+    ) -> core::result::Result<(), E::Error> {
+        match self {
+            EtsiExtContent::CrlRequest(value) => value.encode_with_tag(encoder, Tag::SEQUENCE),
+            EtsiExtContent::DeltaCtlRequest(value) => value.encode_with_tag(encoder, Tag::SEQUENCE),
+        }
+    }
     fn encode_with_tag_and_constraints<'encoder, EN: rasn::Encoder<'encoder>>(
         &self,
         encoder: &mut EN,
-        tag: rasn::types::Tag,
+        _: rasn::types::Tag,
         _: rasn::types::Constraints,
     ) -> core::result::Result<(), EN::Error> {
-        encoder
-            .encode_sequence::<2usize, 0usize, Self, _>(tag, |encoder| {
-                self.id.encode_with_tag(
-                    encoder,
-                    rasn::types::Tag::new(rasn::types::Class::Context, 0usize as u32),
-                )?;
-                match self.content {
-                    EtsiExtensionContent::CrlRequest(ref content) => {
-                        content.encode_with_tag(
-                            encoder,
-                            rasn::types::Tag::new(rasn::types::Class::Context, 1usize as u32),
-                        )?;
-                    }
-                    EtsiExtensionContent::DeltaCtlRequest(ref content) => {
-                        content.encode_with_tag(
-                            encoder,
-                            rasn::types::Tag::new(rasn::types::Class::Context, 2usize as u32),
-                        )?;
-                    }
-                }
-                Ok(())
-            })
-            .map(drop)
+        Self::encode(self, encoder)
     }
 }
+
+impl ExtType for EtsiTs103097HeaderInfoExtensions {
+    type ExtContent = EtsiExtContent;
+    const EXT_ID: ExtId = ExtId(0); // Default shoult not be used
+}
+
+pub type EtsiTs102941DeltaCtlRequest = EtsiTs102941CtlRequest;
+
+#[derive(AsnType, Debug, Encode, Clone, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct EtsiOriginatingHeaderInfoExtension(Extension<EtsiTs103097HeaderInfoExtensions>);
+
+/// We have to skip the choice type of EtsiExtContent when decoding
 impl rasn::Decode for EtsiOriginatingHeaderInfoExtension {
     fn decode_with_tag_and_constraints<D: rasn::Decoder>(
         decoder: &mut D,
         tag: rasn::types::Tag,
         _: rasn::types::Constraints,
     ) -> core::result::Result<Self, D::Error> {
-        decoder.decode_sequence::<2usize, 0usize, _, _, _>(tag, None::<fn() -> Self>, |decoder| {
-            let id = <_>::decode_with_tag(
-                decoder,
-                rasn::types::Tag::new(rasn::types::Class::Context, 0usize as u32),
-            )
-            .map_err(|error| {
-                rasn::de::Error::field_error(
-                    "EtsiOriginatingHeaderInfoExtension.id",
-                    error.into(),
-                    decoder.codec(),
-                )
-            })?;
-            match id {
-                ETSI_TS102941_CRL_REQUEST_ID => {
-                    let content = <_>::decode_with_tag(
+        Ok(Self(decoder
+            .decode_sequence::<2usize, 0usize, Extension<EtsiTs103097HeaderInfoExtensions>, _, _>(
+                tag,
+                None::<fn() -> Extension<EtsiTs103097HeaderInfoExtensions>>,
+                |decoder| {
+                    let id = <_>::decode_with_tag(
                         decoder,
-                        rasn::types::Tag::new(rasn::types::Class::Context, 1usize as u32),
+                        rasn::types::Tag::new(rasn::types::Class::Context, 0usize as u32),
                     )
                     .map_err(|error| {
-                        rasn::de::Error::field_error(
-                            "EtsiOriginatingHeaderInfoExtension.content",
-                            error.into(),
-                            decoder.codec(),
-                        )
+                        rasn::de::Error::field_error("Extension.id", error.into(), decoder.codec())
                     })?;
-                    Ok(Self {
-                        id: **id,
-                        content: EtsiExtensionContent::CrlRequest(content),
-                    })
-                }
-                ETSI_TS102941_DELTA_CTL_REQUEST_ID => {
-                    let content = <_>::decode_with_tag(
-                        decoder,
-                        rasn::types::Tag::new(rasn::types::Class::Context, 2usize as u32),
-                    )
-                    .map_err(|error| {
-                        rasn::de::Error::field_error(
-                            "EtsiOriginatingHeaderInfoExtension.content",
-                            error.into(),
-                            decoder.codec(),
-                        )
-                    })?;
-                    Ok(Self {
-                        id: **id,
-                        content: EtsiExtensionContent::DeltaCtlRequest(content),
-                    })
-                }
-                _ => Err(rasn::de::Error::custom(
-                    format!(
-                        "Unexpected value for EtsiOriginatingHeaderInfoExtension.id: {}",
-                        **id
-                    ),
-                    decoder.codec(),
-                )),
-            }
-        })
+                    match id {
+                        ETSI_TS102941_CRL_REQUEST_ID => {
+                            let content = <EtsiTs102941CrlRequest>::decode_with_tag(
+                                decoder,
+                                rasn::types::Tag::new(rasn::types::Class::Context, 1usize as u32),
+                            )
+                            .map_err(|error| {
+                                rasn::de::Error::field_error(
+                                    "Extension.content - EtsiTs102941CrlRequest",
+                                    error.into(),
+                                    decoder.codec(),
+                                )
+                            })?;
+                            Ok(Extension {
+                                id,
+                                content: EtsiExtContent::CrlRequest(content),
+                            })
+                        }
+                        ETSI_TS102941_DELTA_CTL_REQUEST_ID => {
+                            let content = <EtsiTs102941DeltaCtlRequest>::decode_with_tag(
+                                decoder,
+                                rasn::types::Tag::new(rasn::types::Class::Context, 1usize as u32),
+                            )
+                            .map_err(|error| {
+                                rasn::de::Error::field_error(
+                                    "Extension.content - EtsiTs102941DeltaCtlRequest",
+                                    error.into(),
+                                    decoder.codec(),
+                                )
+                            })?;
+                             Ok(Extension {
+                                id,
+                                content: EtsiExtContent::DeltaCtlRequest(content),
+                            })
+                        }
+                        _ => {
+                             Err(rasn::de::Error::custom(
+                                alloc::format!("Unknown extension id: {:?}", id),
+                                decoder.codec(),
+                            ))
+                        }
+                    }
+                },
+                )?))
     }
 }
 
 // With the current version of the standard, we allow only two ways to create extensions
 impl EtsiOriginatingHeaderInfoExtension {
-    // Helper method to create CrlRequest extension
-    pub fn new_crl_request(content: EtsiTs102941CrlRequest) -> Self {
-        Self {
-            id: 1, // etsiTs102941CrlRequestId
-            content: EtsiExtensionContent::CrlRequest(content),
+    pub fn new_crl_request(request: EtsiTs102941CrlRequest) -> Self {
+        Extension {
+            id: EtsiTs103097HeaderInfoExtensions::CrlRequest.ext_id(),
+            content: EtsiExtContent::CrlRequest(request),
         }
+        .into()
     }
-
-    // Helper method to create CtlRequest extension
-    pub fn new_delta_ctl_request(content: EtsiTs102941DeltaCtlRequest) -> Self {
-        Self {
-            id: 2, // etsiTs102941DeltaCtlRequestId
-            content: EtsiExtensionContent::DeltaCtlRequest(content),
+    pub fn new_delta_ctl_request(request: EtsiTs102941DeltaCtlRequest) -> Self {
+        Extension {
+            id: EtsiTs103097HeaderInfoExtensions::DeltaCtlRequest.ext_id(),
+            content: EtsiExtContent::DeltaCtlRequest(request),
         }
+        .into()
+    }
+}
+
+impl From<Extension<EtsiTs103097HeaderInfoExtensions>> for EtsiOriginatingHeaderInfoExtension {
+    fn from(item: Extension<EtsiTs103097HeaderInfoExtensions>) -> Self {
+        EtsiOriginatingHeaderInfoExtension(item)
     }
 }
 
@@ -164,51 +212,63 @@ pub struct EtsiTs102941CtlRequest {
     pub last_known_ctl_sequence: Option<u8>,
 }
 
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[rasn(delegate)]
-pub struct EtsiTs102941DeltaCtlRequest(pub EtsiTs102941CtlRequest);
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-impl From<EtsiTs102941CtlRequest> for EtsiTs102941DeltaCtlRequest {
-    fn from(item: EtsiTs102941CtlRequest) -> Self {
-        EtsiTs102941DeltaCtlRequest(item)
+    #[test]
+    fn test_crl_request() {
+        let crl_request = EtsiTs102941CrlRequest::builder()
+            .issuer_id([2; 8].into())
+            .last_known_update(10)
+            .build();
+        let extension = EtsiOriginatingHeaderInfoExtension::new_crl_request(crl_request);
+        let encoded = rasn::coer::encode(&extension).unwrap();
+        let expected = &[
+            0x01,
+            0b1000_0000,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x00,
+            0x00,
+            0x00,
+            0x0A,
+        ];
+        pretty_assertions::assert_eq!(encoded, expected);
+        let decoded =
+            rasn::coer::decode::<super::EtsiOriginatingHeaderInfoExtension>(&encoded).unwrap();
+        pretty_assertions::assert_eq!(extension, decoded);
     }
-}
-
-impl core::ops::Deref for EtsiTs102941DeltaCtlRequest {
-    type Target = EtsiTs102941CtlRequest;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate)]
-pub struct EtsiTs103097HeaderInfoExtensionId(pub ExtId);
-
-impl From<ExtId> for EtsiTs103097HeaderInfoExtensionId {
-    fn from(item: ExtId) -> Self {
-        EtsiTs103097HeaderInfoExtensionId(item)
-    }
-}
-impl core::ops::Deref for EtsiTs103097HeaderInfoExtensionId {
-    type Target = ExtId;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate, value("0..=255"))]
-pub struct ExtId(pub u8);
-
-impl From<u8> for ExtId {
-    fn from(item: u8) -> Self {
-        ExtId(item)
-    }
-}
-impl core::ops::Deref for ExtId {
-    type Target = u8;
-    fn deref(&self) -> &Self::Target {
-        &self.0
+    #[test]
+    fn test_ctl_request() {
+        let ctl_request = EtsiTs102941CtlRequest::builder()
+            .issuer_id([2; 8].into())
+            .last_known_ctl_sequence(10)
+            .build();
+        let extension = EtsiOriginatingHeaderInfoExtension::new_delta_ctl_request(ctl_request);
+        let encoded = rasn::coer::encode(&extension).unwrap();
+        let expected = &[
+            0x02,
+            0b1000_0000,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x02,
+            0x0A,
+        ];
+        pretty_assertions::assert_eq!(encoded, expected);
+        let decoded =
+            rasn::coer::decode::<super::EtsiOriginatingHeaderInfoExtension>(&encoded).unwrap();
+        pretty_assertions::assert_eq!(extension, decoded);
     }
 }
