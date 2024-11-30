@@ -1,6 +1,7 @@
+#![cfg_attr(not(test), no_std)]
 extern crate alloc;
 use bon::Builder;
-use rasn::error::WithComponentsError;
+use rasn::error::InnerSubtypeConstraintError;
 use rasn::prelude::*;
 pub mod base_types;
 pub use base_types as ieee1609_dot2_base_types;
@@ -8,7 +9,9 @@ pub mod crl_base_types;
 pub use crl_base_types as ieee1609_dot2_crl_base_types;
 
 use ieee1609_dot2_base_types::*;
-use rasn_etsi_ts103097_extensions::EtsiOriginatingHeaderInfoExtension;
+use rasn_etsi_ts103097_extensions::{
+    EtsiOriginatingHeaderInfoExtension, ExtId, ExtType, Extension,
+};
 
 /// OID for IEEE 1609.2 module
 pub const IEEE1609_DOT2_OID: &Oid = Oid::const_new(&[
@@ -24,11 +27,18 @@ pub const IEEE1609_DOT2_OID: &Oid = Oid::const_new(&[
     6,    // minor-version-6
 ]);
 
+/// A macro to implement `From` and `Deref` for a delegate type pair.
+#[macro_export]
 macro_rules! delegate {
     ($from_type:ty, $to_type:ty) => {
         impl From<$from_type> for $to_type {
             fn from(item: $from_type) -> Self {
                 Self(item)
+            }
+        }
+        impl From<$to_type> for $from_type {
+            fn from(item: $to_type) -> Self {
+                item.0
             }
         }
         impl core::ops::Deref for $to_type {
@@ -39,6 +49,9 @@ macro_rules! delegate {
         }
     };
 }
+
+pub const CERT_EXT_ID_OPERATING_ORGANIZATION: ExtId = ExtId(1);
+pub const P2PCD8_BYTE_LEARNING_REQUEST_ID: ExtId = ExtId(1);
 
 //***************************************************************************
 //                               Secured Data
@@ -57,7 +70,7 @@ macro_rules! delegate {
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
 pub struct Ieee1609Dot2Data {
-    #[builder(default = Uint8(3))]
+    #[builder(default = 3)]
     #[rasn(value("3"), identifier = "protocolVersion")]
     pub protocol_version: Uint8,
     pub content: Ieee1609Dot2Content,
@@ -82,7 +95,7 @@ pub struct Ieee1609Dot2Data {
 #[non_exhaustive]
 pub enum Ieee1609Dot2Content {
     UnsecuredData(Opaque),
-    SignedData(Box<SignedData>),
+    SignedData(alloc::boxed::Box<SignedData>),
     EncryptedData(EncryptedData),
     SignedCertificateRequest(Opaque),
     #[rasn(extension_addition)]
@@ -194,22 +207,29 @@ pub struct SignedDataPayload {
 #[bon::bon]
 impl SignedDataPayload {
     #[builder]
-    fn new(
+    pub fn new(
         data: Option<Ieee1609Dot2Data>,
         ext_data_hash: Option<HashedData>,
         omitted: Option<()>,
-    ) -> Result<Self, WithComponentsError> {
-        if data.is_none() && ext_data_hash.is_none() && omitted.is_none() {
-            return Err(WithComponentsError::MissingAtLeastOneComponent {
+    ) -> Result<Self, InnerSubtypeConstraintError> {
+        Self {
+            data,
+            ext_data_hash,
+            omitted,
+        }
+        .validated()
+    }
+}
+
+impl InnerSubtypeConstraint for SignedDataPayload {
+    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+        if self.data.is_none() && self.ext_data_hash.is_none() && self.omitted.is_none() {
+            return Err(InnerSubtypeConstraintError::MissingAtLeastOneComponent {
                 type_name: "SignedDataPayload",
                 components: &["data", "ext_data_hash", "omitted"],
             });
         }
-        Ok(Self {
-            data,
-            ext_data_hash,
-            omitted,
-        })
+        Ok(self)
     }
 }
 
@@ -364,46 +384,46 @@ pub const ISO21177_SESSION_EXTENSION: PduFunctionalType = PduFunctionalType(3);
 /// This type is used for clarity of definitions.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate, size("1.."))]
-pub struct ContributedExtensionBlocks(pub SequenceOf<ContributedExtensionBlock>);
+pub struct ContributedExtensionBlocks(pub SequenceOf<ContributedExtensionBlockType>);
 
 delegate!(
-    SequenceOf<ContributedExtensionBlock>,
+    SequenceOf<ContributedExtensionBlockType>,
     ContributedExtensionBlocks
 );
 
-#[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-#[rasn(choice, automatic_tags)]
+pub trait HeaderInfoContributedExtension {
+    type Extn: AsnType + Encode + Decode;
+    const ID: HeaderInfoContributorId;
+}
+
+#[derive(AsnType, Copy, Clone, Debug, Encode, Decode, PartialEq, Eq, Hash)]
+#[rasn(enumerated)]
 #[non_exhaustive]
-pub enum Ieee1609Dot2HeaderInfoContributedExtensions {
-    Ieee1609ContributedHeaderInfoExtension(Ieee1609ContributedHeaderInfoExtension),
-    EtsiOriginatingHeaderInfoExtension(EtsiOriginatingHeaderInfoExtension),
-}
-// impl ContributedExtension for Ieee1609Dot2HeaderInfoContributedExtensions {
-//     fn contr_id(&self) -> HeaderInfoContributorId {
-//         match self {
-//             Ieee1609Dot2HeaderInfoContributedExtensions::Ieee1609ContributedHeaderInfoExtension(
-//                 ext,
-//             ) => ext.contr_id(),
-//             Ieee1609Dot2HeaderInfoContributedExtensions::EtsiOriginatingHeaderInfoExtension(
-//                 ext,
-//             ) => ext.contr_id(),
-//         }
-//     }
-// }
+pub enum Ieee1609HeaderInfoExtensions {}
 
-// delegate!(
-//     SequenceOf<ContributedExtensionBlock>,
-//     ContributedExtensionBlocks
-// );
-
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(automatic_tags)]
-pub struct ContributedExtensionBlock {
-    #[rasn(identifier = "contributorId")]
-    pub contributor_id: HeaderInfoContributorId,
-    #[rasn(size("1.."))]
-    pub extns: SequenceOf<Ieee1609Dot2HeaderInfoContributedExtensions>,
+impl ExtType for Ieee1609HeaderInfoExtensions {
+    type ExtContent = HashedId8;
+    const EXT_ID: ExtId = P2PCD8_BYTE_LEARNING_REQUEST_ID;
 }
+
+impl HeaderInfoContributedExtension for Ieee1609ContributedHeaderInfoExtension {
+    type Extn = Extension<Ieee1609HeaderInfoExtensions>;
+    const ID: HeaderInfoContributorId = IEEE1609_HEADER_INFO_CONTRIBUTOR_ID;
+}
+impl HeaderInfoContributedExtension for EtsiOriginatingHeaderInfoExtension {
+    type Extn = EtsiOriginatingHeaderInfoExtension;
+    const ID: HeaderInfoContributorId = ETSI_HEADER_INFO_CONTRIBUTOR_ID;
+}
+
+/// Uses the parameterized type `Extension` to define an
+/// `Ieee1609ContributedHeaderInfoExtension`.
+///
+/// Contains an open Extension Content field identified by an extension identifier.
+/// The extension identifier value is:
+/// - Unique within ETSI-defined extensions
+/// - Not required to be unique across all contributing organizations
+#[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+pub struct Ieee1609ContributedHeaderInfoExtension(pub Extension<Ieee1609HeaderInfoExtensions>);
 
 /// Defines the format of an extension block provided by an identified contributor.
 ///
@@ -415,18 +435,21 @@ pub struct ContributedExtensionBlock {
 /// - `extns`: List of extensions from that contributor
 ///   - Extensions typically follow format specified in section 6.5,
 ///     but this is not required
-pub trait ContributedExtension {
-    fn contributor_id(&self) -> HeaderInfoContributorId;
+#[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+pub struct ContributedExtensionBlock<T: HeaderInfoContributedExtension> {
+    #[rasn(identifier = "contributorId")]
+    pub contributor_id: HeaderInfoContributorId,
+    #[rasn(size("1.."))]
+    pub extns: SequenceOf<T::Extn>,
 }
-impl ContributedExtension for EtsiOriginatingHeaderInfoExtension {
-    fn contributor_id(&self) -> HeaderInfoContributorId {
-        ETSI_HEADER_INFO_CONTRIBUTOR_ID
-    }
-}
-impl ContributedExtension for Ieee1609ContributedHeaderInfoExtension {
-    fn contributor_id(&self) -> HeaderInfoContributorId {
-        IEEE1609_HEADER_INFO_CONTRIBUTOR_ID
-    }
+
+#[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+#[rasn(choice)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub enum ContributedExtensionBlockType {
+    Ieee1609(ContributedExtensionBlock<Ieee1609ContributedHeaderInfoExtension>),
+    Etsi(ContributedExtensionBlock<EtsiOriginatingHeaderInfoExtension>),
 }
 
 /// Integer identifying a HeaderInfo extension contributing organization.
@@ -435,69 +458,14 @@ impl ContributedExtension for Ieee1609ContributedHeaderInfoExtension {
 /// - `1` (IEEE1609): Extensions originating with IEEE 1609
 /// - `2` (ETSI): Extensions originating with ETSI TC ITS
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(delegate, value("0..=255"))]
+#[rasn(delegate)]
 pub struct HeaderInfoContributorId(pub u8);
 
-impl From<u8> for HeaderInfoContributorId {
-    fn from(item: u8) -> Self {
-        HeaderInfoContributorId(item)
-    }
-}
-impl core::ops::Deref for HeaderInfoContributorId {
-    type Target = u8;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-// #[derive(Builder, AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-// #[rasn(automatic_tags)]
-// pub struct ContributedExtensionBlock<T>
-// where
-//     T: ContributedExtension,
-// {
-//     id: HeaderInfoContributorId,
-//     #[rasn(size("1.."))]
-//     extn: SequenceOf<T>,
-// }
+delegate!(u8, HeaderInfoContributorId);
 
 // Defined contributor IDs
 pub const ETSI_HEADER_INFO_CONTRIBUTOR_ID: HeaderInfoContributorId = HeaderInfoContributorId(2);
 pub const IEEE1609_HEADER_INFO_CONTRIBUTOR_ID: HeaderInfoContributorId = HeaderInfoContributorId(1);
-
-#[derive(AsnType, Debug, Decode, Encode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
-#[rasn(choice, automatic_tags)]
-#[non_exhaustive]
-pub enum Ieee1609Dot2HeaderInfoContributedExtensions {
-    Ieee1609ContributedHeaderInfoExtension(Ieee1609ContributedHeaderInfoExtension),
-    EtsiOriginatingHeaderInfoExtension(EtsiOriginatingHeaderInfoExtension),
-}
-// impl ContributedExtension for Ieee1609Dot2HeaderInfoContributedExtensions {
-//     fn contr_id(&self) -> HeaderInfoContributorId {
-//         match self {
-//             Ieee1609Dot2HeaderInfoContributedExtensions::Ieee1609ContributedHeaderInfoExtension(
-//                 ext,
-//             ) => ext.contr,
-//             Ieee1609Dot2HeaderInfoContributedExtensions::EtsiOriginatingHeaderInfoExtension(
-//                 ext,
-//             ) => ext.contr_id(),
-//         }
-//     }
-// }
-
-/// Uses the parameterized type `Extension` to define an
-/// `Ieee1609ContributedHeaderInfoExtension`.
-///
-/// Contains an open Extension Content field identified by an extension identifier.
-/// The extension identifier value is:
-/// - Unique within ETSI-defined extensions
-/// - Not required to be unique across all contributing organizations
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[rasn(automatic_tags)]
-pub struct Ieee1609ContributedHeaderInfoExtension {
-    pub id: ExtId,
-    pub content: Any,
-}
 
 /// Allows recipients to determine which keying material to use for data
 /// authentication and indicates the verification type for hash generation
@@ -554,8 +522,14 @@ pub struct Countersignature(pub Ieee1609Dot2Data);
 #[bon::bon]
 impl Countersignature {
     #[builder]
-    fn new(data: Ieee1609Dot2Data) -> Result<Self, WithComponentsError> {
-        if let Ieee1609Dot2Content::SignedData(ref signed_data) = data.content {
+    fn new(data: Ieee1609Dot2Data) -> Result<Self, InnerSubtypeConstraintError> {
+        Self(data).validated()
+    }
+}
+
+impl InnerSubtypeConstraint for Countersignature {
+    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+        if let Ieee1609Dot2Content::SignedData(ref signed_data) = self.0.content {
             if let SignedData {
                 tbs_data:
                     ToBeSignedData {
@@ -580,18 +554,19 @@ impl Countersignature {
                 ..
             } = **signed_data
             {
-                return Ok(Self(data));
+                Ok(self)
             } else {
-                return Err(WithComponentsError::InvalidCombination {
-                    type_name: "Countersignature",
-                    details: "SignedData does not match innner subtype constraint".to_string(),
-                });
+                Err(InnerSubtypeConstraintError::InvalidCombination {
+                    type_name: "Countersignature::Ieee1609Dot2Content::SignedData",
+                    details:
+                        "SignedData does not match innner subtype constraint for Countersignature",
+                })
             }
         } else {
-            return Err(WithComponentsError::InvalidCombination {
-                type_name: "Ieee1609Dot2Content",
-                details: "SignedData variant is required for Countersignature".to_string(),
-            });
+            Err(InnerSubtypeConstraintError::InvalidCombination {
+                type_name: "Countersignature::Ieee1609Dot2Content",
+                details: "SignedData variant is required for Countersignature",
+            })
         }
     }
 }
@@ -844,9 +819,26 @@ delegate!(One28BitCcmCiphertext, Aes128CcmCiphertext);
 /// - Applies to the `CertificateBase`
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
-pub struct Certificate(pub CertificateBase);
+pub struct Certificate(CertificateBase);
 
-delegate!(CertificateBase, Certificate);
+impl From<ImplicitCertificate> for Certificate {
+    fn from(data: ImplicitCertificate) -> Self {
+        Self(data.0)
+    }
+}
+impl From<ExplicitCertificate> for Certificate {
+    fn from(data: ExplicitCertificate) -> Self {
+        Self(data.0)
+    }
+}
+
+impl core::ops::Deref for Certificate {
+    type Target = CertificateBase;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
@@ -854,77 +846,18 @@ pub struct TestCertificate(pub Certificate);
 
 delegate!(Certificate, TestCertificate);
 
-/// Represents an individual `AppExtension`.
-///
-/// Extensions are drawn from the ASN.1 Information Object Set `SetCertExtensions`.
-/// Each `AppExtension` is associated with a `CertIssueExtension` and a
-/// `CertRequestExtension`, all identified by the same `id` value.
-///
-/// # Fields
-/// - `id`: Identifies the extension type
-/// - `content`: Provides the content of the extension
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(automatic_tags)]
-pub struct AppExtension {
-    pub id: ExtId,
-    pub content: Any,
-}
-#[doc = " Inner type "]
+/// This type is used for clarity of definitions.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(choice, automatic_tags)]
-pub enum CertIssueExtensionPermissions {
-    Specific(Any),
-    All(()),
-}
-/// Represents an individual `CertIssueExtension`.
-///
-/// Extensions are drawn from the ASN.1 Information Object Set `SetCertExtensions`.
-/// Each `CertIssueExtension` is associated with an `AppExtension` and a
-/// `CertRequestExtension`, all identified by the same `id` value.
-///
-/// # Fields
-/// - `id`: Identifies the extension type
-///
-/// - `permissions`: Indicates the permissions
-///   - `All`: Certificate is entitled to issue all values of the extension
-///   - `Specific`: Specifies which extension values may be issued when `All` doesn't apply
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(automatic_tags)]
-pub struct CertIssueExtension {
-    pub id: ExtId,
-    pub permissions: CertIssueExtensionPermissions,
-}
-/// Represents an individual `CertRequestExtension`.
-///
-/// Extensions are drawn from the ASN.1 Information Object Set `SetCertExtensions`.
-/// Each `CertRequestExtension` is associated with an `AppExtension` and a
-/// `CertRequestExtension`, all identified by the same `id` value.
-///
-/// # Fields
-/// - `id`: Identifies the extension type
-///
-/// - `permissions`: Indicates the permissions
-///   - `All`: Certificate is entitled to issue all values of the extension
-///   - `Specific`: Specifies which extension values may be issued when `All` doesn't apply
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(automatic_tags)]
-pub struct CertRequestExtension {
-    pub id: ExtId,
-    pub permissions: CertRequestExtensionPermissions,
-}
-#[doc = " Inner type "]
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(choice, automatic_tags)]
-pub enum CertRequestExtensionPermissions {
-    Content(Any),
-    All(()),
-}
+#[rasn(delegate)]
+pub struct SequenceOfCertificate(pub SequenceOf<Certificate>);
+
+delegate!(SequenceOf<Certificate>, SequenceOfCertificate);
 
 /// Certificate structure containing version, type, issuer, and content information.
 ///
 /// # Fields
 /// - `version`: Certificate format version (set to 3 in this version)
-/// - `type`: Indicates explicit or implicit certificate
+/// - `c_type`: Indicates explicit or implicit certificate
 /// - `issuer`: Identifies the certificate issuer
 /// - `to_be_signed`: Certificate contents, used in hash generation/verification
 /// - `signature`: Present in `ExplicitCertificate`, calculated over `to_be_signed` hash
@@ -949,40 +882,45 @@ pub struct CertificateBase {
     #[rasn(value("3"))]
     pub version: Uint8,
     #[rasn(identifier = "type")]
-    pub r_type: CertificateType,
+    pub c_type: CertificateType,
     pub issuer: IssuerIdentifier,
     #[rasn(identifier = "toBeSigned")]
     pub to_be_signed: ToBeSignedCertificate,
     pub signature: Option<Signature>,
 }
-
-/// Contains information to identify the certificate holder when necessary.
-///
-/// # Variants
-/// - `LinkageData`: Identifies certificate for revocation in linked certificate CRLs
-///   (See sections 5.1.3 and 7.3 for details)
-///
-/// - `Name`: Identifies non-anonymous certificate holders
-///   - Contents are policy-dependent and expected to be human-readable
-///
-/// - `BinaryId`: Supports non-human-readable identifiers
-///
-/// - `None`: Indicates certificate does not include an identifier
-///
-/// # Critical Information Field
-/// This is a critical information field as defined in 5.2.6:
-/// - An implementation that does not recognize the indicated CHOICE shall
-///   reject the signed SPDU as invalid
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(choice, automatic_tags)]
-#[non_exhaustive]
-pub enum CertificateId {
-    LinkageData(LinkageData),
-    Name(Hostname),
-    #[rasn(size("1..=64"))]
-    BinaryId(OctetString),
-    None(()),
+impl CertificateBase {
+    #[must_use]
+    pub const fn is_implicit(&self) -> bool {
+        matches!(
+            &self,
+            CertificateBase {
+                c_type: CertificateType::Implicit,
+                to_be_signed: ToBeSignedCertificate {
+                    verify_key_indicator: VerificationKeyIndicator::ReconstructionValue(_),
+                    ..
+                },
+                signature: None,
+                ..
+            }
+        )
+    }
+    #[must_use]
+    pub const fn is_explicit(&self) -> bool {
+        matches!(
+            self,
+            CertificateBase {
+                c_type: CertificateType::Explicit,
+                to_be_signed: ToBeSignedCertificate {
+                    verify_key_indicator: VerificationKeyIndicator::VerificationKey(_),
+                    ..
+                },
+                signature: Some(_),
+                ..
+            }
+        )
+    }
 }
+
 /// Indicates whether a certificate is explicit or implicit.
 ///
 /// # Critical Information Field
@@ -998,41 +936,61 @@ pub enum CertificateType {
     Implicit = 1,
 }
 
-/// Indicates permitted permission types in end-entity certificates whose permission
-/// chain passes through this `PsidGroupPermissions` field.
-///
-/// # Variants
-/// - `App`: End-entity certificate may contain `appPermissions` field
-/// - `Enroll`: End-entity certificate may contain `certRequestPermissions` field
-/// BIT STRING {app (0), enrol (1) } (SIZE (8)) (ALL EXCEPT {})
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate, size(8))]
-pub struct EndEntityType(pub FixedBitString<8usize>);
-// TODO possible value defaults/options
-
-delegate!(FixedBitString<8>, EndEntityType);
-
-/// This is a profile of the CertificateBase structure providing all the fields necessary for an explicit certificate, and no others.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate)]
-pub struct ExplicitCertificate(pub CertificateBase);
-
-delegate!(CertificateBase, ExplicitCertificate);
-
-/// This is an integer used to identify an Ieee1609ContributedHeaderInfoExtension.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate)]
-pub struct Ieee1609HeaderInfoExtensionId(pub ExtId);
-
-delegate!(ExtId, Ieee1609HeaderInfoExtensionId);
-
 /// This is a profile of the CertificateBase structure providing all
 ///  the fields necessary for an implicit certificate, and no others.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
-pub struct ImplicitCertificate(pub CertificateBase);
+pub struct ImplicitCertificate(CertificateBase);
+
+#[bon::bon]
+impl ImplicitCertificate {
+    #[builder]
+    fn new(data: CertificateBase) -> Result<Self, InnerSubtypeConstraintError> {
+        Self(data).validated()
+    }
+}
+impl InnerSubtypeConstraint for ImplicitCertificate {
+    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+        if self.0.is_implicit() {
+            Ok(self)
+        } else {
+            Err(InnerSubtypeConstraintError::InvalidCombination {
+                type_name: "ImplicitCertificate",
+                details: "CertificateBase is not implicit certificate",
+            })
+        }
+    }
+}
 
 delegate!(CertificateBase, ImplicitCertificate);
+
+/// This is a profile of the CertificateBase structure providing all the fields necessary for an explicit certificate, and no others.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct ExplicitCertificate(CertificateBase);
+
+#[bon::bon]
+impl ExplicitCertificate {
+    #[builder]
+    fn new(data: CertificateBase) -> Result<Self, InnerSubtypeConstraintError> {
+        Self(data).validated()
+    }
+}
+
+impl InnerSubtypeConstraint for ExplicitCertificate {
+    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+        if self.0.is_explicit() {
+            Ok(self)
+        } else {
+            Err(InnerSubtypeConstraintError::InvalidCombination {
+                type_name: "ExplicitCertificate",
+                details: "CertificateBase is not explicit certificate",
+            })
+        }
+    }
+}
+
+delegate!(CertificateBase, ExplicitCertificate);
 
 /// Allows certificate recipients to determine which keying material to use for
 /// certificate authentication.
@@ -1068,196 +1026,6 @@ pub enum IssuerIdentifier {
     Sha384AndDigest(HashedId8),
     #[rasn(extension_addition)]
     Sm3AndDigest(HashedId8),
-}
-
-/// Contains information for matching against linkage ID-based CRLs to determine
-/// certificate revocation status.
-///
-/// See sections 5.1.3.4 and 7.3 for detailed usage information.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(automatic_tags)]
-pub struct LinkageData {
-    #[rasn(identifier = "iCert")]
-    pub i_cert: IValue,
-    #[rasn(identifier = "linkage-value")]
-    pub linkage_value: LinkageValue,
-    #[rasn(identifier = "group-linkage-value")]
-    pub group_linkage_value: Option<GroupLinkageValue>,
-}
-
-/// AppExtension used to identify an operating organization. Both associated
-/// `CertIssueExtension` and `CertRequestExtension` are of type `OperatingOrganizationId`.
-///
-/// # SPDU Consistency
-/// SDEE specification for the SPDU must specify how to determine an OBJECT
-/// IDENTIFIER, either by:
-/// - Including the full OBJECT IDENTIFIER in the SPDU
-/// - Including a RELATIVE-OID with instructions for obtaining full OBJECT IDENTIFIER
-///
-/// SPDU is consistent if its determined OBJECT IDENTIFIER matches this field's value.
-///
-/// # Extension Properties
-/// - No consistency conditions with corresponding `CertIssueExtension`
-/// - Can appear in certificates issued by any CA
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate)]
-pub struct OperatingOrganizationId(pub ObjectIdentifier);
-
-delegate!(ObjectIdentifier, OperatingOrganizationId);
-
-/// Specifies permissions for certificate issuance and requests for a set of PSIDs.
-/// See examples in D.5.3 and D.5.4.
-///
-/// # Fields
-/// - `subject_permissions`: PSIDs and SSP Ranges covered
-///
-/// - `min_chain_length` and `chain_length_range`: Permitted certificate chain length
-///   - Chain length: Number of certificates below this one, including end-entity
-///   - Permitted length: `min_chain_length` to `min_chain_length + chain_length_range`
-///   - Special cases:
-///     - `min_chain_length` of 0 not allowed in `certIssuePermissions`
-///     - `chain_length_range` of -1 allows any length ≥ `min_chain_length`
-///
-/// - `ee_type`: Types of certificates/requests this permission authorizes
-///   - `app`: Allows chain to end in authorization certificate
-///   - `enroll`: Allows chain to end in enrollment certificate
-///   - Different `PsidGroupPermissions` instances may have different `ee_type` values
-///
-/// # Validation Rules
-/// - Chain ending in authorization certificate requires `app` in `ee_type`
-/// - Chain ending in enrollment certificate requires `enroll` in `ee_type`
-/// - Invalid chain if end certificate type doesn't match `ee_type`
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(automatic_tags)]
-// TODO builder defaults
-pub struct PsidGroupPermissions {
-    #[rasn(identifier = "subjectPermissions")]
-    pub subject_permissions: SubjectPermissions,
-    #[rasn(
-        default = "psid_group_permissions_min_chain_length_default",
-        identifier = "minChainLength"
-    )]
-    pub min_chain_length: Integer,
-    #[rasn(
-        default = "psid_group_permissions_chain_length_range_default",
-        identifier = "chainLengthRange"
-    )]
-    pub chain_length_range: Integer,
-    #[rasn(
-        default = "psid_group_permissions_ee_type_default",
-        identifier = "eeType"
-    )]
-    pub ee_type: EndEntityType,
-}
-
-fn psid_group_permissions_min_chain_length_default() -> Integer {
-    Integer::from(1)
-}
-fn psid_group_permissions_chain_length_range_default() -> Integer {
-    Integer::from(0)
-}
-fn psid_group_permissions_ee_type_default() -> EndEntityType {
-    // First byte holds the bits, container is larger than needed
-    EndEntityType(FixedBitString::new([0b1000_0000, 0, 0, 0, 0, 0, 0, 0]))
-}
-
-/// Contains `AppExtensions` that apply to the certificate holder.
-///
-/// # Consistency Requirements
-/// As specified in 5.2.4.2.3, each `AppExtension` type has specific
-/// consistency conditions governing:
-/// - Consistency with SPDUs signed by the holder
-/// - Consistency with `CertIssueExtensions` in CA certificates in the holder's chain
-///
-/// See individual `AppExtension` definitions for their specific
-/// consistency conditions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate, size("1.."))]
-pub struct SequenceOfAppExtensions(pub SequenceOf<AppExtension>);
-
-delegate!(SequenceOf<AppExtension>, SequenceOfAppExtensions);
-
-/// Contains `CertRequestExtensions` that apply to the certificate holder.
-///
-/// # Consistency Requirements
-/// As specified in 5.2.4.2.3, each `CertRequestExtension` type has specific
-/// consistency conditions governing:
-/// - Consistency with `AppExtensions` in certificates issued by the holder
-/// - Consistency with `CertRequestExtensions` in CA certificates in the holder's chain
-///
-/// See individual `CertRequestExtension` definitions for their specific
-/// consistency conditions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate, size("1.."))]
-pub struct SequenceOfCertIssueExtensions(pub SequenceOf<CertIssueExtension>);
-
-delegate!(
-    SequenceOf<CertIssueExtension>,
-    SequenceOfCertIssueExtensions
-);
-
-/// Contains `CertRequestExtensions` that apply to the certificate holder.
-///
-/// # Consistency Requirements
-/// As specified in 5.2.4.2.3, each `CertRequestExtension` type has specific
-/// consistency conditions governing:
-/// - Consistency with `AppExtensions` in certificates issued by the holder
-/// - Consistency with `CertRequestExtensions` in CA certificates in the holder's chain
-///
-/// See individual `CertRequestExtension` definitions for their specific
-/// consistency conditions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate, size("1.."))]
-pub struct SequenceOfCertRequestExtensions(pub SequenceOf<CertRequestExtension>);
-
-delegate!(
-    SequenceOf<CertRequestExtension>,
-    SequenceOfCertRequestExtensions
-);
-
-/// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate)]
-pub struct SequenceOfCertificate(pub SequenceOf<Certificate>);
-
-delegate!(SequenceOf<Certificate>, SequenceOfCertificate);
-
-/// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(delegate)]
-pub struct SequenceOfPsidGroupPermissions(pub SequenceOf<PsidGroupPermissions>);
-
-delegate!(
-    SequenceOf<PsidGroupPermissions>,
-    SequenceOfPsidGroupPermissions
-);
-
-/// Indicates PSIDs and associated SSPs for certificate issuance or request
-/// permissions granted by a `PsidGroupPermissions` structure.
-///
-/// # Variants
-/// - `Explicit`: Grants permissions for specific PSIDs and SSP Ranges
-/// - `All`: Grants permissions for all PSIDs not covered by other
-///   `PsidGroupPermissions` in the same `certIssuePermissions` or
-///   `certRequestPermissions` field
-///
-/// # Critical Information Fields
-/// This is a critical information field as defined in 5.2.6:
-/// - Implementation must recognize the indicated CHOICE when verifying SPDU
-/// - For `Explicit` variant:
-///   - Must support at least 8 entries in `PsidSspRange`
-///   - Implementation must support specified number of entries
-/// - Invalid SPDU (per 4.2.2.3.2) if:
-///   - CHOICE is not recognized
-///   - Number of entries in `Explicit` variant exceeds implementation support
-///
-/// Invalid in this context means validity cannot be established.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-#[rasn(choice, automatic_tags)]
-#[non_exhaustive]
-pub enum SubjectPermissions {
-    Explicit(SequenceOfPsidSspRange),
-    All(()),
 }
 
 /// Certificate data to be signed, containing identification and permissions information.
@@ -1326,7 +1094,7 @@ pub enum SubjectPermissions {
 /// - Invalid SPDU if request verification fails
 ///
 /// Implementation-specific behavior when non-relevant fields exceed supported size.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
 #[non_exhaustive]
 pub struct ToBeSignedCertificate {
@@ -1355,11 +1123,241 @@ pub struct ToBeSignedCertificate {
     #[rasn(extension_addition, size("8"))]
     pub flags: Option<FixedBitString<8>>,
     #[rasn(extension_addition, identifier = "appExtensions")]
-    pub app_extensions: SequenceOfAppExtensions,
+    pub app_extensions: Option<SequenceOfAppExtensions>,
     #[rasn(extension_addition, identifier = "certIssueExtensions")]
-    pub cert_issue_extensions: SequenceOfCertIssueExtensions,
+    pub cert_issue_extensions: Option<SequenceOfCertIssueExtensions>,
     #[rasn(extension_addition, identifier = "certRequestExtension")]
-    pub cert_request_extension: SequenceOfCertRequestExtensions,
+    pub cert_request_extension: Option<SequenceOfCertRequestExtensions>,
+}
+#[bon::bon]
+impl ToBeSignedCertificate {
+    #[builder]
+    pub fn new(
+        id: CertificateId,
+        craca_id: HashedId3,
+        crl_series: CrlSeries,
+        validity_period: ValidityPeriod,
+        region: Option<GeographicRegion>,
+        assurance_level: Option<SubjectAssurance>,
+        app_permissions: Option<SequenceOfPsidSsp>,
+        cert_issue_permissions: Option<SequenceOfPsidGroupPermissions>,
+        cert_request_permissions: Option<SequenceOfPsidGroupPermissions>,
+        can_request_rollover: Option<()>,
+        encryption_key: Option<PublicEncryptionKey>,
+        verify_key_indicator: VerificationKeyIndicator,
+        flags: Option<FixedBitString<8>>,
+        app_extensions: Option<SequenceOfAppExtensions>,
+        cert_issue_extensions: Option<SequenceOfCertIssueExtensions>,
+        cert_request_extension: Option<SequenceOfCertRequestExtensions>,
+    ) -> Result<Self, InnerSubtypeConstraintError> {
+        let cert = Self {
+            id,
+            craca_id,
+            crl_series,
+            validity_period,
+            region,
+            assurance_level,
+            app_permissions,
+            cert_issue_permissions,
+            cert_request_permissions,
+            can_request_rollover,
+            encryption_key,
+            verify_key_indicator,
+            flags,
+            app_extensions,
+            cert_issue_extensions,
+            cert_request_extension,
+        };
+        cert.validated()
+    }
+}
+
+impl InnerSubtypeConstraint for ToBeSignedCertificate {
+    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+        if self.app_permissions.is_none()
+            && self.cert_issue_permissions.is_none()
+            && self.cert_request_permissions.is_none()
+        {
+            return Err(InnerSubtypeConstraintError::MissingAtLeastOneComponent {
+                type_name: "ToBeSignedCertificate",
+                components: &[
+                    "app_permissions",
+                    "cert_issue_permissions",
+                    "cert_request_permissions",
+                ],
+            });
+        }
+        Ok(self)
+    }
+}
+
+/// Contains information to identify the certificate holder when necessary.
+///
+/// # Variants
+/// - `LinkageData`: Identifies certificate for revocation in linked certificate CRLs
+///   (See sections 5.1.3 and 7.3 for details)
+///
+/// - `Name`: Identifies non-anonymous certificate holders
+///   - Contents are policy-dependent and expected to be human-readable
+///
+/// - `BinaryId`: Supports non-human-readable identifiers
+///
+/// - `None`: Indicates certificate does not include an identifier
+///
+/// # Critical Information Field
+/// This is a critical information field as defined in 5.2.6:
+/// - An implementation that does not recognize the indicated CHOICE shall
+///   reject the signed SPDU as invalid
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(choice, automatic_tags)]
+#[non_exhaustive]
+pub enum CertificateId {
+    LinkageData(LinkageData),
+    Name(Hostname),
+    #[rasn(size("1..=64"))]
+    BinaryId(OctetString),
+    None(()),
+}
+
+/// Contains information for matching against linkage ID-based CRLs to determine
+/// certificate revocation status.
+///
+/// See sections 5.1.3.4 and 7.3 for detailed usage information.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+pub struct LinkageData {
+    #[rasn(identifier = "iCert")]
+    pub i_cert: IValue,
+    #[rasn(identifier = "linkage-value")]
+    pub linkage_value: LinkageValue,
+    #[rasn(identifier = "group-linkage-value")]
+    pub group_linkage_value: Option<GroupLinkageValue>,
+}
+
+/// Indicates permitted permission types in end-entity certificates whose permission
+/// chain passes through this `PsidGroupPermissions` field.
+///
+/// # Variants
+/// - `App`: End-entity certificate may contain `appPermissions` field
+/// - `Enroll`: End-entity certificate may contain `certRequestPermissions` field
+/// # Note
+/// BIT STRING {app (0), enrol (1) } (SIZE (8)) (ALL EXCEPT {})
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate, size(8))]
+pub struct EndEntityType(pub FixedBitString<8usize>);
+
+/// When initializing `EndEntityType`, use the following constants as the first byte for `FixedBitString<8>`.
+impl EndEntityType {
+    pub const APP: u8 = 0b1000_0000;
+    pub const ENROLL: u8 = 0b0100_0000;
+    pub const BOTH: u8 = 0b1100_0000;
+}
+
+delegate!(FixedBitString<8>, EndEntityType);
+
+/// Specifies permissions for certificate issuance and requests for a set of PSIDs.
+/// See examples in D.5.3 and D.5.4.
+///
+/// # Fields
+/// - `subject_permissions`: PSIDs and SSP Ranges covered
+///
+/// - `min_chain_length` and `chain_length_range`: Permitted certificate chain length
+///   - Chain length: Number of certificates below this one, including end-entity
+///   - Permitted length: `min_chain_length` to `min_chain_length + chain_length_range`
+///   - Special cases:
+///     - `min_chain_length` of 0 not allowed in `certIssuePermissions`
+///     - `chain_length_range` of -1 allows any length ≥ `min_chain_length`
+///
+/// - `ee_type`: Types of certificates/requests this permission authorizes
+///   - `app`: Allows chain to end in authorization certificate
+///   - `enroll`: Allows chain to end in enrollment certificate
+///   - Different `PsidGroupPermissions` instances may have different `ee_type` values
+///
+/// # Validation Rules
+/// - Chain ending in authorization certificate requires `app` in `ee_type`
+/// - Chain ending in enrollment certificate requires `enroll` in `ee_type`
+/// - Invalid chain if end certificate type doesn't match `ee_type`
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+pub struct PsidGroupPermissions {
+    #[rasn(identifier = "subjectPermissions")]
+    pub subject_permissions: SubjectPermissions,
+    #[rasn(
+        default = "psid_group_permissions_min_chain_length_default",
+        identifier = "minChainLength"
+    )]
+    #[builder(default = psid_group_permissions_min_chain_length_default())]
+    pub min_chain_length: Integer,
+    #[rasn(
+        default = "psid_group_permissions_chain_length_range_default",
+        identifier = "chainLengthRange"
+    )]
+    #[builder(default = psid_group_permissions_chain_length_range_default())]
+    pub chain_length_range: Integer,
+    #[rasn(
+        default = "psid_group_permissions_ee_type_default",
+        identifier = "eeType"
+    )]
+    #[builder(default = psid_group_permissions_ee_type_default())]
+    pub ee_type: EndEntityType,
+}
+
+fn psid_group_permissions_min_chain_length_default() -> Integer {
+    Integer::from(1)
+}
+fn psid_group_permissions_chain_length_range_default() -> Integer {
+    Integer::from(0)
+}
+fn psid_group_permissions_ee_type_default() -> EndEntityType {
+    // First byte holds the bits, container is larger than needed
+    EndEntityType(FixedBitString::new([
+        EndEntityType::APP,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]))
+}
+
+/// This type is used for clarity of definitions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct SequenceOfPsidGroupPermissions(pub SequenceOf<PsidGroupPermissions>);
+
+delegate!(
+    SequenceOf<PsidGroupPermissions>,
+    SequenceOfPsidGroupPermissions
+);
+
+/// Indicates PSIDs and associated SSPs for certificate issuance or request
+/// permissions granted by a `PsidGroupPermissions` structure.
+///
+/// # Variants
+/// - `Explicit`: Grants permissions for specific PSIDs and SSP Ranges
+/// - `All`: Grants permissions for all PSIDs not covered by other
+///   `PsidGroupPermissions` in the same `certIssuePermissions` or
+///   `certRequestPermissions` field
+///
+/// # Critical Information Fields
+/// This is a critical information field as defined in 5.2.6:
+/// - Implementation must recognize the indicated CHOICE when verifying SPDU
+/// - For `Explicit` variant:
+///   - Must support at least 8 entries in `PsidSspRange`
+///   - Implementation must support specified number of entries
+/// - Invalid SPDU (per 4.2.2.3.2) if:
+///   - CHOICE is not recognized
+///   - Number of entries in `Explicit` variant exceeds implementation support
+///
+/// Invalid in this context means validity cannot be established.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(choice, automatic_tags)]
+#[non_exhaustive]
+pub enum SubjectPermissions {
+    Explicit(SequenceOfPsidSspRange),
+    All(()),
 }
 
 /// Contains either verification key or reconstruction value depending on certificate type.
@@ -1389,9 +1387,190 @@ pub enum VerificationKeyIndicator {
     VerificationKey(PublicVerificationKey),
     ReconstructionValue(EccP256CurvePoint),
 }
-pub const CERT_EXT_ID_OPERATING_ORGANIZATION: ExtId = ExtId(Uint8(1));
-pub const P2PCD8_BYTE_LEARNING_REQUEST_ID: Ieee1609HeaderInfoExtensionId =
-    Ieee1609HeaderInfoExtensionId(ExtId(Uint8(1)));
+
+/// Represents an individual `AppExtension`.
+///
+/// Extensions are drawn from the ASN.1 Information Object Set `SetCertExtensions`.
+/// Each `AppExtension` is associated with a `CertIssueExtension` and a
+/// `CertRequestExtension`, all identified by the same `id` value.
+///
+/// # Fields
+/// - `id`: Identifies the extension type
+/// - `content`: Provides the content of the extension
+#[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+pub struct AppExtension<T: CertExtType> {
+    pub id: ExtId,
+    pub content: T::App,
+}
+
+/// Contains `CertRequestExtensions` that apply to the certificate holder.
+///
+/// # Consistency Requirements
+/// As specified in 5.2.4.2.3, each `CertRequestExtension` type has specific
+/// consistency conditions governing:
+/// - Consistency with `AppExtensions` in certificates issued by the holder
+/// - Consistency with `CertRequestExtensions` in CA certificates in the holder's chain
+///
+/// See individual `CertRequestExtension` definitions for their specific
+/// consistency conditions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate, size("1.."))]
+pub struct SequenceOfCertIssueExtensions(pub SequenceOf<OperatingOrganizationIssueExtension>);
+
+delegate!(
+    SequenceOf<OperatingOrganizationIssueExtension>,
+    SequenceOfCertIssueExtensions
+);
+
+#[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+#[rasn(choice, automatic_tags)]
+pub enum IssuePermissions<T: CertExtType> {
+    #[rasn(identifier = "specific")]
+    Specific(T::Issue),
+    #[rasn(identifier = "all")]
+    All(()),
+}
+
+/// Represents an individual `CertIssueExtension`.
+///
+/// Extensions are drawn from the ASN.1 Information Object Set `SetCertExtensions`.
+/// Each `CertIssueExtension` is associated with an `AppExtension` and a
+/// `CertRequestExtension`, all identified by the same `id` value.
+///
+/// # Fields
+/// - `id`: Identifies the extension type
+///
+/// - `permissions`: Indicates the permissions
+///   - `All`: Certificate is entitled to issue all values of the extension
+///   - `Specific`: Specifies which extension values may be issued when `All` doesn't apply
+#[derive(Builder, AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+pub struct CertIssueExtension<T: CertExtType> {
+    pub id: ExtId,
+    pub permissions: IssuePermissions<T>,
+}
+impl<T: CertExtType> CertIssueExtension<T> {
+    pub fn new_specific(permissions: T::Issue) -> Self {
+        Self {
+            id: T::ID,
+            permissions: IssuePermissions::Specific(permissions),
+        }
+    }
+    pub fn new_all() -> Self {
+        Self {
+            id: T::ID,
+            permissions: IssuePermissions::All(()),
+        }
+    }
+}
+
+/// Contains `CertRequestExtensions` that apply to the certificate holder.
+///
+/// # Consistency Requirements
+/// As specified in 5.2.4.2.3, each `CertRequestExtension` type has specific
+/// consistency conditions governing:
+/// - Consistency with `AppExtensions` in certificates issued by the holder
+/// - Consistency with `CertRequestExtensions` in CA certificates in the holder's chain
+///
+/// See individual `CertRequestExtension` definitions for their specific
+/// consistency conditions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate, size("1.."))]
+pub struct SequenceOfCertRequestExtensions(pub SequenceOf<OperatingOrganizationRequestExtension>);
+
+delegate!(
+    SequenceOf<OperatingOrganizationRequestExtension>,
+    SequenceOfCertRequestExtensions
+);
+
+#[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+#[rasn(choice, automatic_tags)]
+pub enum RequestPermissions<T: CertExtType> {
+    #[rasn(identifier = "content")]
+    Content(T::Req),
+    #[rasn(identifier = "all")]
+    All(()),
+}
+
+/// Represents an individual `CertRequestExtension`.
+///
+/// Extensions are drawn from the ASN.1 Information Object Set `SetCertExtensions`.
+/// Each `CertRequestExtension` is associated with an `AppExtension` and a
+/// `CertRequestExtension`, all identified by the same `id` value.
+///
+/// # Fields
+/// - `id`: Identifies the extension type
+///
+/// - `permissions`: Indicates the permissions
+///   - `All`: Certificate is entitled to issue all values of the extension
+///   - `Specific`: Specifies which extension values may be issued when `All` doesn't apply
+#[derive(Builder, AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+pub struct CertRequestExtension<T: CertExtType> {
+    pub id: ExtId,
+    pub permissions: RequestPermissions<T>,
+}
+
+/// AppExtension used to identify an operating organization. Both associated
+/// `CertIssueExtension` and `CertRequestExtension` are of type `OperatingOrganizationId`.
+///
+/// # SPDU Consistency
+/// SDEE specification for the SPDU must specify how to determine an OBJECT
+/// IDENTIFIER, either by:
+/// - Including the full OBJECT IDENTIFIER in the SPDU
+/// - Including a RELATIVE-OID with instructions for obtaining full OBJECT IDENTIFIER
+///
+/// SPDU is consistent if its determined OBJECT IDENTIFIER matches this field's value.
+///
+/// # Extension Properties
+/// - No consistency conditions with corresponding `CertIssueExtension`
+/// - Can appear in certificates issued by any CA
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct OperatingOrganizationId(pub ObjectIdentifier);
+
+delegate!(ObjectIdentifier, OperatingOrganizationId);
+
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+pub struct OperatingOrganizationExtension;
+
+impl CertExtType for OperatingOrganizationExtension {
+    type App = OperatingOrganizationId;
+    type Issue = (); // NULL in ASN.1
+    type Req = (); // NULL in ASN.1
+    const ID: ExtId = CERT_EXT_ID_OPERATING_ORGANIZATION;
+}
+
+pub type OperatingOrganizationAppExtension = AppExtension<OperatingOrganizationExtension>;
+pub type OperatingOrganizationIssueExtension = CertIssueExtension<OperatingOrganizationExtension>;
+pub type OperatingOrganizationRequestExtension =
+    CertRequestExtension<OperatingOrganizationExtension>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum SetCertExtensionsType {
+    OperatingOrganization(OperatingOrganizationExtension),
+}
+
+/// Contains `AppExtensions` that apply to the certificate holder.
+///
+/// # Consistency Requirements
+/// As specified in 5.2.4.2.3, each `AppExtension` type has specific
+/// consistency conditions governing:
+/// - Consistency with SPDUs signed by the holder
+/// - Consistency with `CertIssueExtensions` in CA certificates in the holder's chain
+/// # Note
+/// See individual `AppExtension` definitions for their specific
+/// consistency conditions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate, size("1.."))]
+pub struct SequenceOfAppExtensions(pub SequenceOf<OperatingOrganizationAppExtension>);
+
+delegate!(
+    SequenceOf<OperatingOrganizationAppExtension>,
+    SequenceOfAppExtensions
+);
 
 // pub mod ieee1609_dot2_crl {
 //     extern crate alloc;
@@ -1414,3 +1593,341 @@ pub const P2PCD8_BYTE_LEARNING_REQUEST_ID: Ieee1609HeaderInfoExtensionId =
 //     #[rasn(delegate)]
 //     pub struct SecuredCrl(pub Ieee1609Dot2Data);
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    macro_rules! round_trip {
+        ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
+            let value: $typ = $value;
+            let expected: &[u8] = $expected;
+            let actual_encoding = rasn::$codec::encode(&value).unwrap();
+            // dbg!(&actual_encoding);
+
+            pretty_assertions::assert_eq!(&*actual_encoding, expected);
+
+            let decoded_value = rasn::$codec::decode::<$typ>(&actual_encoding);
+            match decoded_value {
+                Ok(decoded) => {
+                    pretty_assertions::assert_eq!(value, decoded);
+                }
+                Err(err) => {
+                    panic!("{:?}", err);
+                }
+            }
+        }};
+    }
+
+    #[test]
+    fn test_signed_data_payload() {
+        let payload_data = SignedDataPayload::builder()
+            .data(
+                Ieee1609Dot2Data::builder()
+                    .protocol_version(3)
+                    .content(Ieee1609Dot2Content::UnsecuredData(
+                        OctetString::from("This is a BSM\r\n".as_bytes()).into(),
+                    ))
+                    .build(),
+            )
+            .build()
+            .unwrap();
+        round_trip!(
+            coer,
+            SignedDataPayload,
+            payload_data,
+            // 0x40, 0x03, 0x80, 0x0F, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x61, 0x20, 0x42, 0x53, 0x4D, 0x0D, 0x0A
+            &[64, 3, 128, 15, 84, 104, 105, 115, 32, 105, 115, 32, 97, 32, 66, 83, 77, 13, 10]
+        );
+    }
+    #[test]
+    fn test_ieee_basic_safety_message() {
+        let ieee1609dot2data: Ieee1609Dot2Data = Ieee1609Dot2Data::builder()
+            .protocol_version(3)
+            .content(Ieee1609Dot2Content::SignedData(Box::new(
+                SignedData::builder()
+                    .hash_id(HashAlgorithm::Sha256)
+                    .tbs_data(
+                        ToBeSignedData::builder()
+                            .payload(
+                                SignedDataPayload::builder()
+                                    .data(
+                                        Ieee1609Dot2Data::builder()
+                                            .protocol_version(3)
+                                            .content(Ieee1609Dot2Content::UnsecuredData(
+                                                OctetString::from("This is a BSM\r\n".as_bytes())
+                                                    .into(),
+                                            ))
+                                            .build(),
+                                    )
+                                    .build()
+                                    .unwrap(),
+                            )
+                            .header_info(
+                                HeaderInfo::builder()
+                                    .psid(Integer::from(32).into())
+                                    .generation_time(1_230_066_625_199_609_624.into())
+                                    .build(),
+                            )
+                            .build(),
+                    )
+                    .signer(SignerIdentifier::Digest(HashedId8(
+                        "!\"#$%&'(".as_bytes().try_into().unwrap(),
+                    )))
+                    .signature(Signature::EcdsaNistP256(
+                        EcdsaP256Signature::builder()
+                            .r_sig(EccP256CurvePoint::CompressedY0(
+                                b"12345678123456781234567812345678"
+                                    .to_vec()
+                                    .try_into()
+                                    .unwrap(),
+                            ))
+                            .s_sig(
+                                b"ABCDEFGHABCDEFGHABCDEFGHABCDEFGH"
+                                    .to_vec()
+                                    .try_into()
+                                    .unwrap(),
+                            )
+                            .build(),
+                    ))
+                    .build(),
+            )))
+            .build();
+
+        round_trip!(
+            coer,
+            Ieee1609Dot2Data,
+            ieee1609dot2data,
+            &[
+                0x03, 0x81, 0x00, 0x40, 0x03, 0x80, 0x0F, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73,
+                0x20, 0x61, 0x20, 0x42, 0x53, 0x4D, 0x0D, 0x0A, 0x40, 0x01, 0x20, 0x11, 0x12, 0x13,
+                0x14, 0x15, 0x16, 0x17, 0x18, 0x80, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28,
+                0x80, 0x82, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34,
+                0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32,
+                0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+                0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46,
+                0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+            ]
+        );
+    }
+    #[test]
+    fn test_bsm_with_cert() {
+        round_trip!(
+            coer,
+            Ieee1609Dot2Data,
+            Ieee1609Dot2Data::builder()
+                .protocol_version(3)
+                .content(Ieee1609Dot2Content::SignedData(Box::new(
+                    SignedData::builder()
+                        .hash_id(HashAlgorithm::Sha256)
+                        .tbs_data(
+                            ToBeSignedData::builder()
+                                .payload(
+                                    SignedDataPayload::builder()
+                                        .data(
+                                            Ieee1609Dot2Data::builder()
+                                                .protocol_version(3)
+                                                .content(Ieee1609Dot2Content::UnsecuredData(
+                                                    Opaque("This is a BSM\r\n".as_bytes().into())
+                                                ))
+                                                .build(),
+                                        )
+                                        .build()
+                                        .unwrap(),
+                                )
+                                .header_info(
+                                    HeaderInfo::builder()
+                                        .psid(Integer::from(32).into())
+                                        .generation_time(1_230_066_625_199_609_624.into())
+                                        .build(),
+                                )
+                                .build()
+                        )
+                        .signer(SignerIdentifier::Certificate(
+                            vec![Certificate::from(ImplicitCertificate::from(
+                                CertificateBase::builder()
+                                    .version(3)
+                                    .c_type(CertificateType::Implicit)
+                                    .issuer(IssuerIdentifier::Sha256AndDigest(HashedId8(
+                                        "!\"#$%&'(".as_bytes().try_into().unwrap()
+                                    )))
+                                    .to_be_signed(
+                                        ToBeSignedCertificate::builder()
+                                            .id(CertificateId::LinkageData(
+                                                LinkageData::builder()
+                                                    .i_cert(IValue::from(100))
+                                                    .linkage_value(LinkageValue(
+                                                        FixedOctetString::try_from(
+                                                            b"123456789".as_slice()
+                                                        )
+                                                        .unwrap()
+                                                    ))
+                                                    .group_linkage_value(
+                                                        GroupLinkageValue::builder()
+                                                            .j_value(
+                                                                b"ABCD"
+                                                                    .as_slice()
+                                                                    .try_into()
+                                                                    .unwrap()
+                                                            )
+                                                            .value(
+                                                                b"QRSTUVWXY"
+                                                                    .as_slice()
+                                                                    .try_into()
+                                                                    .unwrap()
+                                                            )
+                                                            .build()
+                                                    )
+                                                    .build()
+                                            ))
+                                            .craca_id(HashedId3(
+                                                b"abc".as_slice().try_into().unwrap()
+                                            ))
+                                            .crl_series(CrlSeries::from(70))
+                                            .validity_period(
+                                                ValidityPeriod::builder()
+                                                    .start(81_828_384.into())
+                                                    .duration(Duration::Hours(169))
+                                                    .build()
+                                            )
+                                            .region(GeographicRegion::IdentifiedRegion(
+                                                vec![
+                                                    IdentifiedRegion::CountryOnly(
+                                                        UnCountryId::from(124)
+                                                    ),
+                                                    IdentifiedRegion::CountryOnly(
+                                                        UnCountryId::from(484)
+                                                    ),
+                                                    IdentifiedRegion::CountryOnly(
+                                                        UnCountryId::from(840)
+                                                    )
+                                                ]
+                                                .into()
+                                            ))
+                                            .app_permissions(
+                                                vec![
+                                                    PsidSsp {
+                                                        psid: Integer::from(32).into(),
+                                                        ssp: None
+                                                    },
+                                                    PsidSsp {
+                                                        psid: Integer::from(38).into(),
+                                                        ssp: None
+                                                    }
+                                                ]
+                                                .into()
+                                            )
+                                            .verify_key_indicator(
+                                                VerificationKeyIndicator::ReconstructionValue(
+                                                    EccP256CurvePoint::CompressedY0(
+                                                        FixedOctetString::from([
+                                                            0x91u8, 0x92, 0x93, 0x94, 0x95, 0x96,
+                                                            0x97, 0x98, 0x91, 0x92, 0x93, 0x94,
+                                                            0x95, 0x96, 0x97, 0x98, 0x91, 0x92,
+                                                            0x93, 0x94, 0x95, 0x96, 0x97, 0x98,
+                                                            0x91, 0x92, 0x93, 0x94, 0x95, 0x96,
+                                                            0x97, 0x98
+                                                        ])
+                                                    )
+                                                )
+                                            )
+                                            .build()
+                                            .unwrap()
+                                    )
+                                    .build()
+                            ))]
+                            .into()
+                        ))
+                        .signature(Signature::EcdsaNistP256(
+                            EcdsaP256Signature::builder()
+                                .r_sig(EccP256CurvePoint::CompressedY0(
+                                    b"12345678123456781234567812345678"
+                                        .as_slice()
+                                        .try_into()
+                                        .unwrap()
+                                ))
+                                .s_sig(
+                                    b"ABCDEFGHABCDEFGHABCDEFGHABCDEFGH"
+                                        .as_slice()
+                                        .try_into()
+                                        .unwrap()
+                                )
+                                .build()
+                        ))
+                        .build()
+                )))
+                .build(),
+            // Standard-provided verification sample
+            // 03 81 00 40 03 80 0F 54 68 69 73 20 69 73 20 61
+            // 20 42 53 4D 0D 0A 40 01 20 11 12 13 14 15 16 17
+            // 18 81 01 01 00 03 01 80 21 22 23 24 25 26 27 28
+            // 50 80 80 00 64 31 32 33 34 35 36 37 38 39 41 42
+            // 43 44 51 52 53 54 55 56 57 58 59 61 62 63 00 46
+            // 04 E0 9A 20 84 00 A9 83 01 03 80 00 7C 80 01 E4
+            // 80 03 48 01 02 00 01 20 00 01 26 81 82 91 92 93
+            // 94 95 96 97 98 91 92 93 94 95 96 97 98 91 92 93
+            // 94 95 96 97 98 91 92 93 94 95 96 97 98 80 82 31
+            // 32 33 34 35 36 37 38 31 32 33 34 35 36 37 38 31
+            // 32 33 34 35 36 37 38 31 32 33 34 35 36 37 38 41
+            // 42 43 44 45 46 47 48 41 42 43 44 45 46 47 48 41
+            // 42 43 44 45 46 47 48 41 42 43 44 45 46 47 48
+            //
+            // asnc1 output, compiled from standard:
+            // 0x03, 0x81, 0x00, 0x40, 0x03, 0x80, 0x0f, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73,
+            // 0x20, 0x61, 0x20, 0x42, 0x53, 0x4d, 0x0d, 0x0a, 0x40, 0x01, 0x20, 0x11, 0x12, 0x13,
+            // 0x14, 0x15, 0x16, 0x17, 0x18, 0x81, 0x01, 0x01, 0x00, 0x03, 0x01, 0x80, 0x21, 0x22,
+            // 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x50, 0x80, 0x80, 0x00, 0x64, 0x31, 0x32, 0x33,
+            // 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x51, 0x52, 0x53, 0x54,
+            // 0x55, 0x56, 0x57, 0x58, 0x59, 0x61, 0x62, 0x63, 0x00, 0x46, 0x04, 0xe0, 0x9a, 0x20,
+            // 0x84, 0x00, 0xa9, 0x83, 0x01, 0x03, 0x80, 0x00, 0x7c, 0x80, 0x01, 0xe4, 0x80, 0x03,
+            // 0x48, 0x01, 0x02, 0x00, 0x01, 0x20, 0x00, 0x01, 0x26, 0x81, 0x82, 0x91, 0x92, 0x93,
+            // 0x94, 0x95, 0x96, 0x97, 0x98, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x91,
+            // 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+            // 0x98, 0x80, 0x82, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33,
+            // 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31,
+            // 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+            // 0x48, 0x41, 0x42, 0x43, 0x44,0x45, 0x46, 0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45,
+            // 0x46, 0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48
+            //
+            // NOTE below output is modified to be encoded as the extension version is being used (ToBeSignedCertificate extensions not optional)
+            // &[
+            //     0x03, 0x81, 0x00, 0x40, 0x03, 0x80, 0x0F, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73,
+            //     0x20, 0x61, 0x20, 0x42, 0x53, 0x4D, 0x0D, 0x0A, 0x40, 0x01, 0x20, 0x11, 0x12, 0x13,
+            //     0x14, 0x15, 0x16, 0x17, 0x18, 0x81, 0x01, 0x01, 0x00, 0x03, 0x01, 0x80, 0x21, 0x22,
+            //     0x23, 0x24, 0x25, 0x26, 0x27, 0x28, // 0x50, - no extension present version
+            //     0xd0, // preamble ends
+            //     0x80, 0x80, 0x00, 0x64, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41,
+            //     0x42, 0x43, 0x44, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x61, 0x62,
+            //     0x63, 0x00, 0x46, 0x04, 0xE0, 0x9A, 0x20, 0x84, 0x00, 0xA9, 0x83, 0x01, 0x03, 0x80,
+            //     0x00, 0x7C, 0x80, 0x01, 0xE4, 0x80, 0x03, 0x48, 0x01, 0x02, 0x00, 0x01, 0x20, 0x00,
+            //     0x01, 0x26, 0x81, 0x82, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x91, 0x92,
+            //     0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98,
+            //     0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+            //     0x98, // extension bitmap starts for TBS cert
+            //     0x02, 0x04, 0x70, 0x02, 0x01, 0x00, 0x02, 0x01, 0x00, 0x02, 0x01,
+            //     0x00, // ends
+            //     0x80, 0x82, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34,
+            //     0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32,
+            //     0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48,
+            //     0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46,
+            //     0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48
+            // ]
+            &[
+                0x03, 0x81, 0x00, 0x40, 0x03, 0x80, 0x0F, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73,
+                0x20, 0x61, 0x20, 0x42, 0x53, 0x4D, 0x0D, 0x0A, 0x40, 0x01, 0x20, 0x11, 0x12, 0x13,
+                0x14, 0x15, 0x16, 0x17, 0x18, 0x81, 0x01, 0x01, 0x00, 0x03, 0x01, 0x80, 0x21, 0x22,
+                0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x50, 0x80, 0x80, 0x00, 0x64, 0x31, 0x32, 0x33,
+                0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x41, 0x42, 0x43, 0x44, 0x51, 0x52, 0x53, 0x54,
+                0x55, 0x56, 0x57, 0x58, 0x59, 0x61, 0x62, 0x63, 0x00, 0x46, 0x04, 0xE0, 0x9A, 0x20,
+                0x84, 0x00, 0xA9, 0x83, 0x01, 0x03, 0x80, 0x00, 0x7C, 0x80, 0x01, 0xE4, 0x80, 0x03,
+                0x48, 0x01, 0x02, 0x00, 0x01, 0x20, 0x00, 0x01, 0x26, 0x81, 0x82, 0x91, 0x92, 0x93,
+                0x94, 0x95, 0x96, 0x97, 0x98, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x91,
+                0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x98, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+                0x98, 0x80, 0x82, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33,
+                0x34, 0x35, 0x36, 0x37, 0x38, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x31,
+                0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+                0x48, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45,
+                0x46, 0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48
+            ]
+        );
+    }
+}

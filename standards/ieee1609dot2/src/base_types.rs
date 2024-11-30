@@ -1,8 +1,10 @@
 //! IEEE 1609.2 Base Types
 //! Based on https://forge.etsi.org/rep/ITS/asn1/ieee1609.2
 extern crate alloc;
+use crate::delegate;
 use bon::Builder;
 use rasn::prelude::*;
+use rasn_etsi_ts103097_extensions::ExtId;
 
 /// OID for IEEE 1609.2 Base Types module
 pub const IEEE1609_DOT2_BASE_TYPES_OID: &Oid = Oid::const_new(&[
@@ -28,88 +30,32 @@ pub const IEEE1609_DOT2_BASE_TYPES_OID: &Oid = Oid::const_new(&[
 pub struct Uint3(pub u8);
 /// This atomic type is used in the definition of other data structures.
 /// It is for non-negative integers up to 255, i.e., (hex)ff.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[rasn(delegate)]
-pub struct Uint8(pub u8);
+pub type Uint8 = u8;
 /// This atomic type is used in the definition of other data structures.
 /// It is for non-negative integers up to 65,535, i.e., (hex)ff ff.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[rasn(delegate)]
-pub struct Uint16(pub u16);
+pub type Uint16 = u16;
 /// This atomic type is used in the definition of other data structures.
 /// It is for non-negative integers up to 4,294,967,295, i.e.,
 /// (hex)ff ff ff ff.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[rasn(delegate)]
-pub struct Uint32(pub u32);
+pub type Uint32 = u32;
 /// This atomic type is used in the definition of other data structures.
 /// It is for non-negative integers up to 18,446,744,073,709,551,615, i.e.,
 /// (hex)ff ff ff ff ff ff ff ff.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[rasn(delegate)]
-pub struct Uint64(pub u64);
-
-macro_rules! impl_uint_traits {
-    ($name:ident, $inner:ty) => {
-        impl std::ops::Deref for $name {
-            type Target = $inner;
-
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
-        impl From<$inner> for $name {
-            fn from(value: $inner) -> Self {
-                Self(value)
-            }
-        }
-        impl From<$name> for $inner {
-            fn from(value: $name) -> Self {
-                value.0
-            }
-        }
-    };
-}
-impl_uint_traits!(Uint3, u8);
-impl_uint_traits!(Uint8, u8);
-impl_uint_traits!(Uint16, u16);
-impl_uint_traits!(Uint32, u32);
-impl_uint_traits!(Uint64, u64);
-
-// We might not need these following types in Rust, but keeping as reference.
+pub type Uint64 = u64;
 
 /// This type is used for clarity of definitions.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct SequenceOfUint16(pub SequenceOf<Uint16>);
 
-impl From<SequenceOf<Uint16>> for SequenceOfUint16 {
-    fn from(item: SequenceOf<Uint16>) -> Self {
-        Self(item)
-    }
-}
-impl core::ops::Deref for SequenceOfUint16 {
-    type Target = SequenceOf<Uint16>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<Uint16>, SequenceOfUint16);
+
 /// This type is used for clarity of definitions.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct SequenceOfUint8(pub SequenceOf<Uint8>);
 
-impl From<SequenceOf<Uint8>> for SequenceOfUint8 {
-    fn from(item: SequenceOf<Uint8>) -> Self {
-        Self(item)
-    }
-}
-impl core::ops::Deref for SequenceOfUint8 {
-    type Target = SequenceOf<Uint8>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<Uint8>, SequenceOfUint8);
 
 // ***************************************************************************
 // **                          OCTET STRING Types                           **
@@ -121,17 +67,8 @@ impl core::ops::Deref for SequenceOfUint8 {
 #[rasn(delegate)]
 pub struct Opaque(pub OctetString);
 
-impl From<OctetString> for Opaque {
-    fn from(item: OctetString) -> Self {
-        Opaque(item)
-    }
-}
-impl core::ops::Deref for Opaque {
-    type Target = OctetString;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(OctetString, Opaque);
+
 /// A type containing the truncated hash of another data structure.
 ///
 /// # Hash Calculation
@@ -159,34 +96,15 @@ impl core::ops::Deref for Opaque {
 #[rasn(delegate)]
 pub struct HashedId3(pub FixedOctetString<3usize>);
 
-impl From<FixedOctetString<3usize>> for HashedId3 {
-    fn from(item: FixedOctetString<3usize>) -> Self {
-        HashedId3(item)
-    }
-}
-impl core::ops::Deref for HashedId3 {
-    type Target = FixedOctetString<3usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<3usize>, HashedId3);
 
 /// This type is used for clarity of definitions.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct SequenceOfHashedId3(pub SequenceOf<HashedId3>);
 
-impl From<SequenceOf<HashedId3>> for SequenceOfHashedId3 {
-    fn from(item: SequenceOf<HashedId3>) -> Self {
-        SequenceOfHashedId3(item)
-    }
-}
-impl core::ops::Deref for SequenceOfHashedId3 {
-    type Target = SequenceOf<HashedId3>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<HashedId3>, SequenceOfHashedId3);
+
 /// A type containing the truncated hash of another data structure.
 ///
 /// # Hash Calculation
@@ -214,17 +132,8 @@ impl core::ops::Deref for SequenceOfHashedId3 {
 #[rasn(delegate)]
 pub struct HashedId8(pub FixedOctetString<8usize>);
 
-impl From<FixedOctetString<8usize>> for HashedId8 {
-    fn from(item: FixedOctetString<8usize>) -> Self {
-        HashedId8(item)
-    }
-}
-impl core::ops::Deref for HashedId8 {
-    type Target = FixedOctetString<8usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<8usize>, HashedId8);
+
 /// A type containing the truncated hash of another data structure.
 ///
 /// # Hash Calculation
@@ -253,17 +162,8 @@ impl core::ops::Deref for HashedId8 {
 #[rasn(delegate)]
 pub struct HashedId10(pub FixedOctetString<10usize>);
 
-impl From<FixedOctetString<10usize>> for HashedId10 {
-    fn from(item: FixedOctetString<10usize>) -> Self {
-        HashedId10(item)
-    }
-}
-impl core::ops::Deref for HashedId10 {
-    type Target = FixedOctetString<10usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<10usize>, HashedId10);
+
 /// A type containing the truncated hash of another data structure.
 ///
 /// # Hash Calculation
@@ -293,17 +193,7 @@ impl core::ops::Deref for HashedId10 {
 #[rasn(delegate)]
 pub struct HashedId32(pub FixedOctetString<32usize>);
 
-impl From<FixedOctetString<32usize>> for HashedId32 {
-    fn from(item: FixedOctetString<32usize>) -> Self {
-        HashedId32(item)
-    }
-}
-impl core::ops::Deref for HashedId32 {
-    type Target = FixedOctetString<32usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<32usize>, HashedId32);
 
 /// A type containing the truncated hash of another data structure.
 ///
@@ -333,17 +223,7 @@ impl core::ops::Deref for HashedId32 {
 #[rasn(delegate)]
 pub struct HashedId48(pub FixedOctetString<48usize>);
 
-impl From<FixedOctetString<48usize>> for HashedId48 {
-    fn from(item: FixedOctetString<48usize>) -> Self {
-        HashedId48(item)
-    }
-}
-impl core::ops::Deref for HashedId48 {
-    type Target = FixedOctetString<48usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<48usize>, HashedId48);
 
 // ***************************************************************************
 // **                           Time Structures                             **
@@ -355,17 +235,7 @@ impl core::ops::Deref for HashedId48 {
 #[rasn(delegate)]
 pub struct Time32(pub Uint32);
 
-impl From<Uint32> for Time32 {
-    fn from(item: Uint32) -> Self {
-        Time32(item)
-    }
-}
-impl core::ops::Deref for Time32 {
-    type Target = Uint32;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(Uint32, Time32);
 
 /// This data structure is a 64-bit integer giving an estimate of the
 /// number of (TAI) microseconds since 00:00:00 UTC, 1 January, 2004.
@@ -373,17 +243,7 @@ impl core::ops::Deref for Time32 {
 #[rasn(delegate)]
 pub struct Time64(pub Uint64);
 
-impl From<Uint64> for Time64 {
-    fn from(item: Uint64) -> Self {
-        Time64(item)
-    }
-}
-impl core::ops::Deref for Time64 {
-    type Target = Uint64;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(Uint64, Time64);
 
 /// This type gives the validity period of a certificate.
 /// The start of the validity period is given by `start` and the end is given by `start + duration`.
@@ -503,17 +363,7 @@ pub struct RectangularRegion {
 #[rasn(delegate)]
 pub struct SequenceOfRectangularRegion(pub SequenceOf<RectangularRegion>);
 
-impl From<SequenceOf<RectangularRegion>> for SequenceOfRectangularRegion {
-    fn from(item: SequenceOf<RectangularRegion>) -> Self {
-        SequenceOfRectangularRegion(item)
-    }
-}
-impl core::ops::Deref for SequenceOfRectangularRegion {
-    type Target = SequenceOf<RectangularRegion>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<RectangularRegion>, SequenceOfRectangularRegion);
 
 /// Defines a region using a series of distinct geographic points on the surface of
 /// the reference ellipsoid.
@@ -546,17 +396,7 @@ impl core::ops::Deref for SequenceOfRectangularRegion {
 #[rasn(delegate, size("3.."))]
 pub struct PolygonalRegion(pub SequenceOf<TwoDLocation>);
 
-impl From<SequenceOf<TwoDLocation>> for PolygonalRegion {
-    fn from(item: SequenceOf<TwoDLocation>) -> Self {
-        PolygonalRegion(item)
-    }
-}
-impl core::ops::Deref for PolygonalRegion {
-    type Target = SequenceOf<TwoDLocation>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<TwoDLocation>, PolygonalRegion);
 
 /// Defines a region using a series of distinct geographic points on the surface of
 /// the reference ellipsoid.
@@ -625,17 +465,7 @@ pub enum IdentifiedRegion {
 #[rasn(delegate)]
 pub struct SequenceOfIdentifiedRegion(pub SequenceOf<IdentifiedRegion>);
 
-impl From<SequenceOf<IdentifiedRegion>> for SequenceOfIdentifiedRegion {
-    fn from(item: SequenceOf<IdentifiedRegion>) -> Self {
-        SequenceOfIdentifiedRegion(item)
-    }
-}
-impl core::ops::Deref for SequenceOfIdentifiedRegion {
-    type Target = SequenceOf<IdentifiedRegion>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<IdentifiedRegion>, SequenceOfIdentifiedRegion);
 
 /// Integer representation of country or area identifiers as defined by the United
 /// Nations Statistics Division (October 2013, see normative references in Clause 0).
@@ -670,34 +500,15 @@ impl core::ops::Deref for SequenceOfIdentifiedRegion {
 #[rasn(delegate)]
 pub struct UnCountryId(pub Uint16);
 
-impl From<Uint16> for UnCountryId {
-    fn from(item: Uint16) -> Self {
-        UnCountryId(item)
-    }
-}
-impl core::ops::Deref for UnCountryId {
-    type Target = Uint16;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(Uint16, UnCountryId);
 
 /// This type is defined only for backwards compatibility.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct CountryOnly(pub UnCountryId);
 
-impl From<UnCountryId> for CountryOnly {
-    fn from(item: UnCountryId) -> Self {
-        CountryOnly(item)
-    }
-}
-impl core::ops::Deref for CountryOnly {
-    type Target = UnCountryId;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(UnCountryId, CountryOnly);
+
 /// A type representing country and region information with specific implementation requirements.
 ///
 /// # Implementation Requirements
@@ -833,17 +644,10 @@ pub struct RegionAndSubregions {
 #[rasn(delegate)]
 pub struct SequenceOfRegionAndSubregions(pub SequenceOf<RegionAndSubregions>);
 
-impl From<SequenceOf<RegionAndSubregions>> for SequenceOfRegionAndSubregions {
-    fn from(item: SequenceOf<RegionAndSubregions>) -> Self {
-        SequenceOfRegionAndSubregions(item)
-    }
-}
-impl core::ops::Deref for SequenceOfRegionAndSubregions {
-    type Target = SequenceOf<RegionAndSubregions>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(
+    SequenceOf<RegionAndSubregions>,
+    SequenceOfRegionAndSubregions
+);
 
 /// A structure containing an estimate of 3D location, with field-specific details
 /// provided in individual field documentation.
@@ -871,17 +675,7 @@ pub struct ThreeDLocation {
 #[rasn(delegate)]
 pub struct Latitude(pub NinetyDegreeInt);
 
-impl From<NinetyDegreeInt> for Latitude {
-    fn from(item: NinetyDegreeInt) -> Self {
-        Latitude(item)
-    }
-}
-impl core::ops::Deref for Latitude {
-    type Target = NinetyDegreeInt;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(NinetyDegreeInt, Latitude);
 
 /// An INTEGER encoding of longitude estimate with 1/10th microdegree precision,
 /// relative to the World Geodetic System (WGS-84) datum as defined in NIMA
@@ -895,17 +689,7 @@ impl core::ops::Deref for Latitude {
 #[rasn(delegate)]
 pub struct Longitude(pub OneEightyDegreeInt);
 
-impl From<OneEightyDegreeInt> for Longitude {
-    fn from(item: OneEightyDegreeInt) -> Self {
-        Longitude(item)
-    }
-}
-impl core::ops::Deref for Longitude {
-    type Target = OneEightyDegreeInt;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(OneEightyDegreeInt, Longitude);
 
 /// This structure contains an estimate of the geodetic altitude above
 /// or below the WGS84 ellipsoid. The 16-bit value is interpreted as an
@@ -915,17 +699,7 @@ impl core::ops::Deref for Longitude {
 #[rasn(delegate)]
 pub struct Elevation(pub Uint16);
 
-impl From<Uint16> for Elevation {
-    fn from(item: Uint16) -> Self {
-        Elevation(item)
-    }
-}
-impl core::ops::Deref for Elevation {
-    type Target = Uint16;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(Uint16, Elevation);
 
 /// The integer in the latitude field is no more than 900,000,000 and
 /// no less than -900,000,000, except that the value 900,000,001 is used to
@@ -947,17 +721,7 @@ impl NinetyDegreeInt {
     }
 }
 
-impl From<i32> for NinetyDegreeInt {
-    fn from(item: i32) -> Self {
-        NinetyDegreeInt(item)
-    }
-}
-impl core::ops::Deref for NinetyDegreeInt {
-    type Target = i32;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(i32, NinetyDegreeInt);
 
 /// The known latitudes are from -900,000,000 to +900,000,000 in 0.1
 /// microdegree intervals.
@@ -976,17 +740,8 @@ impl KnownLatitude {
         }
     }
 }
-impl From<NinetyDegreeInt> for KnownLatitude {
-    fn from(item: NinetyDegreeInt) -> Self {
-        KnownLatitude(item)
-    }
-}
-impl core::ops::Deref for KnownLatitude {
-    type Target = NinetyDegreeInt;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+
+delegate!(NinetyDegreeInt, KnownLatitude);
 
 /// The value 900,000,001 indicates that the latitude was not
 /// available to the sender.
@@ -1006,18 +761,7 @@ impl Default for UnknownLatitude {
     }
 }
 
-impl From<NinetyDegreeInt> for UnknownLatitude {
-    fn from(item: NinetyDegreeInt) -> Self {
-        UnknownLatitude(item)
-    }
-}
-
-impl core::ops::Deref for UnknownLatitude {
-    type Target = NinetyDegreeInt;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(NinetyDegreeInt, UnknownLatitude);
 
 /// An integer type representing longitude values with named boundary values
 /// and constraints.
@@ -1059,17 +803,8 @@ impl OneEightyDegreeInt {
         self.0 == Self::UNKNOWN
     }
 }
-impl From<i32> for OneEightyDegreeInt {
-    fn from(item: i32) -> Self {
-        OneEightyDegreeInt(item)
-    }
-}
-impl core::ops::Deref for OneEightyDegreeInt {
-    type Target = i32;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+
+delegate!(i32, OneEightyDegreeInt);
 
 /// Represents a known longitude value in 0.1 microdegree intervals.
 ///
@@ -1094,17 +829,7 @@ impl KnownLongitude {
     }
 }
 
-impl From<OneEightyDegreeInt> for KnownLongitude {
-    fn from(item: OneEightyDegreeInt) -> Self {
-        KnownLongitude(item)
-    }
-}
-impl core::ops::Deref for KnownLongitude {
-    type Target = OneEightyDegreeInt;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(OneEightyDegreeInt, KnownLongitude);
 
 /// Represents a longitude value that is explicitly unknown/unavailable.
 ///
@@ -1126,17 +851,7 @@ impl Default for UnknownLongitude {
     }
 }
 
-impl From<OneEightyDegreeInt> for UnknownLongitude {
-    fn from(item: OneEightyDegreeInt) -> Self {
-        UnknownLongitude(item)
-    }
-}
-impl core::ops::Deref for UnknownLongitude {
-    type Target = OneEightyDegreeInt;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(OneEightyDegreeInt, UnknownLongitude);
 
 // ***************************************************************************
 // **                           Crypto Structures                           **
@@ -1585,52 +1300,21 @@ pub struct PsidSsp {
 #[rasn(delegate)]
 pub struct SequenceOfPsidSsp(pub SequenceOf<PsidSsp>);
 
-impl From<SequenceOf<PsidSsp>> for SequenceOfPsidSsp {
-    fn from(item: SequenceOf<PsidSsp>) -> Self {
-        SequenceOfPsidSsp(item)
-    }
-}
-impl core::ops::Deref for SequenceOfPsidSsp {
-    type Target = SequenceOf<PsidSsp>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<PsidSsp>, SequenceOfPsidSsp);
 
 /// This type represents the PSID defined in IEEE Std 1609.12.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate, value("0.."))]
 pub struct Psid(pub Integer);
 
-impl From<Integer> for Psid {
-    fn from(item: Integer) -> Self {
-        Psid(item)
-    }
-}
-
-impl core::ops::Deref for Psid {
-    type Target = Integer;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(Integer, Psid);
 
 /// This type is used for clarity of definitions.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct SequenceOfPsid(pub SequenceOf<Psid>);
 
-impl From<SequenceOf<Psid>> for SequenceOfPsid {
-    fn from(item: SequenceOf<Psid>) -> Self {
-        SequenceOfPsid(item)
-    }
-}
-impl core::ops::Deref for SequenceOfPsid {
-    type Target = SequenceOf<Psid>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<Psid>, SequenceOfPsid);
 
 /// Represents Service Specific Permissions (SSP) relevant to a given entry in
 /// a `PsidSsp`. The meaning of the SSP is specific to the associated `Psid`.
@@ -1675,16 +1359,11 @@ pub enum ServiceSpecificPermissions {
 /// appPermissions entry A for which the ssp field is bitmapSsp, A is
 /// consistent with the issuing certificate if the certificate contains one
 /// of the following:
-///   - (OPTION 1) A SubjectPermissions field indicating the choice all and
-/// no PsidSspRange field containing the psid field in A;
+///   - (OPTION 1) A SubjectPermissions field indicating the choice all and no PsidSspRange field containing the psid field in A;
 ///   - (OPTION 2) A PsidSspRange P for which the following holds:
-///     - The psid field in P is equal to the psid field in A and one of the
-/// following is true:
+///     - The psid field in P is equal to the psid field in A and one of the following is true:
 ///       - EITHER The sspRange field in P indicates all
-///       - OR The sspRange field in P indicates bitmapSspRange and for every
-/// bit set to 1 in the sspBitmask in P, the bit in the identical position in
-/// the sspValue in A is set equal to the bit in that position in the
-/// sspValue in P.
+///       - OR The sspRange field in P indicates bitmapSspRange and for every bit set to 1 in the sspBitmask in P, the bit in the identical position in the sspValue in A is set equal to the bit in that position in the sspValue in P.
 ///
 /// # Note
 /// A BitmapSsp B is consistent with a BitmapSspRange R if for every
@@ -1698,17 +1377,7 @@ pub enum ServiceSpecificPermissions {
 #[rasn(delegate, size("0..=31"))]
 pub struct BitmapSsp(pub OctetString);
 
-impl From<OctetString> for BitmapSsp {
-    fn from(item: OctetString) -> Self {
-        BitmapSsp(item)
-    }
-}
-impl core::ops::Deref for BitmapSsp {
-    type Target = OctetString;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(OctetString, BitmapSsp);
 
 /// Represents the certificate issuing or requesting permissions of the certificate
 /// holder for a particular set of application permissions.
@@ -1731,18 +1400,7 @@ pub struct PsidSspRange {
 #[rasn(delegate)]
 pub struct SequenceOfPsidSspRange(pub SequenceOf<PsidSspRange>);
 
-impl From<SequenceOf<PsidSspRange>> for SequenceOfPsidSspRange {
-    fn from(item: SequenceOf<PsidSspRange>) -> Self {
-        SequenceOfPsidSspRange(item)
-    }
-}
-
-impl core::ops::Deref for SequenceOfPsidSspRange {
-    type Target = SequenceOf<PsidSspRange>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<PsidSspRange>, SequenceOfPsidSspRange);
 
 /// Identifies the SSPs associated with a PSID for which the holder may issue or
 /// request certificates.
@@ -1858,34 +1516,14 @@ pub struct BitmapSspRange {
 #[rasn(delegate)]
 pub struct SubjectAssurance(pub FixedOctetString<1usize>);
 
-impl From<FixedOctetString<1usize>> for SubjectAssurance {
-    fn from(item: FixedOctetString<1usize>) -> Self {
-        SubjectAssurance(item)
-    }
-}
-impl core::ops::Deref for SubjectAssurance {
-    type Target = FixedOctetString<1usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<1usize>, SubjectAssurance);
 
 /// This integer identifies a series of CRLs issued under the authority of a particular CRACA.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct CrlSeries(pub Uint16);
 
-impl From<Uint16> for CrlSeries {
-    fn from(item: Uint16) -> Self {
-        CrlSeries(item)
-    }
-}
-impl core::ops::Deref for CrlSeries {
-    type Target = Uint16;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(Uint16, CrlSeries);
 
 // *****************************************************************************
 // **                           Pseudonym Linkage                             **
@@ -1896,51 +1534,21 @@ impl core::ops::Deref for CrlSeries {
 #[rasn(delegate)]
 pub struct IValue(pub Uint16);
 
-impl From<Uint16> for IValue {
-    fn from(item: Uint16) -> Self {
-        IValue(item)
-    }
-}
-impl core::ops::Deref for IValue {
-    type Target = Uint16;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(Uint16, IValue);
 
 /// This is a UTF-8 string as defined in IETF RFC 3629. The contents are determined by policy.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate, size("0..=255"))]
 pub struct Hostname(pub Utf8String);
 
-impl From<Utf8String> for Hostname {
-    fn from(item: Utf8String) -> Self {
-        Hostname(item)
-    }
-}
-impl core::ops::Deref for Hostname {
-    type Target = Utf8String;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(Utf8String, Hostname);
 
 /// This is the individual linkage value. See 5.1.3 and 7.3 for details of use.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct LinkageValue(pub FixedOctetString<9usize>);
 
-impl From<FixedOctetString<9usize>> for LinkageValue {
-    fn from(item: FixedOctetString<9usize>) -> Self {
-        LinkageValue(item)
-    }
-}
-impl core::ops::Deref for LinkageValue {
-    type Target = FixedOctetString<9usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<9usize>, LinkageValue);
 
 /// This is the group linkage value. See 5.1.3 and 7.3 for details of use.
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
@@ -1957,54 +1565,27 @@ pub struct GroupLinkageValue {
 #[rasn(delegate)]
 pub struct LaId(pub FixedOctetString<2usize>);
 
-impl From<FixedOctetString<2usize>> for LaId {
-    fn from(item: FixedOctetString<2usize>) -> Self {
-        LaId(item)
-    }
-}
-impl core::ops::Deref for LaId {
-    type Target = FixedOctetString<2usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<2usize>, LaId);
+
 /// This type is used for clarity of definitions.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct SequenceOfLinkageSeed(pub SequenceOf<LinkageSeed>);
 
-impl From<SequenceOf<LinkageSeed>> for SequenceOfLinkageSeed {
-    fn from(item: SequenceOf<LinkageSeed>) -> Self {
-        SequenceOfLinkageSeed(item)
-    }
-}
-impl core::ops::Deref for SequenceOfLinkageSeed {
-    type Target = SequenceOf<LinkageSeed>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(SequenceOf<LinkageSeed>, SequenceOfLinkageSeed);
 
 /// This structure contains a linkage seed value for use in the algorithms specified in 5.1.3.4.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct LinkageSeed(pub FixedOctetString<16usize>);
 
-impl From<FixedOctetString<16usize>> for LinkageSeed {
-    fn from(item: FixedOctetString<16usize>) -> Self {
-        LinkageSeed(item)
-    }
-}
-impl core::ops::Deref for LinkageSeed {
-    type Target = FixedOctetString<16usize>;
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+delegate!(FixedOctetString<16usize>, LinkageSeed);
 
-// --***************************************************************************--
-// --                   Information Object Classes and Sets                     --
-// --***************************************************************************--
+// ***************************************************************************
+// **                 Information Object Classes and Sets                   **
+// ***************************************************************************
+
+// Excluding CERT-EXT-TYPE - other types here are defined in ETSI TS 103 097 extension module
 
 // /**
 //  * @brief This structure is the Information Object Class used to contain
@@ -2045,8 +1626,28 @@ impl core::ops::Deref for LinkageSeed {
 // ExtId ::= INTEGER(0..255)
 //
 
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[rasn(delegate)]
-pub struct ExtId(pub Uint8);
-
-// END
+/// This structure is the Information Object Class used to contain information about a set of certificate extensions that are associated with each other: an AppExtension, a CertIssueExtension, and a CertRequestExtension.
+pub trait CertExtType {
+    const ID: ExtId;
+    type App: AsnType + Encode + Decode;
+    type Issue: AsnType
+        + Encode
+        + Decode
+        + core::fmt::Debug
+        + Clone
+        + PartialEq
+        + PartialOrd
+        + Eq
+        + Ord
+        + core::hash::Hash;
+    type Req: AsnType
+        + Encode
+        + Decode
+        + core::fmt::Debug
+        + Clone
+        + PartialEq
+        + PartialOrd
+        + Eq
+        + Ord
+        + core::hash::Hash;
+}
