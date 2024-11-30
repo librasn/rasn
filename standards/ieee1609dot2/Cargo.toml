@@ -11,10 +11,5 @@ bon = { version = "3.1.1", default-features = false }
 rasn = { version = "0.22", path = "../.." }
 rasn-etsi-ts103097-extensions = { version = "0.22", path = "../ts103097extensions" }
 
-
-# [dependencies.ts103097]
-# version = "0.22"
-# path = "../ts103097"
-
 [dev-dependencies]
 pretty_assertions = "1.4.1"

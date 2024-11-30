@@ -3,6 +3,12 @@
 use super::IntegerType;
 use num_bigint::BigInt;
 
+/// A marker trait for types that have inner subtype constraints.
+pub trait InnerSubtypeConstraint: Sized {
+    /// Validates the inner subtype constraints and returns the type on success.
+    fn validated(self) -> Result<Self, crate::error::InnerSubtypeConstraintError>;
+}
+
 /// A set of constraints for a given type on what kinds of values are allowed.
 /// Used in certain codecs to optimise encoding and decoding values.
 ///
