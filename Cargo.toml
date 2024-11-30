@@ -73,6 +73,11 @@ test = true
 name = "derive"
 path = "benches/derive.rs"
 harness = false
+[[bench]]
+name = "ieee1609dot2cert"
+path = "benches/ieee1609dot2_bsm_cert.rs"
+harness = false
+test = true
 
 [dependencies]
 bitvec.workspace = true
@@ -110,6 +115,7 @@ iai-callgrind = "0.14.0"
 once_cell = "1.20.2"
 pretty_assertions.workspace = true
 rasn-pkix = { path = "standards/pkix" }
+rasn-ieee1609dot2 = { path = "standards/ieee1609dot2" }
 
 # Assume that we need these dependencies only when benching manually on specific targets
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dev-dependencies]
@@ -119,5 +125,5 @@ x509-certificate = "0.23.1"
 x509-parser = "0.16"
 proc-macro2 = "1.0.86"
 quote = "1.0.37"
-rasn-derive-impl = { path = "macros/macros_impl"}
-syn = {  version = "2.0.87", features = ["full"] }
+rasn-derive-impl = { path = "macros/macros_impl" }
+syn = { version = "2.0.87", features = ["full"] }
