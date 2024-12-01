@@ -14,9 +14,7 @@ pub enum InnerSubtypeConstraintError {
     },
 
     /// Subtype constraint violation: required component is missing
-    #[snafu(display(
-        "Missing required component in {type_name}: at least one of {components:?} must be present"
-    ))]
+    #[snafu(display("Missing required components in {type_name}: all must be present:"))]
     MissingRequiredComponent {
         /// The name of the type where the required component is missing.
         type_name: &'static str,
@@ -41,5 +39,15 @@ pub enum InnerSubtypeConstraintError {
         type_name: &'static str,
         /// List of mutually exclusive components that are present.
         components: &'static [&'static str],
+    },
+    /// Invalid value for a component
+    #[snafu(display("Invalid value for component {component_name} in {type_name}: {details}"))]
+    InvalidComponentValue {
+        /// The name of the type where the invalid component value was found.
+        type_name: &'static str,
+        /// The name of the component with the invalid value.
+        component_name: &'static str,
+        /// Detailed information about the invalid component value.
+        details: alloc::string::String,
     },
 }
