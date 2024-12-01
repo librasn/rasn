@@ -1,84 +1,436 @@
 extern crate alloc;
-use crate::ieee1609_dot2_base_types::{
-    CrlSeries, Duration, GeographicRegion, HashedId10, HashedId8, IValue, LaId, LinkageSeed,
-    Opaque, Psid, SequenceOfLinkageSeed, Signature, Time32, Uint16, Uint3, Uint32, Uint8,
-    ValidityPeriod,
+use crate::base_types::{
+    CrlSeries, HashedId10, HashedId8, IValue, LaId, LinkageSeed, SequenceOfLinkageSeed, Time32,
+    Uint16, Uint32, Uint8,
 };
+use crate::delegate;
+use bon::Builder;
 use rasn::prelude::*;
 
-// #[doc = "*"]
-// #[doc = " * @brief The fields in this structure have the following meaning:"]
-// #[doc = " *"]
-// #[doc = " * @param version: is the version number of the CRL. For this version of this"]
-// #[doc = " * standard it is 1."]
-// #[doc = " *"]
-// #[doc = " * @param crlSeries: represents the CRL series to which this CRL belongs. This"]
-// #[doc = " * is used to determine whether the revocation information in a CRL is relevant"]
-// #[doc = " * to a particular certificate as specified in 5.1.3.2."]
-// #[doc = " *"]
-// #[doc = " * @param crlCraca: contains the low-order eight octets of the hash of the"]
-// #[doc = " * certificate of the Certificate Revocation Authorization CA (CRACA) that"]
-// #[doc = " * ultimately authorized the issuance of this CRL. This is used to determine"]
-// #[doc = " * whether the revocation information in a CRL is relevant to a particular"]
-// #[doc = " * certificate as specified in 5.1.3.2. In a valid signed CRL as specified in"]
-// #[doc = " * 7.4 the crlCraca is consistent with the associatedCraca field in the"]
-// #[doc = " * Service Specific Permissions as defined in 7.4.3.3. The HashedId8 is"]
-// #[doc = " * calculated with the whole-certificate hash algorithm, determined as"]
-// #[doc = " * described in 6.4.3, applied to the COER-encoded certificate, canonicalized "]
-// #[doc = " * as defined in the definition of Certificate."]
-// #[doc = " *"]
-// #[doc = " * @param issueDate: specifies the time when the CRL was issued."]
-// #[doc = " *"]
-// #[doc = " * @param nextCrl: contains the time when the next CRL with the same crlSeries"]
-// #[doc = " * and cracaId is expected to be issued. The CRL is invalid unless nextCrl is"]
-// #[doc = " * strictly after issueDate. This field is used to set the expected update time"]
-// #[doc = " * for revocation information associated with the (crlCraca, crlSeries) pair as"]
-// #[doc = " * specified in 5.1.3.6."]
-// #[doc = " *"]
-// #[doc = " * @param priorityInfo: contains information that assists devices with limited"]
-// #[doc = " * storage space in determining which revocation information to retain and"]
-// #[doc = " * which to discard."]
-// #[doc = " *"]
-// #[doc = " * @param\ttypeSpecific: contains the CRL body."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// pub struct CrlContents {
-//     #[rasn(value("1"))]
-//     pub version: Uint8,
-//     #[rasn(identifier = "crlSeries")]
-//     pub crl_series: CrlSeries,
-//     #[rasn(identifier = "crlCraca")]
-//     pub crl_craca: HashedId8,
-//     #[rasn(identifier = "issueDate")]
-//     pub issue_date: Time32,
-//     #[rasn(identifier = "nextCrl")]
-//     pub next_crl: Time32,
-//     #[rasn(identifier = "priorityInfo")]
-//     pub priority_info: CrlPriorityInfo,
-//     #[rasn(identifier = "typeSpecific")]
-//     pub type_specific: TypeSpecificCrlContents,
-// }
+/// A Certificate Revocation List (CRL) structure containing revocation information.
+///
+/// # Fields
+///
+/// * `version` - The version number of the CRL. For this version of the standard it is 1.
+///
+/// * `crl_series` - Represents the CRL series to which this CRL belongs. Used to determine
+///   whether the revocation information in a CRL is relevant to a particular certificate
+///   as specified in 5.1.3.2.
+///
+/// * `crl_craca` - Contains the low-order eight octets of the hash of the Certificate
+///   Revocation Authorization CA (CRACA) certificate that authorized this CRL's issuance.
+///   Used to determine revocation information relevance as specified in 5.1.3.2.
+///   In a valid signed CRL (see 7.4), this must be consistent with the `associatedCraca`
+///   field in the Service Specific Permissions (7.4.3.3). The HashedId8 is calculated using
+///   the whole-certificate hash algorithm (6.4.3) applied to the COER-encoded certificate.
+///
+/// * `issue_date` - Specifies when the CRL was issued.
+///
+/// * `next_crl` - Contains the expected issuance time for the next CRL with the same
+///   `crl_series` and `craca_id`. Must be strictly after `issue_date` for the CRL to be valid.
+///   Used to set the expected update time for revocation information associated with the
+///   (`crl_craca`, `crl_series`) pair as specified in 5.1.3.6.
+///
+/// * `priority_info` - Contains information to help devices with limited storage space
+///   determine which revocation information to retain or discard.
+///
+/// * `type_specific` - Contains the CRL body.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+pub struct CrlContents {
+    #[rasn(value("1"))]
+    pub version: Uint8,
+    #[rasn(identifier = "crlSeries")]
+    pub crl_series: CrlSeries,
+    #[rasn(identifier = "crlCraca")]
+    pub crl_craca: HashedId8,
+    #[rasn(identifier = "issueDate")]
+    pub issue_date: Time32,
+    #[rasn(identifier = "nextCrl")]
+    pub next_crl: Time32,
+    #[rasn(identifier = "priorityInfo")]
+    pub priority_info: CrlPriorityInfo,
+    #[rasn(identifier = "typeSpecific")]
+    pub type_specific: TypeSpecificCrlContents,
+}
 
-// #[doc = "*"]
-// #[doc = " * @brief This data structure contains information that assists devices with"]
-// #[doc = " * limited storage space in determining which revocation information to retain"]
-// #[doc = " * and which to discard."]
-// #[doc = " *"]
-// #[doc = " * @param priority: indicates the priority of the revocation information"]
-// #[doc = " * relative to other CRLs issued for certificates with the same cracaId and"]
-// #[doc = " * crlSeries values. A higher value for this field indicates higher importance"]
-// #[doc = " * of this revocation information."]
-// #[doc = " *"]
-// #[doc = " * @note This mechanism is for future use; details are not specified in this"]
-// #[doc = " * version of the standard."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct CrlPriorityInfo {
-//     pub priority: Option<Uint8>,
-// }
+/// Information to help devices with limited storage space determine which revocation
+/// information to retain or discard.
+///
+/// # Fields
+///
+/// * `priority` - Indicates the relative priority of this revocation information compared
+///   to other CRLs issued for certificates with the same `craca_id` and `crl_series`.
+///   Higher values indicate higher importance.
+///
+/// # Note
+///
+/// This mechanism is for future use; details are not specified in this version of the standard.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct CrlPriorityInfo {
+    pub priority: Option<Uint8>,
+}
+
+/// Type-specific CRL contents.
+///
+/// # Variants
+///
+/// * `FullHashCrl` - A full hash-based CRL listing hashes of all certificates that:
+///   - Contain the indicated `craca_id` and `crl_series` values
+///   - Are revoked by hash
+///   - Have been revoked
+///   - Have not expired
+///
+/// * `DeltaHashCrl` - A delta hash-based CRL listing hashes of all certificates that:
+///   - Contain the indicated `craca_id` and `crl_series` values
+///   - Are revoked by hash
+///   - Have been revoked since the previous CRL with the same `craca_id` and `crl_series`
+///
+/// * `FullLinkedCrl` and `FullLinkedCrlWithAlg` - Full linkage ID-based CRLs listing
+///   individual and/or group linkage data for all certificates that:
+///   - Contain the indicated `craca_id` and `crl_series` values
+///   - Are revoked by linkage value
+///   - Have been revoked
+///   - Have not expired
+///
+/// * `DeltaLinkedCrl` and `DeltaLinkedCrlWithAlg` - Delta linkage ID-based CRLs listing
+///   individual and/or group linkage data for all certificates that:
+///   - Contain the specified `craca_id` and `crl_series` values
+///   - Are revoked by linkage data
+///   - Have been revoked since the previous CRL with the same identifiers
+///
+/// The difference between `*LinkedCrl` and `*LinkedCrlWithAlg` variants is in how the
+/// cryptographic algorithms for seed evolution and linkage value generation (5.1.3.4)
+/// are communicated to the receiver.
+///
+/// # Notes
+///
+/// - Once a certificate is revoked, it remains revoked for its lifetime. CRL signers
+///   should include revoked certificates on all CRLs between revocation and expiry.
+///
+/// - Seed evolution and linkage value generation function identification:
+///   - For `*WithAlg` variants: functions are specified explicitly in the structure
+///   - For regular variants: functions are determined by the `crl_craca` hash algorithm:
+///     - SHA-256/384: `seedEvoFn1-sha256` and `lvGenFn1-aes128`
+///     - SM3: `seedEvoFn1-sm3` and `lvGenFn1-sm4`
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(choice, automatic_tags)]
+#[non_exhaustive]
+pub enum TypeSpecificCrlContents {
+    FullHashCrl(ToBeSignedHashIdCrl),
+    DeltaHashCrl(ToBeSignedHashIdCrl),
+    FullLinkedCrl(ToBeSignedLinkageValueCrl),
+    DeltaLinkedCrl(ToBeSignedLinkageValueCrl),
+    #[rasn(extension_addition)]
+    FullLinkedCrlWithAlg(ToBeSignedLinkageValueCrlWithAlgIdentifier),
+    #[rasn(extension_addition)]
+    DeltaLinkedCrlWithAlg(ToBeSignedLinkageValueCrlWithAlgIdentifier),
+}
+
+/// Information about a revoked certificate.
+///
+/// # Fields
+///
+/// * `crl_serial` - Counter that increments by 1 every time a new full or delta CRL
+///   is issued for the indicated `crl_craca` and `crl_series` values.
+///
+/// * `entries` - Contains the individual revocation information items.
+///
+/// # Note
+///
+/// To indicate a hash-based CRL contains no individual revocation information items,
+/// the recommended approach is to use an empty SEQUENCE OF in the
+/// `SequenceOfHashBasedRevocationInfo`.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct ToBeSignedHashIdCrl {
+    #[rasn(identifier = "crlSerial")]
+    pub crl_serial: Uint32,
+    pub entries: SequenceOfHashBasedRevocationInfo,
+}
+
+/// This type is used for clarity of definitions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct SequenceOfHashBasedRevocationInfo(pub SequenceOf<HashBasedRevocationInfo>);
+
+delegate!(
+    SequenceOf<HashBasedRevocationInfo>,
+    SequenceOfHashBasedRevocationInfo
+);
+
+/// Information about a hash-based revoked certificate.
+///
+/// # Fields
+///
+/// * `id` - The HashedId10 identifying the revoked certificate. Calculated using the
+///   whole-certificate hash algorithm (as described in 6.4.3) applied to the COER-encoded
+///   certificate, canonicalized as defined in the Certificate definition.
+///
+/// * `expiry` - Value computed from the validity period's start and duration values
+///   in the certificate.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct HashBasedRevocationInfo {
+    pub id: HashedId10,
+    pub expiry: Time32,
+}
+
+/// CRL structure containing linkage-based revocation information.
+///
+/// # Fields
+///
+/// * `i_rev` - The value used in the algorithm specified in 5.1.3.4. Applies to all
+///   linkage-based revocation information included within both individual and groups.
+///
+/// * `index_within_i` - Counter that starts at 0 for the first CRL issued for a specific
+///   combination of `crl_craca`, `crl_series`, and `i_rev`. Increments by 1 for each new
+///   full or delta CRL issued with the same identifiers but without changing `i_rev`.
+///
+/// * `individual` - Contains individual linkage data. When no individual linkage data
+///   exists, use an empty SEQUENCE OF in the `SequenceOfJMaxGroup`.
+///
+/// * `groups` - Contains group linkage data. When no group linkage data exists, use
+///   an empty SEQUENCE OF in the `SequenceOfGroupCrlEntry`.
+///
+/// * `groups_single_seed` - Contains group linkage data generated with a single seed.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct ToBeSignedLinkageValueCrl {
+    #[rasn(identifier = "iRev")]
+    pub i_rev: IValue,
+    #[rasn(identifier = "indexWithinI")]
+    pub index_within_i: Uint8,
+    pub individual: Option<SequenceOfJMaxGroup>,
+    pub groups: Option<SequenceOfGroupCrlEntry>,
+    #[rasn(extension_addition, identifier = "groupsSingleSeed")]
+    pub groups_single_seed: Option<SequenceOfGroupSingleSeedCrlEntry>,
+}
+
+/// This type is used for clarity of definitions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct SequenceOfJMaxGroup(pub SequenceOf<JMaxGroup>);
+
+delegate!(SequenceOf<JMaxGroup>, SequenceOfJMaxGroup);
+
+/// Group structure for linkage-based revocation information with a jMax parameter.
+///
+/// # Fields
+///
+/// * `jmax` - The value used in the algorithm specified in 5.1.3.4. Applies to all
+///   linkage-based revocation information included within contents.
+///
+/// * `contents` - Contains individual linkage data.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct JMaxGroup {
+    pub jmax: Uint8,
+    pub contents: SequenceOfLAGroup,
+}
+
+/// This type is used for clarity of definitions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct SequenceOfLAGroup(pub SequenceOf<LAGroup>);
+
+delegate!(SequenceOf<LAGroup>, SequenceOfLAGroup);
+
+/// Group structure containing linkage authority identifiers and associated data.
+///
+/// # Fields
+///
+/// * `la1_id` - The LinkageAuthorityIdentifier1 value used in the algorithm specified
+///   in 5.1.3.4. Applies to all linkage-based revocation information in contents.
+///
+/// * `la2_id` - The LinkageAuthorityIdentifier2 value used in the algorithm specified
+///   in 5.1.3.4. Applies to all linkage-based revocation information in contents.
+///
+/// * `contents` - Contains individual linkage data.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct LAGroup {
+    #[rasn(identifier = "la1Id")]
+    pub la1_id: LaId,
+    #[rasn(identifier = "la2Id")]
+    pub la2_id: LaId,
+    pub contents: SequenceOfIMaxGroup,
+}
+
+/// This type is used for clarity of definitions."]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct SequenceOfIMaxGroup(pub SequenceOf<IMaxGroup>);
+
+delegate!(SequenceOf<IMaxGroup>, SequenceOfIMaxGroup);
+
+/// Group structure containing revocation information with an iMax parameter.
+///
+/// # Fields
+///
+/// * `i_max` - Indicates when revocation information can be safely deleted. For entries
+///   in contents, revocation information is no longer needed when `i_cert > i_max` as
+///   the holder will have no more valid certificates. This value is not used directly
+///   in linkage value calculations.
+///
+/// * `contents` - Contains individual linkage data for certificates revoked using two
+///   seeds, following the algorithm in 5.1.3.4. The `seedEvolutionFunctionIdentifier`
+///   and `linkageValueGenerationFunctionIdentifier` are obtained as specified in 7.3.3.
+///
+/// * `single_seed` - Contains individual linkage data for certificates revoked using a
+///   single seed, following the algorithm in 5.1.3.4. The `seedEvolutionFunctionIdentifier`
+///   and `linkageValueGenerationFunctionIdentifier` are obtained as specified in 7.3.3.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct IMaxGroup {
+    #[rasn(identifier = "iMax")]
+    pub i_max: Uint16,
+    pub contents: SequenceOfIndividualRevocation,
+    #[rasn(extension_addition, identifier = "singleSeed")]
+    pub single_seed: Option<SequenceOfLinkageSeed>,
+}
+
+/// This type is used for clarity of definitions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct SequenceOfIndividualRevocation(pub SequenceOf<IndividualRevocation>);
+
+delegate!(
+    SequenceOf<IndividualRevocation>,
+    SequenceOfIndividualRevocation
+);
+
+/// Structure containing linkage seed pairs for individual revocations.
+///
+/// # Fields
+///
+/// * `linkage_seed1` - The LinkageSeed1 value used in the algorithm specified in 5.1.3.4.
+///
+/// * `linkage_seed2` - The LinkageSeed2 value used in the algorithm specified in 5.1.3.4.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct IndividualRevocation {
+    #[rasn(identifier = "linkageSeed1")]
+    pub linkage_seed1: LinkageSeed,
+    #[rasn(identifier = "linkageSeed2")]
+    pub linkage_seed2: LinkageSeed,
+}
+
+/// This type is used for clarity of definitions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct SequenceOfGroupCrlEntry(pub SequenceOf<GroupCrlEntry>);
+
+delegate!(SequenceOf<GroupCrlEntry>, SequenceOfGroupCrlEntry);
+
+/// Parameters for linkage-based certificate revocation.
+///
+/// # Fields
+///
+/// * `i_max` - Indicates the threshold beyond which revocation information no longer
+///   needs to be calculated for these certificates (when `i_cert > i_max`). At this point,
+///   the holders are known to have no more valid certificates for that (`crl_craca`,
+///   `crl_series`) pair.
+///
+/// * `la1_id` - The LinkageAuthorityIdentifier1 value used in the algorithm specified
+///   in 5.1.3.4. Applies to all linkage-based revocation information included within
+///   contents.
+///
+/// * `linkage_seed1` - The LinkageSeed1 value used in the algorithm specified in 5.1.3.4.
+///
+/// * `la2_id` - The LinkageAuthorityIdentifier2 value used in the algorithm specified
+///   in 5.1.3.4. Applies to all linkage-based revocation information included within
+///   contents.
+///
+/// * `linkage_seed2` - The LinkageSeed2 value used in the algorithm specified in 5.1.3.4.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct GroupCrlEntry {
+    #[rasn(identifier = "iMax")]
+    pub i_max: Uint16,
+    #[rasn(identifier = "la1Id")]
+    pub la1_id: LaId,
+    #[rasn(identifier = "linkageSeed1")]
+    pub linkage_seed1: LinkageSeed,
+    #[rasn(identifier = "la2Id")]
+    pub la2_id: LaId,
+    #[rasn(identifier = "linkageSeed2")]
+    pub linkage_seed2: LinkageSeed,
+}
+
+/// CRL structure containing linkage-based revocation information with explicit algorithm identifiers.
+///
+/// # Fields
+///
+/// * `i_rev` - The value used in the algorithm specified in 5.1.3.4. Applies to all
+///   linkage-based revocation information included within both individual and groups.
+///
+/// * `index_within_i` - Counter that starts at 0 for the first CRL issued for a specific
+///   combination of `crl_craca`, `crl_series`, and `i_rev`. Increments by 1 for each new
+///   full or delta CRL issued with the same identifiers but without changing `i_rev`.
+///
+/// * `seed_evolution` - Identifier for the seed evolution function, used as specified
+///   in 5.1.3.4.
+///
+/// * `lv_generation` - Identifier for the linkage value generation function, used as
+///   specified in 5.1.3.4.
+///
+/// * `individual` - Contains individual linkage data.
+///
+/// * `groups` - Contains group linkage data for linkage value generation with two seeds.
+///
+/// * `groups_single_seed` - Contains group linkage data for linkage value generation
+///   with one seed.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+#[non_exhaustive]
+pub struct ToBeSignedLinkageValueCrlWithAlgIdentifier {
+    #[rasn(identifier = "iRev")]
+    pub i_rev: IValue,
+    #[rasn(identifier = "indexWithinI")]
+    pub index_within_i: Uint8,
+    #[rasn(identifier = "seedEvolution")]
+    pub seed_evolution: SeedEvolutionFunctionIdentifier,
+    #[rasn(identifier = "lvGeneration")]
+    pub lv_generation: LvGenerationFunctionIdentifier,
+    pub individual: Option<SequenceOfJMaxGroup>,
+    pub groups: Option<SequenceOfGroupCrlEntry>,
+    #[rasn(identifier = "groupsSingleSeed")]
+    pub groups_single_seed: Option<SequenceOfGroupSingleSeedCrlEntry>,
+}
+
+/// This type is used for clarity of definitions.
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(delegate)]
+pub struct SequenceOfGroupSingleSeedCrlEntry(pub SequenceOf<GroupSingleSeedCrlEntry>);
+
+delegate!(
+    SequenceOf<GroupSingleSeedCrlEntry>,
+    SequenceOfGroupSingleSeedCrlEntry
+);
+
+/// Contains the linkage seed for group revocation with a single seed.
+/// The seed is used as specified in the algorithms in 5.1.3.4.
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[rasn(automatic_tags)]
+pub struct GroupSingleSeedCrlEntry {
+    #[rasn(identifier = "iMax")]
+    pub i_max: Uint16,
+    #[rasn(identifier = "laId")]
+    pub la_id: LaId,
+    #[rasn(identifier = "linkageSeed")]
+    pub linkage_seed: LinkageSeed,
+}
 
 /// This structure contains an identifier for the algorithms specified in 5.1.3.4.
 #[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq, Hash)]
@@ -90,404 +442,9 @@ pub enum ExpansionAlgorithmIdentifier {
     #[rasn(identifier = "sm3ForI-sm4ForJ")]
     Sm3forISm4forJ = 1,
 }
-// #[doc = "*"]
-// #[doc = " * @brief In this structure:"]
-// #[doc = " *"]
-// #[doc = " * @param iMax: indicates that for these certificates, revocation information "]
-// #[doc = " * need no longer be calculated once iCert > iMax as the holders are known "]
-// #[doc = " * to have no more valid certs for that (crlCraca, crlSeries) at that point."]
-// #[doc = " *"]
-// #[doc = " * @param la1Id: is the value LinkageAuthorityIdentifier1 used in the "]
-// #[doc = " * algorithm given in 5.1.3.4. This value applies to all linkage-based "]
-// #[doc = " * revocation information included within contents."]
-// #[doc = " *"]
-// #[doc = " * @param linkageSeed1: is the value LinkageSeed1 used in the algorithm given "]
-// #[doc = " * in 5.1.3.4."]
-// #[doc = " *"]
-// #[doc = " * @param la2Id: is the value LinkageAuthorityIdentifier2 used in the "]
-// #[doc = " * algorithm given in 5.1.3.4. This value applies to all linkage-based "]
-// #[doc = " * revocation information included within contents."]
-// #[doc = " *"]
-// #[doc = " * @param linkageSeed2: is the value LinkageSeed2 used in the algorithm given "]
-// #[doc = " * in 5.1.3.4."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct GroupCrlEntry {
-//     #[rasn(identifier = "iMax")]
-//     pub i_max: Uint16,
-//     #[rasn(identifier = "la1Id")]
-//     pub la1_id: LaId,
-//     #[rasn(identifier = "linkageSeed1")]
-//     pub linkage_seed1: LinkageSeed,
-//     #[rasn(identifier = "la2Id")]
-//     pub la2_id: LaId,
-//     #[rasn(identifier = "linkageSeed2")]
-//     pub linkage_seed2: LinkageSeed,
-// }
 
-// #[doc = "*"]
-// #[doc = " * @brief This structure contains the linkage seed for group revocation with "]
-// #[doc = " * a single seed. The seed is used as specified in the algorithms in 5.1.3.4."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// pub struct GroupSingleSeedCrlEntry {
-//     #[rasn(identifier = "iMax")]
-//     pub i_max: Uint16,
-//     #[rasn(identifier = "laId")]
-//     pub la_id: LaId,
-//     #[rasn(identifier = "linkageSeed")]
-//     pub linkage_seed: LinkageSeed,
-// }
+/// This is the identifier for the seed evolution function. See 5.1.3 for details of use.
+pub type SeedEvolutionFunctionIdentifier = ();
 
-// #[doc = "*"]
-// #[doc = " * @brief In this structure:"]
-// #[doc = " *"]
-// #[doc = " * @param\tid: is the HashedId10 identifying the revoked certificate. The "]
-// #[doc = " * HashedId10 is calculated with the whole-certificate hash algorithm, "]
-// #[doc = " * determined as described in 6.4.3, applied to the COER-encoded certificate,"]
-// #[doc = " * canonicalized as defined in the definition of Certificate."]
-// #[doc = " *"]
-// #[doc = " * @param expiry: is the value computed from the validity period's start and"]
-// #[doc = " * duration values in that certificate."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct HashBasedRevocationInfo {
-//     pub id: HashedId10,
-//     pub expiry: Time32,
-// }
-
-// #[doc = "*"]
-// #[doc = " * @brief In this structure:"]
-// #[doc = " *"]
-// #[doc = " * @param iMax indicates that for the entries in contents, revocation "]
-// #[doc = " * information need no longer be calculated once iCert > iMax as the holder "]
-// #[doc = " * is known to have no more valid certs at that point. iMax is not directly "]
-// #[doc = " * used in the calculation of the linkage values, it is used to determine "]
-// #[doc = " * when revocation information can safely be deleted."]
-// #[doc = " *"]
-// #[doc = " * @param contents contains individual linkage data for certificates that are "]
-// #[doc = " * revoked using two seeds, per the algorithm given in per the mechanisms "]
-// #[doc = " * given in 5.1.3.4 and with seedEvolutionFunctionIdentifier and "]
-// #[doc = " * linkageValueGenerationFunctionIdentifier obtained as specified in 7.3.3."]
-// #[doc = " *"]
-// #[doc = " * @param singleSeed contains individual linkage data for certificates that "]
-// #[doc = " * are revoked using a single seed, per the algorithm given in per the "]
-// #[doc = " * mechanisms given in 5.1.3.4 and with seedEvolutionFunctionIdentifier and "]
-// #[doc = " * linkageValueGenerationFunctionIdentifier obtained as specified in 7.3.3."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct IMaxGroup {
-//     #[rasn(identifier = "iMax")]
-//     pub i_max: Uint16,
-//     pub contents: SequenceOfIndividualRevocation,
-//     #[rasn(extension_addition, identifier = "singleSeed")]
-//     pub single_seed: Option<SequenceOfLinkageSeed>,
-// }
-
-// #[doc = "*"]
-// #[doc = " * @brief In this structure:"]
-// #[doc = " *"]
-// #[doc = " * @param linkageSeed1 is the value LinkageSeed1 used in the algorithm given "]
-// #[doc = " * in 5.1.3.4."]
-// #[doc = " *"]
-// #[doc = " * @param linkageSeed2 is the value LinkageSeed2 used in the algorithm given "]
-// #[doc = " * in 5.1.3.4."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct IndividualRevocation {
-//     #[rasn(identifier = "linkageSeed1")]
-//     pub linkage_seed1: LinkageSeed,
-//     #[rasn(identifier = "linkageSeed2")]
-//     pub linkage_seed2: LinkageSeed,
-// }
-
-// #[doc = "*"]
-// #[doc = " * @brief In this structure:"]
-// #[doc = " *"]
-// #[doc = " * @param\tjMax: is the value jMax used in the algorithm given in 5.1.3.4. This"]
-// #[doc = " * value applies to all linkage-based revocation information included within"]
-// #[doc = " * contents."]
-// #[doc = " *"]
-// #[doc = " * @param contents: contains individual linkage data."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct JMaxGroup {
-//     pub jmax: Uint8,
-//     pub contents: SequenceOfLAGroup,
-// }
-
-// #[doc = "*"]
-// #[doc = " * @brief In this structure:"]
-// #[doc = " *"]
-// #[doc = " * @param la1Id: is the value LinkageAuthorityIdentifier1 used in the"]
-// #[doc = " * algorithm given in 5.1.3.4. This value applies to all linkage-based"]
-// #[doc = " * revocation information included within contents."]
-// #[doc = " *"]
-// #[doc = " * @param la2Id: is the value LinkageAuthorityIdentifier2 used in the"]
-// #[doc = " * algorithm given in 5.1.3.4. This value applies to all linkage-based"]
-// #[doc = " * revocation information included within contents."]
-// #[doc = " *"]
-// #[doc = " * @param contents: contains individual linkage data."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct LAGroup {
-//     #[rasn(identifier = "la1Id")]
-//     pub la1_id: LaId,
-//     #[rasn(identifier = "la2Id")]
-//     pub la2_id: LaId,
-//     pub contents: SequenceOfIMaxGroup,
-// }
-
-// #[doc = "*"]
-// #[doc = " * @brief This is the identifier for the linkage value generation function. "]
-// #[doc = " * See 5.1.3 for details of use."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct LvGenerationFunctionIdentifier(());
-// #[doc = "*"]
-// #[doc = " * @brief This is the identifier for the seed evolution function. See 5.1.3 "]
-// #[doc = " * for details of use."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct SeedEvolutionFunctionIdentifier(());
-// #[doc = "*"]
-// #[doc = " * @brief This type is used for clarity of definitions."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct SequenceOfGroupCrlEntry(pub SequenceOf<GroupCrlEntry>);
-// #[doc = "*"]
-// #[doc = " * @brief This type is used for clarity of definitions."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct SequenceOfGroupSingleSeedCrlEntry(pub SequenceOf<GroupSingleSeedCrlEntry>);
-// #[doc = "*"]
-// #[doc = " * @brief This type is used for clarity of definitions."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct SequenceOfHashBasedRevocationInfo(pub SequenceOf<HashBasedRevocationInfo>);
-// #[doc = "*"]
-// #[doc = " * @brief This type is used for clarity of definitions."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct SequenceOfIMaxGroup(pub SequenceOf<IMaxGroup>);
-// #[doc = "*"]
-// #[doc = " * @brief This type is used for clarity of definitions."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct SequenceOfIndividualRevocation(pub SequenceOf<IndividualRevocation>);
-// #[doc = "*"]
-// #[doc = " * @brief This type is used for clarity of definitions."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct SequenceOfJMaxGroup(pub SequenceOf<JMaxGroup>);
-// #[doc = "*"]
-// #[doc = " * @brief This type is used for clarity of definitions."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(delegate)]
-// pub struct SequenceOfLAGroup(pub SequenceOf<LAGroup>);
-// #[doc = "*"]
-// #[doc = " * @brief This data structure represents information about a revoked"]
-// #[doc = " * certificate."]
-// #[doc = " *"]
-// #[doc = " * @param crlSerial: is a counter that increments by 1 every time a new full"]
-// #[doc = " * or delta CRL is issued for the indicated crlCraca and crlSeries values."]
-// #[doc = " *"]
-// #[doc = " * @param entries: contains the individual revocation information items."]
-// #[doc = " *"]
-// #[doc = " * @note To indicate that a hash-based CRL contains no individual revocation "]
-// #[doc = " * information items, the recommended approach is for the SEQUENCE OF in the "]
-// #[doc = " * SequenceOfHashBasedRevocationInfo in this field to indicate zero entries."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct ToBeSignedHashIdCrl {
-//     #[rasn(identifier = "crlSerial")]
-//     pub crl_serial: Uint32,
-//     pub entries: SequenceOfHashBasedRevocationInfo,
-// }
-
-// #[doc = "*"]
-// #[doc = " * @brief In this structure:"]
-// #[doc = " *"]
-// #[doc = " * @param\tiRev: is the value iRev used in the algorithm given in 5.1.3.4. This"]
-// #[doc = " * value applies to all linkage-based revocation information included within"]
-// #[doc = " * either indvidual or groups."]
-// #[doc = " *"]
-// #[doc = " * @param\tindexWithinI: is a counter that is set to 0 for the first CRL issued"]
-// #[doc = " * for the indicated combination of crlCraca, crlSeries, and iRev, and"]
-// #[doc = " * increments by 1 every time a new full or delta CRL is issued for the"]
-// #[doc = " * indicated crlCraca and crlSeries values without changing iRev."]
-// #[doc = " *"]
-// #[doc = " * @param individual: contains individual linkage data."]
-// #[doc = " *"]
-// #[doc = " * @note To indicate that a linkage ID-based CRL contains no individual"]
-// #[doc = " * linkage data, the recommended approach is for the SEQUENCE OF in the"]
-// #[doc = " * SequenceOfJMaxGroup in this field to indicate zero entries."]
-// #[doc = " *"]
-// #[doc = " * @param groups: contains group linkage data."]
-// #[doc = " *"]
-// #[doc = " * @note To indicate that a linkage ID-based CRL contains no group linkage"]
-// #[doc = " * data, the recommended approach is for the SEQUENCE OF in the"]
-// #[doc = " * SequenceOfGroupCrlEntry in this field to indicate zero entries."]
-// #[doc = " *"]
-// #[doc = " * @param groupsSingleSeed: contains group linkage data generated with a single "]
-// #[doc = " * seed."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct ToBeSignedLinkageValueCrl {
-//     #[rasn(identifier = "iRev")]
-//     pub i_rev: IValue,
-//     #[rasn(identifier = "indexWithinI")]
-//     pub index_within_i: Uint8,
-//     pub individual: Option<SequenceOfJMaxGroup>,
-//     pub groups: Option<SequenceOfGroupCrlEntry>,
-//     #[rasn(extension_addition, identifier = "groupsSingleSeed")]
-//     pub groups_single_seed: Option<SequenceOfGroupSingleSeedCrlEntry>,
-// }
-
-// #[doc = "*"]
-// #[doc = " * @brief In this structure:"]
-// #[doc = " * "]
-// #[doc = " * @param iRev is the value iRev used in the algorithm given in 5.1.3.4. This "]
-// #[doc = " * value applies to all linkage-based revocation information included within "]
-// #[doc = " * either indvidual or groups."]
-// #[doc = " * "]
-// #[doc = " * @param indexWithinI is a counter that is set to 0 for the first CRL issued "]
-// #[doc = " * for the indicated combination of crlCraca, crlSeries, and iRev, and increments by 1 every time a new full or delta CRL is issued for the indicated crlCraca and crlSeries values without changing iRev."]
-// #[doc = " * "]
-// #[doc = " * @param seedEvolution contains an identifier for the seed evolution "]
-// #[doc = " * function, used as specified in  5.1.3.4."]
-// #[doc = " * "]
-// #[doc = " * @param lvGeneration contains an identifier for the linkage value "]
-// #[doc = " * generation function, used as specified in  5.1.3.4."]
-// #[doc = " * "]
-// #[doc = " * @param individual contains individual linkage data."]
-// #[doc = " * "]
-// #[doc = " * @param groups contains group linkage data for linkage value generation "]
-// #[doc = " * with two seeds."]
-// #[doc = " * "]
-// #[doc = " * @param groupsSingleSeed contains group linkage data for linkage value "]
-// #[doc = " * generation with one seed."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(automatic_tags)]
-// #[non_exhaustive]
-// pub struct ToBeSignedLinkageValueCrlWithAlgIdentifier {
-//     #[rasn(identifier = "iRev")]
-//     pub i_rev: IValue,
-//     #[rasn(identifier = "indexWithinI")]
-//     pub index_within_i: Uint8,
-//     #[rasn(identifier = "seedEvolution")]
-//     pub seed_evolution: SeedEvolutionFunctionIdentifier,
-//     #[rasn(identifier = "lvGeneration")]
-//     pub lv_generation: LvGenerationFunctionIdentifier,
-//     pub individual: Option<SequenceOfJMaxGroup>,
-//     pub groups: Option<SequenceOfGroupCrlEntry>,
-//     #[rasn(identifier = "groupsSingleSeed")]
-//     pub groups_single_seed: Option<SequenceOfGroupSingleSeedCrlEntry>,
-// }
-
-// #[doc = "*"]
-// #[doc = " * @brief This structure contains type-specific CRL contents."]
-// #[doc = " *"]
-// #[doc = " * @param fullHashCrl: contains a full hash-based CRL, i.e., a listing of the"]
-// #[doc = " * hashes of all certificates that:"]
-// #[doc = " *  - contain the indicated cracaId and crlSeries values, and"]
-// #[doc = " *  - are revoked by hash, and"]
-// #[doc = " *  - have been revoked, and"]
-// #[doc = " *  - have not expired."]
-// #[doc = " *"]
-// #[doc = " * @param deltaHashCrl: contains a delta hash-based CRL, i.e., a listing of"]
-// #[doc = " * the hashes of all certificates that:"]
-// #[doc = " *  - contain the indicated cracaId and crlSeries values, and"]
-// #[doc = " *  - are revoked by hash, and"]
-// #[doc = " *  - have been revoked since the previous CRL that contained the indicated"]
-// #[doc = " * cracaId and crlSeries values."]
-// #[doc = " *"]
-// #[doc = " * @param fullLinkedCrl and fullLinkedCrlWithAlg: contain a full linkage"]
-// #[doc = " * ID-based CRL, i.e., a listing of the individual and/or group linkage data"]
-// #[doc = " * for all certificates that:"]
-// #[doc = " *  - contain the indicated cracaId and crlSeries values, and"]
-// #[doc = " *  - are revoked by linkage value, and"]
-// #[doc = " *  - have been revoked, and"]
-// #[doc = " *  - have not expired."]
-// #[doc = " * The difference between fullLinkedCrl and fullLinkedCrlWithAlg is in how"]
-// #[doc = " * the cryptographic algorithms to be used in the seed evolution function and"]
-// #[doc = " * linkage value generation function of 5.1.3.4 are communicated to the"]
-// #[doc = " * receiver of the CRL. See below in this subclause for details."]
-// #[doc = " *"]
-// #[doc = " * @param deltaLinkedCrl and deltaLinkedCrlWithAlg: contain a delta linkage"]
-// #[doc = " * ID-based CRL, i.e., a listing of the individual and/or group linkage data"]
-// #[doc = " * for all certificates that:"]
-// #[doc = " *  - contain the specified cracaId and crlSeries values, and"]
-// #[doc = " *  -\tare revoked by linkage data, and"]
-// #[doc = " *  -\thave been revoked since the previous CRL that contained the indicated"]
-// #[doc = " * cracaId and crlSeries values."]
-// #[doc = " * The difference between deltaLinkedCrl and deltaLinkedCrlWithAlg is in how"]
-// #[doc = " * the cryptographic algorithms to be used in the seed evolution function"]
-// #[doc = " * and linkage value generation function of 5.1.3.4 are communicated to the"]
-// #[doc = " * receiver of the CRL. See below in this subclause for details."]
-// #[doc = " *"]
-// #[doc = " * @note It is the intent of this standard that once a certificate is revoked,"]
-// #[doc = " * it remains revoked for the rest of its lifetime. CRL signers are expected "]
-// #[doc = " * to include a revoked certificate on all CRLs issued between the "]
-// #[doc = " * certificate's revocation and its expiry."]
-// #[doc = " *"]
-// #[doc = " * @note Seed evolution function and linkage value generation function"]
-// #[doc = " * identification. In order to derive linkage values per the mechanisms given"]
-// #[doc = " * in 5.1.3.4, a receiver needs to know the seed evolution function and the"]
-// #[doc = " * linkage value generation function."]
-// #[doc = " *"]
-// #[doc = " * If the contents of this structure is a"]
-// #[doc = " * ToBeSignedLinkageValueCrlWithAlgIdentifier, then the seed evolution function"]
-// #[doc = " * and linkage value generation function are given explicitly as specified in"]
-// #[doc = " * the specification of ToBeSignedLinkageValueCrlWithAlgIdentifier."]
-// #[doc = " *"]
-// #[doc = " * If the contents of this structure is a ToBeSignedLinkageValueCrl, then the"]
-// #[doc = " * seed evolution function and linkage value generation function are obtained"]
-// #[doc = " * based on the crlCraca field in the CrlContents:"]
-// #[doc = " *  - If crlCraca was obtained with SHA-256 or SHA-384, then"]
-// #[doc = " * seedEvolutionFunctionIdentifier is seedEvoFn1-sha256 and"]
-// #[doc = " * linkageValueGenerationFunctionIdentifier is lvGenFn1-aes128."]
-// #[doc = " *  - If crlCraca was obtained with SM3, then seedEvolutionFunctionIdentifier"]
-// #[doc = " * is seedEvoFn1-sm3 and linkageValueGenerationFunctionIdentifier is"]
-// #[doc = " * lvGenFn1-sm4."]
-// #[doc = " "]
-// #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-// #[rasn(choice, automatic_tags)]
-// #[non_exhaustive]
-// pub enum TypeSpecificCrlContents {
-//     fullHashCrl(ToBeSignedHashIdCrl),
-//     deltaHashCrl(ToBeSignedHashIdCrl),
-//     fullLinkedCrl(ToBeSignedLinkageValueCrl),
-//     deltaLinkedCrl(ToBeSignedLinkageValueCrl),
-//     #[rasn(extension_addition)]
-//     fullLinkedCrlWithAlg(ToBeSignedLinkageValueCrlWithAlgIdentifier),
-//     #[rasn(extension_addition)]
-//     deltaLinkedCrlWithAlg(ToBeSignedLinkageValueCrlWithAlgIdentifier),
-// }
+/// This is the identifier for the linkage value generation function. See 5.1.3 for details of use.
+pub type LvGenerationFunctionIdentifier = ();
