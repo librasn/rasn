@@ -4,11 +4,8 @@ use bon::Builder;
 use rasn::error::InnerSubtypeConstraintError;
 use rasn::prelude::*;
 pub mod base_types;
-pub use base_types as ieee1609_dot2_base_types;
 pub mod crl_base_types;
-pub use crl_base_types as ieee1609_dot2_crl_base_types;
-
-use ieee1609_dot2_base_types::*;
+use crate::base_types::*;
 use rasn_etsi_ts103097_extensions::{
     EtsiOriginatingHeaderInfoExtension, ExtId, ExtType, Extension,
 };
@@ -75,10 +72,13 @@ pub const P2PCD8_BYTE_LEARNING_REQUEST_ID: ExtId = ExtId(1);
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
 pub struct Ieee1609Dot2Data {
-    #[builder(default = 3)]
+    #[builder(default = Ieee1609Dot2Data::VERSION)]
     #[rasn(value("3"), identifier = "protocolVersion")]
     pub protocol_version: Uint8,
     pub content: Ieee1609Dot2Content,
+}
+impl Ieee1609Dot2Data {
+    pub const VERSION: u8 = 3;
 }
 
 /// Content types for IEEE 1609.2 data structures.
@@ -222,12 +222,12 @@ impl SignedDataPayload {
             ext_data_hash,
             omitted,
         }
-        .validated()
+        .validate_components()
     }
 }
 
 impl InnerSubtypeConstraint for SignedDataPayload {
-    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
         if self.data.is_none() && self.ext_data_hash.is_none() && self.omitted.is_none() {
             return Err(InnerSubtypeConstraintError::MissingAtLeastOneComponent {
                 type_name: "SignedDataPayload",
@@ -528,12 +528,12 @@ pub struct Countersignature(Ieee1609Dot2Data);
 impl Countersignature {
     #[builder]
     fn new(data: Ieee1609Dot2Data) -> Result<Self, InnerSubtypeConstraintError> {
-        Self(data).validated()
+        Self(data).validate_components()
     }
 }
 
 impl InnerSubtypeConstraint for Countersignature {
-    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
         if let Ieee1609Dot2Content::SignedData(ref signed_data) = self.0.content {
             if let SignedData {
                 tbs_data:
@@ -886,6 +886,7 @@ delegate!(SequenceOf<Certificate>, SequenceOfCertificate);
 #[rasn(automatic_tags)]
 pub struct CertificateBase {
     #[rasn(value("3"))]
+    #[builder(default = CertificateBase::VERSION)]
     pub version: Uint8,
     #[rasn(identifier = "type")]
     pub c_type: CertificateType,
@@ -895,6 +896,7 @@ pub struct CertificateBase {
     pub signature: Option<Signature>,
 }
 impl CertificateBase {
+    pub const VERSION: u8 = 3;
     #[must_use]
     pub const fn is_implicit(&self) -> bool {
         matches!(
@@ -950,11 +952,11 @@ pub struct ImplicitCertificate(CertificateBase);
 
 impl ImplicitCertificate {
     pub fn new(data: CertificateBase) -> Result<Self, InnerSubtypeConstraintError> {
-        Self(data).validated()
+        Self(data).validate_components()
     }
 }
 impl InnerSubtypeConstraint for ImplicitCertificate {
-    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
         if self.0.is_implicit() {
             Ok(self)
         } else {
@@ -982,12 +984,12 @@ pub struct ExplicitCertificate(CertificateBase);
 
 impl ExplicitCertificate {
     pub fn new(data: CertificateBase) -> Result<Self, InnerSubtypeConstraintError> {
-        Self(data).validated()
+        Self(data).validate_components()
     }
 }
 
 impl InnerSubtypeConstraint for ExplicitCertificate {
-    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
         if self.0.is_explicit() {
             Ok(self)
         } else {
@@ -1183,12 +1185,12 @@ impl ToBeSignedCertificate {
             cert_issue_extensions,
             cert_request_extension,
         };
-        cert.validated()
+        cert.validate_components()
     }
 }
 
 impl InnerSubtypeConstraint for ToBeSignedCertificate {
-    fn validated(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
         if self.app_permissions.is_none()
             && self.cert_issue_permissions.is_none()
             && self.cert_request_permissions.is_none()
@@ -1587,27 +1589,209 @@ delegate!(
     SequenceOfAppExtensions
 );
 
-// pub mod ieee1609_dot2_crl {
-//     extern crate alloc;
-//     use super::ieee1609_dot2::Ieee1609Dot2Data;
-//     use super::ieee1609_dot2_base_types::{Opaque, Psid};
-//     use super::ieee1609_dot2_crl_base_types::CrlContents;
-//     use core::borrow::Borrow;
-//     use rasn::prelude::*;
-//     #[doc = "*"]
-//     #[doc = " * @brief This is the PSID for the CRL application."]
-//     #[doc = " "]
-//     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-//     #[rasn(delegate, value("256"))]
-//     pub struct CrlPsid(pub Psid);
-//     #[doc = "*"]
-//     #[doc = " * @brief This structure is the SPDU used to contain a signed CRL. A valid "]
-//     #[doc = " * signed CRL meets the validity criteria of 7.4."]
-//     #[doc = " "]
-//     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
-//     #[rasn(delegate)]
-//     pub struct SecuredCrl(pub Ieee1609Dot2Data);
-// }
+/// --                     IEEE Std 1609.2: CRL Data Types                       --
+pub mod crl {
+    extern crate alloc;
+    use super::base_types::{Psid, Uint8};
+    use bon::Builder;
+    // use super::crl_base_types::CrlContents;
+    use super::{
+        CrlSeries, HeaderInfo, Ieee1609Dot2Content, Ieee1609Dot2Data, SignedData,
+        SignedDataPayload, ToBeSignedData,
+    };
+    use rasn::error::InnerSubtypeConstraintError;
+    use rasn::prelude::*;
+
+    /// This is the PSID for the CRL application.
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+    #[rasn(delegate, value("256"))]
+    pub struct CrlPsid(Psid);
+
+    impl CrlPsid {
+        pub const CRL_PSID: u16 = 256;
+        pub fn new() -> Self {
+            Self(Psid(Integer::from(Self::CRL_PSID)))
+        }
+    }
+    impl Default for CrlPsid {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+    delegate!(Psid, CrlPsid);
+
+    /// This structure is the SPDU used to contain a signed CRL. A valid signed CRL meets the validity criteria of 7.4."]
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+    #[rasn(delegate)]
+    pub struct SecuredCrl(Ieee1609Dot2Data);
+
+    impl InnerSubtypeConstraint for SecuredCrl {
+        /// Validates that the `Ieee1609Dot2Data` contains a valid CRL SPDU. Does not ensure that data indeed has `CrlContents`.
+        /// See method `validate_and_decode_containing` for that.
+        fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
+            let signed_data_content;
+            if let Ieee1609Dot2Data {
+                content: Ieee1609Dot2Content::SignedData(signed_data),
+                ..
+            } = &self.0
+            {
+                signed_data_content = &**signed_data;
+            } else {
+                return Err(InnerSubtypeConstraintError::InvalidCombination {
+                    type_name: "SecuredCrl",
+                    details: "Ieee1609Dot2Data does not contain a SignedData SPDU",
+                });
+            }
+            let crl_psid = CrlPsid::default();
+            if matches!(
+                signed_data_content,
+                SignedData {
+                    tbs_data: ToBeSignedData {
+                        payload: SignedDataPayload {
+                            data: Some(Ieee1609Dot2Data {
+                                protocol_version: _,
+                                content: Ieee1609Dot2Content::UnsecuredData(_)
+                            }),
+                            ..
+                        },
+                        header_info: HeaderInfo {
+                            psid: _,
+                            generation_time: None,
+                            expiry_time: None,
+                            generation_location: None,
+                            p2pcd_learning_request: None,
+                            missing_crl_identifier: None,
+                            encryption_key: None,
+                            ..
+                        },
+                    },
+                    ..
+                }
+            ) {
+                Ok(self)
+            } else if signed_data_content.tbs_data.header_info.psid == *crl_psid {
+                Err(InnerSubtypeConstraintError::InvalidComponentValue { type_name: "SecuredCrl::Ieee1609Do2Content::SignedData::ToBeSignedData::HeaderInfo::Psid", component_name: "psid", details: alloc::format!("Expecting Psid value {crl_psid:?} for SecuredCrl") })
+            } else {
+                Err(InnerSubtypeConstraintError::InvalidCombination {
+                    type_name: "SecuredCrl",
+                    details: "SignedData does not contain a valid CRL SPDU",
+                })
+            }
+        }
+        fn validate_and_decode_containing(
+            self,
+            _: rasn::Codec,
+        ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
+            todo!("This type does not check constrained CrlContents content yet")
+        }
+    }
+    /// Service Specific Permissions (SSP) structure for Certificate Revocation List (CRL) signing.
+    ///
+    /// # Fields
+    ///
+    /// * `version` - The version number of the SSP. Must be 1 for this version.
+    ///
+    /// * `associated_craca` - Identifies the relationship between this certificate and
+    ///   the Certificate Revocation Authorization CA (CRACA):
+    ///   - If `IsCraca`: This certificate is the CRACA certificate and signs CRLs for
+    ///     certificates which chain back to this certificate
+    ///   - If `IssuerIsCraca`: The issuer of this certificate is the CRACA and this
+    ///     certificate may sign CRLs for certificates which chain back to its issuer
+    ///
+    /// * `crls` - Identifies what type of CRLs may be issued by the certificate holder.
+    #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq)]
+    #[rasn(automatic_tags)]
+    #[non_exhaustive]
+    pub struct CrlSsp {
+        #[rasn(value("1"))]
+        #[builder(default = CrlSsp::VERSION)]
+        #[rasn(identifier = "version")]
+        pub version: Uint8,
+        #[rasn(identifier = "associatedCraca")]
+        pub associated_craca: CracaType,
+        #[rasn(identifier = "crls")]
+        pub crls: PermissibleCrls,
+    }
+    impl CrlSsp {
+        pub const VERSION: u8 = 1;
+    }
+
+    /// Type used to determine the validity of the `crl_craca` field in the `CrlContents` structure.
+    ///
+    /// # Values
+    ///
+    /// * `IsCraca` - The `crl_craca` field in `CrlContents` is only valid if it indicates
+    ///   the certificate that signs the CRL.
+    ///
+    /// * `IssuerIsCraca` - The `crl_craca` field in `CrlContents` is only valid if it indicates
+    ///   the certificate that issued the certificate that signs the CRL.
+    #[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq)]
+    #[rasn(enumerated)]
+    pub enum CracaType {
+        IsCraca,
+        IssuerIsCraca,
+    }
+
+    /// This type is used to determine the validity of the crlSeries field
+    /// in the CrlContents structure.
+    ///
+    /// The crlSeries field in the CrlContents structure is invalid unless that value appears as an entry in the SEQUENCE contained in this field.
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+    #[rasn(delegate)]
+    pub struct PermissibleCrls(pub SequenceOf<CrlSeries>);
+
+    delegate!(SequenceOf<CrlSeries>, PermissibleCrls);
+}
+/// --           IEEE Std 1609.2: Peer-to-Peer Distribution Data Types           --
+pub mod peer2peer {
+    use super::base_types::Uint8;
+    use super::Certificate;
+    use bon::Builder;
+    use rasn::prelude::*;
+    /// A Peer-to-Peer PDU structure for IEEE 1609.2 certificate chain responses.
+    ///
+    /// # Fields
+    ///
+    /// * `version` - The version number of this structure. Must be 1 for this version
+    ///   of the standard.
+    ///
+    /// * `content` - Contains the certificate chain response:
+    ///   - When `CaCerts` variant is used, it contains an array of certificates where:
+    ///     - Each certificate is issued by the next certificate in the array
+    ///     - The first certificate matches the one indicated by the `p2pcd_learning_request`
+    ///       MCI value in the request message (see 8.4.2)
+    ///     - The final certificate in the array was issued by a root CA
+    #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq)]
+    #[rasn(automatic_tags)]
+    #[non_exhaustive]
+    pub struct Ieee1609Dot2Peer2PeerPDU {
+        #[rasn(value("1"))]
+        #[builder(default = Ieee1609Dot2Peer2PeerPDU::VERSION)]
+        #[rasn(identifier = "version")]
+        pub version: Uint8,
+        #[rasn(identifier = "content")]
+        pub content: Ieee1609Dot2Peer2PeerPduContent,
+    }
+    impl Ieee1609Dot2Peer2PeerPDU {
+        pub const VERSION: u8 = 1;
+    }
+
+    /// Content types for Peer-to-Peer PDU.
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq)]
+    #[rasn(choice, automatic_tags)]
+    #[non_exhaustive]
+    pub enum Ieee1609Dot2Peer2PeerPduContent {
+        #[rasn(identifier = "caCerts")]
+        CaCerts(CaCertP2pPDU),
+    }
+
+    /// This type is used for clarity of definitions.
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+    #[rasn(delegate)]
+    pub struct CaCertP2pPDU(pub SequenceOf<Certificate>);
+
+    delegate!(SequenceOf<Certificate>, CaCertP2pPDU);
+}
 
 #[cfg(test)]
 mod tests {

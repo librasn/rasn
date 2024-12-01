@@ -1302,7 +1302,7 @@ pub struct SequenceOfPsidSsp(pub SequenceOf<PsidSsp>);
 
 delegate!(SequenceOf<PsidSsp>, SequenceOfPsidSsp);
 
-/// This type represents the PSID defined in IEEE Std 1609.12.
+/// This type represents the PSID defined in IEEE Std 1609.2.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate, value("0.."))]
 pub struct Psid(pub Integer);
