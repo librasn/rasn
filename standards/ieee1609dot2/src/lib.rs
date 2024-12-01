@@ -47,6 +47,11 @@ macro_rules! delegate {
                 &self.0
             }
         }
+        impl core::ops::DerefMut for $to_type {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
     };
 }
 
@@ -518,7 +523,7 @@ pub enum SignerIdentifier {
 /// SPDU over which the countersignature is performed.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
-pub struct Countersignature(pub Ieee1609Dot2Data);
+pub struct Countersignature(Ieee1609Dot2Data);
 #[bon::bon]
 impl Countersignature {
     #[builder]
@@ -838,6 +843,7 @@ impl core::ops::Deref for Certificate {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
+    // We should not allow mutation of the inner data if they require validation!
 }
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
@@ -942,10 +948,8 @@ pub enum CertificateType {
 #[rasn(delegate)]
 pub struct ImplicitCertificate(CertificateBase);
 
-#[bon::bon]
 impl ImplicitCertificate {
-    #[builder]
-    fn new(data: CertificateBase) -> Result<Self, InnerSubtypeConstraintError> {
+    pub fn new(data: CertificateBase) -> Result<Self, InnerSubtypeConstraintError> {
         Self(data).validated()
     }
 }
@@ -962,17 +966,22 @@ impl InnerSubtypeConstraint for ImplicitCertificate {
     }
 }
 
-delegate!(CertificateBase, ImplicitCertificate);
+impl core::ops::Deref for ImplicitCertificate {
+    type Target = CertificateBase;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+    // We should not allow mutation of the inner data if they require validation!
+}
 
 /// This is a profile of the CertificateBase structure providing all the fields necessary for an explicit certificate, and no others.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(delegate)]
 pub struct ExplicitCertificate(CertificateBase);
 
-#[bon::bon]
 impl ExplicitCertificate {
-    #[builder]
-    fn new(data: CertificateBase) -> Result<Self, InnerSubtypeConstraintError> {
+    pub fn new(data: CertificateBase) -> Result<Self, InnerSubtypeConstraintError> {
         Self(data).validated()
     }
 }
@@ -989,8 +998,14 @@ impl InnerSubtypeConstraint for ExplicitCertificate {
         }
     }
 }
+impl core::ops::Deref for ExplicitCertificate {
+    type Target = CertificateBase;
 
-delegate!(CertificateBase, ExplicitCertificate);
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+    // We should not allow mutation of the inner data if they require validation!
+}
 
 /// Allows certificate recipients to determine which keying material to use for
 /// certificate authentication.
@@ -1743,98 +1758,101 @@ mod tests {
                                 .build()
                         )
                         .signer(SignerIdentifier::Certificate(
-                            vec![Certificate::from(ImplicitCertificate::from(
-                                CertificateBase::builder()
-                                    .version(3)
-                                    .c_type(CertificateType::Implicit)
-                                    .issuer(IssuerIdentifier::Sha256AndDigest(HashedId8(
-                                        "!\"#$%&'(".as_bytes().try_into().unwrap()
-                                    )))
-                                    .to_be_signed(
-                                        ToBeSignedCertificate::builder()
-                                            .id(CertificateId::LinkageData(
-                                                LinkageData::builder()
-                                                    .i_cert(IValue::from(100))
-                                                    .linkage_value(LinkageValue(
-                                                        FixedOctetString::try_from(
-                                                            b"123456789".as_slice()
+                            vec![Certificate::from(
+                                ImplicitCertificate::new(
+                                    CertificateBase::builder()
+                                        .version(3)
+                                        .c_type(CertificateType::Implicit)
+                                        .issuer(IssuerIdentifier::Sha256AndDigest(HashedId8(
+                                            "!\"#$%&'(".as_bytes().try_into().unwrap()
+                                        )))
+                                        .to_be_signed(
+                                            ToBeSignedCertificate::builder()
+                                                .id(CertificateId::LinkageData(
+                                                    LinkageData::builder()
+                                                        .i_cert(IValue::from(100))
+                                                        .linkage_value(LinkageValue(
+                                                            FixedOctetString::try_from(
+                                                                b"123456789".as_slice()
+                                                            )
+                                                            .unwrap()
+                                                        ))
+                                                        .group_linkage_value(
+                                                            GroupLinkageValue::builder()
+                                                                .j_value(
+                                                                    b"ABCD"
+                                                                        .as_slice()
+                                                                        .try_into()
+                                                                        .unwrap()
+                                                                )
+                                                                .value(
+                                                                    b"QRSTUVWXY"
+                                                                        .as_slice()
+                                                                        .try_into()
+                                                                        .unwrap()
+                                                                )
+                                                                .build()
                                                         )
-                                                        .unwrap()
-                                                    ))
-                                                    .group_linkage_value(
-                                                        GroupLinkageValue::builder()
-                                                            .j_value(
-                                                                b"ABCD"
-                                                                    .as_slice()
-                                                                    .try_into()
-                                                                    .unwrap()
-                                                            )
-                                                            .value(
-                                                                b"QRSTUVWXY"
-                                                                    .as_slice()
-                                                                    .try_into()
-                                                                    .unwrap()
-                                                            )
-                                                            .build()
-                                                    )
-                                                    .build()
-                                            ))
-                                            .craca_id(HashedId3(
-                                                b"abc".as_slice().try_into().unwrap()
-                                            ))
-                                            .crl_series(CrlSeries::from(70))
-                                            .validity_period(
-                                                ValidityPeriod::builder()
-                                                    .start(81_828_384.into())
-                                                    .duration(Duration::Hours(169))
-                                                    .build()
-                                            )
-                                            .region(GeographicRegion::IdentifiedRegion(
-                                                vec![
-                                                    IdentifiedRegion::CountryOnly(
-                                                        UnCountryId::from(124)
-                                                    ),
-                                                    IdentifiedRegion::CountryOnly(
-                                                        UnCountryId::from(484)
-                                                    ),
-                                                    IdentifiedRegion::CountryOnly(
-                                                        UnCountryId::from(840)
-                                                    )
-                                                ]
-                                                .into()
-                                            ))
-                                            .app_permissions(
-                                                vec![
-                                                    PsidSsp {
-                                                        psid: Integer::from(32).into(),
-                                                        ssp: None
-                                                    },
-                                                    PsidSsp {
-                                                        psid: Integer::from(38).into(),
-                                                        ssp: None
-                                                    }
-                                                ]
-                                                .into()
-                                            )
-                                            .verify_key_indicator(
-                                                VerificationKeyIndicator::ReconstructionValue(
-                                                    EccP256CurvePoint::CompressedY0(
-                                                        FixedOctetString::from([
-                                                            0x91u8, 0x92, 0x93, 0x94, 0x95, 0x96,
-                                                            0x97, 0x98, 0x91, 0x92, 0x93, 0x94,
-                                                            0x95, 0x96, 0x97, 0x98, 0x91, 0x92,
-                                                            0x93, 0x94, 0x95, 0x96, 0x97, 0x98,
-                                                            0x91, 0x92, 0x93, 0x94, 0x95, 0x96,
-                                                            0x97, 0x98
-                                                        ])
+                                                        .build()
+                                                ))
+                                                .craca_id(HashedId3(
+                                                    b"abc".as_slice().try_into().unwrap()
+                                                ))
+                                                .crl_series(CrlSeries::from(70))
+                                                .validity_period(
+                                                    ValidityPeriod::builder()
+                                                        .start(81_828_384.into())
+                                                        .duration(Duration::Hours(169))
+                                                        .build()
+                                                )
+                                                .region(GeographicRegion::IdentifiedRegion(
+                                                    vec![
+                                                        IdentifiedRegion::CountryOnly(
+                                                            UnCountryId::from(124)
+                                                        ),
+                                                        IdentifiedRegion::CountryOnly(
+                                                            UnCountryId::from(484)
+                                                        ),
+                                                        IdentifiedRegion::CountryOnly(
+                                                            UnCountryId::from(840)
+                                                        )
+                                                    ]
+                                                    .into()
+                                                ))
+                                                .app_permissions(
+                                                    vec![
+                                                        PsidSsp {
+                                                            psid: Integer::from(32).into(),
+                                                            ssp: None
+                                                        },
+                                                        PsidSsp {
+                                                            psid: Integer::from(38).into(),
+                                                            ssp: None
+                                                        }
+                                                    ]
+                                                    .into()
+                                                )
+                                                .verify_key_indicator(
+                                                    VerificationKeyIndicator::ReconstructionValue(
+                                                        EccP256CurvePoint::CompressedY0(
+                                                            FixedOctetString::from([
+                                                                0x91u8, 0x92, 0x93, 0x94, 0x95,
+                                                                0x96, 0x97, 0x98, 0x91, 0x92, 0x93,
+                                                                0x94, 0x95, 0x96, 0x97, 0x98, 0x91,
+                                                                0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+                                                                0x98, 0x91, 0x92, 0x93, 0x94, 0x95,
+                                                                0x96, 0x97, 0x98
+                                                            ])
+                                                        )
                                                     )
                                                 )
-                                            )
-                                            .build()
-                                            .unwrap()
-                                    )
-                                    .build()
-                            ))]
+                                                .build()
+                                                .unwrap()
+                                        )
+                                        .build()
+                                )
+                                .unwrap()
+                            )]
                             .into()
                         ))
                         .signature(Signature::EcdsaNistP256(
