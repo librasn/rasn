@@ -1,4 +1,3 @@
-// Test whether constrained OctetString and FixedOctetString are equal
 use bitvec::prelude::*;
 use rasn::prelude::*;
 use rasn::{ber, jer, oer, uper};
@@ -89,6 +88,7 @@ fn build_fixed_octet() -> ConstrainedHashes {
     }
 }
 
+// Test whether constrained OctetString and FixedOctetString are equal
 macro_rules! test_decode_eq {
     ($fn_name:ident, $codec:ident) => {
         #[test]
@@ -132,3 +132,198 @@ test_decode_eq!(test_uper_octet_eq, uper);
 test_decode_eq!(test_oer_octet_eq, oer);
 test_decode_eq!(test_ber_octet_eq, ber);
 test_decode_eq!(test_jer_octet_eq, jer);
+
+#[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
+#[rasn(automatic_tags)]
+pub struct ABitString {
+    #[rasn(size("0..=255"))]
+    pub the_string: BitString,
+}
+
+/// Tests that valid strings are parsed and invalid strings are rejected.
+#[test]
+fn test_jer_bitstring_dec() {
+    use bitvec::prelude::*;
+
+    let good_cases: Vec<(&str, usize, BitVec<u8, bitvec::order::Msb0>)> = vec![
+        ("", 0, bitvec::bits![u8, Msb0;].into()),
+        ("00", 1, bitvec::bits![u8, Msb0; 0].into()),
+        ("00", 3, bitvec::bits![u8, Msb0; 0,0,0].into()),
+        ("0F", 3, bitvec::bits![u8, Msb0; 0,0,0].into()),
+        ("F0", 3, bitvec::bits![u8, Msb0; 1,1,1].into()),
+        ("00", 7, bitvec::bits![u8, Msb0; 0,0,0,0,0,0,0].into()),
+        ("00", 8, bitvec::bits![u8, Msb0; 0,0,0,0,0,0,0,0].into()),
+        ("0F", 8, bitvec::bits![u8, Msb0; 0,0,0,0,1,1,1,1].into()),
+        (
+            "\\u0030\\u0030",
+            8,
+            bitvec::bits![u8, Msb0; 0,0,0,0,0,0,0,0].into(),
+        ),
+        (
+            "\\u0046\\u0046",
+            8,
+            bitvec::bits![u8, Msb0; 1,1,1,1,1,1,1,1].into(),
+        ),
+    ];
+
+    let bad_cases: Vec<(&str, usize)> = vec![
+        (" ", 0),
+        ("!", 0),
+        ("0", 0),
+        (" 0", 0),
+        ("0 ", 0),
+        ("0!", 0),
+        ("  ", 0),
+        ("00 ", 0),
+        (" 00", 0),
+        ("000", 0),
+        ("Œ", 0),
+        ("ŒŒ", 0),
+        ("ŒŒŒ", 0),
+        ("ABCDEFG", 0),
+        (" ABCDEF", 0),
+        ("\u{0000}", 0),
+        ("\u{FFFF}", 0),
+        ("\u{0123}", 0),
+        ("\u{30}", 0),
+        ("\\u0030", 0),
+        ("\\u202E\\u0030\\u0030", 0),
+        ("⣐⡄", 0),
+        ("😎", 0),
+        ("🙈🙉🙊", 0),
+        ("", 1),
+        ("", 8),
+        ("00", 0),
+        ("00", 10),
+        ("00", 16),
+        ("00", 16384),
+        ("0000", 0),
+        ("0000", 8),
+        ("0000", 17),
+    ];
+
+    for (case, length, bits) in good_cases {
+        let json = format!("{{\"the_string\":{{\"length\":{length},\"value\":\"{case}\"}}}}");
+        let expected = ABitString { the_string: bits };
+        let decoded = jer::decode::<ABitString>(&json);
+        if let Err(e) = decoded {
+            panic!("should have decoded case \"{case}\" fine: {e:?}");
+        }
+        assert_eq!(decoded.unwrap(), expected);
+    }
+
+    for (case, length) in bad_cases {
+        let json = format!("{{\"the_string\":{{\"length\":{length},\"value\":\"{case}\"}}}}");
+        let decoded = jer::decode::<ABitString>(&json);
+        if let Ok(decoded) = decoded {
+            panic!(
+                "should have rejected case \"{case}\", but decoded: {decoded:?} (length {})",
+                decoded.the_string.len()
+            );
+        }
+    }
+}
+
+#[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
+#[rasn(automatic_tags)]
+pub struct AnOctetString {
+    #[rasn(size("0..=255"))]
+    pub the_string: OctetString,
+}
+
+/// Tests that valid strings are parsed and invalid strings are rejected.
+#[test]
+fn test_jer_octetstring_dec() {
+    let good_cases: Vec<&[u8]> = vec![
+        &[],
+        &[0x00; 1],
+        &[0x00; 2],
+        &[0x0F; 1],
+        &[0xFF; 1],
+        &[0xFF; 2],
+        &[0x00; 10],
+        &[0x00; 100],
+        &[0x00; 200],
+        &[0x01, 0x23],
+        &[0xAB, 0xCD],
+        &[0xAB, 0xCD, 0xEF],
+        &[0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF],
+        &[0x00; 255],
+        &[0x0F; 255],
+        &[0xFF; 255],
+        &[0x00; 256],
+        &[0x0F; 256],
+        &[0xFF; 256],
+        &[0x00; 16384],
+        &[0x0F; 16384],
+        &[0xFF; 16384],
+    ];
+
+    let special_cases: Vec<(&str, &[u8])> =
+        vec![("\\u0030\\u0030", &[0x00]), ("\\u0046\\u0046", &[0xFF])];
+
+    let bad_cases = vec![
+        " ",
+        "!",
+        "0",
+        " 0",
+        "0 ",
+        "0!",
+        "  ",
+        "000",
+        "Œ",
+        "ŒŒ",
+        "ŒŒŒ",
+        "ABCDEFG",
+        " ABCDEF",
+        "\u{0000}",
+        "\u{FFFF}",
+        "\u{0123}",
+        "\u{30}",
+        "\\u0030",
+        "\\u202E\\u0030\\u0030",
+        "⣐⡄",
+        "😎",
+        "🙈🙉🙊",
+    ];
+
+    for case in good_cases {
+        let upper_hex = case
+            .iter()
+            .map(|b| format!("{b:02X}"))
+            .collect::<Vec<String>>()
+            .join("");
+        let json = format!("{{\"the_string\":\"{upper_hex}\"}}");
+        let expected = AnOctetString {
+            the_string: case.into(),
+        };
+        let decoded = jer::decode::<AnOctetString>(&json);
+        if let Err(e) = decoded {
+            panic!("should have decoded case \"{upper_hex}\" fine: {e:?}");
+        }
+        assert_eq!(decoded.unwrap(), expected);
+    }
+
+    for (case, expected) in special_cases {
+        let json = format!("{{\"the_string\":\"{case}\"}}");
+        let expected = AnOctetString {
+            the_string: expected.into(),
+        };
+        let decoded = jer::decode::<AnOctetString>(&json);
+        if let Err(e) = decoded {
+            panic!("should have decoded case \"{case}\" fine: {e:?}");
+        }
+        assert_eq!(decoded.unwrap(), expected);
+    }
+
+    for case in bad_cases {
+        let json = format!("{{\"the_string\":\"{case}\"}}");
+        let decoded = jer::decode::<AnOctetString>(&json);
+        if let Ok(decoded) = decoded {
+            panic!(
+                "should have rejected case \"{case}\", but decoded: {decoded:?} (length {})",
+                decoded.the_string.len()
+            );
+        }
+    }
+}

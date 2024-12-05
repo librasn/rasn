@@ -70,7 +70,7 @@ impl crate::Decoder for Decoder {
                     self.codec(),
                 )
             })?;
-            (value, *size as u64)
+            (value, *size)
         } else {
             let last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
             let value_map = last
@@ -86,20 +86,26 @@ impl crate::Decoder for Decoder {
                     value_map
                         .get("length")
                         .and_then(|l| l.as_number())
-                        .and_then(|i| i.as_u64()),
+                        .and_then(|i| i.as_u64())
+                        .map(|i| i as usize),
                 )
                 .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                     needed: "JSON object containing 'value' and 'length' properties.",
                     found: alloc::format!("{value_map:#?}"),
                 })?;
-            (
-                (0..value.len())
-                    .step_by(2)
-                    .map(|i| u8::from_str_radix(&value[i..=i + 1], 16))
-                    .collect::<Result<BitString, _>>()
-                    .map_err(|e| JerDecodeErrorKind::InvalidJerBitstring { parse_int_err: e })?,
-                length,
-            )
+
+            let value = bytes_from_hexstring(value).ok_or(DecodeError::custom(
+                alloc::format!("Failed to create BitString from bytes: {value:02x?}"),
+                self.codec(),
+            ))?;
+            let value = BitString::try_from_vec(value).map_err(|e| {
+                DecodeError::custom(
+                    alloc::format!("Failed to create BitString from bytes: {e:02x?}"),
+                    self.codec(),
+                )
+            })?;
+
+            (value, length)
         };
         let padding_length = if bitstring_length % 8 == 0 {
             0
@@ -109,7 +115,15 @@ impl crate::Decoder for Decoder {
         for _ in 0..padding_length {
             padded.pop();
         }
-        Ok(padded)
+
+        if bitstring_length != padded.len() {
+            Err(DecodeError::custom(
+                alloc::format!("Failed to create BitString from bytes: invalid value length (was: {}, expected: {})", padded.len(), bitstring_length),
+                self.codec(),
+            ))
+        } else {
+            Ok(padded)
+        }
     }
 
     fn decode_bool(&mut self, _t: Tag) -> Result<bool, Self::Error> {
@@ -605,11 +619,8 @@ impl Decoder {
                 needed: "hex string",
                 found: alloc::format!("{value}"),
             })?;
-        Ok((0..octet_string.len())
-            .step_by(2)
-            .map(|i| u8::from_str_radix(&octet_string[i..=i + 1], 16))
-            .collect::<Result<alloc::vec::Vec<u8>, _>>()
-            .map_err(|_| JerDecodeErrorKind::InvalidJerOctetString {})?)
+        bytes_from_hexstring(octet_string)
+            .ok_or(JerDecodeErrorKind::InvalidJerOctetString {}.into())
     }
 
     fn utc_time_from_value(value: Value) -> Result<chrono::DateTime<chrono::Utc>, DecodeError> {
@@ -645,5 +656,102 @@ impl Decoder {
                 found: alloc::format!("{value}"),
             }
         })?)
+    }
+}
+
+/// Parses a hex string into bytes.
+fn bytes_from_hexstring(hex_string: &str) -> Option<alloc::vec::Vec<u8>> {
+    if hex_string.len() % 2 != 0 {
+        return None;
+    }
+    let mut bytes = alloc::vec::Vec::<u8>::with_capacity(hex_string.len() / 2);
+    for (i, c) in hex_string.char_indices() {
+        let n = nibble_from_hexdigit(c)?;
+        if i % 2 == 0 {
+            bytes.push(n << 4);
+        } else {
+            bytes[i / 2] |= n;
+        }
+    }
+    Some(bytes)
+}
+
+/// Parses a hexdigit character into a nibble (four bits).
+fn nibble_from_hexdigit(c: char) -> Option<u8> {
+    match c {
+        '0'..='9' => Some(c as u8 - b'0'),
+        'a'..='f' => Some(c as u8 - b'a' + 0xA),
+        'A'..='F' => Some(c as u8 - b'A' + 0xA),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bytes_from_hexstring() {
+        assert_eq!(bytes_from_hexstring(""), Some(vec![]));
+        assert_eq!(bytes_from_hexstring("00"), Some(vec![0]));
+        assert_eq!(bytes_from_hexstring("FF"), Some(vec![0xFF]));
+        assert_eq!(bytes_from_hexstring("0000"), Some(vec![0, 0]));
+        assert_eq!(bytes_from_hexstring("FFFF"), Some(vec![0xFF, 0xFF]));
+
+        assert_eq!(bytes_from_hexstring(" "), None);
+        assert_eq!(bytes_from_hexstring("!"), None);
+        assert_eq!(bytes_from_hexstring("0"), None);
+        assert_eq!(bytes_from_hexstring(" 0"), None);
+        assert_eq!(bytes_from_hexstring("0 "), None);
+        assert_eq!(bytes_from_hexstring("0!"), None);
+        assert_eq!(bytes_from_hexstring("  "), None);
+        assert_eq!(bytes_from_hexstring("00 "), None);
+        assert_eq!(bytes_from_hexstring(" 00"), None);
+        assert_eq!(bytes_from_hexstring("000"), None);
+        assert_eq!(bytes_from_hexstring("Œ"), None);
+        assert_eq!(bytes_from_hexstring("ŒŒ"), None);
+        assert_eq!(bytes_from_hexstring("ŒŒŒ"), None);
+        assert_eq!(bytes_from_hexstring("ABCDEFG"), None);
+        assert_eq!(bytes_from_hexstring(" ABCDEF"), None);
+        assert_eq!(bytes_from_hexstring("\u{0000}"), None);
+        assert_eq!(bytes_from_hexstring("\u{FFFF}"), None);
+        assert_eq!(bytes_from_hexstring("\u{0123}"), None);
+        assert_eq!(bytes_from_hexstring("\u{30}"), None);
+        assert_eq!(bytes_from_hexstring("\\u0030"), None);
+        assert_eq!(bytes_from_hexstring("\\u202E\\u0030\\u0030"), None);
+        assert_eq!(bytes_from_hexstring("⣐⡄"), None);
+        assert_eq!(bytes_from_hexstring("😎"), None);
+        assert_eq!(bytes_from_hexstring("🙈🙉🙊"), None);
+    }
+
+    #[test]
+    fn test_nibble_from_hexdigit() {
+        for c in '\u{0}'..'\u{1024}' {
+            match c {
+                '0' => assert_eq!(Some(0x00), nibble_from_hexdigit(c)),
+                '1' => assert_eq!(Some(0x01), nibble_from_hexdigit(c)),
+                '2' => assert_eq!(Some(0x02), nibble_from_hexdigit(c)),
+                '3' => assert_eq!(Some(0x03), nibble_from_hexdigit(c)),
+                '4' => assert_eq!(Some(0x04), nibble_from_hexdigit(c)),
+                '5' => assert_eq!(Some(0x05), nibble_from_hexdigit(c)),
+                '6' => assert_eq!(Some(0x06), nibble_from_hexdigit(c)),
+                '7' => assert_eq!(Some(0x07), nibble_from_hexdigit(c)),
+                '8' => assert_eq!(Some(0x08), nibble_from_hexdigit(c)),
+                '9' => assert_eq!(Some(0x09), nibble_from_hexdigit(c)),
+                'A' => assert_eq!(Some(0x0A), nibble_from_hexdigit(c)),
+                'B' => assert_eq!(Some(0x0B), nibble_from_hexdigit(c)),
+                'C' => assert_eq!(Some(0x0C), nibble_from_hexdigit(c)),
+                'D' => assert_eq!(Some(0x0D), nibble_from_hexdigit(c)),
+                'E' => assert_eq!(Some(0x0E), nibble_from_hexdigit(c)),
+                'F' => assert_eq!(Some(0x0F), nibble_from_hexdigit(c)),
+                'a' => assert_eq!(Some(0x0A), nibble_from_hexdigit(c)),
+                'b' => assert_eq!(Some(0x0B), nibble_from_hexdigit(c)),
+                'c' => assert_eq!(Some(0x0C), nibble_from_hexdigit(c)),
+                'd' => assert_eq!(Some(0x0D), nibble_from_hexdigit(c)),
+                'e' => assert_eq!(Some(0x0E), nibble_from_hexdigit(c)),
+                'f' => assert_eq!(Some(0x0F), nibble_from_hexdigit(c)),
+                _ => assert_eq!(None, nibble_from_hexdigit(c)),
+            }
+        }
     }
 }
