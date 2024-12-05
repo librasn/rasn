@@ -1,14 +1,14 @@
-#![cfg_attr(not(test), no_std)]
 extern crate alloc;
+use crate::ts103097::extension_module::*;
 use bon::Builder;
 use rasn::error::InnerSubtypeConstraintError;
 use rasn::prelude::*;
+
+/// IEEE 1609.2 Base Types
+/// Based on https://forge.etsi.org/rep/ITS/asn1/ieee1609.2
 pub mod base_types;
 pub mod crl_base_types;
-use crate::base_types::*;
-use rasn_etsi_ts103097_extensions::{
-    EtsiOriginatingHeaderInfoExtension, ExtId, ExtType, Extension,
-};
+use base_types::*;
 
 /// OID for IEEE 1609.2 module
 pub const IEEE1609_DOT2_OID: &Oid = Oid::const_new(&[
@@ -2131,5 +2131,23 @@ mod tests {
                 0x46, 0x47, 0x48, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48
             ]
         );
+    }
+    #[test]
+    fn sample_choice() {
+        pub type Uint16 = u16;
+        #[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq)]
+        #[rasn(choice, automatic_tags)]
+        pub enum Duration {
+            Microseconds(Uint16),
+            Milliseconds(Uint16),
+            Seconds(Uint16),
+            Minutes(Uint16),
+            Hours(Uint16),
+            SixtyHours(Uint16),
+            Years(Uint16),
+        }
+        let duration = Duration::Hours(10);
+        let output = rasn::coer::encode(&duration).unwrap();
+        dbg!(&output);
     }
 }
