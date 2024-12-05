@@ -1,10 +1,8 @@
-//! IEEE 1609.2 Base Types
-//! Based on https://forge.etsi.org/rep/ITS/asn1/ieee1609.2
 extern crate alloc;
 use crate::delegate;
+use crate::ts103097::extension_module::ExtId;
 use bon::Builder;
 use rasn::prelude::*;
-use rasn_etsi_ts103097_extensions::ExtId;
 
 /// OID for IEEE 1609.2 Base Types module
 pub const IEEE1609_DOT2_BASE_TYPES_OID: &Oid = Oid::const_new(&[
