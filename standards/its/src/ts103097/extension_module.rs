@@ -1,4 +1,3 @@
-#![cfg_attr(not(test), no_std)]
 extern crate alloc;
 use bon::Builder;
 use rasn::prelude::*;

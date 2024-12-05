@@ -1,6 +1,6 @@
 [package]
-name = "rasn-etsi-ts103097-extensions"
-description = "ASN.1 definitions for ETSI TS 103 097 extension module"
+name = "rasn-its"
+description = "rasn implementations of Intelligent Transport Systems (ITS) ASN.1 specifications for vehicle-to-everything (V2X) communications."
 edition.workspace = true
 license.workspace = true
 version.workspace = true
@@ -8,10 +8,7 @@ repository.workspace = true
 
 [dependencies]
 bon = { version = "3.1.1", default-features = false }
-
-[dependencies.rasn]
-version = "0.22"
-path = "../.."
+rasn = { version = "0.22", path = "../.." }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
