@@ -978,7 +978,7 @@ dependencies = [
  "pretty_assertions",
  "rasn-compiler",
  "rasn-derive",
- "rasn-ieee1609dot2",
+ "rasn-its",
  "rasn-pkix",
  "rustls-webpki",
  "serde_json",
@@ -1075,26 +1075,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rasn-etsi-ts103097"
-version = "0.22.0"
-dependencies = [
- "bon",
- "pretty_assertions",
- "rasn",
- "rasn-etsi-ts103097-extensions",
- "rasn-ieee1609dot2",
-]
-
-[[package]]
-name = "rasn-etsi-ts103097-extensions"
-version = "0.22.0"
-dependencies = [
- "bon",
- "pretty_assertions",
- "rasn",
-]
-
-[[package]]
 name = "rasn-h282"
 version = "0.22.0"
 dependencies = [
@@ -1102,13 +1082,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "rasn-ieee1609dot2"
+name = "rasn-its"
 version = "0.22.0"
 dependencies = [
  "bon",
  "pretty_assertions",
  "rasn",
- "rasn-etsi-ts103097-extensions",
 ]
 
 [[package]]
