@@ -5,8 +5,9 @@ use rasn::error::InnerSubtypeConstraintError;
 use rasn::prelude::*;
 
 /// IEEE 1609.2 Base Types
-/// Based on https://forge.etsi.org/rep/ITS/asn1/ieee1609.2
+/// Based on <https://forge.etsi.org/rep/ITS/asn1/ieee1609.2>
 pub mod base_types;
+/// IEEE 1609.2 CRL Base Types
 pub mod crl_base_types;
 use base_types::*;
 
@@ -296,7 +297,7 @@ pub enum HashedData {
 /// - `requested_certificate`: Provides certificates for inline P2PCD (Clause 8)
 ///
 /// - `pdu_functional_type`: Indicates SPDU consumption by non-application process
-///   (ISO 21177 [B14a], see 6.3.23b)
+///   (ISO 21177 B14a, see 6.3.23b)
 ///
 /// - `contributed_extensions`: Additional extensions using `ContributedExtensionBlocks`
 ///
@@ -356,19 +357,19 @@ pub struct MissingCrlIdentifier {
 
 /// Identifies the functional entity intended to consume an SPDU, specifically for
 /// security support services rather than application processes.
-/// Further details defined in ISO 21177 [B20].
+/// Further details defined in ISO 21177 B20.
 ///
 /// # Values
 /// - `1`: TLS Handshake
 ///   - Not for direct application PDU consumption
 ///   - Used for securing communications to application process
 ///   - Provides holder's permissions to TLS handshake
-///   - References: IETF 5246 [B15], IETF 8446 [B16], ISO 21177 [B20]
+///   - References: IETF 5246 B15, IETF 8446 B16, ISO 21177 B20
 ///
 /// - `2`: ISO 21177 Extended Auth
 ///   - Not for direct application PDU consumption
 ///   - Provides additional holder permissions information
-///   - See ISO 21177 [B20] for details
+///   - See ISO 21177 B20 for details
 ///
 /// - `3`: ISO 21177 Session Extension
 ///   - Not for direct application PDU consumption

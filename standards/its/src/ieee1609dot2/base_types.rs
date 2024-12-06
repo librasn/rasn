@@ -651,7 +651,7 @@ delegate!(
 /// provided in individual field documentation.
 ///
 /// # Compatibility Note
-/// The units used in this structure are consistent with SAE J2735 [B26] location
+/// The units used in this structure are consistent with SAE J2735 B26 location
 /// data structures, though the encoding is incompatible.
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
