@@ -1,5 +1,5 @@
 extern crate alloc;
-use crate::ieee1609dot2::base_types::{
+use super::base_types::{
     CrlSeries, HashedId10, HashedId8, IValue, LaId, LinkageSeed, SequenceOfLinkageSeed, Time32,
     Uint16, Uint32, Uint8,
 };

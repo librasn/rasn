@@ -116,7 +116,7 @@ iai-callgrind = "0.14.0"
 once_cell = "1.20.2"
 pretty_assertions.workspace = true
 rasn-pkix = { path = "standards/pkix" }
-rasn-ieee1609dot2 = { path = "standards/ieee1609dot2" }
+rasn-its = { path = "standards/its" }
 
 # Assume that we need these dependencies only when benching manually on specific targets
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dev-dependencies]

@@ -1,3 +1,4 @@
+/// ASN.1 definitions for ETSI TS 103 097 extension module
 pub mod extension_module;
 
 use rasn::prelude::*;

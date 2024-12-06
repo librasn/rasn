@@ -1,6 +1,6 @@
 [package]
 name = "rasn-its"
-description = "rasn implementations of Intelligent Transport Systems (ITS) ASN.1 specifications for vehicle-to-everything (V2X) communications."
+description = "ASN.1 implementations for Intelligent Transport Systems (ITS) V2X communications"
 edition.workspace = true
 license.workspace = true
 version.workspace = true

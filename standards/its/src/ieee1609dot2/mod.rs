@@ -430,6 +430,11 @@ impl HeaderInfoContributedExtension for EtsiOriginatingHeaderInfoExtension {
 #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
 pub struct Ieee1609ContributedHeaderInfoExtension(pub Extension<Ieee1609HeaderInfoExtensions>);
 
+delegate!(
+    Extension<Ieee1609HeaderInfoExtensions>,
+    Ieee1609ContributedHeaderInfoExtension
+);
+
 /// Defines the format of an extension block provided by an identified contributor.
 ///
 /// Uses the template from `IEEE1609DOT2-HEADERINFO-CONTRIBUTED-EXTENSION` class
@@ -799,7 +804,6 @@ pub enum SymmetricCiphertext {
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
 pub struct One28BitCcmCiphertext {
-    #[rasn(size("12"))]
     pub nonce: FixedOctetString<12>,
     #[rasn(identifier = "ccmCiphertext")]
     pub ccm_ciphertext: Opaque,
@@ -1137,7 +1141,7 @@ pub struct ToBeSignedCertificate {
     pub encryption_key: Option<PublicEncryptionKey>,
     #[rasn(identifier = "verifyKeyIndicator")]
     pub verify_key_indicator: VerificationKeyIndicator,
-    #[rasn(extension_addition, size("8"))]
+    #[rasn(extension_addition)]
     pub flags: Option<FixedBitString<8>>,
     #[rasn(extension_addition, identifier = "appExtensions")]
     pub app_extensions: Option<SequenceOfAppExtensions>,

@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use rasn::prelude::*;
-use rasn_ieee1609dot2::base_types::*;
-use rasn_ieee1609dot2::*;
+use rasn_its::ieee1609dot2::base_types::*;
+use rasn_its::ieee1609dot2::*;
 
 pub fn build_sample() -> Ieee1609Dot2Data {
     Ieee1609Dot2Data::builder()

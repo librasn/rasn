@@ -748,8 +748,9 @@ delegate!(NinetyDegreeInt, KnownLatitude);
 pub struct UnknownLatitude(NinetyDegreeInt);
 
 impl UnknownLatitude {
+    pub const UNKNOWN: NinetyDegreeInt = NinetyDegreeInt(900_000_001);
     pub const fn new() -> Self {
-        Self(NinetyDegreeInt(900_000_001))
+        Self(Self::UNKNOWN)
     }
 }
 
@@ -838,9 +839,10 @@ delegate!(OneEightyDegreeInt, KnownLongitude);
 pub struct UnknownLongitude(OneEightyDegreeInt);
 
 impl UnknownLongitude {
+    pub const UNKNOWN: OneEightyDegreeInt = OneEightyDegreeInt(1_800_000_001);
     /// Creates a new UnknownLongitude instance
     pub const fn new() -> Self {
-        Self(OneEightyDegreeInt(1_800_000_001))
+        Self(Self::UNKNOWN)
     }
 }
 impl Default for UnknownLongitude {
@@ -920,7 +922,7 @@ pub enum Signature {
 pub struct EcdsaP256Signature {
     #[rasn(identifier = "rSig")]
     pub r_sig: EccP256CurvePoint,
-    #[rasn(size("32"), identifier = "sSig")]
+    #[rasn(identifier = "sSig")]
     pub s_sig: FixedOctetString<32>,
 }
 
@@ -960,7 +962,7 @@ pub struct EcdsaP256Signature {
 pub struct EcdsaP384Signature {
     #[rasn(identifier = "rSig")]
     pub r_sig: EccP384CurvePoint,
-    #[rasn(size("48"), identifier = "sSig")]
+    #[rasn(identifier = "sSig")]
     pub s_sig: FixedOctetString<48>,
 }
 /// Represents an elliptic curve signature where the component r is constrained
@@ -968,9 +970,9 @@ pub struct EcdsaP384Signature {
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
 pub struct EcsigP256Signature {
-    #[rasn(size("32"), identifier = "rSig")]
+    #[rasn(identifier = "rSig")]
     pub r_sig: FixedOctetString<32>,
-    #[rasn(size("32"), identifier = "sSig")]
+    #[rasn(identifier = "sSig")]
     pub s_sig: FixedOctetString<32>,
 }
 /// Specifies a point on an elliptic curve in Weierstrass form defined over a
@@ -999,12 +1001,12 @@ pub struct EcsigP256Signature {
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice, automatic_tags)]
 pub enum EccP256CurvePoint {
-    #[rasn(size("32"), identifier = "x-only")]
+    #[rasn(identifier = "x-only")]
     XOnly(FixedOctetString<32>),
     Fill(()),
-    #[rasn(size("32"), identifier = "compressed-y-0")]
+    #[rasn(identifier = "compressed-y-0")]
     CompressedY0(FixedOctetString<32>),
-    #[rasn(size("32"), identifier = "compressed-y-1")]
+    #[rasn(identifier = "compressed-y-1")]
     CompressedY1(FixedOctetString<32>),
     #[rasn(identifier = "uncompressedP256")]
     Uncompressed(EccP256CurvePointUncompressedP256),
@@ -1013,9 +1015,7 @@ pub enum EccP256CurvePoint {
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
 pub struct EccP256CurvePointUncompressedP256 {
-    #[rasn(size("32"))]
     pub x: FixedOctetString<32>,
-    #[rasn(size("32"))]
     pub y: FixedOctetString<32>,
 }
 /// Specifies a point on an elliptic curve in Weierstrass form defined over a
@@ -1042,12 +1042,12 @@ pub struct EccP256CurvePointUncompressedP256 {
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(choice, automatic_tags)]
 pub enum EccP384CurvePoint {
-    #[rasn(size("48"), identifier = "x-only")]
+    #[rasn(identifier = "x-only")]
     XOnly(FixedOctetString<48>),
     Fill(()),
-    #[rasn(size("48"), identifier = "compressed-y-0")]
+    #[rasn(identifier = "compressed-y-0")]
     CompressedY0(FixedOctetString<48>),
-    #[rasn(size("48"), identifier = "compressed-y-1")]
+    #[rasn(identifier = "compressed-y-1")]
     CompressedY1(FixedOctetString<48>),
     #[rasn(identifier = "uncompressedP384")]
     Uncompressed(EccP384CurvePointUncompressedP384),
@@ -1056,9 +1056,7 @@ pub enum EccP384CurvePoint {
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
 pub struct EccP384CurvePointUncompressedP384 {
-    #[rasn(size("48"))]
     pub x: FixedOctetString<48>,
-    #[rasn(size("48"))]
     pub y: FixedOctetString<48>,
 }
 /// Indicates supported symmetric algorithms and their modes of operation.
@@ -1121,9 +1119,7 @@ pub enum HashAlgorithm {
 #[rasn(automatic_tags)]
 pub struct EciesP256EncryptedKey {
     pub v: EccP256CurvePoint,
-    #[rasn(size("16"))]
     pub c: FixedOctetString<16>,
-    #[rasn(size("16"))]
     pub t: FixedOctetString<16>,
 }
 
@@ -1145,9 +1141,7 @@ pub struct EciesP256EncryptedKey {
 #[rasn(automatic_tags)]
 pub struct EcencP256EncryptedKey {
     pub v: EccP256CurvePoint,
-    #[rasn(size("16"))]
     pub c: FixedOctetString<16>,
-    #[rasn(size("32"))]
     pub t: FixedOctetString<32>,
 }
 /// Contains an encryption key, which may be either public or symmetric.
@@ -1247,9 +1241,8 @@ pub enum PublicVerificationKey {
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum SymmetricEncryptionKey {
-    #[rasn(size("16"))]
     Aes128Ccm(FixedOctetString<16>),
-    #[rasn(extension_addition, size("16"))]
+    #[rasn(extension_addition)]
     Sm4Ccm(FixedOctetString<16>),
 }
 
@@ -1552,9 +1545,8 @@ delegate!(FixedOctetString<9usize>, LinkageValue);
 #[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
 #[rasn(automatic_tags)]
 pub struct GroupLinkageValue {
-    #[rasn(size("4"), identifier = "jValue")]
+    #[rasn(identifier = "jValue")]
     pub j_value: FixedOctetString<4>,
-    #[rasn(size("9"))]
     pub value: FixedOctetString<9>,
 }
 
