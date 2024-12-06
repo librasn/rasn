@@ -89,16 +89,16 @@ nom-bitvec = { package = "bitvec-nom2", version = "0.2.1" }
 num-bigint = { version = "0.4.6", default-features = false }
 num-traits = { version = "0.2.19", default-features = false }
 num-integer = { version = "0.1.46", default-features = false, features = [
-    "i128",
+  "i128",
 ] }
 once_cell = { version = "1.20.2", default-features = false, features = [
-    "race",
-    "alloc",
+  "race",
+  "alloc",
 ] }
 rasn-compiler = { version = "0.7", optional = true }
 rasn-derive = { version = "0.26", path = "macros" }
 snafu = { version = "0.8.5", default-features = false, features = [
-    "rust_1_81",
+  "rust_1_81",
 ] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 xml-no-std = "0.8.19"
@@ -106,15 +106,15 @@ xml-no-std = "0.8.19"
 [dev-dependencies]
 asn1 = "=0.20.0"
 criterion = { version = "0.5.1", default-features = false, features = [
-    "plotters",
-    "cargo_bench_support",
+  "plotters",
+  "cargo_bench_support",
 ] }
 cryptography-x509 = { git = "https://github.com/pyca/cryptography.git", tag = "44.0.2" }
 iai-callgrind = "0.14.0"
 once_cell = "1.20.2"
 pretty_assertions.workspace = true
 rasn-pkix = { path = "standards/pkix" }
-rasn-ieee1609dot2 = { path = "standards/ieee1609dot2" }
+rasn-its = { path = "standards/its" }
 
 # Assume that we need these dependencies only when benching manually on specific targets
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dev-dependencies]
