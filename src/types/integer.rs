@@ -5,7 +5,7 @@ use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{identities::Zero, Signed, ToBytes, ToPrimitive};
 use num_traits::{CheckedAdd, CheckedSub};
 
-/// `Integer`` enum is variable-sized non-constrained integer type which uses `isize` for lower values to optimize performance.
+/// `Integer` enum is variable-sized non-constrained integer type which uses [`isize`] for lower values to optimize performance.
 #[derive(Debug, Clone, Ord, PartialOrd)]
 #[allow(missing_docs)]
 pub enum Integer {
