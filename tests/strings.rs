@@ -1,6 +1,6 @@
 use bitvec::prelude::*;
 use rasn::prelude::*;
-use rasn::{ber, jer, oer, uper};
+use rasn::{aper, ber, jer, oer, uper};
 
 #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
 #[rasn(automatic_tags)]
@@ -325,5 +325,134 @@ fn test_jer_octetstring_dec() {
                 decoded.the_string.len()
             );
         }
+    }
+}
+
+// Tests that OctetStrings are encoded and decoded correctly (APER, UPER).
+const BYTE_ARRAYS: &[&[u8]] = &[
+    &[],
+    &[0x00; 1],
+    &[0x00; 2],
+    &[0x0F; 1],
+    &[0xFF; 1],
+    &[0xFF; 2],
+    &[0x00; 10],
+    &[0x00; 100],
+    &[0x00; 128],
+    &[0x00; 200],
+    &[0x01, 0x23],
+    &[0xAB, 0xCD],
+    &[0xAB, 0xCD, 0xEF],
+    &[0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF],
+    &[0x00; 255],
+    &[0x0F; 255],
+    &[0xFF; 255],
+    &[0x00; 256],
+    &[0x0F; 256],
+    &[0xFF; 256],
+    &[0x00; 16383],
+    &[0x0F; 16383],
+    &[0xFF; 16383],
+];
+
+#[test]
+fn test_per_encode_octet_string() {
+    for case in BYTE_ARRAYS {
+        let length = case.len(); // number of bytes
+        let mut buf_expected: Vec<u8> = Vec::new();
+        if length < 128 {
+            // X.691, 11.9.a)
+            buf_expected.push(length as u8);
+        } else if length < 16384 {
+            // X.691, 11.9.b)
+            let length = (length as u16).to_be_bytes();
+            buf_expected.push(0b10000000 | length[0]);
+            buf_expected.push(length[1]);
+        } else {
+            // X.691, 11.9.c)
+            todo!("implement chunk generation");
+        }
+        buf_expected.extend_from_slice(case);
+
+        let bytes = OctetString::copy_from_slice(case);
+        assert_eq!(buf_expected, aper::encode::<OctetString>(&bytes).unwrap());
+        assert_eq!(buf_expected, uper::encode::<OctetString>(&bytes).unwrap());
+
+        assert_eq!(*case, aper::decode::<OctetString>(&buf_expected).unwrap());
+        assert_eq!(*case, uper::decode::<OctetString>(&buf_expected).unwrap());
+    }
+}
+
+// Tests that UTF8Strings are encoded and decoded correctly (APER, UPER).
+const UTF8_STRINGS: &[&str] = &[
+    "",
+    "Hello World!",
+    "Hello World! 🌍",
+    "こんにちは世界！",
+    "你好世界！",
+    "안녕하세요!",
+    "مرحبا بالعالم!",
+    "હેલો વિશ્વ!",
+    "привіт світ!",
+    " ",
+    "!",
+    "0",
+    " 0",
+    "0 ",
+    "0!",
+    "  ",
+    "000",
+    "Œ",
+    "ŒŒ",
+    "ŒŒŒ",
+    "ABCDEFG",
+    " ABCDEF",
+    "åäö",
+    "\0",
+    "\n",
+    "\r\nASN.1",
+    "\u{0000}",
+    "\u{0001}",
+    "\u{FFFF}",
+    "\u{0123}",
+    "\u{30}",
+    "\\u0030",
+    "\\u202E\\u0030\\u0030",
+    "⣐⡄",
+    "😎",
+    "🙈🙉🙊",
+    "👭👩🏻‍🤝‍👨🏾🧑🏿‍🤝‍🧑🏼",
+];
+
+#[test]
+fn test_per_encode_utf8_string() {
+    for case in UTF8_STRINGS {
+        let case = case.to_string();
+        // The X.691 spec, chapter 11.9, says determinant should be the number
+        // of characters, but for UTF-8 this is a non-trivial operation and
+        // dependant on the supported Unicode release. Actual implementations
+        // seem to interpret the spec as "number of octets" instead - which is
+        // reasonable (see `asn1tools` for example).
+        let length = case.len(); // number of bytes
+        let mut buf_expected: Vec<u8> = Vec::new();
+        if length < 128 {
+            // X.691, 11.9.a)
+            buf_expected.push(length as u8);
+        } else if length < 16384 {
+            // X.691, 11.9.b)
+            let length = length.to_le_bytes();
+            buf_expected.push(0b10000000 | length[1]);
+            buf_expected.push(length[0]);
+        } else {
+            // X.691, 11.9.c)
+            todo!("implement chunk generation");
+        }
+        buf_expected.extend_from_slice(case.as_bytes());
+
+        assert_eq!(buf_expected, aper::encode::<Utf8String>(&case).unwrap());
+        assert_eq!(buf_expected, uper::encode::<Utf8String>(&case).unwrap());
+
+        assert_eq!(case, aper::decode::<Utf8String>(&buf_expected).unwrap());
+        assert_eq!(case, uper::decode::<Utf8String>(&buf_expected).unwrap());
     }
 }
