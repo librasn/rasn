@@ -613,8 +613,8 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             self.encode_length(buffer, value.len(), <_>::default(), |range| {
                 Ok(BitString::from_slice(&value[range]))
             })?;
-        } else if 0 == size.constraint.effective_value(value.len()).into_inner() {
-            // NO-OP
+        } else if Some(0) == size.constraint.range() {
+            // ITU-T X.691 (02/2021) §11.9.3.3: If "n" is zero there shall be no further addition to the field-list.
         } else if size.constraint.range() == Some(1) && size.constraint.as_start() <= Some(&2) {
             // ITU-T X.691 (02/2021) §17 NOTE: Octet strings of fixed length less than or equal to two octets are not octet-aligned.
             // All other octet strings are octet-aligned in the ALIGNED variant.
