@@ -10,7 +10,7 @@ pub use bytes::Bytes as OctetString;
 /// An `OCTET STRING` which has a fixed size range. This type uses const
 /// generics to be able to place the octet string on the stack rather than the
 /// heap.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FixedOctetString<const N: usize>([u8; N]);
 
 impl<const N: usize> FixedOctetString<N> {
