@@ -641,7 +641,7 @@ impl<T: Decode + Eq + core::hash::Hash> Decode for SetOf<T> {
     }
 }
 
-impl<T: Decode + Default, const N: usize> Decode for [T; N] {
+impl<T: Decode, const N: usize> Decode for [T; N] {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
