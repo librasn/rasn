@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 +
 +## [Unreleased]
 
+## [0.22.1](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.22.0...rasn-derive-impl-v0.22.1) - 2025-01-03
+
+### Fixed
+
+- *(derive)* use `const` blocks and add generic bounds when generating an enum's `AsnType` impl (#398)
+
+### Other
+
+- OER: remove nom usage, improve errors (#384)
+
 ## [0.22.0](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.21.0...rasn-derive-impl-v0.22.0) - 2024-11-26
 
 ### Other

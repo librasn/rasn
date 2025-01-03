@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1](https://github.com/librasn/rasn/compare/rasn-cdt-v0.22.0...rasn-cdt-v0.22.1) - 2025-01-03
+
+### Other
+
+- OER: remove nom usage, improve errors (#384)
+
 ## [0.8.0](https://github.com/XAMPPRocky/rasn/compare/rasn-cap-v0.7.0...rasn-cap-v0.8.0) - 2023-07-11
 
 ### Other
