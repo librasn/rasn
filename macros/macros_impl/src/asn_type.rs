@@ -62,7 +62,7 @@ pub fn derive_struct_impl(
                 paren_token: Some(<_>::default()),
                 modifier: syn::TraitBoundModifier::None,
                 lifetimes: None,
-                path: syn::parse_str("rasn::AsnType").unwrap(),
+                path: syn::parse_quote!(#crate_root::AsnType),
             }));
     }
 

@@ -39,10 +39,10 @@ impl Enum {
 
             quote! {
                 {
-                    const VARIANT_LIST: &'static [#crate_root::types::TagTree] = &[#(#field_tags),*];
-                    const VARIANT_TAG_TREE: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(VARIANT_LIST);
-                    const _: () = assert!(VARIANT_TAG_TREE.is_unique(), #error_message);
-                    VARIANT_TAG_TREE
+                    let variant_list: &'static [#crate_root::types::TagTree] = const { &[#(#field_tags),*] };
+                    let variant_tag_tree: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(variant_list);
+                    assert!(variant_tag_tree.is_unique(), #error_message);
+                    variant_tag_tree
                 }
             }
         } else {
@@ -50,13 +50,24 @@ impl Enum {
         };
 
         let name = &self.name;
-        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
+        let mut generics = self.generics.clone();
+
+        for param in &mut generics.params {
+            if let syn::GenericParam::Type(type_param) = param {
+                type_param
+                    .bounds
+                    .push(syn::parse_quote!(#crate_root::AsnType));
+            }
+        }
+
+        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
         let return_val = self
             .config
             .tag
             .is_some()
             .then(|| quote!(#crate_root::types::TagTree::Leaf(Self::TAG)))
-            .unwrap_or_else(|| quote!(TAG_TREE));
+            .unwrap_or_else(|| quote!(tag_tree));
 
         let (base_variants, extended_variants): (Vec<_>, Vec<_>) = self
             .variants
@@ -174,10 +185,12 @@ impl Enum {
                 const TAG: #crate_root::types::Tag = {
                     #tag
                 };
-                const TAG_TREE: #crate_root::types::TagTree = {
-                    const LIST: &'static [#crate_root::types::TagTree] = &[#tag_tree];
-                    const TAG_TREE: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(LIST);
-                    const _: () = assert!(TAG_TREE.is_unique(), #error_message);
+                const TAG_TREE: #crate_root::types::TagTree = const {
+                    let list: &'static [#crate_root::types::TagTree] = const {
+                        &[#tag_tree]
+                    };
+                    let tag_tree: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(list);
+                    assert!(tag_tree.is_unique(), #error_message);
                     #return_val
                 };
                 #alt_identifier
