@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.1](https://github.com/librasn/rasn/compare/rasn-v0.22.0...rasn-v0.22.1) - 2025-01-03
+
+### Fixed
+
+- *(derive)* use `const` blocks and add generic bounds when generating an enum's `AsnType` impl (#398)
+- add missing `Copy` impl to `FixedOctetString<N>` (#396)
+- remove `Default` bound from `[T; N]`'s `Decode` impl (#395)
+- Fix PER encoding of empty octet strings missing the length determinant (#393)
+- FixedBitString might work as expected (#385)
+
+### Other
+
+- fix accidental double backtick in `Integer` docs (#394)
+- Fix panic in the JER OctetString decoder if the string isn't even length ([#382](https://github.com/librasn/rasn/pull/382))
+- oer: format! in error messages has too much impact (#387)
+- Add `decode_with_remainder` for decoding stream (#386)
+- OER: remove nom usage, improve errors (#384)
+- Remove trails of BitSlice and unnecessary length checks ([#381](https://github.com/librasn/rasn/pull/381))
+- use shifting to construct primitive integers (#379)
+
 ## [0.21.0](https://github.com/librasn/rasn/compare/rasn-v0.20.2...rasn-v0.21.0) - 2024-11-12
 
 ### Added
