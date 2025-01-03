@@ -144,6 +144,13 @@ pub enum ExplicitChoice {
     ByKey,
 }
 
+#[derive(AsnType, Decode, Encode)]
+#[rasn(choice)]
+pub enum GenericEnum<T: Clone, const N: usize> {
+    FixedString(FixedOctetString<N>),
+    Sequence(Vec<T>),
+}
+
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BasicConstraints {
     #[rasn(default)]
