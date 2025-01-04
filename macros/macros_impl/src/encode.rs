@@ -1,11 +1,11 @@
-use crate::{config::*, ext::GenericsExt};
+use crate::config::*;
 
 pub fn derive_struct_impl(
-    name: syn::Ident,
-    mut generics: syn::Generics,
+    name: &syn::Ident,
+    generics: syn::Generics,
     container: syn::DataStruct,
     config: &Config,
-) -> proc_macro2::TokenStream {
+) -> syn::Result<proc_macro2::TokenStream> {
     let crate_root = &config.crate_root;
 
     let mut field_encodings = Vec::with_capacity(container.fields.len());
@@ -25,8 +25,8 @@ pub fn derive_struct_impl(
 
     // Count the number of root and extended fields so that encoder can know the number of fields in advance
     for (i, field) in container.fields.iter().enumerate() {
-        let field_config = FieldConfig::new(field, config);
-        let field_encoding = field_config.encode(i, true, &type_params);
+        let field_config = FieldConfig::new(field, config, i)?;
+        let field_encoding = field_config.encode(true, &type_params)?;
 
         if field_config.is_extension() {
             number_extended_fields += 1;
@@ -39,7 +39,6 @@ pub fn derive_struct_impl(
         });
     }
 
-    generics.add_trait_bounds(crate_root, quote::format_ident!("Encode"));
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let encode_impl = if config.delegate {
@@ -93,8 +92,8 @@ pub fn derive_struct_impl(
 
         if config.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
             map_to_inner_type(
-                config.tag.clone().unwrap(),
-                &name,
+                config.tag.as_ref().unwrap(),
+                name,
                 &container.fields,
                 &generics,
                 crate_root,
@@ -106,7 +105,7 @@ pub fn derive_struct_impl(
     };
 
     let vars = fields_as_vars(&container.fields);
-    quote! {
+    Ok(quote! {
         #[allow(clippy::mutable_key_type)]
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
             fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<(), EN::Error> {
@@ -115,11 +114,11 @@ pub fn derive_struct_impl(
                 #encode_impl
             }
         }
-    }
+    })
 }
 
 pub fn map_to_inner_type(
-    tag: crate::tag::Tag,
+    tag: &crate::tag::Tag,
     name: &syn::Ident,
     fields: &syn::Fields,
     generics: &syn::Generics,
