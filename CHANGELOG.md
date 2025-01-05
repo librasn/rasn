@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.2](https://github.com/librasn/rasn/compare/rasn-v0.22.1...rasn-v0.22.2) - 2025-01-05
+
+### Other
+
+- Better error messages for derives ([#400](https://github.com/librasn/rasn/pull/400))
+
 ## [0.22.1](https://github.com/librasn/rasn/compare/rasn-v0.22.0...rasn-v0.22.1) - 2025-01-03
 
 ### Fixed
