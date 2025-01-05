@@ -1,18 +1,24 @@
 use syn::Fields;
 
-use crate::{config::*, ext::GenericsExt};
+use crate::config::*;
 
 #[allow(clippy::too_many_lines)]
 pub fn derive_struct_impl(
-    name: syn::Ident,
-    mut generics: syn::Generics,
+    name: &syn::Ident,
+    generics: syn::Generics,
     container: syn::DataStruct,
     config: &Config,
-) -> proc_macro2::TokenStream {
+) -> syn::Result<proc_macro2::TokenStream> {
     let mut list = vec![];
     let crate_root = &config.crate_root;
-    generics.add_trait_bounds(crate_root, quote::format_ident!("Decode"));
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    let field_configs = container
+        .fields
+        .iter()
+        .enumerate()
+        .map(|(i, field)| FieldConfig::new(field, config, i))
+        .collect::<Result<Vec<_>, _>>()?;
 
     let decode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
@@ -58,28 +64,30 @@ pub fn derive_struct_impl(
             }
         }
     } else if config.set {
-        if container.fields.is_empty() {
-            panic!("`struct`s without any fields are not currently supported as `set`s.")
+        if field_configs.is_empty() {
+            return Err(syn::Error::new(
+                name.span(),
+                "struct without fields not allowed to be a `set`",
+            ));
         }
-        let field_names = container.fields.iter().map(|field| field.ident.clone());
+        let field_names = field_configs
+            .iter()
+            .map(|config| config.field.ident.clone());
         let field_names2 = field_names.clone();
         let mut count_extended_fields: usize = 0;
         let mut count_root_fields: usize = 0;
-        let required_field_names = container
-            .fields
+        let required_field_names = field_configs
             .iter()
-            .filter(|field| !FieldConfig::new(field, config).is_option_type())
-            .map(|field| field.ident.clone());
-        let (field_type_names, field_type_defs): (Vec<_>, Vec<_>) = container
-            .fields
+            .filter(|config| !config.is_option_type())
+            .map(|config| config.field.ident.clone());
+
+        let (field_type_names, field_type_defs): (Vec<_>, Vec<_>) = field_configs
             .iter()
-            .enumerate()
-            .map(|(i, field)| {
-                let ty = map_to_inner_type(&field.ty).unwrap_or(&field.ty);
-                let config = FieldConfig::new(field, config);
-                let tag_attr = config.tag_derive(i);
+            .map(|config| {
+                let ty = map_to_inner_type(&config.field.ty).unwrap_or(&config.field.ty);
+                let tag_attr = config.tag_derive();
                 let constraints = config.constraints.attribute_tokens();
-                let name = quote::format_ident!("Field{}", i);
+                let name = quote::format_ident!("Field{}", config.context);
                 let ty = if config.extension_addition || config.extension_addition_group {
                     count_extended_fields += 1;
                     quote!(Option<#ty>)
@@ -117,13 +125,12 @@ pub fn derive_struct_impl(
             syn::Fields::Named(_) => quote!({ #(#field_names2),* }),
         };
 
-        let (field_const_defs, field_match_arms, field_set_arms): (Vec<_>, Vec<_>, Vec<_>) = itertools::multiunzip(container.fields
+        let (field_const_defs, field_match_arms, field_set_arms): (Vec<_>, Vec<_>, Vec<_>) = itertools::multiunzip(field_configs
             .iter()
             .enumerate()
             .zip(field_type_names)
-            .map(|((context, field), field_name)| {
-                let config = FieldConfig::new(field, config);
-                let tag = config.tag(context);
+            .map(|((context, config), field_name)| {
+                let tag = config.tag();
                 let const_name = quote::format_ident!("{}Const", field_name);
                 let decode_impl = if config.extension_addition {
                     quote!(#field_name(decoder.decode_extension_addition()?))
@@ -132,7 +139,7 @@ pub fn derive_struct_impl(
                 } else {
                     quote!(<_>::decode(decoder)?)
                 };
-                let ident = &field.ident;
+                let ident = &config.field.ident;
 
                 let set_field_impl = if config.extension_addition || config.extension_addition_group {
                     quote! {
@@ -189,9 +196,8 @@ pub fn derive_struct_impl(
         let mut all_fields_optional_or_default = true;
         let mut count_root_fields: usize = 0;
         let mut count_extended_fields: usize = 0;
-        for (i, field) in container.fields.iter().enumerate() {
-            let field_config = FieldConfig::new(field, config);
 
+        for field_config in &field_configs {
             if !field_config.is_option_or_default_type() {
                 all_fields_optional_or_default = false;
             }
@@ -212,7 +218,7 @@ pub fn derive_struct_impl(
                     }
                 })
                 .collect();
-            list.push(field_config.decode_field_def(&name, i, &type_params));
+            list.push(field_config.decode_field_def(name, &type_params)?);
         }
 
         let fields = match container.fields {
@@ -224,21 +230,17 @@ pub fn derive_struct_impl(
         let initializer_fn = if all_fields_optional_or_default {
             let fields = match container.fields {
                 Fields::Named(_) => {
-                    let init_fields = container.fields.iter().map(|field| {
-                        let default_fn = FieldConfig::new(field, config)
-                            .default_fn()
-                            .unwrap_or(quote!(<_>::default));
-                        let name = &field.ident;
+                    let init_fields = field_configs.iter().map(|config| {
+                        let default_fn = config.default_fn().unwrap_or(quote!(<_>::default));
+                        let name = &config.field.ident;
                         quote!(#name : #default_fn ())
                     });
 
                     quote!({ #(#init_fields),* })
                 }
                 Fields::Unnamed(_) => {
-                    let init_fields = container.fields.iter().map(|field| {
-                        let default_fn = FieldConfig::new(field, config)
-                            .default_fn()
-                            .unwrap_or(quote!(<_>::default));
+                    let init_fields = field_configs.iter().map(|config| {
+                        let default_fn = config.default_fn().unwrap_or(quote!(<_>::default));
                         quote!(#default_fn ())
                     });
                     quote!(( #(#init_fields),* ))
@@ -266,7 +268,7 @@ pub fn derive_struct_impl(
             let tag = config.tag_for_struct(&container.fields);
             map_from_inner_type(
                 tag,
-                &name,
+                name,
                 &generics,
                 &container.fields,
                 container.semi_token,
@@ -278,13 +280,13 @@ pub fn derive_struct_impl(
             decode_impl
         };
 
-    quote! {
+    Ok(quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
             fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<Self, D::Error> {
                 #decode_impl
             }
         }
-    }
+    })
 }
 
 #[allow(clippy::too_many_arguments)]

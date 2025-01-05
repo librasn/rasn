@@ -1,18 +1,18 @@
 use itertools::Itertools;
 use quote::ToTokens;
 
-use crate::{config::*, ext::GenericsExt};
+use crate::config::*;
 
-pub struct Enum {
-    pub name: syn::Ident,
-    pub generics: syn::Generics,
-    pub variants: syn::punctuated::Punctuated<syn::Variant, syn::Token![,]>,
-    pub config: Config,
+pub struct Enum<'a> {
+    pub name: &'a syn::Ident,
+    pub generics: &'a syn::Generics,
+    pub variants: &'a syn::punctuated::Punctuated<syn::Variant, syn::Token![,]>,
+    pub config: &'a Config,
 }
 
-impl Enum {
+impl Enum<'_> {
     #[allow(clippy::too_many_lines)]
-    pub fn impl_asntype(&self) -> proc_macro2::TokenStream {
+    pub fn impl_asntype(&self) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.config.crate_root;
 
         let tag = self.config.tag.as_ref().map_or_else(
@@ -30,13 +30,23 @@ impl Enum {
             self.name
         );
 
-        let tag_tree = if self.config.choice {
-            let field_tags = self
-                .variants
-                .iter()
-                .enumerate()
-                .map(|(i, v)| VariantConfig::new(v, &self.generics, &self.config).tag_tree(i));
+        let variant_configs: Vec<_> = self
+            .variants
+            .iter()
+            .enumerate()
+            .map(|(i, v)| VariantConfig::new(v, self.generics, self.config, i))
+            .collect::<Result<Vec<_>, _>>()?;
 
+        let field_tags = if self.config.choice {
+            variant_configs
+                .iter()
+                .map(|config| config.tag_tree())
+                .collect::<Result<Vec<_>, _>>()?
+        } else {
+            Vec::new()
+        };
+
+        let tag_tree = if self.config.choice {
             quote! {
                 {
                     let variant_list: &'static [#crate_root::types::TagTree] = const { &[#(#field_tags),*] };
@@ -50,17 +60,8 @@ impl Enum {
         };
 
         let name = &self.name;
-        let mut generics = self.generics.clone();
 
-        for param in &mut generics.params {
-            if let syn::GenericParam::Type(type_param) = param {
-                type_param
-                    .bounds
-                    .push(syn::parse_quote!(#crate_root::AsnType));
-            }
-        }
-
-        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
         let return_val = self
             .config
@@ -69,34 +70,28 @@ impl Enum {
             .then(|| quote!(#crate_root::types::TagTree::Leaf(Self::TAG)))
             .unwrap_or_else(|| quote!(tag_tree));
 
-        let (base_variants, extended_variants): (Vec<_>, Vec<_>) = self
-            .variants
-            .iter()
-            .enumerate()
-            .partition_map(|(i, variant)| {
-                let config = VariantConfig::new(variant, &self.generics, &self.config);
-                let tag_tree = config.tag_tree(i);
-                if config.extension_addition {
-                    either::Right(tag_tree)
-                } else {
-                    either::Left(tag_tree)
-                }
-            });
-
-        let identifiers = self
-            .variants
+        let identifiers = variant_configs
             .iter()
             .map(|v| {
-                VariantConfig::new(v, &self.generics, &self.config)
-                    .identifier
-                    .unwrap_or(syn::LitStr::new(
-                        &v.ident.to_string(),
-                        proc_macro2::Span::call_site(),
-                    ))
+                v.identifier.clone().unwrap_or_else(|| {
+                    syn::LitStr::new(&v.variant.ident.to_string(), proc_macro2::Span::call_site())
+                })
             })
             .collect_vec();
 
         let constraints_def = self.config.constraints.const_static_def(crate_root);
+
+        let (base_variants, extended_variants): (Vec<_>, Vec<_>) = variant_configs
+            .iter()
+            .zip(field_tags)
+            .partition_map(|(config, field_tag)| {
+                if config.extension_addition {
+                    either::Right(field_tag)
+                } else {
+                    either::Left(field_tag)
+                }
+            });
+
         let extensible = self.config.constraints.extensible;
         let extended_const_variants = extensible
             .then(|| quote!(Some(&[#(#extended_variants),*])))
@@ -136,8 +131,7 @@ impl Enum {
         });
 
         let enumerated_impl = self.config.enumerated.then(|| {
-            let (variants, extended_variants): (Vec<_>, Vec<_>) = self.variants.iter()
-                .map(|variant| VariantConfig::new(variant, &self.generics, &self.config))
+            let (variants, extended_variants): (Vec<_>, Vec<_>) = variant_configs.iter()
                 .partition(|config| !config.extension_addition);
 
             let discriminants = variants.iter().enumerate().map(|(i, config)| {
@@ -180,7 +174,7 @@ impl Enum {
             |id| quote!(const IDENTIFIER: Option<&'static str> = Some(#id);),
         );
 
-        quote! {
+        Ok(quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
                 const TAG: #crate_root::types::Tag = {
                     #tag
@@ -199,32 +193,33 @@ impl Enum {
 
             #choice_impl
             #enumerated_impl
-        }
+        })
     }
 
-    pub fn impl_encode(&self) -> proc_macro2::TokenStream {
+    pub fn impl_encode(&mut self) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.config.crate_root;
-        let mut generics = self.generics.clone();
-        generics.add_trait_bounds(crate_root, quote::format_ident!("Encode"));
 
         let name = &self.name;
-        let encode = self.encode(&generics);
+        let encode = if self.config.choice {
+            Some(self.encode_choice()?)
+        } else {
+            None
+        };
         let encode_with_tag = self.encode_with_tag();
-        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
-        quote! {
+        Ok(quote! {
             #[automatically_derived]
             impl #impl_generics #crate_root::Encode for #name #ty_generics #where_clause {
                 #encode
                 #encode_with_tag
             }
-        }
+        })
     }
 
-    pub fn impl_decode(&self) -> proc_macro2::TokenStream {
+    pub fn impl_decode(&self) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.config.crate_root;
-        let mut generics = self.generics.clone();
-        generics.add_trait_bounds(&self.config.crate_root, quote::format_ident!("Decode"));
+
         let decode_with_tag = if self.config.enumerated {
             quote!(decoder.decode_enumerated(tag))
         } else {
@@ -240,16 +235,13 @@ impl Enum {
 
         let decode_impl = if self.config.has_explicit_tag() {
             let inner_name = quote::format_ident!("Inner{}", self.name);
-            let generics = self.generics.clone();
             let variants = self.variants.clone();
-            let mut config = self.config.clone();
-            config.tag = None;
-            let inner_type = Self {
-                name: inner_name.clone(),
-                generics,
+            let inner_type = InnerEnum {
+                name: inner_name,
+                generics: self.generics.clone(),
                 variants,
-                config,
             };
+            let inner_name = &inner_type.name;
 
             let variant_mapping = inner_type.variants.iter().map(|variant| {
                 let ident = &variant.ident;
@@ -293,12 +285,18 @@ impl Enum {
         };
 
         let name = &self.name;
-        let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+        let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
-        let decode_choice_impl = self.config.choice.then(|| {
-            let decode_ops = self.variants.iter()
+        let decode_choice_impl = if self.config.choice {
+            let decode_ops: Vec<proc_macro2::TokenStream> = self
+                .variants
+                .iter()
                 .enumerate()
-                .map(|(i, v)| VariantConfig::new(v, &generics, &self.config).decode(&self.name, i));
+                .map(|(i, v)| {
+                    VariantConfig::new(v, self.generics, self.config, i)
+                        .map(|config| config.decode(self.name))
+                })
+                .collect::<Result<Result<Vec<_>, _>, _>>()??;
 
             let str_name = syn::LitStr::new(&self.name.to_string(), proc_macro2::Span::call_site());
             let from_tag = quote! {
@@ -306,7 +304,7 @@ impl Enum {
 
                 Err(#crate_root::de::Error::no_valid_choice(#str_name, decoder.codec()))
             };
-            quote! {
+            Some(quote! {
                 #[automatically_derived]
                 impl #impl_generics #crate_root::types::DecodeChoice for #name #ty_generics #where_clause {
                     fn from_tag<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag) -> core::result::Result<Self, D::Error> {
@@ -314,10 +312,12 @@ impl Enum {
                         #from_tag
                     }
                 }
-            }
-        });
+            })
+        } else {
+            None
+        };
 
-        quote! {
+        Ok(quote! {
             #decode_choice_impl
 
             #[automatically_derived]
@@ -328,7 +328,7 @@ impl Enum {
 
                 #decode_impl
             }
-        }
+        })
     }
 
     fn encode_with_tag(&self) -> proc_macro2::TokenStream {
@@ -350,37 +350,42 @@ impl Enum {
         }
     }
 
-    fn encode(&self, generics: &syn::Generics) -> Option<proc_macro2::TokenStream> {
-        if self.config.choice {
-            Some(self.encode_choice(generics))
-        } else {
-            None
-        }
-    }
-
     #[allow(clippy::too_many_lines)]
-    fn encode_choice(&self, generics: &syn::Generics) -> proc_macro2::TokenStream {
+    fn encode_choice(&self) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.config.crate_root;
 
-        let tags = self.variants.iter().enumerate().map(|(i, v)| {
-            let ident = &v.ident;
-            let name = &self.name;
-            let variant_config = VariantConfig::new(v, generics, &self.config);
-            let variant_tag = variant_config.tag(i);
-            let tag_tokens = variant_tag.to_tokens(crate_root);
+        let (variant_configs, (variant_tags, tag_tokens)) = self
+            .variants
+            .iter()
+            .enumerate()
+            .map(|(i, v)| {
+                let variant_config = VariantConfig::new(v, self.generics, self.config, i)?;
+                let variant_tag = variant_config.tag()?;
+                let tag_tokens = variant_tag.to_tokens(crate_root);
+                Ok((variant_config, (variant_tag, tag_tokens)))
+            })
+            .collect::<syn::Result<(Vec<_>, (Vec<_>, Vec<_>))>>()?;
 
-            match &v.fields {
-                syn::Fields::Named(_) => quote!(#name::#ident { .. } => #tag_tokens),
-                syn::Fields::Unnamed(_) => quote!(#name::#ident (_) => #tag_tokens),
-                syn::Fields::Unit => quote!(#name::#ident => #tag_tokens),
-            }
-        });
+        let tags = self
+            .variants
+            .iter()
+            .zip(tag_tokens.iter())
+            .map(|(v, tag_tokens)| {
+                let name = &self.name;
+                let ident = &v.ident;
+
+                match &v.fields {
+                    syn::Fields::Named(_) => quote!(#name::#ident { .. } => #tag_tokens),
+                    syn::Fields::Unnamed(_) => quote!(#name::#ident (_) => #tag_tokens),
+                    syn::Fields::Unit => quote!(#name::#ident => #tag_tokens),
+                }
+            });
         let mut variant_constraints: Vec<proc_macro2::TokenStream> = vec![];
         let variants = self.variants.iter().enumerate().map(|(i, v)| {
             let ident = &v.ident;
             let name = &self.name;
-            let variant_config = VariantConfig::new(v, generics, &self.config);
-            let variant_tag = variant_config.tag(i);
+            let variant_config = &variant_configs[i];
+            let variant_tag = &variant_tags[i];
 
             match &v.fields {
                 syn::Fields::Named(_) => {
@@ -399,7 +404,7 @@ impl Enum {
                         variant_tag,
                         ident,
                         &v.fields,
-                        generics,
+                        self.generics,
                         crate_root,
                         variant_config.has_explicit_tag(),
                     );
@@ -407,12 +412,13 @@ impl Enum {
                     quote!(#name::#ident { #(#idents: #idents_prefixed),* } => { #encode_impl.map(|_| #tag_tokens) })
                 }
                 syn::Fields::Unnamed(_) => {
-                    assert_eq!(v.fields.iter().count(), 1, "Tuple variants must contain only a single element.");
+                    // Assert already checked in FieldConfig
+                    assert_eq!(v.fields.len(), 1, "Tuple variants must contain only a single element.");
                     let constraints = variant_config
                         .constraints
                         .const_expr(&self.config.crate_root);
                     let constraint_name = format_ident!("VARIANT_CONSTRAINT_{}", i);
-                    let variant_tag = variant_tag.to_tokens(crate_root);
+                    let variant_tag = &tag_tokens[i];
                     let encode_operation = if variant_config.has_explicit_tag() {
                         quote!(encoder.encode_explicit_prefix(#variant_tag, value))
                     } else if variant_config.tag.is_some() || self.config.automatic_tags {
@@ -440,7 +446,7 @@ impl Enum {
                     }
                 }
                 syn::Fields::Unit => {
-                    let variant_tag = variant_tag.to_tokens(crate_root);
+                    let variant_tag = &tag_tokens[i];
                     let encode_operation = if variant_config.has_explicit_tag() {
                         quote!(encoder.encode_explicit_prefix(#variant_tag, &()))
                     } else {
@@ -467,7 +473,7 @@ impl Enum {
         let encode_impl = if self.config.has_explicit_tag() {
             let inner_name = quote::format_ident!("Inner{}", self.name);
             let encode_lifetime = syn::Lifetime::new("'inner", proc_macro2::Span::call_site());
-            let mut inner_generics = generics.clone();
+            let mut inner_generics = self.generics.clone();
 
             inner_generics
                 .params
@@ -491,13 +497,10 @@ impl Enum {
                 })
                 .collect();
 
-            let mut inner_config = self.config.clone();
-            inner_config.tag = None;
-            let inner_enum = Self {
+            let inner_enum = InnerEnum {
                 name: inner_name,
                 generics: inner_generics,
                 variants,
-                config: inner_config,
             };
             let inner_name = &inner_enum.name;
             let init_variants = self.variants.iter().map(|variant| {
@@ -529,16 +532,33 @@ impl Enum {
             encode_variants
         };
 
-        quote! {
+        Ok(quote! {
             fn encode<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E) -> core::result::Result<(), E::Error> {
                 #(#variant_constraints)*
                 #encode_impl.map(drop)
             }
-        }
+        })
     }
 }
 
-impl ToTokens for Enum {
+impl ToTokens for Enum<'_> {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let name = &self.name;
+        let variants = &self.variants;
+        let generics = self.generics;
+        tokens.extend(quote! {
+            enum #name #generics { #variants }
+        });
+    }
+}
+
+struct InnerEnum {
+    name: syn::Ident,
+    variants: syn::punctuated::Punctuated<syn::Variant, syn::token::Comma>,
+    generics: syn::Generics,
+}
+
+impl ToTokens for InnerEnum {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let name = &self.name;
         let variants = &self.variants;

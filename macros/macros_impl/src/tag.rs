@@ -1,3 +1,4 @@
+use syn::spanned::Spanned;
 use syn::{parenthesized, Token};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
@@ -9,17 +10,22 @@ pub enum Class {
 }
 
 impl Class {
-    fn from_ident(ident: &syn::Ident) -> Self {
-        match &*ident.to_string().to_lowercase() {
+    fn from_ident(ident: &syn::Ident) -> syn::Result<Self> {
+        Ok(match &*ident.to_string().to_lowercase() {
             "universal" => Class::Universal,
             "application" => Class::Application,
             "context" => Class::Context,
             "private" => Class::Private,
-            s => panic!(
-                "Class MUST BE `universal`, `application`, `context`, or `private`. Found: {}",
-                s
-            ),
-        }
+            s => {
+                return Err(syn::Error::new(
+                    ident.span(),
+                    format!(
+                    "Class MUST BE `universal`, `application`, `context`, or `private`. Found: {}",
+                    s
+                ),
+                ))
+            }
+        })
     }
 
     pub fn to_ident(self) -> syn::Ident {
@@ -70,7 +76,7 @@ impl Tag {
             let ident: syn::Ident = content.parse()?;
             if content.peek(syn::token::Paren) {
                 if ident != syn::Ident::new("explicit", proc_macro2::Span::call_site()) {
-                    panic!("Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`.");
+                    return Err(syn::Error::new(ident.span(), "Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`."));
                 }
                 let explicit_content;
                 parenthesized!(explicit_content in &content);
@@ -78,13 +84,12 @@ impl Tag {
                     && explicit_content.peek2(Token![,])
                     && explicit_content.peek3(syn::Lit)
                 {
-                    let path: syn::Path = explicit_content.parse()?;
+                    let ident = explicit_content.parse()?;
 
                     let _ = explicit_content.parse::<Token![,]>()?;
                     let lit: syn::Lit = explicit_content.parse()?;
 
-                    let class =
-                        Class::from_ident(path.get_ident().expect("Path must be a valid ident."));
+                    let class = Class::from_ident(&ident)?;
                     explicit = true;
                     tag = (class, lit);
                 } else if explicit_content.peek(syn::Lit) {
@@ -92,24 +97,27 @@ impl Tag {
                     explicit = true;
                     tag = (Class::Context, lit);
                 } else {
-                    panic!("Expected meta items inside `explicit`")
+                    return Err(explicit_content.error("Expected meta items inside `explicit`"));
                 }
                 if !explicit_content.is_empty() {
-                    panic!("The `#[rasn(tag)]`attribute takes a maximum of two arguments.")
+                    return Err(explicit_content
+                        .error("The `#[rasn(tag)]`attribute takes a maximum of two arguments."));
                 }
             } else if content.peek(Token![,]) {
                 let _: Token![,] = content.parse()?;
                 let lit: syn::Lit = content.parse()?;
-                let class = Class::from_ident(&ident);
+                let class = Class::from_ident(&ident)?;
                 tag = (class, lit);
             } else {
-                panic!("The `#[rasn(tag)]`attribute must be a list.")
+                return Err(content.error("The `#[rasn(tag)]`attribute must be a list."));
             }
         } else {
-            panic!("The `#[rasn(tag)]`attribute must be a list.")
+            return Err(content.error("The `#[rasn(tag)]`attribute must be a list."));
         }
         if !content.is_empty() {
-            panic!("The `#[rasn(tag)]`attribute takes a maximum of two arguments.")
+            return Err(
+                content.error("The `#[rasn(tag)]`attribute takes a maximum of two arguments.")
+            );
         }
 
         Ok(Self::Value {
@@ -119,8 +127,8 @@ impl Tag {
         })
     }
 
-    pub fn from_fields(fields: &syn::Fields) -> Self {
-        match fields {
+    pub fn from_fields(fields: &syn::Fields) -> syn::Result<Self> {
+        Ok(match fields {
             syn::Fields::Unit => Self::Delegate {
                 ty: syn::TypeTuple {
                     paren_token: <_>::default(),
@@ -131,14 +139,17 @@ impl Tag {
             syn::Fields::Named(_) => Self::SEQUENCE(),
             syn::Fields::Unnamed(_) => {
                 if fields.iter().count() != 1 {
-                    panic!("Tuple-style enum variants must contain only a single field, switch to struct-style variants for multiple fields.");
+                    return Err(syn::Error::new(
+                        fields.span(),
+                        "Unnamed fields are not supported.",
+                    ));
                 } else {
                     let ty = fields.iter().next().cloned().unwrap().ty;
 
                     Self::Delegate { ty }
                 }
             }
-        }
+        })
     }
 
     pub fn is_explicit(&self) -> bool {

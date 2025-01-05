@@ -1,9 +1,8 @@
-use std::ops::Deref;
-
-use quote::ToTokens;
-use syn::{parenthesized, Ident, LitStr, Path, Token, Type, UnOp};
-
 use crate::{ext::TypeExt, tag::Tag};
+use quote::ToTokens;
+use std::ops::Deref;
+use syn::spanned::Spanned;
+use syn::{parenthesized, Ident, LitStr, Path, Token, Type, UnOp};
 
 #[derive(Clone, Debug, Default)]
 pub struct Constraints {
@@ -224,7 +223,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn from_attributes(input: &syn::DeriveInput) -> Self {
+    pub fn from_attributes(input: &syn::DeriveInput) -> syn::Result<Self> {
         let mut choice = false;
         let mut set = false;
         let mut crate_root = None;
@@ -274,24 +273,33 @@ impl Config {
                     } else if path.is_ident("value") {
                         value = Some(Value::from_meta(&meta)?);
                     } else {
-                        panic!("unknown input provided: {}", path.to_token_stream());
+                        return Err(meta.error(format!(
+                            "unknown input provided: {}",
+                            path.to_token_stream()
+                        )));
                     }
                     Ok(())
-                })
-                .unwrap()
+                })?
             }
         }
 
         let is_enum = matches!(input.data, syn::Data::Enum(_));
 
         if !is_enum && (choice || enumerated) {
-            panic!("Structs cannot be annotated with `#[rasn(choice)]` or `#[rasn(enumerated)]`.");
+            return Err(syn::Error::new(
+                input.ident.span(),
+                "Structs cannot be annotated with `#[rasn(choice)]` or `#[rasn(enumerated)]`.",
+            ));
         } else if is_enum && set {
-            panic!("Enums cannot be annotated with `#[rasn(set)]`.");
+            return Err(syn::Error::new(
+                input.ident.span(),
+                "Enums cannot be annotated with `#[rasn(set)]`.",
+            ));
         } else if is_enum && ((choice && enumerated) || (!choice && !enumerated)) {
-            panic!(
-                "Enums must be annotated with either `#[rasn(choice)]` OR `#[rasn(enumerated)]`."
-            )
+            return Err(syn::Error::new(
+                input.ident.span(),
+                "Enums must be annotated with either `#[rasn(choice)]` OR `#[rasn(enumerated)]`.",
+            ));
         }
 
         let mut invalid_delegate = false;
@@ -305,10 +313,13 @@ impl Config {
         }
 
         if invalid_delegate {
-            panic!("`#[rasn(delegate)]` is only valid on single-unit structs.");
+            return Err(syn::Error::new(
+                input.ident.span(),
+                "`#[rasn(delegate)]` is only valid on single-unit structs.",
+            ));
         }
 
-        Self {
+        Ok(Self {
             automatic_tags,
             choice,
             delegate,
@@ -327,7 +338,7 @@ impl Config {
                     .parse()
                     .unwrap()
             }),
-        }
+        })
     }
 
     fn tag_tree_for_ty(&self, ty: &syn::Type) -> proc_macro2::TokenStream {
@@ -407,6 +418,7 @@ pub struct VariantConfig<'config> {
     pub identifier: Option<LitStr>,
     pub extension_addition: bool,
     pub constraints: Constraints,
+    pub context: usize,
 }
 
 impl<'config> VariantConfig<'config> {
@@ -414,7 +426,8 @@ impl<'config> VariantConfig<'config> {
         variant: &'config syn::Variant,
         generics: &'config syn::Generics,
         container_config: &'config Config,
-    ) -> Self {
+        context: usize,
+    ) -> syn::Result<Self> {
         let mut extensible = false;
         let mut identifier = None;
         let mut extension_addition = false;
@@ -430,16 +443,16 @@ impl<'config> VariantConfig<'config> {
             attr.parse_nested_meta(|meta| {
                 let path = &meta.path;
                 if path.is_ident("tag") {
-                    tag = Some(Tag::from_meta(&meta).unwrap());
+                    tag = Some(Tag::from_meta(&meta)?);
                 } else if path.is_ident("identifier") {
                     let value = meta.value()?;
                     identifier = Some(value.parse()?);
                 } else if path.is_ident("size") {
-                    size = Some(Value::from_meta(&meta).unwrap());
+                    size = Some(Value::from_meta(&meta)?);
                 } else if path.is_ident("value") {
-                    value = Some(Value::from_meta(&meta).unwrap());
+                    value = Some(Value::from_meta(&meta)?);
                 } else if path.is_ident("from") {
-                    from = Some(StringValue::from_meta(&meta).unwrap());
+                    from = Some(StringValue::from_meta(&meta)?);
                 } else if path.is_ident("extensible") {
                     extensible = true;
                 } else if path.is_ident("extension_addition") {
@@ -447,11 +460,19 @@ impl<'config> VariantConfig<'config> {
                 }
 
                 Ok(())
-            })
-            .unwrap();
+            })?;
         }
 
-        Self {
+        let fields = &variant.fields;
+
+        if matches!(fields, syn::Fields::Unnamed(_)) && fields.len() != 1 {
+            return Err(syn::Error::new(
+                fields.span(),
+                "Tuple-style enum variants must contain only a single field, switch to struct-style variants for multiple fields.",
+            ));
+        }
+
+        Ok(Self {
             container_config,
             extension_addition,
             generics,
@@ -464,7 +485,8 @@ impl<'config> VariantConfig<'config> {
                 size,
                 value,
             },
-        }
+            context,
+        })
     }
 
     pub fn discriminant(&self) -> Option<isize> {
@@ -499,9 +521,10 @@ impl<'config> VariantConfig<'config> {
         self.tag.as_ref().is_some_and(|tag| tag.is_explicit())
     }
 
-    pub fn decode(&self, name: &syn::Ident, context: usize) -> proc_macro2::TokenStream {
+    pub fn decode(&self, name: &syn::Ident) -> syn::Result<proc_macro2::TokenStream> {
+        let context = self.context;
         let crate_root = &self.container_config.crate_root;
-        let tag_tree = self.tag_tree(context);
+        let tag_tree = self.tag_tree()?;
         let ident = &self.variant.ident;
         let is_explicit = self.has_explicit_tag();
         let constraint_name = format_ident!("DECODE_CONSTRAINT_{}", context);
@@ -518,9 +541,8 @@ impl<'config> VariantConfig<'config> {
                 quote!(#decode_op.map(|_| Self::#ident))
             }
             syn::Fields::Unnamed(_) => {
-                if self.variant.fields.len() != 1 {
-                    panic!("Tuple struct variants should contain only a single element.");
-                }
+                // Assert already checked in FieldConfig
+                assert_eq!(self.variant.fields.len(), 1);
                 let constraints = self
                     .constraints
                     .const_expr(&self.container_config.crate_root);
@@ -528,7 +550,8 @@ impl<'config> VariantConfig<'config> {
                 let field = FieldConfig::new(
                     self.variant.fields.iter().next().unwrap(),
                     self.container_config,
-                );
+                    0,
+                )?;
                 let decode_operation = if is_explicit {
                     quote!(decoder.decode_explicit_prefix(tag))
                 } else if self.container_config.automatic_tags || self.tag.is_some() {
@@ -592,44 +615,49 @@ impl<'config> VariantConfig<'config> {
             }
         };
 
-        quote! {
+        Ok(quote! {
             if #crate_root::types::TagTree::tag_contains(&tag, &[#tag_tree]) {
                 #const_constraint
                 return #decode_op
             }
-        }
+        })
     }
 
-    pub fn tag(&self, context: usize) -> crate::tag::Tag {
-        if let Some(tag) = &self.tag {
+    pub fn tag(&self) -> syn::Result<crate::tag::Tag> {
+        Ok(if let Some(tag) = &self.tag {
             tag.clone()
         } else if self.container_config.automatic_tags {
             Tag::Value {
                 class: crate::tag::Class::Context,
-                value: syn::LitInt::new(&context.to_string(), proc_macro2::Span::call_site())
+                value: syn::LitInt::new(&self.context.to_string(), proc_macro2::Span::call_site())
                     .into(),
                 explicit: false,
             }
         } else {
-            Tag::from_fields(&self.variant.fields)
-        }
+            Tag::from_fields(&self.variant.fields)?
+        })
     }
 
-    pub fn tag_tree(&self, context: usize) -> proc_macro2::TokenStream {
+    pub fn tag_tree(&self) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.container_config.crate_root;
         if self.tag.is_some() || self.container_config.automatic_tags {
-            let tag = self.tag(context).to_tokens(crate_root);
-            quote!(#crate_root::types::TagTree::Leaf(#tag))
+            let tag = self.tag()?.to_tokens(crate_root);
+            Ok(quote!(#crate_root::types::TagTree::Leaf(#tag)))
         } else {
-            let field_tags = self
+            let field_configs = self
                 .variant
                 .fields
                 .iter()
                 .enumerate()
-                .filter(|(_, f)| FieldConfig::new(f, self.container_config).is_option_type())
-                .map(|(i, f)| FieldConfig::new(f, self.container_config).tag_tree(i));
+                .map(|(i, f)| FieldConfig::new(f, self.container_config, i))
+                .collect::<Result<Vec<_>, _>>()?;
 
-            match self.variant.fields {
+            let field_tags = field_configs
+                .iter()
+                .filter(|f| f.is_option_type())
+                .map(|f| f.tag_tree());
+
+            Ok(match self.variant.fields {
                 syn::Fields::Unit => {
                     quote!(#crate_root::types::TagTree::Leaf(<() as #crate_root::AsnType>::TAG))
                 }
@@ -649,16 +677,14 @@ impl<'config> VariantConfig<'config> {
                     })
                 }
                 syn::Fields::Unnamed(_) => {
-                    if self.variant.fields.iter().count() != 1 {
-                        panic!("Tuple-style enum variants must contain only a single field, switch to struct-style variants for multiple fields.");
-                    } else {
-                        let mut ty = self.variant.fields.iter().next().unwrap().ty.clone();
-                        ty.strip_lifetimes();
+                    // Assert already checked in FieldConfig
+                    assert_eq!(self.variant.fields.len(), 1);
+                    let mut ty = self.variant.fields.iter().next().unwrap().ty.clone();
+                    ty.strip_lifetimes();
 
-                        quote!(<#ty as #crate_root::AsnType>::TAG_TREE)
-                    }
+                    quote!(<#ty as #crate_root::AsnType>::TAG_TREE)
                 }
-            }
+            })
         }
     }
 }
@@ -673,6 +699,7 @@ pub struct FieldConfig<'a> {
     pub extension_addition: bool,
     pub extension_addition_group: bool,
     pub constraints: Constraints,
+    pub context: usize,
 }
 
 pub enum FieldType {
@@ -682,7 +709,11 @@ pub enum FieldType {
 }
 
 impl<'a> FieldConfig<'a> {
-    pub fn new(field: &'a syn::Field, container_config: &'a Config) -> Self {
+    pub fn new(
+        field: &'a syn::Field,
+        container_config: &'a Config,
+        context: usize,
+    ) -> syn::Result<Self> {
         let mut default = None;
         let mut tag = None;
         let mut size = None;
@@ -692,6 +723,9 @@ impl<'a> FieldConfig<'a> {
         let mut extensible = false;
         let mut extension_addition = false;
         let mut extension_addition_group = false;
+        /*if !field.attrs.is_empty() {
+            panic!("{:?}", field)
+        }*/
 
         for attr in &field.attrs {
             if !attr.path().is_ident(crate::CRATE_NAME) {
@@ -700,7 +734,12 @@ impl<'a> FieldConfig<'a> {
             attr.parse_nested_meta(|meta| {
                 let path = &meta.path;
                 if path.is_ident("tag") {
-                    tag = Some(Tag::from_meta(&meta).unwrap());
+                    if container_config.automatic_tags {
+                        return Err(meta.error(
+                            "You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`",
+                        ));
+                    }
+                    tag = Some(Tag::from_meta(&meta)?);
                 } else if path.is_ident("default") {
                     if meta.input.is_empty() || meta.input.peek(Token![,]) {
                         default = Some(None);
@@ -713,11 +752,11 @@ impl<'a> FieldConfig<'a> {
                     let value = meta.value()?;
                     identifier = Some(value.parse()?);
                 } else if path.is_ident("size") {
-                    size = Some(Value::from_meta(&meta).unwrap());
+                    size = Some(Value::from_meta(&meta)?);
                 } else if path.is_ident("value") {
-                    value = Some(Value::from_meta(&meta).unwrap());
+                    value = Some(Value::from_meta(&meta)?);
                 } else if path.is_ident("from") {
-                    from = Some(StringValue::from_meta(&meta).unwrap());
+                    from = Some(StringValue::from_meta(&meta)?);
                 } else if path.is_ident("extensible") {
                     extensible = true;
                 } else if path.is_ident("extension_addition") {
@@ -725,21 +764,20 @@ impl<'a> FieldConfig<'a> {
                 } else if path.is_ident("extension_addition_group") {
                     extension_addition_group = true;
                 } else {
-                    panic!(
+                    return Err(meta.error(format!(
                         "unknown field tag {:?}",
                         path.get_ident().map(ToString::to_string)
-                    );
+                    )));
                 }
                 Ok(())
-            })
-            .unwrap();
+            })?;
         }
 
         if extension_addition && extension_addition_group {
-            panic!("field cannot be both `extension_addition` and `extension_addition_group`, choose one");
+            return Err(syn::Error::new(field.span(), "field cannot be both `extension_addition` and `extension_addition_group`, choose one"));
         }
 
-        Self {
+        Ok(Self {
             container_config,
             default,
             field,
@@ -753,17 +791,18 @@ impl<'a> FieldConfig<'a> {
                 size,
                 value,
             },
-        }
+            context,
+        })
     }
 
     pub fn encode(
         &self,
-        context: usize,
         use_self: bool,
         type_params: &[Ident],
-    ) -> proc_macro2::TokenStream {
+    ) -> syn::Result<proc_macro2::TokenStream> {
+        let context = self.context;
         let this = use_self.then(|| quote!(self.));
-        let tag = self.tag(context);
+        let tag = self.tag();
         let i = syn::Index::from(context);
         let field = self
             .field
@@ -887,28 +926,26 @@ impl<'a> FieldConfig<'a> {
             }
         };
 
-        quote! {
+        Ok(quote! {
             #encode
-        }
+        })
     }
 
     pub fn decode_field_def(
         &self,
         name: &syn::Ident,
-        context: usize,
         type_params: &[Ident],
-    ) -> proc_macro2::TokenStream {
+    ) -> syn::Result<proc_macro2::TokenStream> {
         let lhs = self.field.ident.as_ref().map(|i| quote!(#i :));
-        let decode_op = self.decode(name, context, type_params);
-        quote!(#lhs #decode_op)
+        let decode_op = self.decode(name, type_params)?;
+        Ok(quote!(#lhs #decode_op))
     }
 
     pub fn decode(
         &self,
         name: &syn::Ident,
-        context: usize,
         type_params: &[Ident],
-    ) -> proc_macro2::TokenStream {
+    ) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.container_config.crate_root;
         let ty = &self.field.ty;
         let ident = format!(
@@ -918,12 +955,12 @@ impl<'a> FieldConfig<'a> {
                 .ident
                 .as_ref()
                 .map(|ident| ident.to_string())
-                .unwrap_or_else(|| context.to_string())
+                .unwrap_or_else(|| self.context.to_string())
         );
         let or_else = quote!(.map_err(|error| #crate_root::de::Error::field_error(#ident, error.into(), decoder.codec()))?);
         let default_fn = self.default_fn();
 
-        let tag = self.tag(context);
+        let tag = self.tag();
         let has_generics = !type_params.is_empty() && {
             if let Type::Path(ty) = ty {
                 ty.path.segments.iter().any(|seg| {
@@ -937,7 +974,7 @@ impl<'a> FieldConfig<'a> {
                 false
             }
         };
-        let constraint_name = format_ident!("CONSTRAINT_{}", context);
+        let constraint_name = format_ident!("CONSTRAINT_{}", self.context);
         let constraints = self.constraints.const_expr(crate_root);
         let constraint_def = if has_generics {
             quote! {
@@ -1038,7 +1075,7 @@ impl<'a> FieldConfig<'a> {
             }
         };
 
-        if self.extension_addition {
+        Ok(if self.extension_addition {
             match (
                 (self.tag.is_some() || self.container_config.automatic_tags)
                     .then(|| self.tag.as_ref().is_some_and(|tag| tag.is_explicit())),
@@ -1136,7 +1173,7 @@ impl<'a> FieldConfig<'a> {
             quote!({
                 #decode
             })
-        }
+        })
     }
 
     pub fn default_fn(&self) -> Option<proc_macro2::TokenStream> {
@@ -1147,27 +1184,21 @@ impl<'a> FieldConfig<'a> {
         })
     }
 
-    pub fn tag_derive(&self, context: usize) -> proc_macro2::TokenStream {
+    pub fn tag_derive(&self) -> proc_macro2::TokenStream {
         if let Some(tag) = &self.tag {
-            if self.container_config.automatic_tags {
-                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
-            }
-
             tag.to_attribute_tokens()
         } else if self.container_config.automatic_tags {
-            let context = syn::Index::from(context);
+            let context = syn::Index::from(self.context);
             quote!(#[rasn(tag(context, #context))])
         } else {
             quote!()
         }
     }
 
-    pub fn tag(&self, context: usize) -> proc_macro2::TokenStream {
+    pub fn tag(&self) -> proc_macro2::TokenStream {
+        let context = self.context;
         let crate_root = &self.container_config.crate_root;
         if let Some(tag) = &self.tag {
-            if self.container_config.automatic_tags {
-                panic!("You can't use the `#[rasn(tag)]` with `#[rasn(automatic_tags)]`")
-            }
             let tag = tag.to_tokens(crate_root);
             quote!(#tag)
         } else if self.container_config.automatic_tags {
@@ -1179,22 +1210,23 @@ impl<'a> FieldConfig<'a> {
         }
     }
 
-    pub fn tag_tree(&self, context: usize) -> proc_macro2::TokenStream {
+    pub fn tag_tree(&self) -> proc_macro2::TokenStream {
         let crate_root = &self.container_config.crate_root;
         let ty = &self.field.ty;
 
         if self.tag.is_some() || self.container_config.automatic_tags {
-            let tag = self.tag(context);
+            let tag = self.tag();
             quote!(#crate_root::types::TagTree::Leaf(#tag))
         } else {
             self.container_config.tag_tree_for_ty(ty)
         }
     }
 
-    pub fn to_field_metadata(&self, context: usize) -> proc_macro2::TokenStream {
+    pub fn to_field_metadata(&self) -> proc_macro2::TokenStream {
+        let context = self.context;
         let crate_root = &self.container_config.crate_root;
-        let tag = self.tag(context);
-        let tag_tree = self.tag_tree(context);
+        let tag = self.tag();
+        let tag_tree = self.tag_tree();
         let name = self
             .identifier
             .clone()
@@ -1287,34 +1319,37 @@ impl StringValue {
         let content;
         parenthesized!(content in item.input);
         while !content.is_empty() {
-            if content.peek(Token![,]) {
-                let _: Token![,] = content.parse()?;
-            }
-            let string = if content.peek(syn::LitStr) {
-                content.parse::<syn::LitStr>()?.value()
+            let (span, string) = if content.peek(syn::LitStr) {
+                let str: syn::LitStr = content.parse()?;
+
+                (str.span(), str.value())
             } else if content.peek(syn::Ident) {
                 let path: syn::Path = content.parse()?;
-                path.require_ident()?.to_string()
+                (path.span(), path.require_ident()?.to_string())
             } else {
-                panic!("StringValue Unsupported meta item: {:?}", content);
+                return Err(content.error(format!("Unsupported meta item: {:?}", content)));
             };
-
             if string == "extensible" {
                 extensible = Some(Vec::new());
+                skip_comma(&content);
                 continue;
             }
 
             if string.len() == 1 {
                 values.push(parse_character(&string).map(StringRange::Single).unwrap());
+                skip_comma(&content);
                 continue;
             }
 
             let Some((start, mut end)) = string.split_once("..") else {
-                panic!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")
+                return Err(syn::Error::new(span, format!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")));
             };
 
             let Some(start) = parse_character(start) else {
-                panic!("start of range was an invalid character: {start}")
+                return Err(syn::Error::new(
+                    span,
+                    format!("start of range was an invalid character: {start}"),
+                ));
             };
 
             let is_inclusive = end.starts_with('=');
@@ -1323,7 +1358,10 @@ impl StringValue {
             }
 
             let Some(end) = parse_character(end) else {
-                panic!("end of range was an invalid character: {end}")
+                return Err(syn::Error::new(
+                    span,
+                    format!("end of range was an invalid character: {end}"),
+                ));
             };
 
             if let Some(extensible_values) = extensible.as_mut() {
@@ -1331,6 +1369,7 @@ impl StringValue {
             } else {
                 values.push(StringRange::Range(start, end + is_inclusive as u32));
             }
+            skip_comma(&content);
         }
         let into_flat_set = |constraints: Vec<_>| {
             let mut set = constraints
@@ -1369,26 +1408,28 @@ impl Value {
 
         let content;
         parenthesized!(content in item.input);
+        if content.is_empty() {
+            return Err(content.error("Missing content inside `value()`"));
+        }
         while !content.is_empty() {
-            if content.peek(Token![,]) {
-                let _: Token![,] = content.parse()?;
-                continue;
-            }
-            let string = if content.peek(syn::LitStr) {
-                content.parse::<syn::LitStr>()?.value()
+            let (span, string) = if content.peek(syn::LitStr) {
+                let str: syn::LitStr = content.parse()?;
+                (str.span(), str.value())
             } else if content.peek(syn::Ident) {
-                let path: syn::Path = content.parse()?;
-                path.get_ident().unwrap().to_string()
+                let ident: syn::Ident = content.parse()?;
+                (ident.span(), ident.to_string())
             } else if content.peek(syn::LitInt) {
                 let int: syn::LitInt = content.parse()?;
-                constraint = Some(int.base10_parse().map(Value::Single).unwrap());
+                constraint = Some(int.base10_parse().map(Value::Single)?);
+                skip_comma(&content);
                 continue;
             } else {
-                panic!("Value Unsupported meta item: {:?}", content);
+                return Err(content.error(format!("Value Unsupported meta item: {:?}", content)));
             };
 
             if string == "extensible" {
                 extensible = Some(Vec::new());
+                skip_comma(&content);
                 continue;
             }
 
@@ -1396,7 +1437,7 @@ impl Value {
                 Value::Single(number)
             } else {
                 let Some((start, mut end)) = string.split_once("..") else {
-                    panic!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")
+                    return Err(syn::Error::new(span, format!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")));
                 };
 
                 let start = parse_character(start);
@@ -1414,13 +1455,23 @@ impl Value {
             } else if constraint.is_none() {
                 constraint = Some(value);
             } else {
-                panic!("Multiple non-extensible value constraints are not permitted.");
+                return Err(syn::Error::new(
+                    span,
+                    "Multiple non-extensible value constraints are not permitted.",
+                ));
             }
+            skip_comma(&content);
         }
 
         Ok(Constraint {
             constraint: constraint.unwrap(),
             extensible,
         })
+    }
+}
+
+fn skip_comma(content: &syn::parse::ParseBuffer) {
+    if content.peek(Token![,]) {
+        let _: Token![,] = content.parse().unwrap();
     }
 }

@@ -10,7 +10,10 @@ publish = false
 [workspace]
 
 [dependencies]
+proc-macro2 = "1.0.92"
 rasn = { path = ".." }
 rasn-snmp = { path = "../standards/snmp" }
 rasn-pkix = { path = "../standards/pkix" }
-afl = "0.8.0"
+rasn-derive-impl = { path = "../macros/macros_impl" }
+syn = { version = "2.0.87", features = ["parsing", "full", "clone-impls"] }
+afl = "0.15.13"
