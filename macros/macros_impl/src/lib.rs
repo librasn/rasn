@@ -10,14 +10,11 @@ mod ext;
 mod tag;
 
 use config::Config;
-use syn::DataStruct;
+use syn::{DataStruct, DeriveInput};
 
 const CRATE_NAME: &str = "rasn";
 
-pub fn decode_derive_inner(
-    input: proc_macro2::TokenStream,
-) -> syn::Result<proc_macro2::TokenStream> {
-    let input = syn::parse2(input)?;
+pub fn decode_derive_inner(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let config = Config::from_attributes(&input);
     let name = input.ident;
     let generics = input.generics;
@@ -50,10 +47,8 @@ pub fn decode_derive_inner(
         _ => panic!("Union types are not supported."),
     })
 }
-pub fn encode_derive_inner(
-    input: proc_macro2::TokenStream,
-) -> syn::Result<proc_macro2::TokenStream> {
-    let input = syn::parse2(input)?;
+
+pub fn encode_derive_inner(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let config = Config::from_attributes(&input);
     let name = input.ident;
     let generics = input.generics;
@@ -88,10 +83,7 @@ pub fn encode_derive_inner(
     })
 }
 
-pub fn asn_type_derive_inner(
-    input: proc_macro2::TokenStream,
-) -> syn::Result<proc_macro2::TokenStream> {
-    let input = syn::parse2(input)?;
+pub fn asn_type_derive_inner(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let config = Config::from_attributes(&input);
     let name = input.ident;
     let generics = input.generics;

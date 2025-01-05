@@ -1,3 +1,5 @@
+use syn::{parse_macro_input, DeriveInput};
+
 /// Helper function print out the derive.
 fn __print_stream(stream: proc_macro2::TokenStream) -> proc_macro::TokenStream {
     println!("{}", stream);
@@ -11,7 +13,9 @@ fn __print_stream(stream: proc_macro2::TokenStream) -> proc_macro::TokenStream {
 /// on available attributes.
 #[proc_macro_derive(Decode, attributes(rasn))]
 pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    rasn_derive_impl::decode_derive_inner(input.into())
+    let derive_input = parse_macro_input!(input as DeriveInput);
+
+    rasn_derive_impl::decode_derive_inner(derive_input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
@@ -23,7 +27,9 @@ pub fn decode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 /// on available attributes.
 #[proc_macro_derive(Encode, attributes(rasn))]
 pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    rasn_derive_impl::encode_derive_inner(input.into())
+    let derive_input = parse_macro_input!(input as DeriveInput);
+
+    rasn_derive_impl::encode_derive_inner(derive_input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
@@ -48,7 +54,9 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 ///   uses the inner `T` type for implementing the trait.
 #[proc_macro_derive(AsnType, attributes(rasn))]
 pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    rasn_derive_impl::asn_type_derive_inner(input.into())
+    let derive_input = parse_macro_input!(input as DeriveInput);
+
+    rasn_derive_impl::asn_type_derive_inner(derive_input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
