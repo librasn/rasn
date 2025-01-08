@@ -734,7 +734,7 @@ impl Bounded<i128> {
     pub fn in_bound<I: IntegerType>(&self, element: &I) -> bool {
         match &self {
             Self::Range { start, end } => {
-                start.as_ref().map_or(true, |&start| {
+                start.as_ref().is_none_or(|&start| {
                     if let Some(e) = element.to_i128() {
                         e >= start
                     } else if let Some(e) = element.to_bigint() {
@@ -742,7 +742,7 @@ impl Bounded<i128> {
                     } else {
                         false
                     }
-                }) && end.as_ref().map_or(true, |&end| {
+                }) && end.as_ref().is_none_or(|&end| {
                     if let Some(e) = element.to_i128() {
                         e <= end
                     } else if let Some(e) = element.to_bigint() {
@@ -792,8 +792,8 @@ impl<T: PartialEq + PartialOrd> Bounded<T> {
         match &self {
             Self::Single(value) => value == element,
             Self::Range { start, end } => {
-                start.as_ref().map_or(true, |start| element >= start)
-                    && end.as_ref().map_or(true, |end| element <= end)
+                start.as_ref().is_none_or(|start| element >= start)
+                    && end.as_ref().is_none_or(|end| element <= end)
             }
             Self::None => true,
         }
