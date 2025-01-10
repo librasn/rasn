@@ -688,6 +688,14 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.parse_integer::<I>(constraints)
     }
 
+    fn decode_real<R: types::RealType>(
+        &mut self,
+        _: Tag,
+        _: Constraints,
+    ) -> Result<R, Self::Error> {
+        Err(DecodeError::real_not_supported(self.codec()))
+    }
+
     fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
         &'b mut self,
         _: Tag,

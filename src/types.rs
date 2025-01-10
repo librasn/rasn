@@ -17,6 +17,9 @@ pub(crate) mod constructed;
 pub(crate) mod date;
 pub(crate) mod integer;
 pub(crate) mod oid;
+
+pub(crate) mod real;
+
 pub(crate) mod strings;
 
 use crate::macros::{constraints, size_constraint, value_constraint};
@@ -41,6 +44,8 @@ pub use {
     },
     rasn_derive::AsnType,
 };
+
+pub use self::real::RealType;
 
 ///  The `UniversalString` type.
 pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
@@ -319,4 +324,14 @@ impl<T> AsnType for &'_ [T] {
 impl AsnType for Any {
     const TAG: Tag = Tag::EOC;
     const TAG_TREE: TagTree = TagTree::Choice(&[]);
+}
+
+#[cfg(feature = "f32")]
+impl AsnType for f32 {
+    const TAG: Tag = Tag::REAL;
+}
+
+#[cfg(feature = "f64")]
+impl AsnType for f64 {
+    const TAG: Tag = Tag::REAL;
 }

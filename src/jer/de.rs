@@ -142,6 +142,14 @@ impl crate::Decoder for Decoder {
         decode_jer_value!(Self::integer_from_value::<I>, self.stack)
     }
 
+    fn decode_real<R: crate::types::RealType>(
+        &mut self,
+        _t: Tag,
+        _c: Constraints,
+    ) -> Result<R, Self::Error> {
+        decode_jer_value!(Self::real_from_value::<R>, self.stack)
+    }
+
     fn decode_null(&mut self, _t: Tag) -> Result<(), Self::Error> {
         decode_jer_value!(Self::null_from_value, self.stack)
     }
@@ -494,6 +502,35 @@ impl Decoder {
             })?
             .try_into()
             .map_err(|_| DecodeError::integer_overflow(I::WIDTH, crate::Codec::Jer))
+    }
+
+    fn real_from_value<R: crate::types::RealType>(value: Value) -> Result<R, DecodeError> {
+        if let Some(as_f64) = value.as_f64() {
+            return R::try_from_float(as_f64).ok_or_else(|| {
+                JerDecodeErrorKind::TypeMismatch {
+                    needed: "number (double precision floating point)",
+                    found: alloc::format!("{value}"),
+                }
+                .into()
+            });
+        }
+
+        value
+            .as_str()
+            .and_then(|s| match s {
+                "-0" => R::try_from_float(-0.0),
+                "INF" => R::try_from_float(f64::INFINITY),
+                "-INF" => R::try_from_float(f64::NEG_INFINITY),
+                "NAN" => R::try_from_float(f64::NAN),
+                _ => None,
+            })
+            .ok_or_else(|| {
+                JerDecodeErrorKind::TypeMismatch {
+                    needed: "number (double precision floating point)",
+                    found: alloc::format!("{value}"),
+                }
+                .into()
+            })
     }
 
     fn null_from_value(value: Value) -> Result<(), DecodeError> {

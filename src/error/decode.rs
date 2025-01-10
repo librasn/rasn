@@ -276,6 +276,12 @@ impl DecodeError {
         DecodeError::from_kind(DecodeErrorKind::Parser { msg }, codec)
     }
 
+    /// Creates a wrapper around using `REAL` with unsupported codecs.
+    #[must_use]
+    pub fn real_not_supported(codec: Codec) -> Self {
+        DecodeError::from_kind(DecodeErrorKind::RealNotSupported, codec)
+    }
+
     /// Creates a wrapper around a missing required extension error from a given codec.
     #[must_use]
     pub fn required_extension_not_present(tag: Tag, codec: Codec) -> Self {
@@ -552,6 +558,14 @@ pub enum DecodeErrorKind {
         /// The reason the conversion failed.
         msg: alloc::string::String,
     },
+
+    /// Real conversion failure.
+    #[snafu(display("Invalid real encoding"))]
+    InvalidRealEncoding,
+
+    /// Decoder doesn't support REAL
+    #[snafu(display("Decoder doesn't support REAL types"))]
+    RealNotSupported,
 
     /// BitString contains an invalid amount of unused bits.
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]

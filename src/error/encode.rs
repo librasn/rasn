@@ -212,6 +212,12 @@ impl EncodeError {
         Self::from_kind(EncodeErrorKind::VariantNotInChoice, codec)
     }
 
+    /// Returns an encode error when the encoder doesn't support `REAL` type.
+    #[must_use]
+    pub fn real_not_supported(codec: crate::Codec) -> Self {
+        Self::from_kind(EncodeErrorKind::RealNotSuppored, codec)
+    }
+
     /// A helper function to construct an `EncodeError` from the given `kind` and `codec`.
     #[must_use]
     pub fn from_kind(kind: EncodeErrorKind, codec: crate::Codec) -> Self {
@@ -328,6 +334,10 @@ pub enum EncodeErrorKind {
     /// Error when the selected variant is not found in the choice.
     #[snafu(display("Selected Variant not found from Choice"))]
     VariantNotInChoice,
+
+    /// Error when we try to encode a `REAL` type with an unspported codec.
+    #[snafu(display("Encoder doesn't support `REAL` type"))]
+    RealNotSuppored,
 }
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for BER.
 #[derive(Snafu, Debug)]
@@ -392,6 +402,9 @@ pub enum JerEncodeErrorKind {
         /// value failed to encode
         value: BigInt,
     },
+    /// Error to be thrown when encoding real values that exceed the supported range
+    #[snafu(display("Exceeds supported real value range"))]
+    ExceedsSupportedRealRange,
     /// Error to be thrown when some character from the input data is not valid UTF-8
     #[snafu(display("Invalid character: {:?}", error))]
     InvalidCharacter {

@@ -893,6 +893,15 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         Ok(())
     }
 
+    fn encode_real<R: types::RealType>(
+        &mut self,
+        _: Tag,
+        _: Constraints,
+        _: &R,
+    ) -> Result<Self::Ok, Self::Error> {
+        Err(Error::real_not_supported(self.codec()))
+    }
+
     fn encode_null(&mut self, _tag: Tag) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }

@@ -2,6 +2,8 @@
 
 use crate::types::{self, AsnType, Constraints, Enumerated, IntegerType, SetOf, Tag};
 
+use crate::types::RealType;
+
 use num_bigint::BigInt;
 pub use rasn_derive::Encode;
 
@@ -115,6 +117,14 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         tag: Tag,
         constraints: Constraints,
         value: &I,
+    ) -> Result<Self::Ok, Self::Error>;
+
+    /// Encode a `REAL` value.
+    fn encode_real<R: RealType>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &R,
     ) -> Result<Self::Ok, Self::Error>;
 
     /// Encode a `NULL` value.
@@ -573,6 +583,30 @@ impl Encode for types::Integer {
         constraints: Constraints,
     ) -> Result<(), E::Error> {
         encoder.encode_integer(tag, constraints, self).map(drop)
+    }
+}
+
+#[cfg(feature = "f32")]
+impl Encode for f32 {
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<(), E::Error> {
+        encoder.encode_real(tag, constraints, self).map(drop)
+    }
+}
+
+#[cfg(feature = "f64")]
+impl Encode for f64 {
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<(), E::Error> {
+        encoder.encode_real(tag, constraints, self).map(drop)
     }
 }
 

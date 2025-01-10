@@ -129,6 +129,7 @@ mod tests {
             decode_ok!(oer, bool, &bytes, true);
         }
     }
+
     #[test]
     fn test_length_determinant() {
         // short with leading zeros
@@ -143,6 +144,31 @@ mod tests {
             &[0x87, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x41, 0x41]
         );
     }
+
+    #[test]
+    #[cfg(feature = "f32")]
+    fn real_f32() {
+        round_trip!(oer, f32, 1.0, &[0x3f, 0x80, 0x00, 0x00]);
+        round_trip!(oer, f32, -1.0, &[0xbf, 0x80, 0x00, 0x00]);
+    }
+
+    #[test]
+    #[cfg(feature = "f64")]
+    fn real_f64() {
+        round_trip!(
+            oer,
+            f64,
+            1.0,
+            &[0x3f, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+        round_trip!(
+            oer,
+            f64,
+            -1.0,
+            &[0xbf, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+        );
+    }
+
     #[test]
     fn test_sequence_of() {
         #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
@@ -160,6 +186,7 @@ mod tests {
         let data: [u8; 108] = [30; 108];
         decode_error!(oer, TestA, &data);
     }
+
     #[test]
     fn test_enumerated() {
         // short with leading zeros
@@ -191,6 +218,7 @@ mod tests {
         decode_error!(coer, Test, &[0b1000_0001, 0x01]);
         decode_ok!(oer, Test, &[0b1000_0001, 0x01], Test::A);
     }
+
     #[test]
     fn test_seq_preamble_unused_bits() {
         use crate as rasn;
@@ -215,6 +243,7 @@ mod tests {
             &data
         );
     }
+
     #[test]
     fn test_explicit_with_optional() {
         #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
