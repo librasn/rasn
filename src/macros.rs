@@ -186,3 +186,80 @@ macro_rules! bounded_constraint {
         )
     };
 }
+
+/// Helper macro to create a `&'static Oid` from a string literal. The string
+/// literal must conform to the standard OID format and must be a valid OID
+/// (first arc must be <= 2), but also accepts OIDs with and without a leading
+/// `.`.
+///
+/// Usage:
+/// ```rust
+/// const SYS_DESCR: &'static rasn::types::Oid = rasn::oid!(".1.3.6.1.2.1.1.1.0");
+/// assert_eq!(SYS_DESCR, rasn::types::Oid::new(&[1, 3, 6, 1, 2, 1, 1, 1, 0]).unwrap());
+/// ```
+#[macro_export]
+macro_rules! oid {
+    ($s:literal) => {{
+        const OID: &'static $crate::types::Oid = const {
+            const BYTE_STRING: &'static [u8] = const {
+                let s: &'static str = $s;
+                let bytes = s.as_bytes();
+
+                core::assert!(!bytes.is_empty(), "OID string literals cannot be empty");
+                core::assert!(bytes.is_ascii(), "OID string literals must be ASCII");
+                core::assert!(bytes[bytes.len() - 1] != b'.', "OID string literals cannot end with a period");
+
+                match bytes {
+                    [b'.', rest @ ..] => rest,
+                    bytes => bytes,
+                }
+            };
+
+            const COMPONENT_LEN: usize = const {
+                let mut component_count = 1;
+                let mut index = 0;
+                while index < BYTE_STRING.len() {
+                    let byte = BYTE_STRING[index];
+
+                    core::assert!(core::matches!(byte, b'0'..=b'9' | b'.'), "OID string literals can only contain ASCII digits and periods");
+
+                    if byte == b'.' {
+                        if index + 1 < BYTE_STRING.len() {
+                            core::assert!(BYTE_STRING[index + 1] != b'.', "OID string literals cannot contain two or more consecutive periods");
+                        }
+                        component_count += 1;
+                    }
+
+                    index += 1;
+                }
+
+                component_count
+            };
+
+            const COMPONENTS: [u32; COMPONENT_LEN] = const {
+                let mut bytes_index = 0;
+
+                let mut components = [0u32; COMPONENT_LEN];
+                let mut index = 0;
+                while bytes_index < BYTE_STRING.len() {
+                    let byte = BYTE_STRING[bytes_index];
+                    match byte {
+                        b'0'..=b'9' => components[index] = components[index] * 10 + ((byte - b'0') as u32),
+                        b'.' => index += 1,
+                        _ => core::unreachable!(),
+                    }
+
+                    bytes_index += 1;
+                }
+
+                core::assert!(components[0] <= 2, "the first OID arc must be <= 2");
+
+                components
+            };
+
+            $crate::types::Oid::new(&COMPONENTS).unwrap()
+        };
+
+        OID
+    }}
+}
