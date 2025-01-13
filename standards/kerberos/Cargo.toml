@@ -14,8 +14,8 @@ features = ["otp"]
 otp = ["rasn-pkix"]
 
 [dependencies]
-rasn = { path = "../..", version = "0.22" }
-rasn-pkix = { path = "../pkix", version = "0.22", optional = true }
+rasn = { path = "../..", version = "0.23" }
+rasn-pkix = { path = "../pkix", version = "0.23", optional = true }
 
 [dev-dependencies]
 pretty_assertions.workspace = true
