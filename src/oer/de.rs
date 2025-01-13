@@ -554,6 +554,16 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.decode_integer_with_constraints::<I>(&constraints)
     }
 
+    fn decode_real<R: crate::types::RealType>(
+        &mut self,
+        _: Tag,
+        _: Constraints,
+    ) -> Result<R, Self::Error> {
+        let octets = self.extract_data_by_length(R::BYTE_WIDTH)?;
+        R::try_from_ieee754_bytes(octets)
+            .map_err(|_| DecodeError::from_kind(DecodeErrorKind::InvalidRealEncoding, self.codec()))
+    }
+
     /// Null contains no data, so we just skip
     fn decode_null(&mut self, _: Tag) -> Result<(), Self::Error> {
         Ok(())

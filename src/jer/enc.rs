@@ -11,6 +11,8 @@ use crate::{
     types::{variants, Constraints, IntegerType, Tag},
 };
 
+use crate::types::RealType;
+
 /// Encodes Rust structures into JSON Encoding Rules data.
 pub struct Encoder {
     stack: alloc::vec::Vec<&'static str>,
@@ -146,6 +148,35 @@ impl crate::Encoder<'_> for Encoder {
                 value: value.to_bigint().unwrap_or_default(),
             }
             .into())
+        }
+    }
+
+    fn encode_real<R: RealType>(
+        &mut self,
+        _t: Tag,
+        _c: Constraints,
+        value: &R,
+    ) -> Result<Self::Ok, Self::Error> {
+        use num_traits::{float::FloatCore, ToPrimitive, Zero};
+
+        let as_float = value
+            .try_to_float()
+            .ok_or(JerEncodeErrorKind::ExceedsSupportedRealRange)?;
+
+        if as_float.is_infinite() {
+            if as_float.is_sign_positive() {
+                self.update_root_or_constructed(Value::String("INF".into()))
+            } else {
+                self.update_root_or_constructed(Value::String("-INF".into()))
+            }
+        } else if as_float.is_nan() {
+            self.update_root_or_constructed(Value::String("NAN".into()))
+        } else if as_float.is_zero() && as_float.is_sign_negative() {
+            self.update_root_or_constructed(Value::String("-0".into()))
+        } else if let Some(number) = as_float.to_f64().and_then(serde_json::Number::from_f64) {
+            self.update_root_or_constructed(number.into())
+        } else {
+            Err(JerEncodeErrorKind::ExceedsSupportedRealRange.into())
         }
     }
 

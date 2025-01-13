@@ -8,8 +8,8 @@ use crate::{
     oer::EncodingRules,
     types::{
         Any, BitStr, BmpString, Choice, Constraints, Constructed, Date, Enumerated, GeneralString,
-        GeneralizedTime, Ia5String, IntegerType, NumericString, PrintableString, SetOf, Tag,
-        TeletexString, UtcTime, VisibleString,
+        GeneralizedTime, Ia5String, IntegerType, NumericString, PrintableString, RealType, SetOf,
+        Tag, TeletexString, UtcTime, VisibleString,
     },
     Codec, Encode,
 };
@@ -748,6 +748,19 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         value: &I,
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_integer_with_constraints(tag, &constraints, value)
+    }
+
+    fn encode_real<R: RealType>(
+        &mut self,
+        tag: Tag,
+        _constraints: Constraints,
+        value: &R,
+    ) -> Result<Self::Ok, Self::Error> {
+        let (bytes, len) = value.to_ieee754_bytes();
+        self.output.extend_from_slice(&bytes.as_ref()[..len]);
+        self.extend(tag)?;
+
+        Ok(())
     }
 
     fn encode_null(&mut self, _tag: Tag) -> Result<Self::Ok, Self::Error> {

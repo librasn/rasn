@@ -26,14 +26,20 @@ mod tests {
     macro_rules! round_trip_jer {
         ($typ:ty, $value:expr, $expected:expr) => {{
             let value: $typ = $value;
+            pretty_assertions::assert_eq!(value, round_trip_value!($typ, $value, $expected));
+        }};
+    }
+
+    macro_rules! round_trip_value {
+        ($typ:ty, $value:expr, $expected:expr) => {{
+            let value: $typ = $value;
             let expected: &'static str = $expected;
             let actual_encoding = crate::jer::encode(&value).unwrap();
 
             pretty_assertions::assert_eq!(expected, &*actual_encoding);
 
             let decoded_value: $typ = crate::jer::decode(&actual_encoding).unwrap();
-
-            pretty_assertions::assert_eq!(value, decoded_value);
+            decoded_value
         }};
     }
 
@@ -185,6 +191,36 @@ mod tests {
         round_trip_jer!(Integer, 1.into(), "1");
         round_trip_jer!(Integer, (-1235352).into(), "-1235352");
         round_trip_jer!(ConstrainedInt, ConstrainedInt(1.into()), "1");
+    }
+
+    #[test]
+    #[cfg(feature = "f32")]
+    fn real_f32() {
+        round_trip_jer!(f32, 0.0, "0.0");
+        round_trip_jer!(f32, -0.0, "\"-0\"");
+
+        round_trip_jer!(f32, f32::INFINITY, "\"INF\"");
+        round_trip_jer!(f32, f32::NEG_INFINITY, "\"-INF\"");
+
+        assert!(round_trip_value!(f32, f32::NAN, "\"NAN\"").is_nan());
+
+        round_trip_jer!(f32, 1.0, "1.0");
+        round_trip_jer!(f32, -1.0, "-1.0");
+    }
+
+    #[test]
+    #[cfg(feature = "f64")]
+    fn real_f64() {
+        round_trip_jer!(f64, 0.0, "0.0");
+        round_trip_jer!(f64, -0.0, "\"-0\"");
+
+        round_trip_jer!(f64, f64::INFINITY, "\"INF\"");
+        round_trip_jer!(f64, f64::NEG_INFINITY, "\"-INF\"");
+
+        assert!(round_trip_value!(f64, f64::NAN, "\"NAN\"").is_nan());
+
+        round_trip_jer!(f64, 1.0, "1.0");
+        round_trip_jer!(f64, -1.0, "-1.0");
     }
 
     #[test]

@@ -28,7 +28,10 @@ chrono = { version = "0.4.38", default-features = false, features = ["alloc"] }
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 
 [features]
+default = ["f32", "f64"]
 std = []
+f32 = []
+f64 = []
 backtraces = ["std", "snafu/backtrace"]
 compiler = ["rasn-compiler"]
 

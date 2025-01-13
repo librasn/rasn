@@ -93,6 +93,14 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<I, Self::Error>;
+
+    /// Decode a `REAL` identified by `tag` from the available input.
+    fn decode_real<R: types::RealType>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<R, Self::Error>;
+
     /// Decode `NULL` identified by `tag` from the available input.
     fn decode_null(&mut self, tag: Tag) -> Result<(), Self::Error>;
     /// Decode a `OBJECT IDENTIFIER` identified by `tag` from the available input.
@@ -531,6 +539,28 @@ impl Decode for types::Integer {
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_integer::<types::Integer>(tag, constraints)
+    }
+}
+
+#[cfg(feature = "f32")]
+impl Decode for f32 {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<Self, D::Error> {
+        decoder.decode_real::<f32>(tag, Constraints::default())
+    }
+}
+
+#[cfg(feature = "f64")]
+impl Decode for f64 {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        _: Constraints,
+    ) -> Result<Self, D::Error> {
+        decoder.decode_real::<f64>(tag, Constraints::default())
     }
 }
 

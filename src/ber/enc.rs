@@ -395,6 +395,15 @@ impl crate::Encoder<'_> for Encoder {
         Ok(())
     }
 
+    fn encode_real<R: types::RealType>(
+        &mut self,
+        _: Tag,
+        _: Constraints,
+        _: &R,
+    ) -> Result<Self::Ok, Self::Error> {
+        Err(EncodeError::real_not_supported(self.codec()))
+    }
+
     fn encode_null(&mut self, tag: Tag) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(tag, &[]);
         Ok(())
