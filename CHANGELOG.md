@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0](https://github.com/librasn/rasn/compare/rasn-v0.22.2...rasn-v0.23.0) - 2025-01-13
+
+### Added
+
+- [**breaking**] Add basic support for REAL using f32/f64 with JER/OER rules (#406)
+- add a convenience macro for parsing string literals into `&'static Oid`s (#404)
+
+### Fixed
+
+- some clippy lints causing CI to fail (#405)
+
 ## [0.22.2](https://github.com/librasn/rasn/compare/rasn-v0.22.1...rasn-v0.22.2) - 2025-01-05
 
 ### Other

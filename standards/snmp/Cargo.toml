@@ -8,8 +8,8 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-smi = { path = "../smi", package = "rasn-smi", version = "0.22" }
-rasn = { path = "../..", version = "0.22" }
+smi = { path = "../smi", package = "rasn-smi", version = "0.23" }
+rasn = { path = "../..", version = "0.23" }
 
 [dev-dependencies]
 hex = "0.4.3"
