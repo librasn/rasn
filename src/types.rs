@@ -37,8 +37,8 @@ pub use {
         prefix::{Explicit, Implicit},
         strings::{
             BitStr, BitString, BmpString, FixedBitString, FixedOctetString, GeneralString,
-            Ia5String, NumericString, OctetString, PrintableString, TeletexString, Utf8String,
-            VisibleString,
+            GraphicString, Ia5String, NumericString, OctetString, PrintableString, TeletexString,
+            Utf8String, VisibleString,
         },
         tag::{Class, Tag, TagTree},
     },

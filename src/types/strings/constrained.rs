@@ -11,6 +11,7 @@ use crate::types;
 pub(crate) enum CharacterSetName {
     Bmp,
     General,
+    Graphic,
     IA5,
     Numeric,
     Printable,
@@ -22,6 +23,7 @@ impl fmt::Display for CharacterSetName {
         match self {
             Self::Bmp => write!(f, "BMPString"),
             Self::General => write!(f, "GeneralString"),
+            Self::Graphic => write!(f, "GraphicString"),
             Self::IA5 => write!(f, "IA5String"),
             Self::Numeric => write!(f, "NumericString"),
             Self::Printable => write!(f, "PrintableString"),
@@ -54,6 +56,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         match Self::CHARACTER_SET_NAME {
             CharacterSetName::Bmp => InvalidRestrictedString::InvalidBmpString(ch.into()),
             CharacterSetName::General => InvalidRestrictedString::InvalidGeneralString(ch.into()),
+            CharacterSetName::Graphic => InvalidRestrictedString::InvalidGraphicString(ch.into()),
             CharacterSetName::IA5 => InvalidRestrictedString::InvalidIA5String(ch.into()),
             CharacterSetName::Numeric => InvalidRestrictedString::InvalidNumericString(ch.into()),
             CharacterSetName::Printable => {

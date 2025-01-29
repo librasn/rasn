@@ -2,6 +2,7 @@ mod bit;
 mod bmp;
 mod constrained;
 mod general;
+mod graphic;
 mod ia5;
 mod numeric;
 mod octet;
@@ -18,6 +19,7 @@ pub use {
     bit::{BitStr, BitString, FixedBitString},
     bmp::BmpString,
     general::GeneralString,
+    graphic::GraphicString,
     ia5::Ia5String,
     numeric::NumericString,
     octet::{FixedOctetString, OctetString},
@@ -109,6 +111,7 @@ macro_rules! impl_restricted_core_traits {
 impl_restricted_core_traits!(
     (BmpString, u16),
     (GeneralString, u8),
+    (GraphicString, u8),
     (Ia5String, u8),
     (NumericString, u8),
     (PrintableString, u8),

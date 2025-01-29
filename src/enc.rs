@@ -146,6 +146,14 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         value: &types::GeneralString,
     ) -> Result<Self::Ok, Self::Error>;
 
+    /// Encode a `GraphicString` value.
+    fn encode_graphic_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &types::GraphicString,
+    ) -> Result<Self::Ok, Self::Error>;
+
     /// Encode a `Utf8String` value.
     fn encode_utf8_string(
         &mut self,

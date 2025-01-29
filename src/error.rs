@@ -11,9 +11,9 @@ mod string;
 pub mod strings {
     //! Errors specific to string conversions, permitted alphabets, and other type problems.
     pub use super::string::{
-        InvalidBmpString, InvalidGeneralString, InvalidIA5String, InvalidNumericString,
-        InvalidPrintableString, InvalidRestrictedString, InvalidTeletexString,
-        InvalidVisibleString, PermittedAlphabetError,
+        InvalidBmpString, InvalidGeneralString, InvalidGraphicString, InvalidIA5String,
+        InvalidNumericString, InvalidPrintableString, InvalidRestrictedString,
+        InvalidTeletexString, InvalidVisibleString, PermittedAlphabetError,
     };
 }
 

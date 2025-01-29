@@ -951,6 +951,15 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         self.encode_octet_string(tag, Constraints::default(), value)
     }
 
+    fn encode_graphic_string(
+        &mut self,
+        tag: Tag,
+        _: Constraints,
+        value: &types::GraphicString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(tag, Constraints::default(), value)
+    }
+
     fn encode_printable_string(
         &mut self,
         tag: Tag,

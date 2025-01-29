@@ -8,8 +8,8 @@ use crate::{
     oer::EncodingRules,
     types::{
         Any, BitStr, BmpString, Choice, Constraints, Constructed, Date, Enumerated, GeneralString,
-        GeneralizedTime, Ia5String, IntegerType, NumericString, PrintableString, RealType, SetOf,
-        Tag, TeletexString, UtcTime, VisibleString,
+        GeneralizedTime, GraphicString, Ia5String, IntegerType, NumericString, PrintableString,
+        RealType, SetOf, Tag, TeletexString, UtcTime, VisibleString,
     },
     Codec, Encode,
 };
@@ -789,6 +789,16 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         tag: Tag,
         constraints: Constraints,
         value: &GeneralString,
+    ) -> Result<Self::Ok, Self::Error> {
+        // Seems like it can be encoded as it is...
+        self.encode_octet_string(tag, constraints, value)
+    }
+
+    fn encode_graphic_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+        value: &GraphicString,
     ) -> Result<Self::Ok, Self::Error> {
         // Seems like it can be encoded as it is...
         self.encode_octet_string(tag, constraints, value)

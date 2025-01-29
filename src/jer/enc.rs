@@ -211,6 +211,18 @@ impl crate::Encoder<'_> for Encoder {
         ))
     }
 
+    fn encode_graphic_string(
+        &mut self,
+        _t: Tag,
+        _c: crate::types::Constraints,
+        value: &crate::types::GraphicString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.update_root_or_constructed(Value::String(
+            alloc::string::String::from_utf8(value.to_vec())
+                .map_err(|e| JerEncodeErrorKind::InvalidCharacter { error: e })?,
+        ))
+    }
+
     fn encode_utf8_string(
         &mut self,
         _t: Tag,

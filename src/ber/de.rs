@@ -608,6 +608,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
         .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
     }
 
+    fn decode_graphic_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::GraphicString> {
+        <types::GraphicString>::try_from(
+            self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
+                .as_ref(),
+        )
+        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
+    }
+
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
         let string = self.decode_utf8_string(tag, Constraints::default())?;
         if self.config.encoding_rules.is_ber() {
