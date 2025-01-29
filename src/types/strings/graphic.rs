@@ -64,7 +64,7 @@ impl StaticPermittedAlphabet for GraphicString {
 }
 
 impl AsnType for GraphicString {
-    const TAG: Tag = Tag::GENERAL_STRING;
+    const TAG: Tag = Tag::GRAPHIC_STRING;
 }
 
 impl Decode for GraphicString {
