@@ -18,6 +18,15 @@ pub struct InvalidGeneralString {
     pub character: u32,
 }
 
+/// A character which does not match the allowed character set for General.
+#[derive(snafu::Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[snafu(display("Invalid graphic string, character decimal value: {}", character))]
+pub struct InvalidGraphicString {
+    /// The invalid character.
+    pub character: u32,
+}
+
 /// A character which does not match the allowed character set for IA5.
 #[derive(snafu::Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -77,6 +86,7 @@ macro_rules! from_u32 {
 from_u32!(
     InvalidBmpString,
     InvalidGeneralString,
+    InvalidGraphicString,
     InvalidIA5String,
     InvalidNumericString,
     InvalidPrintableString,
@@ -90,6 +100,7 @@ from_u32!(
 pub enum InvalidRestrictedString {
     InvalidBmpString(InvalidBmpString),
     InvalidGeneralString(InvalidGeneralString),
+    InvalidGraphicString(InvalidGraphicString),
     InvalidIA5String(InvalidIA5String),
     InvalidNumericString(InvalidNumericString),
     InvalidPrintableString(InvalidPrintableString),
@@ -102,6 +113,7 @@ impl core::fmt::Display for InvalidRestrictedString {
         match self {
             InvalidRestrictedString::InvalidBmpString(e) => write!(f, "{}", e),
             InvalidRestrictedString::InvalidGeneralString(e) => write!(f, "{}", e),
+            InvalidRestrictedString::InvalidGraphicString(e) => write!(f, "{}", e),
             InvalidRestrictedString::InvalidIA5String(e) => write!(f, "{}", e),
             InvalidRestrictedString::InvalidNumericString(e) => write!(f, "{}", e),
             InvalidRestrictedString::InvalidPrintableString(e) => write!(f, "{}", e),

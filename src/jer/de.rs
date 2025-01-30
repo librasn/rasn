@@ -251,6 +251,22 @@ impl crate::Decoder for Decoder {
             })
     }
 
+    fn decode_graphic_string(
+        &mut self,
+        _t: Tag,
+        _c: Constraints,
+    ) -> Result<GraphicString, Self::Error> {
+        decode_jer_value!(Self::string_from_value, self.stack)?
+            .try_into()
+            .map_err(|e| {
+                DecodeError::string_conversion_failed(
+                    Tag::GRAPHIC_STRING,
+                    alloc::format!("Error transforming GeneralString: {e:?}"),
+                    crate::Codec::Jer,
+                )
+            })
+    }
+
     fn decode_ia5_string(&mut self, _t: Tag, _c: Constraints) -> Result<Ia5String, Self::Error> {
         decode_jer_value!(Self::string_from_value, self.stack)?
             .try_into()

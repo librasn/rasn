@@ -162,12 +162,19 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         constraints: Constraints,
     ) -> Result<types::VisibleString, Self::Error>;
 
-    /// Decode a `Ia5String` identified by `tag` from the available input.
+    /// Decode a `GeneralString` identified by `tag` from the available input.
     fn decode_general_string(
         &mut self,
         tag: Tag,
         constraints: Constraints,
     ) -> Result<types::GeneralString, Self::Error>;
+
+    /// Decode a `GraphicString` identified by `tag` from the available input.
+    fn decode_graphic_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::GraphicString, Self::Error>;
 
     /// Decode a `Ia5String` identified by `tag` from the available input.
     fn decode_ia5_string(

@@ -451,6 +451,15 @@ impl crate::Encoder<'_> for Encoder {
         self.encode_octet_string_(tag, value)
     }
 
+    fn encode_graphic_string(
+        &mut self,
+        tag: Tag,
+        _constraints: Constraints,
+        value: &types::GraphicString,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string_(tag, value)
+    }
+
     fn encode_printable_string(
         &mut self,
         tag: Tag,

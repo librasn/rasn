@@ -3,9 +3,9 @@
 #[allow(unused_imports, clippy::items_after_statements)]
 fn test_error_imports() {
     use rasn::error::strings::{
-        InvalidBmpString, InvalidGeneralString, InvalidIA5String, InvalidNumericString,
-        InvalidPrintableString, InvalidRestrictedString, InvalidTeletexString,
-        InvalidVisibleString, PermittedAlphabetError,
+        InvalidBmpString, InvalidGeneralString, InvalidGraphicString, InvalidIA5String,
+        InvalidNumericString, InvalidPrintableString, InvalidRestrictedString,
+        InvalidTeletexString, InvalidVisibleString, PermittedAlphabetError,
     };
     _ = PermittedAlphabetError::Other {
         message: String::from("Test"),

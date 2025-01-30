@@ -812,6 +812,21 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             })
     }
 
+    fn decode_graphic_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::GraphicString> {
+        <types::GraphicString>::try_from(self.decode_octet_string::<Vec<u8>>(tag, constraints)?)
+            .map_err(|e| {
+                DecodeError::string_conversion_failed(
+                    Tag::GRAPHIC_STRING,
+                    e.to_string(),
+                    self.codec(),
+                )
+            })
+    }
+
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
         let bytes = self.decode_octet_string::<Cow<[u8]>>(tag, Constraints::default())?;
 

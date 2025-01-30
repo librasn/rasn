@@ -21,8 +21,8 @@ use crate::{
         self,
         fields::{Field, Fields},
         Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated,
-        GeneralString, GeneralizedTime, Ia5String, IntegerType, NumericString, ObjectIdentifier,
-        PrintableString, SetOf, Tag, TeletexString, UtcTime, VisibleString,
+        GeneralString, GeneralizedTime, GraphicString, Ia5String, IntegerType, NumericString,
+        ObjectIdentifier, PrintableString, SetOf, Tag, TeletexString, UtcTime, VisibleString,
     },
     Codec,
 };
@@ -719,6 +719,14 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         _: Tag,
         constraints: Constraints,
     ) -> Result<GeneralString, Self::Error> {
+        self.parse_known_multiplier_string(&constraints)
+    }
+
+    fn decode_graphic_string(
+        &mut self,
+        _: Tag,
+        constraints: Constraints,
+    ) -> Result<GraphicString, Self::Error> {
         self.parse_known_multiplier_string(&constraints)
     }
 
