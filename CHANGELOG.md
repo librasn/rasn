@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0](https://github.com/librasn/rasn/compare/rasn-v0.23.0...rasn-v0.24.0) - 2025-01-30
+
+### Added
+
+- add graphic string support (#410)
+
 ## [0.23.0](https://github.com/librasn/rasn/compare/rasn-v0.22.2...rasn-v0.23.0) - 2025-01-13
 
 ### Added
