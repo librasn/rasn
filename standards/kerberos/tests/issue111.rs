@@ -26,6 +26,7 @@ fn kerberos_flags_enc() {
             Tag::new(Class::Universal, 3),
             Constraints::default(),
             &bitstring,
+            None,
         )
         .unwrap();
     assert_eq!(

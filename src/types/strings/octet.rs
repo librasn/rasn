@@ -102,9 +102,10 @@ impl<const N: usize> Encode for FixedOctetString<N> {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_octet_string(tag, constraints, &self.0)
+            .encode_octet_string(tag, constraints, &self.0, identifier)
             .map(drop)
     }
 }

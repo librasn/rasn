@@ -119,13 +119,13 @@ impl Decode for Person {
 }
 
 impl Encode for Person {
-    fn encode_with_tag_and_constraints<'encoder, E: Encoder<'encoder>>(&self, encoder: &mut E, tag: Tag, constraints: Constraints) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'encoder, E: Encoder<'encoder>>(&self, encoder: &mut E, tag: Tag, constraints: Constraints, identifier: Option<&'static str>) -> Result<(), E::Error> {
         // Accepts a closure that encodes the contents of the sequence.
         encoder.encode_sequence::<2, 0, Self, _>(tag, |encoder| {
             self.age.encode(encoder)?;
             self.name.encode(encoder)?;
             Ok(())
-        })?;
+        }, identifier)?;
 
         Ok(())
     }

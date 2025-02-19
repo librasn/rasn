@@ -88,10 +88,11 @@ macro_rules! opaque_impls {
                 encoder: &mut EN,
                 tag: $crate::rasn::types::Tag,
                 constraints: $crate::rasn::types::Constraints,
+                identifier: Option<&'static str>,
             ) -> Result<(), EN::Error> {
                 self.to_opaque()
                     .map_err(|e| $crate::rasn::error::EncodeError::opaque_conversion_failed(e.to_string(), encoder.codec()))?
-                    .encode_with_tag_and_constraints(encoder, tag, constraints)
+                    .encode_with_tag_and_constraints(encoder, tag, constraints, identifier)
             }
         }
         impl $crate::rasn::Decode for $name {
@@ -185,8 +186,8 @@ macro_rules! object_type {
         }
 
         impl $crate::rasn::Encode for $name {
-            fn encode_with_tag_and_constraints<'encoder, EN: $crate::rasn::Encoder<'encoder>>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints,) -> Result<(), EN::Error> {
-                self.0.encode_with_tag_and_constraints(encoder, tag, constraints)
+            fn encode_with_tag_and_constraints<'encoder, EN: $crate::rasn::Encoder<'encoder>>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints, identifier: Option<&'static str>) -> Result<(), EN::Error> {
+                self.0.encode_with_tag_and_constraints(encoder, tag, constraints, identifier)
             }
         }
 

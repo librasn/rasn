@@ -56,8 +56,9 @@ impl Encode for BmpString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
-        encoder.encode_bmp_string(tag, constraints, self).map(drop)
+        encoder.encode_bmp_string(tag, constraints, self, identifier).map(drop)
     }
 }
 

@@ -61,8 +61,9 @@ impl Encode for BitString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, constraints, self).map(drop)
+        encoder.encode_bit_string(tag, constraints, self, identifier).map(drop)
     }
 }
 
@@ -76,8 +77,9 @@ impl Encode for BitStr {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, constraints, self).map(drop)
+        encoder.encode_bit_string(tag, constraints, self, identifier).map(drop)
     }
 }
 
@@ -113,9 +115,10 @@ impl<const N: usize> Encode for FixedBitString<N> {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_bit_string(tag, constraints, &self[..N])
+            .encode_bit_string(tag, constraints, &self[..N], identifier)
             .map(drop)
     }
 }

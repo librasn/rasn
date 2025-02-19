@@ -22,7 +22,8 @@ impl Encode for Date {
         encoder: &mut E,
         tag: Tag,
         _constraints: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
-        encoder.encode_date(tag, self).map(drop)
+        encoder.encode_date(tag, self, identifier).map(drop)
     }
 }

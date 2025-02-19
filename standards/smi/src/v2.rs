@@ -76,6 +76,7 @@ impl Encode for ExtUtcTime {
         encoder: &mut EN,
         tag: Tag,
         _: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), EN::Error> {
         const CONSTRAINT_1: constraints::Constraints = constraints!(value_constraint!(13));
         encoder
@@ -83,6 +84,7 @@ impl Encode for ExtUtcTime {
                 tag,
                 CONSTRAINT_1,
                 self.0.format(FULL_DATE_FORMAT).to_string().as_bytes(),
+                identifier,
             )
             .map(drop)
     }

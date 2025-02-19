@@ -97,6 +97,7 @@ snafu = { version = "0.8.5", default-features = false, features = [
     "rust_1_81",
 ] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
+xml-no-std = "0.8.19"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false, features = [

@@ -473,7 +473,7 @@ mod tests {
         let oid = vec![3, 5, 4, 3];
 
         let mut enc = enc::Encoder::new(enc::EncoderOptions::ber());
-        let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &oid);
+        let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &oid, None);
         assert!(result.is_err());
         match result {
             Err(e) => match *e.kind {

@@ -1,5 +1,7 @@
 use itertools::Itertools;
+use proc_macro2::Span;
 use quote::ToTokens;
+use syn::LitStr;
 
 use crate::config::*;
 
@@ -335,16 +337,16 @@ impl Enum<'_> {
         let crate_root = &self.config.crate_root;
         let operation = if self.config.enumerated {
             quote! {
-                encoder.encode_enumerated(tag, self).map(drop)
+                encoder.encode_enumerated(tag, self, identifier).map(drop)
             }
         } else {
             quote! {
-                encoder.encode_explicit_prefix(tag, self).map(drop)
+                encoder.encode_explicit_prefix(tag, self, identifier).map(drop)
             }
         };
 
         quote! {
-            fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: Option<&'static str>) -> core::result::Result<(), EN::Error> {
                 #operation
             }
         }
@@ -386,6 +388,10 @@ impl Enum<'_> {
             let name = &self.name;
             let variant_config = &variant_configs[i];
             let variant_tag = &variant_tags[i];
+            let variant_identifier =  variant_config
+            .identifier
+            .clone()
+            .unwrap_or(LitStr::new(&variant_config.variant.ident.to_string(), Span::call_site()));
 
             match &v.fields {
                 syn::Fields::Named(_) => {
@@ -400,13 +406,14 @@ impl Enum<'_> {
                     });
 
                     let tag_tokens = variant_tag.to_tokens(crate_root);
-                    let encode_impl = crate::encode::map_to_inner_type(
+                    let encode_impl: proc_macro2::TokenStream = crate::encode::map_to_inner_type(
                         variant_tag,
                         ident,
                         &v.fields,
                         self.generics,
                         crate_root,
                         variant_config.has_explicit_tag(),
+                        variant_identifier,
                     );
 
                     quote!(#name::#ident { #(#idents: #idents_prefixed),* } => { #encode_impl.map(|_| #tag_tokens) })
@@ -420,23 +427,23 @@ impl Enum<'_> {
                     let constraint_name = format_ident!("VARIANT_CONSTRAINT_{}", i);
                     let variant_tag = &tag_tokens[i];
                     let encode_operation = if variant_config.has_explicit_tag() {
-                        quote!(encoder.encode_explicit_prefix(#variant_tag, value))
+                        quote!(encoder.encode_explicit_prefix(#variant_tag, value, Some(#variant_identifier)))
                     } else if variant_config.tag.is_some() || self.config.automatic_tags {
                         if let Some(constraints) = constraints {
                             variant_constraints.push(quote! {
                                 const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
                             });
-                            quote!(#crate_root::Encode::encode_with_tag_and_constraints(value, encoder, #variant_tag, #constraint_name))
+                            quote!(#crate_root::Encode::encode_with_tag_and_constraints(value, encoder, #variant_tag, #constraint_name, Some(#variant_identifier)))
                         } else {
-                            quote!(#crate_root::Encode::encode_with_tag(value, encoder, #variant_tag))
+                            quote!(#crate_root::Encode::encode_with_tag_and_identifier(value, encoder, #variant_tag, Some(#variant_identifier)))
                         }
                     } else if let Some(constraints) = constraints {
                             variant_constraints.push(quote! {
                                 const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
                             });
-                            quote!(#crate_root::Encode::encode_with_constraints(value, encoder, #constraint_name))
+                            quote!(#crate_root::Encode::encode_with_constraints_and_identifier(value, encoder, #constraint_name, Some(#variant_identifier)))
                         } else {
-                            quote!(#crate_root::Encode::encode(value, encoder))
+                            quote!(#crate_root::Encode::encode_with_identifier(value, encoder, #variant_identifier))
                     };
 
                     quote! {
@@ -448,9 +455,9 @@ impl Enum<'_> {
                 syn::Fields::Unit => {
                     let variant_tag = &tag_tokens[i];
                     let encode_operation = if variant_config.has_explicit_tag() {
-                        quote!(encoder.encode_explicit_prefix(#variant_tag, &()))
+                        quote!(encoder.encode_explicit_prefix(#variant_tag, &(), Some(#variant_identifier)))
                     } else {
-                        quote!(encoder.encode_null(#variant_tag))
+                        quote!(encoder.encode_null(#variant_tag, Some(#variant_identifier)))
                     };
 
                     quote!(#name::#ident => #encode_operation.map(|_| #variant_tag))
@@ -466,7 +473,8 @@ impl Enum<'_> {
                 },
                 |encoder| match self {
                     #(#variants),*
-                }
+                },
+                Self::IDENTIFIER,
             )
         };
 
@@ -474,6 +482,11 @@ impl Enum<'_> {
             let inner_name = quote::format_ident!("Inner{}", self.name);
             let encode_lifetime = syn::Lifetime::new("'inner", proc_macro2::Span::call_site());
             let mut inner_generics = self.generics.clone();
+            let inner_identifier = self
+                .config
+                .identifier
+                .clone()
+                .unwrap_or(LitStr::new(&self.name.to_string(), Span::call_site()));
 
             inner_generics
                 .params
@@ -526,7 +539,7 @@ impl Enum<'_> {
                     #(#init_variants),*
                 };
 
-                encoder.encode_explicit_prefix::<#inner_name>(<#name as #crate_root::AsnType>::TAG, &value)
+                encoder.encode_explicit_prefix::<#inner_name>(<#name as #crate_root::AsnType>::TAG, &value, Some(#inner_identifier))
             }
         } else {
             encode_variants

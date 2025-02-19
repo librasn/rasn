@@ -151,9 +151,10 @@ mod tests {
                 encoder: &mut E,
                 tag: Tag,
                 constraints: Constraints,
+                _: Option<&'static str>,
             ) -> Result<(), E::Error> {
                 encoder
-                    .encode_integer::<i128>(tag, constraints, &self.0.into())
+                    .encode_integer::<i128>(tag, constraints, &self.0.into(), None)
                     .map(drop)
             }
         }

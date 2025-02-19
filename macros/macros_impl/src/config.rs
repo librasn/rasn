@@ -1,4 +1,5 @@
 use crate::{ext::TypeExt, tag::Tag};
+use proc_macro2::Span;
 use quote::ToTokens;
 use std::ops::Deref;
 use syn::spanned::Spanned;
@@ -810,10 +811,20 @@ impl<'a> FieldConfig<'a> {
             .as_ref()
             .map(|name| quote!(#name))
             .unwrap_or_else(|| quote!(#i));
+        let identifier = self
+            .identifier
+            .clone()
+            .or(self
+                .field
+                .ident
+                .as_ref()
+                .map(|i| LitStr::new(&i.to_string(), Span::call_site())))
+            .map(|i| quote!(Some(#i)))
+            .unwrap_or(quote!(None));
         let mut ty = self.field.ty.clone();
         let crate_root = &self.container_config.crate_root;
         ty.strip_lifetimes();
-        let default_fn = self.default_fn();
+        let default_fn = self.default_fn().map(|d| quote!(#d,));
         let has_generics = !type_params.is_empty() && {
             if let Type::Path(ref ty) = ty {
                 ty.path.segments.iter().any(|seg| {
@@ -847,18 +858,19 @@ impl<'a> FieldConfig<'a> {
         let encode = if self.tag.is_some() || self.container_config.automatic_tags {
             if self.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
                 // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
-                quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;)
+                quote!(encoder.encode_explicit_prefix(#tag, &self.#field, #identifier)?;)
             } else if self.extension_addition {
                 quote!(
                     #constraint_def
                     encoder.encode_extension_addition(
                         #tag,
                         #constraint_name,
-                        &#this #field
+                        &#this #field,
+                        #identifier,
                     )?;
                 )
             } else if self.extension_addition_group {
-                quote!(encoder.encode_extension_addition_group(#this #field.as_ref())?;)
+                quote!(encoder.encode_extension_addition_group(#this #field.as_ref(), #identifier)?;)
             } else {
                 match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
@@ -869,6 +881,7 @@ impl<'a> FieldConfig<'a> {
                                 #constraint_name,
                                 &#this #field,
                                 #default_fn
+                                #identifier,
                             )?;
                         )
                     }
@@ -880,13 +893,16 @@ impl<'a> FieldConfig<'a> {
                                 #tag,
                                 #constraint_name,
                                 #default_fn
+                                #identifier,
                             )?;
                         )
                     }
                     (false, true) => {
-                        quote!(encoder.encode_default_with_tag(#tag, &#this #field, #default_fn)?;)
+                        quote!(encoder.encode_default_with_tag(#tag, &#this #field, #default_fn #identifier)?;)
                     }
-                    (false, false) => quote!(#this #field.encode_with_tag(encoder, #tag)?;),
+                    (false, false) => {
+                        quote!(#this #field.encode_with_tag_and_identifier(encoder, #tag, #identifier)?;)
+                    }
                 }
             }
         } else if self.extension_addition {
@@ -895,11 +911,12 @@ impl<'a> FieldConfig<'a> {
                 encoder.encode_extension_addition(
                     #tag,
                     #constraint_name,
-                    &#this #field
+                    &#this #field,
+                    #identifier,
                 )?;
             )
         } else if self.extension_addition_group {
-            quote!(encoder.encode_extension_addition_group(#this #field.as_ref())?;)
+            quote!(encoder.encode_extension_addition_group(#this #field.as_ref(), #identifier)?;)
         } else {
             match (self.constraints.has_constraints(), self.default.is_some()) {
                 (true, true) => {
@@ -909,19 +926,23 @@ impl<'a> FieldConfig<'a> {
                             #constraint_name,
                             &#this #field,
                             #default_fn
+                            #identifier,
                         )?;
                     )
                 }
                 (true, false) => {
                     quote!(
                         #constraint_def
-                        #this #field.encode_with_constraints(
+                        #this #field.encode_with_constraints_and_identifier(
                             encoder,
                             #constraint_name,
+                            #identifier,
                         )?;
                     )
                 }
-                (false, true) => quote!(encoder.encode_default(&#this #field, #default_fn)?;),
+                (false, true) => {
+                    quote!(encoder.encode_default(&#this #field, #default_fn #identifier)?;)
+                }
                 (false, false) => quote!(#this #field.encode(encoder)?;),
             }
         };

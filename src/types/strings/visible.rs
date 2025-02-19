@@ -83,9 +83,10 @@ impl Encode for VisibleString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_visible_string(tag, constraints, self)
+            .encode_visible_string(tag, constraints, self, identifier)
             .map(drop)
     }
 }

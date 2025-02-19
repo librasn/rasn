@@ -83,9 +83,10 @@ impl Encode for GraphicString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_graphic_string(tag, constraints, self)
+            .encode_graphic_string(tag, constraints, self, identifier)
             .map(drop)
     }
 }

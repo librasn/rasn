@@ -39,12 +39,13 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         encoder: &mut EN,
         tag: Tag,
         _: Constraints,
+        identifier: Option<&'static str>,
     ) -> core::result::Result<(), EN::Error> {
         encoder.encode_sequence::<2, 0, Self, _>(tag, |sequence| {
             self.type_id.encode(sequence)?;
-            sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value)?;
+            sequence.encode_explicit_prefix(Tag::new(Class::Context, 0), &self.value, identifier)?;
             Ok(())
-        })?;
+        }, identifier)?;
 
         Ok(())
     }

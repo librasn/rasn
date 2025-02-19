@@ -907,6 +907,7 @@ dependencies = [
  "x509-cert",
  "x509-certificate",
  "x509-parser",
+ "xml-no-std",
 ]
 
 [[package]]
@@ -1629,6 +1630,12 @@ dependencies = [
  "thiserror",
  "time",
 ]
+
+[[package]]
+name = "xml-no-std"
+version = "0.8.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac4f451c779ea0b57e28c106c0fdafe9290038c97d26364aeb87617d2b78f698"
 
 [[package]]
 name = "yansi"

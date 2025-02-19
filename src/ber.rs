@@ -240,12 +240,13 @@ mod tests {
                 encoder: &mut EN,
                 tag: crate::types::Tag,
                 _: Constraints,
+                _: Option<&'static str>,
             ) -> Result<(), EN::Error> {
                 encoder.encode_set::<2, 0, Self, _>(tag, |encoder| {
                     self.age.encode(encoder)?;
                     self.name.encode(encoder)?;
                     Ok(())
-                })?;
+                }, None)?;
 
                 Ok(())
             }

@@ -1,3 +1,6 @@
+use proc_macro2::Span;
+use syn::LitStr;
+
 use crate::config::*;
 
 pub fn derive_struct_impl(
@@ -47,7 +50,7 @@ pub fn derive_struct_impl(
         if let Some(tag) = config.tag.as_ref().filter(|tag| tag.is_explicit()) {
             let tag = tag.to_tokens(crate_root);
             // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
-            quote!(encoder.encode_explicit_prefix(#tag, &self.0).map(drop))
+            quote!(encoder.encode_explicit_prefix(#tag, &self.0, identifier).map(drop))
         } else {
             let constraint_name = quote::format_ident!("effective_constraint");
             let constraint_def = if generics.params.is_empty() {
@@ -70,7 +73,8 @@ pub fn derive_struct_impl(
                             &self.0,
                             encoder,
                             tag,
-                            #constraint_name
+                            #constraint_name,
+                            identifier,
                         )
                     }
                 }
@@ -87,7 +91,7 @@ pub fn derive_struct_impl(
             encoder.#operation::<#number_root_fields, #number_extended_fields, Self, _>(tag, |encoder| {
                 #(#field_encodings)*
                 Ok(())
-            }).map(drop)
+            }, identifier).map(drop)
         };
 
         if config.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
@@ -98,6 +102,10 @@ pub fn derive_struct_impl(
                 &generics,
                 crate_root,
                 true,
+                config
+                    .identifier
+                    .clone()
+                    .unwrap_or(LitStr::new(&name.to_string(), Span::call_site())),
             )
         } else {
             encode_impl
@@ -108,7 +116,7 @@ pub fn derive_struct_impl(
     Ok(quote! {
         #[allow(clippy::mutable_key_type)]
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
-            fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: Option<&'static str>) -> core::result::Result<(), EN::Error> {
                 #(#vars)*
 
                 #encode_impl
@@ -124,8 +132,10 @@ pub fn map_to_inner_type(
     generics: &syn::Generics,
     crate_root: &syn::Path,
     is_explicit: bool,
+    identifier: LitStr,
 ) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
+
     let mut inner_generics = generics.clone();
     let lifetime = syn::Lifetime::new(
         &format!("'inner{}", uuid::Uuid::new_v4().as_u128()),
@@ -182,9 +192,9 @@ pub fn map_to_inner_type(
 
     let tag = tag.to_tokens(crate_root);
     let inner_impl = if is_explicit {
-        quote!(encoder.encode_explicit_prefix(#tag, &inner).map(drop))
+        quote!(encoder.encode_explicit_prefix(#tag, &inner, Some(#identifier)).map(drop))
     } else {
-        quote!(inner.encode_with_tag(encoder, #tag))
+        quote!(inner.encode_with_tag_and_identifier(encoder, #tag, Some(#identifier)))
     };
 
     quote! {

@@ -22,6 +22,7 @@ impl rasn::Encode for PersonnelRecord {
         encoder: &mut EN,
         tag: rasn::types::Tag,
         _: rasn::types::Constraints,
+        _: Option<&'static str>,
     ) -> core::result::Result<(), EN::Error> {
         #[allow(unused)]
         let name = &self.name;
@@ -41,23 +42,27 @@ impl rasn::Encode for PersonnelRecord {
                 encoder.encode_explicit_prefix(
                     rasn::types::Tag::new(rasn::types::Class::Context, 0),
                     &self.title,
+                    None,
                 )?;
                 self.number.encode(encoder)?;
                 encoder.encode_explicit_prefix(
                     rasn::types::Tag::new(rasn::types::Class::Context, 1),
                     &self.date_of_hire,
+                    None,
                 )?;
                 encoder.encode_explicit_prefix(
                     rasn::types::Tag::new(rasn::types::Class::Context, 2),
                     &self.name_of_spouse,
+                    None,
                 )?;
                 encoder.encode_default_with_tag(
                     rasn::types::Tag::new(rasn::types::Class::Context, 3),
                     &self.children,
                     <Vec<ChildInformation>>::default,
+                    None,
                 )?;
                 Ok(())
-            })
+            }, None)
             .map(drop)
     }
 }
