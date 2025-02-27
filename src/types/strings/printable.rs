@@ -63,6 +63,7 @@ impl StaticPermittedAlphabet for PrintableString {
 
 impl AsnType for PrintableString {
     const TAG: Tag = Tag::PRINTABLE_STRING;
+    const IDENTIFIER: Option<&'static str> = Some("PrintableString");
 }
 
 impl Encode for PrintableString {

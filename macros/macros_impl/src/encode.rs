@@ -50,7 +50,7 @@ pub fn derive_struct_impl(
         if let Some(tag) = config.tag.as_ref().filter(|tag| tag.is_explicit()) {
             let tag = tag.to_tokens(crate_root);
             // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
-            quote!(encoder.encode_explicit_prefix(#tag, &self.0, identifier).map(drop))
+            quote!(encoder.encode_explicit_prefix(#tag, &self.0, identifier.or(Self::IDENTIFIER)).map(drop))
         } else {
             let constraint_name = quote::format_ident!("effective_constraint");
             let constraint_def = if generics.params.is_empty() {
@@ -66,7 +66,7 @@ pub fn derive_struct_impl(
                 #constraint_def
                 match tag {
                     #crate_root::types::Tag::EOC => {
-                        self.0.encode(encoder)
+                        self.0.encode_with_identifier(encoder, identifier.or(Self::IDENTIFIER))
                     }
                     _ => {
                         <#ty as #crate_root::Encode>::encode_with_tag_and_constraints(
@@ -74,7 +74,7 @@ pub fn derive_struct_impl(
                             encoder,
                             tag,
                             #constraint_name,
-                            identifier,
+                            identifier.or(Self::IDENTIFIER),
                         )
                     }
                 }
@@ -102,10 +102,7 @@ pub fn derive_struct_impl(
                 &generics,
                 crate_root,
                 true,
-                config
-                    .identifier
-                    .clone()
-                    .unwrap_or(LitStr::new(&name.to_string(), Span::call_site())),
+                config.identifier.as_ref(),
             )
         } else {
             encode_impl
@@ -132,9 +129,10 @@ pub fn map_to_inner_type(
     generics: &syn::Generics,
     crate_root: &syn::Path,
     is_explicit: bool,
-    identifier: LitStr,
+    identifier: Option<&LitStr>,
 ) -> proc_macro2::TokenStream {
     let inner_name = quote::format_ident!("Inner{}", name);
+    let identifier = identifier.map_or(quote!(Self::IDENTIFIER), |id| quote!(Some(#id)));
 
     let mut inner_generics = generics.clone();
     let lifetime = syn::Lifetime::new(
@@ -192,9 +190,9 @@ pub fn map_to_inner_type(
 
     let tag = tag.to_tokens(crate_root);
     let inner_impl = if is_explicit {
-        quote!(encoder.encode_explicit_prefix(#tag, &inner, Some(#identifier)).map(drop))
+        quote!(encoder.encode_explicit_prefix(#tag, &inner, #identifier).map(drop))
     } else {
-        quote!(inner.encode_with_tag_and_identifier(encoder, #tag, Some(#identifier)))
+        quote!(inner.encode_with_tag_and_identifier(encoder, #tag, #identifier))
     };
 
     quote! {

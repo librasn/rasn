@@ -15,11 +15,13 @@ pub trait Encode: AsnType {
     /// should only ever need to implement this if you have a type that *cannot*
     /// be implicitly tagged, such as a `CHOICE` type, in which case you want to
     /// implement encoding in [`Self::encode`].
-    fn encode<'b, E: Encoder<'b>>(
-        &self,
-        encoder: &mut E,
-    ) -> Result<(), E::Error> {
-        self.encode_with_tag_and_constraints(encoder, Self::TAG, Self::CONSTRAINTS, Self::IDENTIFIER)
+    fn encode<'b, E: Encoder<'b>>(&self, encoder: &mut E) -> Result<(), E::Error> {
+        self.encode_with_tag_and_constraints(
+            encoder,
+            Self::TAG,
+            Self::CONSTRAINTS,
+            Self::IDENTIFIER,
+        )
     }
 
     /// Encode this value with `tag` into the given [`crate::Encoder`].
@@ -43,12 +45,12 @@ pub trait Encode: AsnType {
     fn encode_with_identifier<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
-        identifier: &'static str,
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
-        self.encode_with_tag_and_constraints(encoder, Self::TAG, Self::CONSTRAINTS, Some(identifier))
+        self.encode_with_tag_and_constraints(encoder, Self::TAG, Self::CONSTRAINTS, identifier)
     }
 
-     /// Encode this value with `tag` and `identifier` into the given [`crate::Encoder`].
+    /// Encode this value with `tag` and `identifier` into the given [`crate::Encoder`].
     ///
     /// **Note** For `CHOICE` and other types that cannot be implicitly tagged
     /// this will **explicitly tag** the value, for all other types, it will
@@ -57,7 +59,7 @@ pub trait Encode: AsnType {
         &self,
         encoder: &mut E,
         tag: Tag,
-        identifier: Option<&'static str>
+        identifier: Option<&'static str>,
     ) -> Result<(), E::Error> {
         self.encode_with_tag_and_constraints(encoder, tag, Self::CONSTRAINTS, identifier)
     }
@@ -538,10 +540,7 @@ impl Error for core::convert::Infallible {
 }
 
 impl<E: Encode> Encode for &'_ E {
-    fn encode<'b, EN: Encoder<'b>>(
-        &self,
-        encoder: &mut EN,
-    ) -> Result<(), EN::Error> {
+    fn encode<'b, EN: Encoder<'b>>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
         E::encode(self, encoder)
     }
 
@@ -553,12 +552,38 @@ impl<E: Encode> Encode for &'_ E {
         E::encode_with_tag(self, encoder, tag)
     }
 
+    fn encode_with_tag_and_identifier<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+        identifier: Option<&'static str>,
+    ) -> Result<(), EN::Error> {
+        E::encode_with_tag_and_identifier(self, encoder, tag, identifier)
+    }
+
+    fn encode_with_identifier<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        identifier: Option<&'static str>,
+    ) -> Result<(), EN::Error> {
+        E::encode_with_identifier(self, encoder, identifier)
+    }
+
     fn encode_with_constraints<'b, EN: Encoder<'b>>(
         &self,
         encoder: &mut EN,
         constraints: Constraints,
     ) -> Result<(), EN::Error> {
         E::encode_with_constraints(self, encoder, constraints)
+    }
+
+    fn encode_with_constraints_and_identifier<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        constraints: Constraints,
+        identifier: Option<&'static str>,
+    ) -> Result<(), EN::Error> {
+        E::encode_with_constraints_and_identifier(self, encoder, constraints, identifier)
     }
 
     fn encode_with_tag_and_constraints<'b, EN: Encoder<'b>>(
@@ -585,10 +610,7 @@ impl Encode for () {
 }
 
 impl<E: Encode> Encode for Option<E> {
-    fn encode<'b, EN: Encoder<'b>>(
-        &self,
-        encoder: &mut EN,
-    ) -> Result<(), EN::Error> {
+    fn encode<'b, EN: Encoder<'b>>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
         match self {
             Some(value) => encoder.encode_some::<E>(value, Self::IDENTIFIER),
             None => encoder.encode_none::<E>(Self::IDENTIFIER),
@@ -608,6 +630,19 @@ impl<E: Encode> Encode for Option<E> {
         .map(drop)
     }
 
+    fn encode_with_tag_and_identifier<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+        identifier: Option<&'static str>,
+    ) -> Result<(), EN::Error> {
+        match self {
+            Some(value) => encoder.encode_some_with_tag(tag, value, identifier),
+            None => encoder.encode_none_with_tag(tag, identifier),
+        }
+        .map(drop)
+    }
+
     fn encode_with_constraints<'b, EN: Encoder<'b>>(
         &self,
         encoder: &mut EN,
@@ -621,6 +656,36 @@ impl<E: Encode> Encode for Option<E> {
                 Self::IDENTIFIER,
             ),
             None => encoder.encode_none_with_tag(Self::TAG, Self::IDENTIFIER),
+        }
+        .map(drop)
+    }
+
+    fn encode_with_constraints_and_identifier<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        constraints: Constraints,
+        identifier: Option<&'static str>,
+    ) -> Result<(), EN::Error> {
+        match self {
+            Some(value) => encoder.encode_some_with_tag_and_constraints(
+                Self::TAG,
+                constraints,
+                value,
+                identifier,
+            ),
+            None => encoder.encode_none_with_tag(Self::TAG, identifier),
+        }
+        .map(drop)
+    }
+
+    fn encode_with_identifier<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        identifier: Option<&'static str>,
+    ) -> Result<(), EN::Error> {
+        match self {
+            Some(value) => encoder.encode_some_with_tag(Self::TAG, value, identifier),
+            None => encoder.encode_none_with_tag(Self::TAG, identifier),
         }
         .map(drop)
     }
@@ -873,10 +938,7 @@ impl Encode for types::Any {
 }
 
 impl<E: Encode> Encode for alloc::boxed::Box<E> {
-    fn encode<'b, EN: Encoder<'b>>(
-        &self,
-        encoder: &mut EN,
-    ) -> Result<(), EN::Error> {
+    fn encode<'b, EN: Encoder<'b>>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
         E::encode(self, encoder)
     }
 
@@ -894,6 +956,14 @@ impl<E: Encode> Encode for alloc::boxed::Box<E> {
         constraints: Constraints,
     ) -> Result<(), EN::Error> {
         E::encode_with_constraints(self, encoder, constraints)
+    }
+
+    fn encode_with_identifier<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        identifier: Option<&'static str>,
+    ) -> Result<(), EN::Error> {
+        E::encode_with_identifier(self, encoder, identifier)
     }
 
     fn encode_with_tag_and_constraints<'b, EN: Encoder<'b>>(

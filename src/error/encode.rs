@@ -19,6 +19,7 @@ pub enum CodecEncodeError {
     Aper(AperEncodeErrorKind),
     Jer(JerEncodeErrorKind),
     Coer(CoerEncodeErrorKind),
+    Xer(XerEncodeErrorKind),
 }
 macro_rules! impl_from {
     ($variant:ident, $error_kind:ty) => {
@@ -38,6 +39,7 @@ impl_from!(Uper, UperEncodeErrorKind);
 impl_from!(Aper, AperEncodeErrorKind);
 impl_from!(Jer, JerEncodeErrorKind);
 impl_from!(Coer, CoerEncodeErrorKind);
+impl_from!(Xer, XerEncodeErrorKind);
 
 impl From<CodecEncodeError> for EncodeError {
     fn from(error: CodecEncodeError) -> Self {
@@ -243,6 +245,7 @@ impl EncodeError {
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
             CodecEncodeError::Jer(_) => crate::Codec::Jer,
             CodecEncodeError::Coer(_) => crate::Codec::Coer,
+            CodecEncodeError::Xer(_) => crate::Codec::Xer,
         };
         Self {
             kind: Box::new(EncodeErrorKind::CodecSpecific { inner }),
@@ -424,6 +427,21 @@ pub enum UperEncodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperEncodeErrorKind {}
+
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for XER.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum XerEncodeErrorKind {
+    /// Upstream `xml` error
+    XmlEncodingError { upstream: alloc::string::String },
+    #[snafu(display("Failed to retrieve field name."))]
+    FieldName,
+    #[snafu(display("Failed to encode integer."))]
+    UnsupportedIntegerValue,
+    #[snafu(display("Missing identifier for ASN.1 type."))]
+    MissingIdentifier,
+}
 
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for COER.
 #[derive(Snafu, Debug)]

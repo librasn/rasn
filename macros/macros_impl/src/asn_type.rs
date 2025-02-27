@@ -8,6 +8,7 @@ pub fn derive_struct_impl(
     container: syn::DataStruct,
     config: &Config,
 ) -> syn::Result<proc_macro2::TokenStream> {
+    let name_literal = name.to_string();
     let crate_root = &config.crate_root;
     let tag = config.tag_for_struct(&container.fields);
     let field_configs = container
@@ -90,7 +91,7 @@ pub fn derive_struct_impl(
     let constraints_def = config.constraints.const_static_def(crate_root);
 
     let alt_identifier = config.identifier.as_ref().map_or(
-        quote!(),
+        quote!(const IDENTIFIER: Option<&'static str> = Some(#name_literal);),
         |id| quote!(const IDENTIFIER: Option<&'static str> = Some(#id);),
     );
 

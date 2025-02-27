@@ -324,7 +324,12 @@ impl crate::Encoder<'_> for Encoder {
         Self::codec(self)
     }
 
-    fn encode_any(&mut self, _: Tag, value: &types::Any, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_any(
+        &mut self,
+        _: Tag,
+        value: &types::Any,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
             return Err(BerEncodeErrorKind::AnyInSet.into());
         }
@@ -362,7 +367,12 @@ impl crate::Encoder<'_> for Encoder {
         }
     }
 
-    fn encode_bool(&mut self, tag: Tag, value: bool, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_bool(
+        &mut self,
+        tag: Tag,
+        value: bool,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(tag, &[if value { 0xff } else { 0x00 }]);
         Ok(())
     }
@@ -414,7 +424,12 @@ impl crate::Encoder<'_> for Encoder {
         Ok(())
     }
 
-    fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32], _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_object_identifier(
+        &mut self,
+        tag: Tag,
+        oid: &[u32],
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         let bytes = self.object_identifier_as_bytes(oid)?;
         self.encode_primitive(tag, &bytes);
         Ok(())
@@ -548,13 +563,22 @@ impl crate::Encoder<'_> for Encoder {
         Ok(())
     }
 
-    fn encode_date(&mut self, tag: Tag, value: &types::Date, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_date(
+        &mut self,
+        tag: Tag,
+        value: &types::Date,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.encode_primitive(tag, Self::naivedate_to_date_bytes(value).as_slice());
 
         Ok(())
     }
 
-    fn encode_some<E: Encode>(&mut self, value: &E, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_some<E: Encode>(
+        &mut self,
+        value: &E,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         value.encode(self)
     }
 
@@ -581,7 +605,11 @@ impl crate::Encoder<'_> for Encoder {
         self.encode_none_with_tag(E::TAG, None)
     }
 
-    fn encode_none_with_tag(&mut self, _: Tag, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_none_with_tag(
+        &mut self,
+        _: Tag,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 
@@ -849,6 +877,8 @@ mod tests {
         let field2: Field2 = 2.into();
         let field3: Field3 = 3.into();
 
+        #[derive(AsnType)]
+        #[rasn(crate_root = "crate")]
         struct Set;
 
         impl crate::types::Constructed<3, 0> for Set {
@@ -863,12 +893,16 @@ mod tests {
         let output = {
             let mut encoder = Encoder::new_set(EncoderOptions::ber());
             encoder
-                .encode_set::<3, 0, Set, _>(Tag::SET, |encoder| {
-                    field3.encode(encoder)?;
-                    field2.encode(encoder)?;
-                    field1.encode(encoder)?;
-                    Ok(())
-                }, None)
+                .encode_set::<3, 0, Set, _>(
+                    Tag::SET,
+                    |encoder| {
+                        field3.encode(encoder)?;
+                        field2.encode(encoder)?;
+                        field1.encode(encoder)?;
+                        Ok(())
+                    },
+                    None,
+                )
                 .unwrap();
 
             encoder.output()

@@ -65,6 +65,7 @@ impl StaticPermittedAlphabet for GraphicString {
 
 impl AsnType for GraphicString {
     const TAG: Tag = Tag::GRAPHIC_STRING;
+    const IDENTIFIER: Option<&'static str> = Some("GraphicString");
 }
 
 impl Decode for GraphicString {

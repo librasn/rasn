@@ -16,6 +16,7 @@ impl Enum<'_> {
     #[allow(clippy::too_many_lines)]
     pub fn impl_asntype(&self) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.config.crate_root;
+        let name_literal = self.name.to_string();
 
         let tag = self.config.tag.as_ref().map_or_else(
             || {
@@ -172,7 +173,7 @@ impl Enum<'_> {
         });
 
         let alt_identifier = self.config.identifier.as_ref().map_or(
-            quote!(),
+            quote!(const IDENTIFIER: Option<&'static str> = Some(#name_literal);),
             |id| quote!(const IDENTIFIER: Option<&'static str> = Some(#id);),
         );
 
@@ -413,7 +414,7 @@ impl Enum<'_> {
                         self.generics,
                         crate_root,
                         variant_config.has_explicit_tag(),
-                        variant_identifier,
+                        None,
                     );
 
                     quote!(#name::#ident { #(#idents: #idents_prefixed),* } => { #encode_impl.map(|_| #tag_tokens) })
@@ -443,7 +444,7 @@ impl Enum<'_> {
                             });
                             quote!(#crate_root::Encode::encode_with_constraints_and_identifier(value, encoder, #constraint_name, Some(#variant_identifier)))
                         } else {
-                            quote!(#crate_root::Encode::encode_with_identifier(value, encoder, #variant_identifier))
+                            quote!(#crate_root::Encode::encode_with_identifier(value, encoder, Some(#variant_identifier)))
                     };
 
                     quote! {

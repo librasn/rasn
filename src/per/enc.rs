@@ -788,7 +788,12 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         Self::codec(self)
     }
 
-    fn encode_any(&mut self, tag: Tag, value: &types::Any, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_any(
+        &mut self,
+        tag: Tag,
+        value: &types::Any,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(tag, Constraints::default(), &value.contents, None)
     }
 
@@ -840,7 +845,12 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         Ok(())
     }
 
-    fn encode_bool(&mut self, tag: Tag, value: bool, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_bool(
+        &mut self,
+        tag: Tag,
+        value: bool,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.extend(tag, value);
         Ok(())
     }
@@ -910,7 +920,12 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         Ok(())
     }
 
-    fn encode_object_identifier(&mut self, tag: Tag, oid: &[u32], _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_object_identifier(
+        &mut self,
+        tag: Tag,
+        oid: &[u32],
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         let mut encoder = crate::der::enc::Encoder::new(crate::der::enc::EncoderOptions::der());
         let der = encoder.object_identifier_as_bytes(oid)?;
         self.encode_octet_string(tag, Constraints::default(), &der, None)
@@ -1025,7 +1040,12 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &types::UtcTime,
         _: Option<&'static str>,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, Constraints::default(), &crate::der::encode(value)?, None)
+        self.encode_octet_string(
+            tag,
+            Constraints::default(),
+            &crate::der::encode(value)?,
+            None,
+        )
     }
 
     fn encode_generalized_time(
@@ -1034,11 +1054,26 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &types::GeneralizedTime,
         _: Option<&'static str>,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, Constraints::default(), &crate::der::encode(value)?, None)
+        self.encode_octet_string(
+            tag,
+            Constraints::default(),
+            &crate::der::encode(value)?,
+            None,
+        )
     }
 
-    fn encode_date(&mut self, tag: Tag, value: &types::Date, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, Constraints::default(), &crate::der::encode(value)?, None)
+    fn encode_date(
+        &mut self,
+        tag: Tag,
+        value: &types::Date,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
+        self.encode_octet_string(
+            tag,
+            Constraints::default(),
+            &crate::der::encode(value)?,
+            None,
+        )
     }
 
     fn encode_sequence_of<E: Encode>(
@@ -1102,7 +1137,11 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         }
     }
 
-    fn encode_some<E: Encode>(&mut self, value: &E, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_some<E: Encode>(
+        &mut self,
+        value: &E,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.set_presence(E::TAG, true);
         value.encode(self)
     }
@@ -1133,7 +1172,11 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         Ok(())
     }
 
-    fn encode_none_with_tag(&mut self, tag: Tag, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_none_with_tag(
+        &mut self,
+        tag: Tag,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.set_presence(tag, false);
         Ok(())
     }

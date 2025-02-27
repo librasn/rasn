@@ -27,6 +27,7 @@ pub enum CodecDecodeError {
     Jer(JerDecodeErrorKind),
     Oer(OerDecodeErrorKind),
     Coer(CoerDecodeErrorKind),
+    Xer(XerDecodeErrorKind),
 }
 
 macro_rules! impl_from {
@@ -48,6 +49,7 @@ impl_from!(Aper, AperDecodeErrorKind);
 impl_from!(Jer, JerDecodeErrorKind);
 impl_from!(Oer, OerDecodeErrorKind);
 impl_from!(Coer, CoerDecodeErrorKind);
+impl_from!(Xer, XerDecodeErrorKind);
 
 impl From<CodecDecodeError> for DecodeError {
     fn from(error: CodecDecodeError) -> Self {
@@ -398,6 +400,7 @@ impl DecodeError {
             CodecDecodeError::Jer(_) => crate::Codec::Jer,
             CodecDecodeError::Oer(_) => crate::Codec::Oer,
             CodecDecodeError::Coer(_) => crate::Codec::Coer,
+            CodecDecodeError::Xer(_) => crate::Codec::Xer,
         };
         Self {
             kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
@@ -812,6 +815,41 @@ pub enum UperDecodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperDecodeErrorKind {}
+
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for XER.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum XerDecodeErrorKind {
+    #[snafu(display("Unexpected end of input while decoding XER XML."))]
+    EndOfXmlInput {},
+    #[snafu(display(
+        "Found mismatching XML value. Expected type {}. Found value {}.",
+        needed,
+        found
+    ))]
+    XmlTypeMismatch {
+        needed: &'static str,
+        found: alloc::string::String,
+    },
+    #[snafu(display("Found invalid character in octet string."))]
+    InvalidXerOctetstring { parse_int_err: ParseIntError },
+    #[snafu(display("Encountered invalid value. {details}"))]
+    InvalidInput { details: &'static str },
+    #[snafu(display("Found invalid open type encoding: {inner_err}"))]
+    InvalidOpenType {
+        inner_err: xml_no_std::writer::Error,
+    },
+    #[snafu(display("XML parser error: {details}"))]
+    XmlParser { details: alloc::string::String },
+    #[snafu(display("Error matching tag names: expected {needed}, found {found}"))]
+    XmlTag {
+        needed: alloc::string::String,
+        found: alloc::string::String,
+    },
+    #[snafu(display("Encoding violates ITU-T X.693 (02/2021): {details}"))]
+    SpecViolation { details: alloc::string::String },
+}
 
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for OER.
 #[derive(Snafu, Debug)]

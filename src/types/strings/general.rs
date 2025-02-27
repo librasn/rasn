@@ -70,6 +70,7 @@ impl StaticPermittedAlphabet for GeneralString {
 
 impl AsnType for GeneralString {
     const TAG: Tag = Tag::GENERAL_STRING;
+    const IDENTIFIER: Option<&'static str> = Some("GeneralString");
 }
 
 impl Decode for GeneralString {

@@ -37,32 +37,36 @@ impl rasn::Encode for PersonnelRecord {
         #[allow(unused)]
         let children = &self.children;
         encoder
-            .encode_set::<6, 0, Self, _>(tag, |encoder| {
-                self.name.encode(encoder)?;
-                encoder.encode_explicit_prefix(
-                    rasn::types::Tag::new(rasn::types::Class::Context, 0),
-                    &self.title,
-                    None,
-                )?;
-                self.number.encode(encoder)?;
-                encoder.encode_explicit_prefix(
-                    rasn::types::Tag::new(rasn::types::Class::Context, 1),
-                    &self.date_of_hire,
-                    None,
-                )?;
-                encoder.encode_explicit_prefix(
-                    rasn::types::Tag::new(rasn::types::Class::Context, 2),
-                    &self.name_of_spouse,
-                    None,
-                )?;
-                encoder.encode_default_with_tag(
-                    rasn::types::Tag::new(rasn::types::Class::Context, 3),
-                    &self.children,
-                    <Vec<ChildInformation>>::default,
-                    None,
-                )?;
-                Ok(())
-            }, None)
+            .encode_set::<6, 0, Self, _>(
+                tag,
+                |encoder| {
+                    self.name.encode(encoder)?;
+                    encoder.encode_explicit_prefix(
+                        rasn::types::Tag::new(rasn::types::Class::Context, 0),
+                        &self.title,
+                        None,
+                    )?;
+                    self.number.encode(encoder)?;
+                    encoder.encode_explicit_prefix(
+                        rasn::types::Tag::new(rasn::types::Class::Context, 1),
+                        &self.date_of_hire,
+                        None,
+                    )?;
+                    encoder.encode_explicit_prefix(
+                        rasn::types::Tag::new(rasn::types::Class::Context, 2),
+                        &self.name_of_spouse,
+                        None,
+                    )?;
+                    encoder.encode_default_with_tag(
+                        rasn::types::Tag::new(rasn::types::Class::Context, 3),
+                        &self.children,
+                        <Vec<ChildInformation>>::default,
+                        None,
+                    )?;
+                    Ok(())
+                },
+                None,
+            )
             .map(drop)
     }
 }

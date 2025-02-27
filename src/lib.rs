@@ -26,6 +26,7 @@ pub mod der;
 pub mod jer;
 pub mod oer;
 pub mod uper;
+pub mod xer;
 
 #[doc(inline)]
 pub use self::{

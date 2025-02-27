@@ -82,7 +82,12 @@ impl crate::Encoder<'_> for Encoder {
         self.encode_octet_string(t, Constraints::default(), &value.contents, None)
     }
 
-    fn encode_bool(&mut self, _: Tag, value: bool, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_bool(
+        &mut self,
+        _: Tag,
+        value: bool,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::Bool(value))
     }
 
@@ -447,7 +452,11 @@ impl crate::Encoder<'_> for Encoder {
         )?))
     }
 
-    fn encode_some<E: crate::Encode>(&mut self, value: &E, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_some<E: crate::Encode>(
+        &mut self,
+        value: &E,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         value.encode(self)
     }
 
@@ -461,12 +470,19 @@ impl crate::Encoder<'_> for Encoder {
         value.encode(self)
     }
 
-    fn encode_none<E: crate::Encode>(&mut self, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_none<E: crate::Encode>(
+        &mut self,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.stack.pop();
         Ok(())
     }
 
-    fn encode_none_with_tag(&mut self, _t: Tag, _: Option<&'static str>) -> Result<Self::Ok, Self::Error> {
+    fn encode_none_with_tag(
+        &mut self,
+        _t: Tag,
+        _: Option<&'static str>,
+    ) -> Result<Self::Ok, Self::Error> {
         self.stack.pop();
         Ok(())
     }

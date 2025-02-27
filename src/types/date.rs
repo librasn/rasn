@@ -4,6 +4,7 @@ use crate::{types::Tag, AsnType, Decode, Decoder, Encode, Encoder};
 
 impl AsnType for Date {
     const TAG: Tag = Tag::DATE;
+    const IDENTIFIER: Option<&'static str> = Some("DATE");
 }
 
 impl Decode for Date {

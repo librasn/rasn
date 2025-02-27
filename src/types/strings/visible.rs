@@ -75,6 +75,7 @@ impl core::fmt::Display for VisibleString {
 
 impl AsnType for VisibleString {
     const TAG: Tag = Tag::VISIBLE_STRING;
+    const IDENTIFIER: Option<&'static str> = Some("VisibleString");
 }
 
 impl Encode for VisibleString {

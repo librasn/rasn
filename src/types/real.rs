@@ -6,6 +6,15 @@ pub trait RealType: Sized + core::fmt::Debug + core::fmt::Display {
     /// The byte level width of the floating point type.
     const BYTE_WIDTH: usize;
 
+    /// The infinity (∞) value
+    const INFINITY: Self;
+
+    /// The negative infinity (-∞) value
+    const NEG_INFINITY: Self;
+
+    /// The Not-a-Number value
+    const NAN: Self;
+
     /// Returns the IEEE 754 encoded bytes of the real type, byte count defined in `usize`
     fn to_ieee754_bytes(&self) -> (impl AsRef<[u8]>, usize);
 
@@ -17,11 +26,23 @@ pub trait RealType: Sized + core::fmt::Debug + core::fmt::Display {
 
     /// Attempts to convert `Self` into a generic floating point type
     fn try_to_float(&self) -> Option<impl FloatCore>;
+
+    /// Returns `true` if the value is positive infinity
+    fn is_infinity(&self) -> bool;
+
+    /// Returns `true` if the value is negative infinity
+    fn is_neg_infinity(&self) -> bool;
+
+    /// Returns `true` if the value is NaN
+    fn is_nan(&self) -> bool;
 }
 
 #[cfg(feature = "f64")]
 impl RealType for f64 {
     const BYTE_WIDTH: usize = core::mem::size_of::<Self>();
+    const INFINITY: Self = Self::INFINITY;
+    const NEG_INFINITY: Self = Self::NEG_INFINITY;
+    const NAN: Self = Self::NAN;
 
     #[inline]
     fn to_ieee754_bytes(&self) -> (impl AsRef<[u8]>, usize) {
@@ -45,11 +66,29 @@ impl RealType for f64 {
     fn try_to_float(&self) -> Option<impl FloatCore> {
         Some(*self)
     }
+
+    #[inline]
+    fn is_infinity(&self) -> bool {
+        *self == Self::INFINITY
+    }
+
+    #[inline]
+    fn is_neg_infinity(&self) -> bool {
+        *self == Self::NEG_INFINITY
+    }
+
+    #[inline]
+    fn is_nan(&self) -> bool {
+        *self == Self::NAN
+    }
 }
 
 #[cfg(feature = "f32")]
 impl RealType for f32 {
     const BYTE_WIDTH: usize = core::mem::size_of::<Self>();
+    const INFINITY: Self = Self::INFINITY;
+    const NEG_INFINITY: Self = Self::NEG_INFINITY;
+    const NAN: Self = Self::NAN;
 
     #[inline]
     fn to_ieee754_bytes(&self) -> (impl AsRef<[u8]>, usize) {
@@ -72,6 +111,21 @@ impl RealType for f32 {
 
     fn try_to_float(&self) -> Option<impl FloatCore> {
         Some(*self)
+    }
+
+    #[inline]
+    fn is_infinity(&self) -> bool {
+        *self == Self::INFINITY
+    }
+
+    #[inline]
+    fn is_neg_infinity(&self) -> bool {
+        *self == Self::NEG_INFINITY
+    }
+
+    #[inline]
+    fn is_nan(&self) -> bool {
+        *self == Self::NAN
     }
 }
 

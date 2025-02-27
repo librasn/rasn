@@ -102,7 +102,7 @@ pub trait DecodeChoice: Choice + crate::Decode {
 }
 
 /// A `ENUMERATED` value.
-pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
+pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug + AsnType {
     /// Variants contained in the "root component list".
     const VARIANTS: &'static [Self];
     /// Variants contained in the list of extensions.
@@ -225,26 +225,27 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
 }
 
 macro_rules! asn_type {
-    ($($name:ty: $value:ident),+) => {
+    ($($name:ty: $value:ident: $identifier:literal),+) => {
         $(
             impl AsnType for $name {
                 const TAG: Tag = Tag::$value;
+                const IDENTIFIER: Option<&'static str> = Some($identifier);
             }
         )+
     }
 }
 
 asn_type! {
-    bool: BOOL,
-    Integer: INTEGER,
-    OctetString: OCTET_STRING,
-    ObjectIdentifier: OBJECT_IDENTIFIER,
-    Oid: OBJECT_IDENTIFIER,
-    Utf8String: UTF8_STRING,
-    UtcTime: UTC_TIME,
-    GeneralizedTime: GENERALIZED_TIME,
-    (): NULL,
-    &'_ str: UTF8_STRING
+    bool: BOOL: "BOOLEAN",
+    Integer: INTEGER: "INTEGER",
+    OctetString: OCTET_STRING: "OCTET_STRING",
+    ObjectIdentifier: OBJECT_IDENTIFIER: "OBJECT_IDENTIFIER",
+    Oid: OBJECT_IDENTIFIER: "OBJECT_IDENTIFIER",
+    Utf8String: UTF8_STRING: "UTF8String",
+    UtcTime: UTC_TIME: "UTCTime",
+    GeneralizedTime: GENERALIZED_TIME: "GeneralizedTime",
+    (): NULL: "NULL",
+    &'_ str: UTF8_STRING: "UTF8String"
 
 }
 
@@ -253,6 +254,7 @@ macro_rules! asn_integer_type {
         $(
             impl AsnType for $int {
                 const TAG: Tag = Tag::INTEGER;
+                const IDENTIFIER: Option<&'static str> = Some("INTEGER");
                 const CONSTRAINTS: Constraints = constraints!(value_constraint!((<$int>::MIN as i128), (<$int>::MAX as i128)));
             }
         )+
@@ -275,15 +277,18 @@ asn_integer_type! {
 }
 impl AsnType for num_bigint::BigInt {
     const TAG: Tag = Tag::INTEGER;
+    const IDENTIFIER: Option<&'static str> = Some("INTEGER");
 }
 
 impl AsnType for str {
     const TAG: Tag = Tag::UTF8_STRING;
+    const IDENTIFIER: Option<&'static str> = Some("UTF8String");
 }
 
 impl<T: AsnType> AsnType for &'_ T {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
+    const IDENTIFIER: Option<&'static str> = T::IDENTIFIER;
 
     fn is_present(&self) -> bool {
         (*self).is_present()
@@ -293,15 +298,18 @@ impl<T: AsnType> AsnType for &'_ T {
 impl<T: AsnType> AsnType for Box<T> {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
+    const IDENTIFIER: Option<&'static str> = T::IDENTIFIER;
 }
 
 impl<T: AsnType> AsnType for alloc::vec::Vec<T> {
     const TAG: Tag = Tag::SEQUENCE;
+    const IDENTIFIER: Option<&'static str> = Some("SEQUENCE_OF");
 }
 
 impl<T: AsnType> AsnType for Option<T> {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
+    const IDENTIFIER: Option<&'static str> = T::IDENTIFIER;
 
     fn is_present(&self) -> bool {
         self.is_some()
@@ -310,15 +318,18 @@ impl<T: AsnType> AsnType for Option<T> {
 
 impl<T> AsnType for SetOf<T> {
     const TAG: Tag = Tag::SET;
+    const IDENTIFIER: Option<&'static str> = Some("SET_OF");
 }
 
 impl<T: AsnType, const N: usize> AsnType for [T; N] {
     const TAG: Tag = Tag::SEQUENCE;
     const CONSTRAINTS: Constraints = constraints!(size_constraint!(N));
+    const IDENTIFIER: Option<&'static str> = Some("SEQUENCE_OF");
 }
 
 impl<T> AsnType for &'_ [T] {
     const TAG: Tag = Tag::SEQUENCE;
+    const IDENTIFIER: Option<&'static str> = Some("SEQUENCE_OF");
 }
 
 impl AsnType for Any {
@@ -329,9 +340,11 @@ impl AsnType for Any {
 #[cfg(feature = "f32")]
 impl AsnType for f32 {
     const TAG: Tag = Tag::REAL;
+    const IDENTIFIER: Option<&'static str> = Some("REAL");
 }
 
 #[cfg(feature = "f64")]
 impl AsnType for f64 {
     const TAG: Tag = Tag::REAL;
+    const IDENTIFIER: Option<&'static str> = Some("REAL");
 }
