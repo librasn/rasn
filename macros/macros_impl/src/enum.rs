@@ -466,16 +466,30 @@ impl Enum<'_> {
             }
         });
 
+        let tag_match = &quote! {
+                match self {
+                    #(#tags),*
+                }
+        };
+        let encoder_closure_match = &quote! {
+                |encoder| match self {
+                    #(#variants),*
+                }
+        };
         let encode_variants = quote! {
             encoder.encode_choice::<Self>(
                 Self::CONSTRAINTS,
-                match self {
-                    #(#tags),*
-                },
-                |encoder| match self {
-                    #(#variants),*
-                },
+                #tag_match,
+                #encoder_closure_match,
                 Self::IDENTIFIER,
+            )
+        };
+        let encode_variants_with_identifier = quote! {
+            encoder.encode_choice::<Self>(
+                Self::CONSTRAINTS,
+                #tag_match,
+                #encoder_closure_match,
+                identifier,
             )
         };
 
@@ -550,6 +564,10 @@ impl Enum<'_> {
             fn encode<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E) -> core::result::Result<(), E::Error> {
                 #(#variant_constraints)*
                 #encode_impl.map(drop)
+            }
+            fn encode_with_identifier<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E, identifier: Option<&'static str>) -> core::result::Result<(), E::Error> {
+                #(#variant_constraints)*
+                #encode_variants_with_identifier.map(drop)
             }
         })
     }
