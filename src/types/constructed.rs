@@ -3,12 +3,10 @@
 use core::hash::{BuildHasher, Hash};
 use hashbrown::HashMap;
 
-use super::AsnType;
-
 /// A `SET` or `SEQUENCE` value.
 /// `RL` is the number of fields in the "root component list".
 /// `EL` is the number of fields in the list of extensions.
-pub trait Constructed<const RL: usize = 0, const EL: usize = 0>: AsnType {
+pub trait Constructed<const RL: usize = 0, const EL: usize = 0> {
     /// Fields contained in the "root component list".
     const FIELDS: super::fields::Fields<RL>;
     /// Whether the type is extensible.

@@ -501,7 +501,6 @@ impl crate::Encoder<'_> for Encoder {
     {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
             identifier
-                .or(C::IDENTIFIER)
                 .ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         self.write_start_element(&xml_tag)?;
@@ -554,7 +553,6 @@ impl crate::Encoder<'_> for Encoder {
     {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
             identifier
-                .or(C::IDENTIFIER)
                 .ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         self.write_start_element(&xml_tag)?;
@@ -691,7 +689,7 @@ impl crate::Encoder<'_> for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
-            Cow::Borrowed(identifier.or(f64::IDENTIFIER).unwrap()),
+            Cow::Borrowed(identifier.unwrap_or("REAL")),
             write_real,
             value
         )
