@@ -5,7 +5,6 @@ pub mod enc;
 
 const BOOLEAN_TRUE_TAG: &str = "true";
 const BOOLEAN_FALSE_TAG: &str = "false";
-const UTC_TIME_TYPE_TAG: &str = "UTCTime";
 const PLUS_INFINITY_TAG: &str = "PLUS-INFINITY";
 const MINUS_INFINITY_TAG: &str = "MINUS-INFINITY";
 const NAN_TAG: &str = "NOT-A-NUMBER";
@@ -33,6 +32,8 @@ pub fn encode<T: crate::Encode>(
 
 #[cfg(test)]
 mod tests {
+    use core::f64;
+
     use bitvec::bitvec;
     use bitvec::order::Msb0;
 
@@ -108,6 +109,19 @@ mod tests {
     #[rasn(crate_root = "crate")]
     struct ChoiceDelegate(pub ChoiceType);
 
+    #[derive(AsnType, Debug, Encode, Decode, PartialEq)]
+    #[rasn(automatic_tags)]
+    #[rasn(crate_root = "crate")]
+    struct DefaultSequence {
+        #[rasn(identifier = "bool-df", default = "bool_default")]
+        bool_with_default: bool,
+        recursion: Vec<DefaultSequence>,
+    }
+
+    fn bool_default() -> bool {
+        bool::default()
+    }
+
     type SequenceOfChoices = Vec<ChoiceType>;
     type SequenceOfDelegateChoices = Vec<ChoiceDelegate>;
     type SequenceOfEnumSequences = Vec<EnumSequence>;
@@ -119,7 +133,7 @@ mod tests {
 
     type SetOfEnumSequences = SetOf<EnumSequence>;
     type SetOfEnums = SetOf<EnumType>;
-    type SetOfNulls = SetOf<()>;
+    type SetOfBools = SetOf<bool>;
     type SetOfIntegers = SetOf<i32>;
     type SetOfSequenceOfSequences = SetOf<Vec<InnerTestA>>;
 
@@ -191,6 +205,22 @@ mod tests {
         -2141247653269i64,
         "INTEGER",
         "-2141247653269"
+    );
+    round_trip!(positive_real, f64, 1.1234, "REAL", "1.1234");
+    round_trip!(negative_real, f64, -1.1234, "REAL", "-1.1234");
+    round_trip!(
+        empty_element_infinity,
+        f64,
+        f64::INFINITY,
+        "REAL",
+        "<PLUS-INFINITY />"
+    );
+    round_trip!(
+        empty_element_neg_infinity,
+        f64,
+        f64::NEG_INFINITY,
+        "REAL",
+        "<MINUS-INFINITY />"
     );
     round_trip!(
         bit_string,
@@ -307,6 +337,13 @@ mod tests {
         "<wine><true /></wine><grappa>00010203</grappa><inner><hidden><false /></hidden></inner><oid>1.8270.4.1</oid>"
     );
     round_trip!(
+        sequence_with_defaults,
+        DefaultSequence,
+        DefaultSequence { bool_with_default: false, recursion: vec![DefaultSequence { bool_with_default: true, recursion: vec![] }] },
+        "DefaultSequence",
+        "<recursion><DefaultSequence><bool-df><true /></bool-df><recursion /></DefaultSequence></recursion>"
+    );
+    round_trip!(
         extended_sequence_with_inner_none,
         NestedTestA,
         NestedTestA {
@@ -400,11 +437,11 @@ mod tests {
         "<Enum-Sequence><enum-field><eins /></enum-field></Enum-Sequence><Enum-Sequence><enum-field><zwei /></enum-field></Enum-Sequence>"
     );
     round_trip!(
-        set_of_nulls,
-        SetOfNulls,
-        SetOf::from_vec(vec![(), (), ()]),
+        set_of_bools,
+        SetOfBools,
+        SetOf::from_vec(vec![true, false, true]),
         "SET_OF",
-        "<NULL /><NULL /><NULL />"
+        "<false /><true /><true />"
     );
     round_trip!(
         set_of_enums,

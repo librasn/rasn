@@ -79,7 +79,7 @@ impl RealType for f64 {
 
     #[inline]
     fn is_nan(&self) -> bool {
-        *self == Self::NAN
+        Self::is_nan(*self)
     }
 }
 
@@ -125,7 +125,7 @@ impl RealType for f32 {
 
     #[inline]
     fn is_nan(&self) -> bool {
-        *self == Self::NAN
+        Self::is_nan(*self)
     }
 }
 

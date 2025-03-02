@@ -1,7 +1,7 @@
 //! # Decoding XER
 extern crate alloc;
 
-use crate::{alloc::string::ToString, ber};
+use crate::alloc::string::ToString;
 use core::{borrow::Borrow, f64};
 
 use xml_no_std::{
@@ -133,6 +133,7 @@ impl XerElement {
         self.events.front()
     }
 
+    #[cfg(test)]
     pub fn len(&self) -> usize {
         self.events.len()
     }
@@ -146,12 +147,14 @@ impl<I: IntoIterator<Item = XmlEvent>> From<I> for XerElement {
     }
 }
 
+/// Decoder for decoding XER-conforming ASN.1 data
 pub struct Decoder {
     stack: alloc::vec::Vec<XerElement>,
     in_list: bool,
 }
 
 impl Decoder {
+    /// Creates a new Decoder from the given input
     pub fn new(input: &[u8]) -> Result<Self, <Decoder as crate::de::Decoder>::Error> {
         let mut reader = ParserConfig::default().create_reader(input.iter());
         let next = reader.next().map_err(|e| error!(XmlParser, "{e:?}"))?;
@@ -421,13 +424,30 @@ impl crate::Decoder for Decoder {
     }
 
     fn decode_bool(&mut self, __tag: Tag) -> Result<bool, Self::Error> {
-        tag!(StartElement, self)?;
+        if !self.in_list {
+            tag!(StartElement, self)?;
+        }
         let value = match self.next_element() {
             Some(XmlEvent::StartElement { name, .. }) => {
                 if name.local_name.as_str() == BOOLEAN_TRUE_TAG {
                     tag!(EndElement, self, BOOLEAN_TRUE_TAG).map(|_| true)
                 } else if name.local_name.as_str() == BOOLEAN_FALSE_TAG {
                     tag!(EndElement, self, BOOLEAN_FALSE_TAG).map(|_| false)
+                } else if self.in_list {
+                    let boolean = match self.next_element() {
+                        Some(XmlEvent::Characters(c)) if c == "0" => false,
+                        Some(XmlEvent::Characters(c)) if c == "1" => true,
+                        Some(XmlEvent::Characters(c)) if c == "false" => false,
+                        Some(XmlEvent::Characters(c)) if c == "true" => true,
+                        _ => {
+                            return Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
+                                needed: "`<true/>` or `<false/>`",
+                                found: alloc::format!("{name:?}"),
+                            }))
+                        }
+                    };
+                    tag!(EndElement, self)?;
+                    Ok(boolean)
                 } else {
                     Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
                         needed: "`<true/>` or `<false/>`",
@@ -435,13 +455,19 @@ impl crate::Decoder for Decoder {
                     }))
                 }
             }
+            Some(XmlEvent::Characters(c)) if c == "0" => Ok(false),
+            Some(XmlEvent::Characters(c)) if c == "1" => Ok(true),
+            Some(XmlEvent::Characters(c)) if c == "false" => Ok(false),
+            Some(XmlEvent::Characters(c)) if c == "true" => Ok(true),
             Some(elem) => Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
                 needed: bool::IDENTIFIER.unwrap(),
                 found: alloc::format!("{elem:?}"),
             })),
             None => Err(error!(EndOfXmlInput)),
         };
-        tag!(EndElement, self)?;
+        if !self.in_list {
+            tag!(EndElement, self)?;
+        }
         value
     }
 
@@ -1615,5 +1641,112 @@ mod tests {
             },
             crate::xer::decode::<GicPart>(encoded.as_bytes()).unwrap()
         );
+    }
+
+    #[test]
+    fn decodes_with_and_without_default() {
+        #[derive(AsnType, Debug, Decode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[rasn(crate_root = "crate")]
+        struct DefaultSequence {
+            #[rasn(identifier = "bool-df", default = "bool_default")]
+            bool_with_default: bool,
+            recursion: Vec<DefaultSequence>,
+        }
+
+        fn bool_default() -> bool {
+            bool::default()
+        }
+
+        assert_eq!(
+            crate::xer::decode::<DefaultSequence>(
+                r#"
+                <DefaultSequence>
+                    <recursion>
+                        <DefaultSequence>
+                            <bool-df>
+                                <false />
+                            </bool-df>
+                            <recursion />
+                        </DefaultSequence>
+                        <DefaultSequence>
+                            <recursion />
+                        </DefaultSequence>
+                    </recursion>
+                </DefaultSequence>
+            "#
+                .as_bytes()
+            )
+            .unwrap(),
+            DefaultSequence {
+                bool_with_default: false,
+                recursion: vec![
+                    DefaultSequence {
+                        bool_with_default: false,
+                        recursion: vec![]
+                    },
+                    DefaultSequence {
+                        bool_with_default: false,
+                        recursion: vec![]
+                    }
+                ]
+            }
+        )
+    }
+
+    #[test]
+    fn decodes_extended_boolean_notation() {
+        assert_eq!(
+            crate::xer::decode::<SequenceOf<bool>>(
+                r#"
+                <SEQUENCE_OF>
+                    <true />
+                    <false />
+                    <BOOLEAN>0</BOOLEAN>
+                    <BOOLEAN>1</BOOLEAN>
+                    <BOOLEAN>true</BOOLEAN>
+                    <BOOLEAN>false</BOOLEAN>
+                </SEQUENCE_OF>
+            "#
+                .as_bytes()
+            )
+            .unwrap(),
+            vec![true, false, false, true, true, false]
+        )
+    }
+
+    #[test]
+    fn decodes_nested_extended_boolean_notation() {
+        #[derive(AsnType, Debug, Decode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[rasn(crate_root = "crate")]
+        struct Boolean {
+            val: bool,
+        }
+
+        assert_eq!(
+            crate::xer::decode::<SequenceOf<Boolean>>(
+                r#"
+                <SEQUENCE_OF>
+                    <Boolean><val><true /></val></Boolean>
+                    <Boolean><val><false /></val></Boolean>
+                    <Boolean><val>0</val></Boolean>
+                    <Boolean><val>1</val></Boolean>
+                    <Boolean><val>true</val></Boolean>
+                    <Boolean><val>false</val></Boolean>
+                </SEQUENCE_OF>
+            "#
+                .as_bytes()
+            )
+            .unwrap(),
+            vec![
+                Boolean { val: true },
+                Boolean { val: false },
+                Boolean { val: false },
+                Boolean { val: true },
+                Boolean { val: true },
+                Boolean { val: false }
+            ]
+        )
     }
 }

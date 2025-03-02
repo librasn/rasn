@@ -44,6 +44,7 @@ macro_rules! try_wrap_in_tags {
     }};
 }
 
+/// Encoder for creating ASN.1 encodings using XML encoding rules (XER).
 pub struct Encoder {
     field_tag_stack: Vec<Cow<'static, str>>,
     writer: EventWriter,
@@ -500,8 +501,7 @@ impl crate::Encoder<'_> for Encoder {
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier
-                .ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            identifier.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         self.write_start_element(&xml_tag)?;
 
@@ -552,8 +552,7 @@ impl crate::Encoder<'_> for Encoder {
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier
-                .ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            identifier.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         self.write_start_element(&xml_tag)?;
 
@@ -697,7 +696,7 @@ impl crate::Encoder<'_> for Encoder {
 
     fn encode_date(
         &mut self,
-        tag: Tag,
+        _tag: Tag,
         value: &crate::types::Date,
         identifier: Option<&'static str>,
     ) -> Result<Self::Ok, Self::Error> {
@@ -874,129 +873,4 @@ impl Encoder {
 
         Ok(())
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use bitvec::bitvec;
-    use bitvec::order::Msb0;
-
-    use crate::prelude::*;
-    use crate::xer::encode;
-
-    #[derive(AsnType, Debug, Encode, PartialEq)]
-    #[rasn(automatic_tags)]
-    #[rasn(crate_root = "crate")]
-    #[non_exhaustive]
-    struct NestedTestA {
-        wine: bool,
-        grappa: OctetString,
-        inner: InnerTestA,
-        #[rasn(extension_addition)]
-        oid: Option<ObjectIdentifier>,
-    }
-
-    #[derive(AsnType, Debug, Encode, PartialEq)]
-    #[rasn(automatic_tags)]
-    #[rasn(crate_root = "crate")]
-    struct InnerTestA {
-        hidden: Option<bool>,
-    }
-
-    #[derive(AsnType, Debug, Encode, PartialEq)]
-    #[rasn(automatic_tags)]
-    #[rasn(crate_root = "crate", identifier = "Deep-Sequence")]
-    struct DeepSequence {
-        nested: NestedTestA,
-        recursion: RecursiveChoice,
-    }
-
-    #[derive(AsnType, Debug, Encode, PartialEq)]
-    #[rasn(automatic_tags)]
-    #[rasn(choice, crate_root = "crate")]
-    enum RecursiveChoice {
-        Leaf,
-        Fruit(Option<bool>),
-        Recursion(Box<RecursiveChoice>),
-    }
-
-    macro_rules! basic_types {
-        ($test_name:ident, $type:ident, $value:expr, $expected_ty:literal, $expected_val:literal) => {
-            #[test]
-            fn $test_name() {
-                #[derive(AsnType, Debug, Encode, PartialEq)]
-                #[rasn(automatic_tags, delegate)]
-                #[rasn(crate_root = "crate")]
-                struct DelegateType(pub $type);
-
-                #[derive(AsnType, Debug, Encode, PartialEq)]
-                #[rasn(automatic_tags, delegate)]
-                #[rasn(crate_root = "crate")]
-                struct NestedDelegateType(pub DelegateType);
-
-                #[derive(AsnType, Debug, Encode, PartialEq)]
-                #[rasn(automatic_tags, delegate, identifier = "Alias")]
-                #[rasn(crate_root = "crate")]
-                struct AliasDelegateType(pub $type);
-
-                assert_eq!(
-                    String::from_utf8(encode(&$value).unwrap()).unwrap(),
-                    String::from("<")
-                        + $expected_ty
-                        + ">"
-                        + $expected_val
-                        + "</"
-                        + $expected_ty
-                        + ">"
-                );
-                assert_eq!(
-                    String::from_utf8(encode(&DelegateType($value)).unwrap()).unwrap(),
-                    String::from("<DelegateType>") + $expected_val + "</DelegateType>"
-                );
-                assert_eq!(
-                    String::from_utf8(encode(&NestedDelegateType(DelegateType($value))).unwrap())
-                        .unwrap(),
-                    String::from("<NestedDelegateType>") + $expected_val + "</NestedDelegateType>"
-                );
-                assert_eq!(
-                    String::from_utf8(encode(&AliasDelegateType($value)).unwrap()).unwrap(),
-                    String::from("<Alias>") + $expected_val + "</Alias>"
-                );
-            }
-        };
-    }
-
-    #[derive(AsnType, Debug, Encode, PartialEq, Copy, Clone)]
-    #[rasn(enumerated, automatic_tags)]
-    #[rasn(crate_root = "crate")]
-    enum EnumType {
-        #[rasn(identifier = "eins")]
-        First,
-        #[rasn(identifier = "zwei")]
-        Second,
-    }
-
-    #[derive(AsnType, Debug, Encode, PartialEq)]
-    #[rasn(choice, automatic_tags)]
-    #[rasn(crate_root = "crate")]
-    enum ChoiceType {
-        #[rasn(identifier = "enum")]
-        EnumVariant(EnumType),
-        nested(InnerTestA),
-    }
-
-    type SequenceOfChoices = Vec<ChoiceType>;
-    type SequenceOfBitStrings = Vec<BitString>;
-    type SequenceOfEnums = Vec<EnumType>;
-    type SequenceOfNulls = Vec<()>;
-    type SequenceOfIntegers = Vec<i32>;
-    type SequenceOfSequenceOfSequences = Vec<Vec<InnerTestA>>;
-
-    basic_types!(
-        sequence_of_sequence_of_sequences,
-        SequenceOfSequenceOfSequences,
-        vec![vec![InnerTestA { hidden: Some(true) }, InnerTestA { hidden: Some(false) }], vec![InnerTestA { hidden: None }], vec![]],
-        "SEQUENCE_OF",
-        "<SEQUENCE_OF><InnerTestA><hidden><true /></hidden></InnerTestA><InnerTestA><hidden><false /></hidden></InnerTestA></SEQUENCE_OF><SEQUENCE_OF><InnerTestA /></SEQUENCE_OF><SEQUENCE_OF />"
-    );
 }
