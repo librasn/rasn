@@ -956,15 +956,16 @@ dependencies = [
 
 [[package]]
 name = "rasn-compiler"
-version = "0.5.3"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68212f28a56793c190cf8795d0b9b87ed1f574110e29e11ea7d80a337c01a4de"
+checksum = "13c9c9e62462bc21d4eb088f301493553c6888ba5494d5f874d2d7aabb7f7d22"
 dependencies = [
  "chrono",
  "nom",
  "num",
  "proc-macro2",
  "quote",
+ "regex",
  "wasm-bindgen",
 ]
 
