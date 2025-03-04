@@ -81,7 +81,7 @@ impl Codec {
             Self::Uper => crate::uper::decode(input),
             Self::Oer => crate::oer::decode(input),
             Self::Coer => crate::coer::decode(input),
-            Self::Xer => crate::coer::decode(input),
+            Self::Xer => crate::xer::decode(input),
             Self::Jer => alloc::string::String::from_utf8(input.to_vec()).map_or_else(
                 |e| {
                     Err(crate::error::DecodeError::from_kind(
