@@ -822,33 +822,58 @@ pub enum AperDecodeErrorKind {}
 #[non_exhaustive]
 pub enum XerDecodeErrorKind {
     #[snafu(display("Unexpected end of input while decoding XER XML."))]
+    /// An error that indicates that the XML input ended unexpectedly
     EndOfXmlInput {},
     #[snafu(display(
         "Found mismatching XML value. Expected type {}. Found value {}.",
         needed,
         found
     ))]
+    /// An error that indicates an unexpected XML tag type or value
     XmlTypeMismatch {
+        /// the expected tag type or value
         needed: &'static str,
+        /// the encountered tag type or value
         found: alloc::string::String,
     },
     #[snafu(display("Found invalid character in octet string."))]
-    InvalidXerOctetstring { parse_int_err: ParseIntError },
+    /// An error that indicates a character in an octet string that does not conform to the hex alphabet
+    InvalidXerOctetstring {
+        /// Inner error thrown by the `parse` method
+        parse_int_err: ParseIntError,
+    },
     #[snafu(display("Encountered invalid value. {details}"))]
-    InvalidInput { details: &'static str },
+    /// An error that indicates invalid input XML
+    InvalidInput {
+        /// Error details from the underlying XML parser
+        details: &'static str,
+    },
     #[snafu(display("Found invalid open type encoding: {inner_err}"))]
+    /// An error that indicates invalid XML in an ASN.1 open type value
     InvalidOpenType {
+        /// Error details from the underlying XML parser
         inner_err: xml_no_std::writer::Error,
     },
     #[snafu(display("XML parser error: {details}"))]
-    XmlParser { details: alloc::string::String },
+    /// Miscellaneous error in the underlying XML parser
+    XmlParser {
+        /// Error details from the underlying XML parser
+        details: alloc::string::String,
+    },
     #[snafu(display("Error matching tag names: expected {needed}, found {found}"))]
+    /// An error indicating an unexpected XML tag name
     XmlTag {
+        /// The expected tag name
         needed: alloc::string::String,
+        /// The encountered tag name
         found: alloc::string::String,
     },
     #[snafu(display("Encoding violates ITU-T X.693 (02/2021): {details}"))]
-    SpecViolation { details: alloc::string::String },
+    /// An error that quotes the ITU-T X.693 paragraph being violated
+    SpecViolation {
+        /// Paragraph and excerpt from the ITU-T X.693 spec
+        details: alloc::string::String,
+    },
 }
 
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for OER.

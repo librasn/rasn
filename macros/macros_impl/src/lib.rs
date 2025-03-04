@@ -72,7 +72,7 @@ pub fn encode_derive_inner(input: DeriveInput) -> syn::Result<proc_macro2::Token
                     encoder: &mut E,
                     tag: #crate_root::types::Tag,
                     constraints: #crate_root::prelude::Constraints,
-                    identifier: Option<&'static str>,
+                    identifier: #crate_root::types::Identifier,
                 ) -> Result<(), E::Error> {
                     encoder.encode_null(tag, identifier).map(drop)
                 }

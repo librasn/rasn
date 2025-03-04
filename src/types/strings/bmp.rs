@@ -48,7 +48,7 @@ impl StaticPermittedAlphabet for BmpString {
 
 impl AsnType for BmpString {
     const TAG: Tag = Tag::BMP_STRING;
-    const IDENTIFIER: Option<&'static str> = Some("BMPString");
+    const IDENTIFIER: Identifier = Identifier::BMP_STRING;
 }
 
 impl Encode for BmpString {
@@ -57,7 +57,7 @@ impl Encode for BmpString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
             .encode_bmp_string(tag, constraints, self, identifier)

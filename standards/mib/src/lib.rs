@@ -291,7 +291,7 @@ pub mod interfaces {
             encoder: &mut EN,
             tag: Tag,
             constraints: Constraints,
-            identifier: Option<&'static str>,
+            identifier: Identifier,
         ) -> Result<(), EN::Error> {
             self.to_opaque()
                 .map_err(|e| {

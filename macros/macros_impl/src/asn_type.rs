@@ -91,8 +91,8 @@ pub fn derive_struct_impl(
     let constraints_def = config.constraints.const_static_def(crate_root);
 
     let alt_identifier = config.identifier.as_ref().map_or(
-        quote!(const IDENTIFIER: Option<&'static str> = Some(#name_literal);),
-        |id| quote!(const IDENTIFIER: Option<&'static str> = Some(#id);),
+        quote!(const IDENTIFIER: #crate_root::types::Identifier = #crate_root::types::Identifier(Some(#name_literal));),
+        |id| quote!(const IDENTIFIER: #crate_root::types::Identifier = #crate_root::types::Identifier(Some(#id));),
     );
 
     Ok(quote! {

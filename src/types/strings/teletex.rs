@@ -53,7 +53,7 @@ impl StaticPermittedAlphabet for TeletexString {
 
 impl AsnType for TeletexString {
     const TAG: Tag = Tag::TELETEX_STRING;
-    const IDENTIFIER: Option<&'static str> = Some("TeletexString");
+    const IDENTIFIER: Identifier = Identifier::TELETEX_STRING;
 }
 
 impl Encode for TeletexString {
@@ -62,7 +62,7 @@ impl Encode for TeletexString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
             .encode_teletex_string(tag, constraints, self, identifier)

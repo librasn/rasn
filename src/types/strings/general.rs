@@ -70,7 +70,7 @@ impl StaticPermittedAlphabet for GeneralString {
 
 impl AsnType for GeneralString {
     const TAG: Tag = Tag::GENERAL_STRING;
-    const IDENTIFIER: Option<&'static str> = Some("GeneralString");
+    const IDENTIFIER: Identifier = Identifier::GENERAL_STRING;
 }
 
 impl Decode for GeneralString {
@@ -89,7 +89,7 @@ impl Encode for GeneralString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
             .encode_general_string(tag, constraints, self, identifier)

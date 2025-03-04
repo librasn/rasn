@@ -8,8 +8,9 @@ use crate::{
     },
     types::{
         fields::Fields, Any, BitStr, BmpString, Constraints, Date, Enumerated, GeneralString,
-        GeneralizedTime, GraphicString, Ia5String, IntegerType, NumericString, OctetString, Oid,
-        PrintableString, RealType, SetOf, Tag, TeletexString, UtcTime, VisibleString,
+        GeneralizedTime, GraphicString, Ia5String, Identifier, IntegerType, NumericString,
+        OctetString, Oid, PrintableString, RealType, SetOf, Tag, TeletexString, UtcTime,
+        VisibleString,
     },
     AsnType,
 };
@@ -37,7 +38,7 @@ macro_rules! try_wrap_in_tags {
     ($this:ident, $inner:ident, $($args:expr)*) => {{
         let xml_tag = $this.field_tag_stack
             .pop()
-            .ok_or_else(|| XerEncodeErrorKind::FieldName)?;
+            .ok_or_else(|| XerEncodeErrorKind::MissingIdentifier)?;
         $this.write_start_element(&xml_tag)?;
         $this.$inner($($args),*)?;
         $this.write_end_element(&xml_tag)
@@ -151,7 +152,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         __tag: Tag,
         value: &Any,
-        _identifier: Option<&'static str>,
+        _identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         try_wrap_in_tags!(self, write_any, value)
     }
@@ -160,7 +161,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _tag: Tag,
         value: bool,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         if self.entering_list_item_type {
             self.write_bool(value)
@@ -179,7 +180,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &BitStr,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -193,7 +194,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _tag: Tag,
         value: &E,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         if self.entering_list_item_type {
             self.write_enumerated(value)
@@ -203,6 +204,7 @@ impl crate::Encoder<'_> for Encoder {
                 Cow::Borrowed(
                     identifier
                         .or(E::IDENTIFIER)
+                        .0
                         .ok_or(XerEncodeErrorKind::MissingIdentifier)?
                 ),
                 write_enumerated,
@@ -215,7 +217,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _tag: Tag,
         value: &[u32],
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -230,7 +232,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &I,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         if let Some(as_bigint) = value.to_bigint() {
             wrap_in_tags!(
@@ -244,11 +246,7 @@ impl crate::Encoder<'_> for Encoder {
         }
     }
 
-    fn encode_null(
-        &mut self,
-        _tag: Tag,
-        identifier: Option<&'static str>,
-    ) -> Result<Self::Ok, Self::Error> {
+    fn encode_null(&mut self, _tag: Tag, identifier: Identifier) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
             Cow::Borrowed(identifier.or(<()>::IDENTIFIER).unwrap()),
@@ -261,7 +259,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &[u8],
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -276,7 +274,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &GeneralString,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -295,7 +293,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &str,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -310,7 +308,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &VisibleString,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -325,7 +323,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &Ia5String,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -340,7 +338,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &PrintableString,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -359,7 +357,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &NumericString,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -378,7 +376,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         _value: &TeletexString,
-        _identifier: Option<&'static str>,
+        _identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
@@ -388,7 +386,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &BmpString,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -407,7 +405,7 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &GraphicString,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -425,7 +423,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _tag: Tag,
         value: &GeneralizedTime,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -439,7 +437,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _tag: Tag,
         value: &UtcTime,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
@@ -453,9 +451,9 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         tag: Tag,
         value: &V,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        match (identifier, tag, self.entering_list_item_type) {
+        match (identifier.0, tag, self.entering_list_item_type) {
             (None, _, _) => value.encode(self),
             (Some(id), Tag::EOC, false) => {
                 // Special handling is needed for `CHOICE` delegate types
@@ -494,14 +492,14 @@ impl crate::Encoder<'_> for Encoder {
         &'b mut self,
         __t: Tag,
         encoder_scope: F,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         self.write_start_element(&xml_tag)?;
 
@@ -528,10 +526,10 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         value: &[E],
         _constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         self.write_start_element(&xml_tag)?;
         for elem in value {
@@ -545,14 +543,14 @@ impl crate::Encoder<'_> for Encoder {
         &'b mut self,
         _tag: Tag,
         value: F,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         self.write_start_element(&xml_tag)?;
 
@@ -579,10 +577,10 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         value: &SetOf<E>,
         _constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         self.write_start_element(&xml_tag)?;
         for elem in value.to_vec() {
@@ -595,7 +593,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_some<E: crate::Encode>(
         &mut self,
         value: &E,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         value.encode_with_tag_and_constraints(self, E::TAG, E::CONSTRAINTS, identifier)
     }
@@ -605,14 +603,14 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &E,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_some(value, identifier)
     }
 
     fn encode_none<E: crate::Encode>(
         &mut self,
-        _identifier: Option<&'static str>,
+        _identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.field_tag_stack.pop();
         Ok(())
@@ -621,9 +619,9 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_none_with_tag(
         &mut self,
         _tag: Tag,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        if let Some(id) = self.entering_choice_value.then_some(()).and(identifier) {
+        if let Some(id) = self.entering_choice_value.then_some(()).and(identifier.0) {
             self.write_start_element(id)?;
             self.write_end_element(id)?;
         }
@@ -636,11 +634,12 @@ impl crate::Encoder<'_> for Encoder {
         _c: crate::types::Constraints,
         _tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
             identifier
                 .or(E::IDENTIFIER)
+                .0
                 .ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
         if !self.entering_list_item_type {
@@ -660,7 +659,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: E,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         value.encode_with_tag_and_constraints(self, E::TAG, E::CONSTRAINTS, identifier)
     }
@@ -668,7 +667,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_extension_addition_group<const RL: usize, const EL: usize, E>(
         &mut self,
         value: Option<&E>,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>
     where
         E: crate::Encode + crate::types::Constructed<RL, EL>,
@@ -684,11 +683,11 @@ impl crate::Encoder<'_> for Encoder {
         _tag: Tag,
         _constraints: Constraints,
         value: &R,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,
-            Cow::Borrowed(identifier.unwrap_or("REAL")),
+            Cow::Borrowed(identifier.or(Identifier::REAL).unwrap()),
             write_real,
             value
         )
@@ -698,7 +697,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _tag: Tag,
         value: &crate::types::Date,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         wrap_in_tags!(
             self,

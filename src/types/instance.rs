@@ -1,4 +1,4 @@
-use super::{AsnType, Class, Constraints, ObjectIdentifier, Tag};
+use super::{AsnType, Class, Constraints, Identifier, ObjectIdentifier, Tag};
 use crate::{
     de::Decoder,
     enc::Encoder,
@@ -16,6 +16,7 @@ pub struct InstanceOf<T> {
 
 impl<T> AsnType for InstanceOf<T> {
     const TAG: Tag = Tag::EXTERNAL;
+    const IDENTIFIER: Identifier = Identifier::INSTANCE_OF;
 }
 
 impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
@@ -39,7 +40,7 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         encoder: &mut EN,
         tag: Tag,
         _: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> core::result::Result<(), EN::Error> {
         encoder.encode_sequence::<2, 0, Self, _>(
             tag,

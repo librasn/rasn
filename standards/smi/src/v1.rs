@@ -2,7 +2,7 @@
 
 use rasn::{
     error::EncodeError,
-    types::{Constraints, FixedOctetString, Integer, ObjectIdentifier, OctetString, Oid, Tag},
+    types::{Constraints, FixedOctetString, Integer, ObjectIdentifier, OctetString, Oid, Tag, Identifier},
     AsnType, Decode, Encode,
 };
 
@@ -104,7 +104,7 @@ impl Encode for Opaque {
         encoder: &mut EN,
         tag: Tag,
         constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), EN::Error> {
         encoder
             .encode_octet_string(tag, constraints, &self.0, identifier)

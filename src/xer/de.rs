@@ -460,7 +460,7 @@ impl crate::Decoder for Decoder {
             Some(XmlEvent::Characters(c)) if c == "false" => Ok(false),
             Some(XmlEvent::Characters(c)) if c == "true" => Ok(true),
             Some(elem) => Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
-                needed: bool::IDENTIFIER.unwrap(),
+                needed: bool::IDENTIFIER.0.unwrap(),
                 found: alloc::format!("{elem:?}"),
             })),
             None => Err(error!(EndOfXmlInput)),
@@ -1039,7 +1039,7 @@ fn decode_sequence_or_set_items<D: Decode>(
             alloc::vec![
                 XmlEvent::StartElement {
                     name: OwnedName {
-                        local_name: D::IDENTIFIER.unwrap_or("dummy").to_string(),
+                        local_name: D::IDENTIFIER.0.unwrap_or("dummy").to_string(),
                         namespace: None,
                         prefix: None,
                     },
@@ -1049,7 +1049,7 @@ fn decode_sequence_or_set_items<D: Decode>(
                 XmlEvent::Characters(item.to_string()),
                 XmlEvent::EndElement {
                     name: OwnedName {
-                        local_name: D::IDENTIFIER.unwrap_or("dummy").to_string(),
+                        local_name: D::IDENTIFIER.0.unwrap_or("dummy").to_string(),
                         namespace: None,
                         prefix: None,
                     },
@@ -1095,13 +1095,7 @@ fn decode_sequence_or_set_items<D: Decode>(
 #[cfg(test)]
 mod tests {
     use super::Decoder;
-    use crate::{
-        types::{
-            Any, BitString, Constraints, GeneralizedTime, Ia5String, Integer, ObjectIdentifier,
-            SequenceOf, SetOf, Tag, UtcTime,
-        },
-        AsnType, Decode, Decoder as _,
-    };
+    use crate::{types::*, AsnType, Decode, Decoder as _};
     use bitvec::order::Msb0;
 
     macro_rules! decode_test_1 {

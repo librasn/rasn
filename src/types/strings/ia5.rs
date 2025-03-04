@@ -64,7 +64,7 @@ impl super::StaticPermittedAlphabet for Ia5String {
 
 impl AsnType for Ia5String {
     const TAG: Tag = Tag::IA5_STRING;
-    const IDENTIFIER: Option<&'static str> = Some("IA5String");
+    const IDENTIFIER: Identifier = Identifier::IA5_STRING;
 }
 
 impl Encode for Ia5String {
@@ -73,7 +73,7 @@ impl Encode for Ia5String {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
             .encode_ia5_string(tag, constraints, self, identifier)

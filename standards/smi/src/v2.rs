@@ -76,7 +76,7 @@ impl Encode for ExtUtcTime {
         encoder: &mut EN,
         tag: Tag,
         _: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), EN::Error> {
         const CONSTRAINT_1: constraints::Constraints = constraints!(value_constraint!(13));
         encoder

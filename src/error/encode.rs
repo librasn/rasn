@@ -435,11 +435,11 @@ pub enum AperEncodeErrorKind {}
 pub enum XerEncodeErrorKind {
     /// Upstream `xml` error
     XmlEncodingError { upstream: alloc::string::String },
-    #[snafu(display("Failed to retrieve field name."))]
-    FieldName,
     #[snafu(display("Failed to encode integer."))]
+    /// An error indicating an integer value outside of the supported bounds
     UnsupportedIntegerValue,
     #[snafu(display("Missing identifier for ASN.1 type."))]
+    /// An error indicating that the XML writer is missing information about the tag name of the item to encode
     MissingIdentifier,
 }
 
@@ -491,7 +491,7 @@ mod tests {
         let oid = vec![3, 5, 4, 3];
 
         let mut enc = enc::Encoder::new(enc::EncoderOptions::ber());
-        let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &oid, None);
+        let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &oid, Identifier::EMPTY);
         assert!(result.is_err());
         match result {
             Err(e) => match *e.kind {

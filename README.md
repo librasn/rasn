@@ -102,7 +102,10 @@ Next is the `Decode` and `Encode` traits. These are mirrors of each other and bo
 ```rust
 # use rasn::{AsnType, types::{Constructed, fields::{Field, Fields}}};
 # struct Person { name: Utf8String, age: Integer }
-# impl AsnType for Person { const TAG: Tag = Tag::SEQUENCE; }
+# impl AsnType for Person {
+#    const TAG: Tag = Tag::SEQUENCE;
+#    const IDENTIFIER: Identifier = Identifier(Some("Person"));
+# }
 # impl Constructed<2, 0> for Person {
 #     const FIELDS: Fields<2> = Fields::from_static([
 #          Field::new_required(0, Utf8String::TAG, Utf8String::TAG_TREE, "age"),
@@ -123,7 +126,7 @@ impl Decode for Person {
 }
 
 impl Encode for Person {
-    fn encode_with_tag_and_constraints<'encoder, E: Encoder<'encoder>>(&self, encoder: &mut E, tag: Tag, constraints: Constraints, identifier: Option<&'static str>) -> Result<(), E::Error> {
+    fn encode_with_tag_and_constraints<'encoder, E: Encoder<'encoder>>(&self, encoder: &mut E, tag: Tag, constraints: Constraints, identifier: Identifier) -> Result<(), E::Error> {
         // Accepts a closure that encodes the contents of the sequence.
         encoder.encode_sequence::<2, 0, Self, _>(tag, |encoder| {
             self.age.encode(encoder)?;

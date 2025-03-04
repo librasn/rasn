@@ -43,7 +43,7 @@ pub type BitStr = bitvec::slice::BitSlice<u8, bitvec::order::Msb0>;
 
 impl AsnType for BitString {
     const TAG: Tag = Tag::BIT_STRING;
-    const IDENTIFIER: Option<&'static str> = Some("BIT_STRING");
+    const IDENTIFIER: Identifier = Identifier::BIT_STRING;
 }
 
 impl Decode for BitString {
@@ -62,7 +62,7 @@ impl Encode for BitString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
             .encode_bit_string(tag, constraints, self, identifier)
@@ -72,7 +72,7 @@ impl Encode for BitString {
 
 impl AsnType for BitStr {
     const TAG: Tag = Tag::BIT_STRING;
-    const IDENTIFIER: Option<&'static str> = Some("BIT_STRING");
+    const IDENTIFIER: Identifier = Identifier::BIT_STRING;
 }
 
 impl Encode for BitStr {
@@ -81,7 +81,7 @@ impl Encode for BitStr {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
             .encode_bit_string(tag, constraints, self, identifier)
@@ -92,7 +92,7 @@ impl Encode for BitStr {
 impl<const N: usize> AsnType for FixedBitString<N> {
     const TAG: Tag = Tag::BIT_STRING;
     const CONSTRAINTS: Constraints = constraints!(size_constraint!(N));
-    const IDENTIFIER: Option<&'static str> = Some("BIT_STRING");
+    const IDENTIFIER: Identifier = Identifier::BIT_STRING;
 }
 
 impl<const N: usize> Decode for FixedBitString<N> {
@@ -122,7 +122,7 @@ impl<const N: usize> Encode for FixedBitString<N> {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
-        identifier: Option<&'static str>,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
             .encode_bit_string(tag, constraints, &self[..N], identifier)

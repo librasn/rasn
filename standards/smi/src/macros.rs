@@ -16,6 +16,7 @@ macro_rules! common_impls {
     ($name:ident, $network_type:ty, $access_variant:ident, $status_variant:ident, $const_oid:expr) => {
         impl $crate::rasn::AsnType for $name {
             const TAG: $crate::rasn::types::Tag = <$network_type as $crate::rasn::AsnType>::TAG;
+            const IDENTIFIER: $crate::rasn::types::Identifier = <$network_type as $crate::rasn::AsnType>::IDENTIFIER;
         }
 
         impl $crate::ObjectType for $name {
@@ -88,7 +89,7 @@ macro_rules! opaque_impls {
                 encoder: &mut EN,
                 tag: $crate::rasn::types::Tag,
                 constraints: $crate::rasn::types::Constraints,
-                identifier: Option<&'static str>,
+                identifier: Identifier,
             ) -> Result<(), EN::Error> {
                 self.to_opaque()
                     .map_err(|e| $crate::rasn::error::EncodeError::opaque_conversion_failed(e.to_string(), encoder.codec()))?
@@ -186,7 +187,7 @@ macro_rules! object_type {
         }
 
         impl $crate::rasn::Encode for $name {
-            fn encode_with_tag_and_constraints<'encoder, EN: $crate::rasn::Encoder<'encoder>>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints, identifier: Option<&'static str>) -> Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'encoder, EN: $crate::rasn::Encoder<'encoder>>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints, identifier: $crate::rasn::types::Identifier) -> Result<(), EN::Error> {
                 self.0.encode_with_tag_and_constraints(encoder, tag, constraints, identifier)
             }
         }

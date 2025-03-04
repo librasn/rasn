@@ -811,6 +811,7 @@ impl<'a> FieldConfig<'a> {
             .as_ref()
             .map(|name| quote!(#name))
             .unwrap_or_else(|| quote!(#i));
+        let crate_root = &self.container_config.crate_root;
         let identifier = self
             .identifier
             .clone()
@@ -819,10 +820,9 @@ impl<'a> FieldConfig<'a> {
                 .ident
                 .as_ref()
                 .map(|i| LitStr::new(&i.to_string(), Span::call_site())))
-            .map(|i| quote!(Some(#i)))
-            .unwrap_or(quote!(None));
+            .map(|i| quote!(#crate_root::types::Identifier(Some(#i))))
+            .unwrap_or(quote!(#crate_root::types::Identifier::EMPTY));
         let mut ty = self.field.ty.clone();
-        let crate_root = &self.container_config.crate_root;
         ty.strip_lifetimes();
         let default_fn = self.default_fn().map(|d| quote!(#d,));
         let has_generics = !type_params.is_empty() && {
