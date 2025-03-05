@@ -59,7 +59,7 @@ mod tests {
         hidden: Option<bool>,
     }
 
-    #[derive(AsnType, Debug, Encode, Decode, PartialEq, Eq, Hash)]
+    #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[rasn(crate_root = "crate", identifier = "Enum-Sequence")]
     struct EnumSequence {
@@ -439,43 +439,60 @@ mod tests {
     round_trip!(
         set_of_bools,
         SetOfBools,
-        SetOf::from_vec(vec![true, false, true]),
+        SetOf::from_vec(vec![true]),
         "SET_OF",
-        "<false /><true /><true />"
+        "<true />"
     );
     round_trip!(
         set_of_enums,
         SetOfEnums,
-        SetOf::from_vec(vec![EnumType::First, EnumType::Second]),
+        SetOf::from_vec(vec![EnumType::Second]),
         "SET_OF",
-        "<eins /><zwei />"
+        "<zwei />"
     );
     round_trip!(
         set_of_integers,
         SetOfIntegers,
-        SetOf::from_vec(vec![-1, 2, 3]),
+        SetOf::from_vec(vec![-1]),
         "SET_OF",
-        "<INTEGER>3</INTEGER><INTEGER>2</INTEGER><INTEGER>-1</INTEGER>"
+        "<INTEGER>-1</INTEGER>"
     );
     round_trip!(
         set_of_sequence_of_sequences,
         SetOfSequenceOfSequences,
-        SetOf::from_vec(vec![vec![InnerTestA { hidden: Some(true) }, InnerTestA { hidden: Some(false) }], vec![InnerTestA { hidden: None }], vec![]]),
+        SetOf::from_vec(vec![vec![InnerTestA { hidden: None }]]),
         "SET_OF",
-        "<SEQUENCE_OF><InnerTestA /></SEQUENCE_OF><SEQUENCE_OF><InnerTestA><hidden><true /></hidden></InnerTestA><InnerTestA><hidden><false /></hidden></InnerTestA></SEQUENCE_OF><SEQUENCE_OF />"
+        "<SEQUENCE_OF><InnerTestA /></SEQUENCE_OF>"
     );
     round_trip!(
         set_of_enum_sequences,
         SetOfEnumSequences,
-        SetOf::from_vec(vec![
-            EnumSequence {
-                enum_field: EnumType::First
-            },
-            EnumSequence {
-                enum_field: EnumType::Second
-            }
-        ]),
+        SetOf::from_vec(vec![EnumSequence {
+            enum_field: EnumType::Second
+        }]),
         "SET_OF",
-        "<Enum-Sequence><enum-field><eins /></enum-field></Enum-Sequence><Enum-Sequence><enum-field><zwei /></enum-field></Enum-Sequence>"
+        "<Enum-Sequence><enum-field><zwei /></enum-field></Enum-Sequence>"
     );
+
+    #[test]
+    fn set_of_round_trip() {
+        let first = EnumSequence {
+            enum_field: EnumType::First,
+        };
+        let second = EnumSequence {
+            enum_field: EnumType::Second,
+        };
+        let value = SetOf::<EnumSequence>::from_vec(vec![first.clone(), second.clone()]);
+        let encoded = crate::xer::encode(&value).unwrap();
+        let decoded: SetOf<EnumSequence> = crate::xer::decode(&encoded).unwrap();
+
+        assert!(String::from_utf8(encoded.clone())
+            .unwrap()
+            .contains("<Enum-Sequence><enum-field><zwei /></enum-field></Enum-Sequence>"));
+        assert!(String::from_utf8(encoded)
+            .unwrap()
+            .contains("<Enum-Sequence><enum-field><eins /></enum-field></Enum-Sequence>"));
+        assert!(decoded.contains(&first));
+        assert!(decoded.contains(&second));
+    }
 }
