@@ -2,7 +2,9 @@
 
 use rasn::{
     error::EncodeError,
-    types::{Constraints, FixedOctetString, Integer, ObjectIdentifier, OctetString, Oid, Tag, Identifier},
+    types::{
+        Constraints, FixedOctetString, Identifier, Integer, ObjectIdentifier, OctetString, Oid, Tag,
+    },
     AsnType, Decode, Encode,
 };
 

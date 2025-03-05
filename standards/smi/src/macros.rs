@@ -16,7 +16,8 @@ macro_rules! common_impls {
     ($name:ident, $network_type:ty, $access_variant:ident, $status_variant:ident, $const_oid:expr) => {
         impl $crate::rasn::AsnType for $name {
             const TAG: $crate::rasn::types::Tag = <$network_type as $crate::rasn::AsnType>::TAG;
-            const IDENTIFIER: $crate::rasn::types::Identifier = <$network_type as $crate::rasn::AsnType>::IDENTIFIER;
+            const IDENTIFIER: $crate::rasn::types::Identifier =
+                <$network_type as $crate::rasn::AsnType>::IDENTIFIER;
         }
 
         impl $crate::ObjectType for $name {

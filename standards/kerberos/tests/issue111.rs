@@ -1,6 +1,6 @@
 use rasn::{
     ber,
-    types::{Class, Constraints, Tag, Identifier},
+    types::{Class, Constraints, Identifier, Tag},
     Decoder, Encoder,
 };
 

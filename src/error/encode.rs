@@ -434,7 +434,10 @@ pub enum AperEncodeErrorKind {}
 #[non_exhaustive]
 pub enum XerEncodeErrorKind {
     /// Upstream `xml` error
-    XmlEncodingError { upstream: alloc::string::String },
+    XmlEncodingError {
+        /// Stringified error of the underlying XML writer
+        upstream: alloc::string::String,
+    },
     #[snafu(display("Failed to encode integer."))]
     /// An error indicating an integer value outside of the supported bounds
     UnsupportedIntegerValue,
