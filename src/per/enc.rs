@@ -134,10 +134,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
     /// Returns the bit level output for the encoder.
     fn bitstring_output(&mut self) -> BitString {
-        self.options
-            .set_encoding
-            .then(|| self.set_output.values().flatten().collect::<BitString>())
-            .unwrap_or(core::mem::take(&mut *self.output.as_mut()))
+        if self.options.set_encoding {
+            self.set_output.values().flatten().collect::<BitString>()
+        } else {
+            core::mem::take(&mut *self.output.as_mut())
+        }
     }
 
     /// Sets the presence of a `OPTIONAL` or `DEFAULT` field in the bitfield.
@@ -344,15 +345,16 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     }
 
     fn character_width(&self, width: usize) -> usize {
-        self.options
-            .aligned
-            .then(|| {
+        if self.options.aligned {
+            {
                 width
                     .is_power_of_two()
                     .then_some(width)
                     .unwrap_or_else(|| width.next_power_of_two())
-            })
-            .unwrap_or(width)
+            }
+        } else {
+            width
+        }
     }
 
     fn encode_constructed<
@@ -461,8 +463,8 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     Ok(())
                 } else if range < SIXTY_FOUR_K as usize {
                     let effective_length = constraints.effective_value(length).into_inner();
-                    let range = (self.options.aligned && range > 256)
-                        .then(|| {
+                    let range = if self.options.aligned && range > 256 {
+                        {
                             let range = crate::num::log2(range as i128);
                             crate::bits::range_from_len(
                                 range
@@ -470,8 +472,10 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                                     .then_some(range)
                                     .unwrap_or_else(|| range.next_power_of_two()),
                             )
-                        })
-                        .unwrap_or(range as i128);
+                        }
+                    } else {
+                        range as i128
+                    };
                     self.encode_non_negative_binary_integer(
                         buffer,
                         range,

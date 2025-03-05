@@ -510,9 +510,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             .map(|alphabet| crate::num::log2(alphabet.constraint.len() as i128) as usize)
             .unwrap_or(ALPHABET::character_width() as usize);
 
-        let char_width = (self.options.aligned && !char_width.is_power_of_two())
-            .then(|| char_width.next_power_of_two())
-            .unwrap_or(char_width);
+        let char_width = if self.options.aligned && !char_width.is_power_of_two() {
+            char_width.next_power_of_two()
+        } else {
+            char_width
+        };
 
         let is_large_string = if let Some(size) = constraints.size() {
             match *size.constraint {
@@ -580,19 +582,18 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             ),
             constraints.permitted_alphabet().map(|alphabet| {
                 ALPHABET::CHARACTER_SET_WIDTH
-                    > self
-                        .options
-                        .aligned
-                        .then(|| {
+                    > if self.options.aligned {
+                        {
                             let alphabet_width =
                                 crate::num::log2(alphabet.constraint.len() as i128);
                             alphabet_width
                                 .is_power_of_two()
                                 .then_some(alphabet_width)
                                 .unwrap_or_else(|| alphabet_width.next_power_of_two())
-                        })
-                        .unwrap_or(crate::num::log2(alphabet.constraint.len() as i128))
-                        as usize
+                        }
+                    } else {
+                        crate::num::log2(alphabet.constraint.len() as i128)
+                    } as usize
             }),
         ) {
             (Some(alphabet), true, _) | (Some(alphabet), _, Some(true)) => {
@@ -622,15 +623,16 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             }
             _ => ALPHABET::try_from_bits(
                 bit_string,
-                self.options
-                    .aligned
-                    .then(|| {
+                if self.options.aligned {
+                    {
                         ALPHABET::CHARACTER_SET_WIDTH
                             .is_power_of_two()
                             .then_some(ALPHABET::CHARACTER_SET_WIDTH)
                             .unwrap_or_else(|| ALPHABET::CHARACTER_SET_WIDTH.next_power_of_two())
-                    })
-                    .unwrap_or(ALPHABET::CHARACTER_SET_WIDTH),
+                    }
+                } else {
+                    ALPHABET::CHARACTER_SET_WIDTH
+                },
             )
             .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec())),
         }
@@ -1059,7 +1061,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                         )
                     })?
             } else {
-                debug_assert!(variants.len() > 0);
+                debug_assert!(!variants.is_empty());
                 self.parse_integer(D::VARIANCE_CONSTRAINT)
                     .map_err(|error| {
                         DecodeError::choice_index_exceeds_platform_width(

@@ -90,7 +90,7 @@ impl<const RC: usize, const EC: usize> ConstructedCursor<RC, EC> {
         let extension_bitmap_width_length = if extension_bitmap_width <= 127 {
             1 // Short form
         } else {
-            1 + (((extension_bitmap_width as u32).ilog2() + 7) / 8) as usize // Long form
+            1 + (extension_bitmap_width as u32).ilog2().div_ceil(8) as usize // Long form
         };
         let extension_bitmap_total_width = extension_bitmap_width + extension_bitmap_width_length;
         Self {
@@ -513,8 +513,10 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
     // if we do it early, we avoid most extra allocations
     fn extension_bitmap_reserve(&mut self) {
         self.cursor.set_extension_bitmap_cursor(self.output.len());
-        self.output
-            .extend(core::iter::repeat(0).take(self.cursor.extension_bitmap_total_width));
+        self.output.extend(core::iter::repeat_n(
+            0,
+            self.cursor.extension_bitmap_total_width,
+        ));
     }
 
     /// Encode a constructed type.`RC` is the number root components, `EC` is the number of extension components.
@@ -676,7 +678,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
                     let missing_bits: usize = (8 - (value.len() & 7)) & 7;
                     bit_string_encoding.extend(value);
                     if missing_bits > 0 {
-                        bit_string_encoding.extend(core::iter::repeat(false).take(missing_bits));
+                        bit_string_encoding.extend(core::iter::repeat_n(false, missing_bits));
                     }
                     self.output
                         .extend_from_slice(bit_string_encoding.as_raw_slice());

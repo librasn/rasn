@@ -286,7 +286,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 });
                 return match length {
                     Ok(length) => {
-                        let bytes_required = (*length + 7) / 8;
+                        let bytes_required = (*length).div_ceil(8);
                         let data = &self
                             .extract_data_by_length(bytes_required)?
                             .view_bits::<Msb0>()[..*length];
@@ -439,7 +439,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let is_extensible = D::IS_EXTENSIBLE;
         let preamble_width =
             D::FIELDS.number_of_optional_and_default_fields() + is_extensible as usize;
-        let bytes = self.extract_data_by_length((preamble_width + 7) / 8)?;
+        let bytes = self.extract_data_by_length(preamble_width.div_ceil(8))?;
 
         let mut result = [false; RC];
         let mut extensible_present = false;
