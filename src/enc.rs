@@ -455,6 +455,20 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         }
     }
 
+    /// Encode the preset value of an optional field using Explicit Tags
+    fn encode_default_with_explicit_prefix<E: Encode + PartialEq>(
+        &mut self,
+        tag: Tag,
+        value: &E,
+        default: impl FnOnce() -> E,
+    ) -> Result<Self::Ok, Self::Error> {
+        match (*value != (default)()).then_some(value) {
+            Some(value) => self.encode_explicit_prefix(tag, value),
+            // TODO: We need to figure out why this is putting a NULL in when it should just be skipping
+            None => self.encode_none_with_tag(tag),
+        }
+    }
+
     /// Encode the present value of an optional field.
     fn encode_default_with_tag_and_constraints<E: Encode + PartialEq>(
         &mut self,
