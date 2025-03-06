@@ -90,6 +90,10 @@ fn works() {
     const EXPECTED_NOT_DEFAULT: &[u8] = &[0x30, 0x05, 0x61, 0x03, 0x01, 0x01, 0x00];
     // NOTE: The explicit tag number is just different
     const EXPECTED_MULTI_DEFAULT: &[u8] = &[0x30, 0x05, 0x62, 0x03, 0x01, 0x01, 0x00];
+    // This version of the output is what would be generated without a default check.
+    // Using this for backward compat. verification
+    const EXPECTED_MULTI_DEFAULT_FIELD_ENCODED: &[u8] = &[
+        0x30,0x0a,0x61,0x03,0x01,0x01,0xff,0x62,0x03,0x01,0x01,0x00];
 
     let delegate_seq = DelegateSequence(Sequence { b: true });
     let inline_seq = InlineSequence { b: true };
@@ -120,6 +124,8 @@ fn works() {
     assert_eq!(sequence_non_default_enc, EXPECTED_NOT_DEFAULT);
     assert_eq!(sequence_default_enc, EXPECTED_DEFAULT);
     assert_eq!(sequence_multi_default_enc, EXPECTED_MULTI_DEFAULT);
+    assert_eq!(sequence_multi_default, rasn::der::decode(&sequence_multi_default_enc).unwrap());
+    assert_eq!(sequence_multi_default, rasn::der::decode(&EXPECTED_MULTI_DEFAULT_FIELD_ENCODED).unwrap());
 
     assert_eq!(delegate_seq_enc, EXPECTED);
     assert_eq!(inline_seq_enc, EXPECTED);
