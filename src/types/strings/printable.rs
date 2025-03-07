@@ -63,6 +63,7 @@ impl StaticPermittedAlphabet for PrintableString {
 
 impl AsnType for PrintableString {
     const TAG: Tag = Tag::PRINTABLE_STRING;
+    const IDENTIFIER: Identifier = Identifier::PRINTABLE_STRING;
 }
 
 impl Encode for PrintableString {
@@ -71,9 +72,10 @@ impl Encode for PrintableString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_printable_string(tag, constraints, self)
+            .encode_printable_string(tag, constraints, self, identifier)
             .map(drop)
     }
 }

@@ -2,8 +2,11 @@ use crate::prelude::Constraints;
 use crate::types::Date;
 use crate::{types::Tag, AsnType, Decode, Decoder, Encode, Encoder};
 
+use super::Identifier;
+
 impl AsnType for Date {
     const TAG: Tag = Tag::DATE;
+    const IDENTIFIER: Identifier = Identifier::DATE;
 }
 
 impl Decode for Date {
@@ -22,7 +25,8 @@ impl Encode for Date {
         encoder: &mut E,
         tag: Tag,
         _constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
-        encoder.encode_date(tag, self).map(drop)
+        encoder.encode_date(tag, self, identifier).map(drop)
     }
 }

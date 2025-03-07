@@ -678,7 +678,7 @@ macro_rules! integer_type_impl {
                     1
                 } else {
                     let significant_bits = Self::WIDTH as usize - self.leading_zeros() as usize;
-                    (significant_bits + 7) / 8
+                    significant_bits.div_ceil(8)
                 }
             }
             #[inline(always)]

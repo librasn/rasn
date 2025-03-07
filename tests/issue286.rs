@@ -1,8 +1,4 @@
-use rasn::error::EncodeErrorKind;
-use rasn::uper;
-use rasn::AsnType;
-use rasn::Decode;
-use rasn::Encode;
+use rasn::{error::EncodeErrorKind, prelude::*, uper};
 
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(delegate, value("-500..=504"))]

@@ -4,6 +4,7 @@
 //! ASN.1's terminology.
 
 mod any;
+mod identifier;
 mod instance;
 mod open;
 mod prefix;
@@ -30,6 +31,7 @@ pub use {
         any::Any,
         constraints::{Constraint, Constraints, Extensible},
         constructed::{Constructed, SequenceOf, SetOf},
+        identifier::Identifier,
         instance::InstanceOf,
         integer::{ConstrainedInteger, Integer, IntegerType},
         oid::{ObjectIdentifier, Oid},
@@ -73,7 +75,7 @@ pub trait AsnType {
 
     /// Identifier of an ASN.1 type as specified in the original specification
     /// if not identical with the identifier of `Self`
-    const IDENTIFIER: Option<&'static str> = None;
+    const IDENTIFIER: Identifier = Identifier::EMPTY;
 
     /// Whether the type is present with value. `OPTIONAL` fields are common in `SEQUENCE` or `SET`.
     ///
@@ -102,7 +104,7 @@ pub trait DecodeChoice: Choice + crate::Decode {
 }
 
 /// A `ENUMERATED` value.
-pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug {
+pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug + AsnType {
     /// Variants contained in the "root component list".
     const VARIANTS: &'static [Self];
     /// Variants contained in the list of extensions.
@@ -229,6 +231,7 @@ macro_rules! asn_type {
         $(
             impl AsnType for $name {
                 const TAG: Tag = Tag::$value;
+                const IDENTIFIER: Identifier = Identifier::$value;
             }
         )+
     }
@@ -253,6 +256,7 @@ macro_rules! asn_integer_type {
         $(
             impl AsnType for $int {
                 const TAG: Tag = Tag::INTEGER;
+                const IDENTIFIER: Identifier = Identifier::INTEGER;
                 const CONSTRAINTS: Constraints = constraints!(value_constraint!((<$int>::MIN as i128), (<$int>::MAX as i128)));
             }
         )+
@@ -275,15 +279,18 @@ asn_integer_type! {
 }
 impl AsnType for num_bigint::BigInt {
     const TAG: Tag = Tag::INTEGER;
+    const IDENTIFIER: Identifier = Identifier::INTEGER;
 }
 
 impl AsnType for str {
     const TAG: Tag = Tag::UTF8_STRING;
+    const IDENTIFIER: Identifier = Identifier::UTF8_STRING;
 }
 
 impl<T: AsnType> AsnType for &'_ T {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
+    const IDENTIFIER: Identifier = T::IDENTIFIER;
 
     fn is_present(&self) -> bool {
         (*self).is_present()
@@ -293,15 +300,18 @@ impl<T: AsnType> AsnType for &'_ T {
 impl<T: AsnType> AsnType for Box<T> {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
+    const IDENTIFIER: Identifier = T::IDENTIFIER;
 }
 
 impl<T: AsnType> AsnType for alloc::vec::Vec<T> {
     const TAG: Tag = Tag::SEQUENCE;
+    const IDENTIFIER: Identifier = Identifier::SEQUENCE_OF;
 }
 
 impl<T: AsnType> AsnType for Option<T> {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
+    const IDENTIFIER: Identifier = T::IDENTIFIER;
 
     fn is_present(&self) -> bool {
         self.is_some()
@@ -310,15 +320,18 @@ impl<T: AsnType> AsnType for Option<T> {
 
 impl<T> AsnType for SetOf<T> {
     const TAG: Tag = Tag::SET;
+    const IDENTIFIER: Identifier = Identifier::SET_OF;
 }
 
 impl<T: AsnType, const N: usize> AsnType for [T; N] {
     const TAG: Tag = Tag::SEQUENCE;
     const CONSTRAINTS: Constraints = constraints!(size_constraint!(N));
+    const IDENTIFIER: Identifier = Identifier::SEQUENCE_OF;
 }
 
 impl<T> AsnType for &'_ [T] {
     const TAG: Tag = Tag::SEQUENCE;
+    const IDENTIFIER: Identifier = Identifier::SEQUENCE_OF;
 }
 
 impl AsnType for Any {
@@ -329,9 +342,11 @@ impl AsnType for Any {
 #[cfg(feature = "f32")]
 impl AsnType for f32 {
     const TAG: Tag = Tag::REAL;
+    const IDENTIFIER: Identifier = Identifier::REAL;
 }
 
 #[cfg(feature = "f64")]
 impl AsnType for f64 {
     const TAG: Tag = Tag::REAL;
+    const IDENTIFIER: Identifier = Identifier::REAL;
 }

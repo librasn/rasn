@@ -26,6 +26,7 @@ pub mod der;
 pub mod jer;
 pub mod oer;
 pub mod uper;
+pub mod xer;
 
 #[doc(inline)]
 pub use self::{
@@ -151,9 +152,10 @@ mod tests {
                 encoder: &mut E,
                 tag: Tag,
                 constraints: Constraints,
+                _: Identifier,
             ) -> Result<(), E::Error> {
                 encoder
-                    .encode_integer::<i128>(tag, constraints, &self.0.into())
+                    .encode_integer::<i128>(tag, constraints, &self.0.into(), Identifier::EMPTY)
                     .map(drop)
             }
         }

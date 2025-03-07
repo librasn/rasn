@@ -67,6 +67,7 @@ impl<const N: usize> core::ops::DerefMut for FixedOctetString<N> {
 impl<const N: usize> AsnType for FixedOctetString<N> {
     const TAG: Tag = Tag::OCTET_STRING;
     const CONSTRAINTS: Constraints = constraints!(size_constraint!(N));
+    const IDENTIFIER: Identifier = Identifier::OCTET_STRING;
 }
 
 impl<const N: usize> Decode for FixedOctetString<N> {
@@ -102,9 +103,10 @@ impl<const N: usize> Encode for FixedOctetString<N> {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_octet_string(tag, constraints, &self.0)
+            .encode_octet_string(tag, constraints, &self.0, identifier)
             .map(drop)
     }
 }

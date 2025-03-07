@@ -43,15 +43,17 @@ pub fn encode_scope(
 
 #[cfg(test)]
 mod tests {
+    use crate::error::DecodeErrorKind;
     use alloc::borrow::ToOwned;
     use alloc::vec;
     use alloc::vec::Vec;
+    use bitvec::order::Msb0;
     use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
-    use de::DecodeErrorKind;
 
-    use crate::types::*;
-
-    use super::*;
+    use crate::{
+        ber::{decode, encode},
+        types::*,
+    };
 
     #[derive(Clone, Copy, Hash, Debug, PartialEq)]
     struct C0;
@@ -90,7 +92,7 @@ mod tests {
         let bits = BitString::from_vec([0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..].to_owned());
         let padding_test = BitString::from_element(0x42);
         let padding_expected: &[u8] = &[0x03, 0x02, 0x00, 0x42];
-        let trailing_test = bitvec::bitvec![u8, bitvec::prelude::Msb0; 1, 0, 0, 0, 0, 1, 1, 0];
+        let trailing_test = bitvec::bitvec![u8, Msb0; 1, 0, 0, 0, 0, 1, 1, 0];
         let trailing_expected: &[u8] = &[0x03, 0x02, 0x00, 0x86];
 
         assert_eq!(
@@ -240,12 +242,17 @@ mod tests {
                 encoder: &mut EN,
                 tag: crate::types::Tag,
                 _: Constraints,
+                _: crate::types::Identifier,
             ) -> Result<(), EN::Error> {
-                encoder.encode_set::<2, 0, Self, _>(tag, |encoder| {
-                    self.age.encode(encoder)?;
-                    self.name.encode(encoder)?;
-                    Ok(())
-                })?;
+                encoder.encode_set::<2, 0, Self, _>(
+                    tag,
+                    |encoder| {
+                        self.age.encode(encoder)?;
+                        self.name.encode(encoder)?;
+                        Ok(())
+                    },
+                    crate::types::Identifier::EMPTY,
+                )?;
 
                 Ok(())
             }

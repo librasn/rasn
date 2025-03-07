@@ -7,7 +7,7 @@
 // Wrap with black_box to prevent the compiler from optimizing out the code
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rasn::{ber, oer, uper};
+use rasn::{ber, oer, uper, xer};
 
 #[allow(non_camel_case_types, non_snake_case, non_upper_case_globals, unused)]
 pub mod world3d {
@@ -154,10 +154,12 @@ macro_rules! rasn_dec_fn {
 rasn_enc_fn!(uper_rasn_enc, uper);
 rasn_enc_fn!(oer_rasn_enc, oer);
 rasn_enc_fn!(ber_rasn_enc, ber);
+rasn_enc_fn!(xer_rasn_enc, xer);
 
 rasn_dec_fn!(uper_rasn_dec, uper);
 rasn_dec_fn!(oer_rasn_dec, oer);
 rasn_dec_fn!(ber_rasn_dec, ber);
+rasn_dec_fn!(xer_rasn_dec, xer);
 
 criterion_group!(
     benches,
@@ -166,6 +168,8 @@ criterion_group!(
     oer_rasn_enc,
     oer_rasn_dec,
     ber_rasn_enc,
-    ber_rasn_dec
+    ber_rasn_dec,
+    xer_rasn_enc,
+    xer_rasn_dec
 );
 criterion_main!(benches);

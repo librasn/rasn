@@ -8,7 +8,7 @@ type ValueMap = Map<alloc::string::String, Value>;
 
 use crate::{
     error::{EncodeError, JerEncodeErrorKind},
-    types::{variants, Constraints, IntegerType, Tag},
+    types::{variants, Constraints, Identifier, IntegerType, Tag},
 };
 
 use crate::types::RealType;
@@ -77,11 +77,17 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         t: crate::types::Tag,
         value: &crate::types::Any,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(t, Constraints::default(), &value.contents)
+        self.encode_octet_string(
+            t,
+            Constraints::default(),
+            &value.contents,
+            Identifier::EMPTY,
+        )
     }
 
-    fn encode_bool(&mut self, _: Tag, value: bool) -> Result<Self::Ok, Self::Error> {
+    fn encode_bool(&mut self, _: Tag, value: bool, _: Identifier) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::Bool(value))
     }
 
@@ -90,6 +96,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         constraints: crate::types::Constraints,
         value: &crate::types::BitStr,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let mut bitvec = value.to_bitvec();
         bitvec.force_align();
@@ -115,6 +122,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _: Tag,
         value: &E,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(alloc::string::String::from(
             value.identifier(),
@@ -125,6 +133,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _t: Tag,
         value: &[u32],
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             value
@@ -140,6 +149,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &I,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         if let Some(as_i64) = value.to_i64() {
             self.update_root_or_constructed(Value::Number(as_i64.into()))
@@ -156,6 +166,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: Constraints,
         value: &R,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         use num_traits::{float::FloatCore, ToPrimitive, Zero};
 
@@ -180,7 +191,7 @@ impl crate::Encoder<'_> for Encoder {
         }
     }
 
-    fn encode_null(&mut self, _: Tag) -> Result<Self::Ok, Self::Error> {
+    fn encode_null(&mut self, _: Tag, _: Identifier) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::Null)
     }
 
@@ -189,6 +200,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &[u8],
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(value.iter().fold(
             alloc::string::String::new(),
@@ -204,6 +216,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &crate::types::GeneralString,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(value.to_vec())
@@ -216,6 +229,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &crate::types::GraphicString,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(value.to_vec())
@@ -228,6 +242,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &str,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(value.into()))
     }
@@ -237,6 +252,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &crate::types::VisibleString,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(value.as_iso646_bytes().to_vec())
@@ -249,6 +265,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &crate::types::Ia5String,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(value.as_iso646_bytes().to_vec())
@@ -261,6 +278,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &crate::types::PrintableString,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(value.as_bytes().to_vec())
@@ -273,6 +291,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &crate::types::NumericString,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(value.as_bytes().to_vec())
@@ -285,6 +304,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         _value: &crate::types::TeletexString,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         todo!()
     }
@@ -294,6 +314,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &crate::types::BmpString,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(value.to_bytes())
@@ -305,6 +326,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _t: Tag,
         value: &crate::types::GeneralizedTime,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(
@@ -318,6 +340,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _t: Tag,
         value: &crate::types::UtcTime,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(
@@ -331,6 +354,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _t: Tag,
         value: &crate::types::Date,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::String(
             alloc::string::String::from_utf8(crate::ber::enc::Encoder::naivedate_to_date_bytes(
@@ -344,6 +368,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _: Tag,
         value: &V,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         value.encode(self)
     }
@@ -352,6 +377,7 @@ impl crate::Encoder<'_> for Encoder {
         &'b mut self,
         __t: Tag,
         encoder_scope: F,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
@@ -384,6 +410,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         value: &[E],
         _c: crate::types::Constraints,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::Array(value.iter().try_fold(
             alloc::vec![],
@@ -399,12 +426,13 @@ impl crate::Encoder<'_> for Encoder {
         &'b mut self,
         tag: Tag,
         value: F,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error>
     where
         C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
-        self.encode_sequence::<RL, EL, C, F>(tag, value)
+        self.encode_sequence::<RL, EL, C, F>(tag, value, Identifier::EMPTY)
     }
 
     fn encode_set_of<E: crate::Encode + Eq + core::hash::Hash>(
@@ -412,6 +440,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         value: &crate::types::SetOf<E>,
         _c: crate::types::Constraints,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::Array(value.to_vec().iter().try_fold(
             alloc::vec![],
@@ -423,7 +452,11 @@ impl crate::Encoder<'_> for Encoder {
         )?))
     }
 
-    fn encode_some<E: crate::Encode>(&mut self, value: &E) -> Result<Self::Ok, Self::Error> {
+    fn encode_some<E: crate::Encode>(
+        &mut self,
+        value: &E,
+        _: Identifier,
+    ) -> Result<Self::Ok, Self::Error> {
         value.encode(self)
     }
 
@@ -432,16 +465,17 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: &E,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         value.encode(self)
     }
 
-    fn encode_none<E: crate::Encode>(&mut self) -> Result<Self::Ok, Self::Error> {
+    fn encode_none<E: crate::Encode>(&mut self, _: Identifier) -> Result<Self::Ok, Self::Error> {
         self.stack.pop();
         Ok(())
     }
 
-    fn encode_none_with_tag(&mut self, _t: Tag) -> Result<Self::Ok, Self::Error> {
+    fn encode_none_with_tag(&mut self, _t: Tag, _: Identifier) -> Result<Self::Ok, Self::Error> {
         self.stack.pop();
         Ok(())
     }
@@ -451,6 +485,7 @@ impl crate::Encoder<'_> for Encoder {
         _c: crate::types::Constraints,
         tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let variants = variants::Variants::from_slice(
             &[E::VARIANTS, E::EXTENDED_VARIANTS.unwrap_or(&[])].concat(),
@@ -487,6 +522,7 @@ impl crate::Encoder<'_> for Encoder {
         _t: Tag,
         _c: crate::types::Constraints,
         value: E,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         value.encode(self)
     }
@@ -494,13 +530,14 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_extension_addition_group<const RL: usize, const EL: usize, E>(
         &mut self,
         value: Option<&E>,
+        _: Identifier,
     ) -> Result<Self::Ok, Self::Error>
     where
         E: crate::Encode + crate::types::Constructed<RL, EL>,
     {
         match value {
             Some(v) => v.encode(self),
-            None => self.encode_none::<E>(),
+            None => self.encode_none::<E>(Identifier::EMPTY),
         }
     }
 

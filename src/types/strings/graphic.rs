@@ -65,6 +65,7 @@ impl StaticPermittedAlphabet for GraphicString {
 
 impl AsnType for GraphicString {
     const TAG: Tag = Tag::GRAPHIC_STRING;
+    const IDENTIFIER: Identifier = Identifier::GRAPHIC_STRING;
 }
 
 impl Decode for GraphicString {
@@ -83,9 +84,10 @@ impl Encode for GraphicString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_graphic_string(tag, constraints, self)
+            .encode_graphic_string(tag, constraints, self, identifier)
             .map(drop)
     }
 }

@@ -1,6 +1,6 @@
 use rasn::{
     ber,
-    types::{Class, Constraints, Tag},
+    types::{Class, Constraints, Identifier, Tag},
     Decoder, Encoder,
 };
 
@@ -26,6 +26,7 @@ fn kerberos_flags_enc() {
             Tag::new(Class::Universal, 3),
             Constraints::default(),
             &bitstring,
+            Identifier::EMPTY,
         )
         .unwrap();
     assert_eq!(

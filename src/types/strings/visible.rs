@@ -75,6 +75,7 @@ impl core::fmt::Display for VisibleString {
 
 impl AsnType for VisibleString {
     const TAG: Tag = Tag::VISIBLE_STRING;
+    const IDENTIFIER: Identifier = Identifier::VISIBLE_STRING;
 }
 
 impl Encode for VisibleString {
@@ -83,9 +84,10 @@ impl Encode for VisibleString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_visible_string(tag, constraints, self)
+            .encode_visible_string(tag, constraints, self, identifier)
             .map(drop)
     }
 }

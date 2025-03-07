@@ -27,6 +27,7 @@ pub enum CodecDecodeError {
     Jer(JerDecodeErrorKind),
     Oer(OerDecodeErrorKind),
     Coer(CoerDecodeErrorKind),
+    Xer(XerDecodeErrorKind),
 }
 
 macro_rules! impl_from {
@@ -48,6 +49,7 @@ impl_from!(Aper, AperDecodeErrorKind);
 impl_from!(Jer, JerDecodeErrorKind);
 impl_from!(Oer, OerDecodeErrorKind);
 impl_from!(Coer, CoerDecodeErrorKind);
+impl_from!(Xer, XerDecodeErrorKind);
 
 impl From<CodecDecodeError> for DecodeError {
     fn from(error: CodecDecodeError) -> Self {
@@ -398,6 +400,7 @@ impl DecodeError {
             CodecDecodeError::Jer(_) => crate::Codec::Jer,
             CodecDecodeError::Oer(_) => crate::Codec::Oer,
             CodecDecodeError::Coer(_) => crate::Codec::Coer,
+            CodecDecodeError::Xer(_) => crate::Codec::Xer,
         };
         Self {
             kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
@@ -812,6 +815,66 @@ pub enum UperDecodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperDecodeErrorKind {}
+
+/// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for XER.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum XerDecodeErrorKind {
+    #[snafu(display("Unexpected end of input while decoding XER XML."))]
+    /// An error that indicates that the XML input ended unexpectedly
+    EndOfXmlInput {},
+    #[snafu(display(
+        "Found mismatching XML value. Expected type {}. Found value {}.",
+        needed,
+        found
+    ))]
+    /// An error that indicates an unexpected XML tag type or value
+    XmlTypeMismatch {
+        /// the expected tag type or value
+        needed: &'static str,
+        /// the encountered tag type or value
+        found: alloc::string::String,
+    },
+    #[snafu(display("Found invalid character in octet string."))]
+    /// An error that indicates a character in an octet string that does not conform to the hex alphabet
+    InvalidXerOctetstring {
+        /// Inner error thrown by the `parse` method
+        parse_int_err: ParseIntError,
+    },
+    #[snafu(display("Encountered invalid value. {details}"))]
+    /// An error that indicates invalid input XML
+    InvalidInput {
+        /// Error details from the underlying XML parser
+        details: &'static str,
+    },
+    #[snafu(display("Found invalid open type encoding: {inner_err}"))]
+    /// An error that indicates invalid XML in an ASN.1 open type value
+    InvalidOpenType {
+        /// Error details from the underlying XML parser
+        inner_err: xml_no_std::writer::Error,
+    },
+    #[snafu(display("XML parser error: {details}"))]
+    /// Miscellaneous error in the underlying XML parser
+    XmlParser {
+        /// Error details from the underlying XML parser
+        details: alloc::string::String,
+    },
+    #[snafu(display("Error matching tag names: expected {needed}, found {found}"))]
+    /// An error indicating an unexpected XML tag name
+    XmlTag {
+        /// The expected tag name
+        needed: alloc::string::String,
+        /// The encountered tag name
+        found: alloc::string::String,
+    },
+    #[snafu(display("Encoding violates ITU-T X.693 (02/2021): {details}"))]
+    /// An error that quotes the ITU-T X.693 paragraph being violated
+    SpecViolation {
+        /// Paragraph and excerpt from the ITU-T X.693 spec
+        details: alloc::string::String,
+    },
+}
 
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for OER.
 #[derive(Snafu, Debug)]

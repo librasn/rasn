@@ -43,6 +43,7 @@ pub type BitStr = bitvec::slice::BitSlice<u8, bitvec::order::Msb0>;
 
 impl AsnType for BitString {
     const TAG: Tag = Tag::BIT_STRING;
+    const IDENTIFIER: Identifier = Identifier::BIT_STRING;
 }
 
 impl Decode for BitString {
@@ -61,13 +62,17 @@ impl Encode for BitString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, constraints, self).map(drop)
+        encoder
+            .encode_bit_string(tag, constraints, self, identifier)
+            .map(drop)
     }
 }
 
 impl AsnType for BitStr {
     const TAG: Tag = Tag::BIT_STRING;
+    const IDENTIFIER: Identifier = Identifier::BIT_STRING;
 }
 
 impl Encode for BitStr {
@@ -76,14 +81,18 @@ impl Encode for BitStr {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
-        encoder.encode_bit_string(tag, constraints, self).map(drop)
+        encoder
+            .encode_bit_string(tag, constraints, self, identifier)
+            .map(drop)
     }
 }
 
 impl<const N: usize> AsnType for FixedBitString<N> {
     const TAG: Tag = Tag::BIT_STRING;
     const CONSTRAINTS: Constraints = constraints!(size_constraint!(N));
+    const IDENTIFIER: Identifier = Identifier::BIT_STRING;
 }
 
 impl<const N: usize> Decode for FixedBitString<N> {
@@ -113,9 +122,10 @@ impl<const N: usize> Encode for FixedBitString<N> {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_bit_string(tag, constraints, &self[..N])
+            .encode_bit_string(tag, constraints, &self[..N], identifier)
             .map(drop)
     }
 }

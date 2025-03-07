@@ -244,14 +244,14 @@ fn explicit_identifiers() {
     #[rasn(identifier = "my-delegate")]
     struct MyDelegate(());
 
-    assert_eq!(MyEnum::IDENTIFIER, Some("my-enum"));
+    assert_eq!(MyEnum::IDENTIFIER, Identifier(Some("my-enum")));
     assert_eq!(MyEnum::IDENTIFIERS, ["has-alt-ident"]);
-    assert_eq!(MyChoice::IDENTIFIER, Some("my-choice"));
+    assert_eq!(MyChoice::IDENTIFIER, Identifier(Some("my-choice")));
     assert_eq!(MyChoice::IDENTIFIERS, ["has-alt-ident"]);
-    assert_eq!(MyStruct::IDENTIFIER, Some("my-struct"));
+    assert_eq!(MyStruct::IDENTIFIER, Identifier(Some("my-struct")));
     assert_eq!(
         MyStruct::FIELDS.identifiers().collect::<Vec<_>>(),
         vec!["has-alt-ident"]
     );
-    assert_eq!(MyDelegate::IDENTIFIER, Some("my-delegate"));
+    assert_eq!(MyDelegate::IDENTIFIER, Identifier(Some("my-delegate")));
 }

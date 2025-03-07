@@ -53,6 +53,7 @@ impl StaticPermittedAlphabet for NumericString {
 
 impl AsnType for NumericString {
     const TAG: Tag = Tag::NUMERIC_STRING;
+    const IDENTIFIER: Identifier = Identifier::NUMERIC_STRING;
 }
 
 impl Encode for NumericString {
@@ -61,9 +62,10 @@ impl Encode for NumericString {
         encoder: &mut E,
         tag: Tag,
         constraints: Constraints,
+        identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
-            .encode_numeric_string(tag, constraints, self)
+            .encode_numeric_string(tag, constraints, self, identifier)
             .map(drop)
     }
 }

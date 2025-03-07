@@ -1,3 +1,4 @@
+use quote::ToTokens;
 use syn::Fields;
 
 use crate::config::*;
@@ -11,6 +12,7 @@ pub fn derive_struct_impl(
 ) -> syn::Result<proc_macro2::TokenStream> {
     let mut list = vec![];
     let crate_root = &config.crate_root;
+    let crate_root_literal = crate_root.to_token_stream().to_string();
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let field_configs = container
@@ -100,7 +102,7 @@ pub fn derive_struct_impl(
                     name.clone(),
                     quote! {
                         #[derive(#crate_root::AsnType, #crate_root::Decode, #crate_root::Encode)]
-                        #[rasn(delegate)]
+                        #[rasn(delegate, crate_root = #crate_root_literal)]
                         #tag_attr
                         #constraints
                         pub struct #name(#ty);
@@ -113,7 +115,7 @@ pub fn derive_struct_impl(
 
         let choice_def = quote! {
             #[derive(#crate_root::AsnType, #crate_root::Decode, #crate_root::Encode)]
-            #[rasn(choice)]
+            #[rasn(choice, crate_root = #crate_root_literal)]
             enum #choice_name {
                 #(#field_type_names(#field_type_names)),*
             }
@@ -144,7 +146,7 @@ pub fn derive_struct_impl(
                 let set_field_impl = if config.extension_addition || config.extension_addition_group {
                     quote! {
                         if #ident.is_some() {
-                            return Err(rasn::de::Error::duplicate_field(stringify!(#ident), codec))
+                            return Err(#crate_root::de::Error::duplicate_field(stringify!(#ident), codec))
                         } else {
                             #ident = value.0;
                         }
@@ -152,7 +154,7 @@ pub fn derive_struct_impl(
                 } else {
                     quote! {
                         if #ident.replace(value.0).is_some() {
-                            return Err(rasn::de::Error::duplicate_field(stringify!(#ident), codec))
+                            return Err(#crate_root::de::Error::duplicate_field(stringify!(#ident), codec))
                         }
                     }
                 };

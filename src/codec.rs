@@ -21,6 +21,8 @@ pub enum Codec {
     Oer,
     /// X.696 — Canonical Octet Encoding Rules
     Coer,
+    /// X.693 — XML Encoding Rules
+    Xer,
 }
 
 impl core::fmt::Display for Codec {
@@ -34,6 +36,7 @@ impl core::fmt::Display for Codec {
             Self::Jer => write!(f, "JER"),
             Self::Oer => write!(f, "OER"),
             Self::Coer => write!(f, "COER"),
+            Self::Xer => write!(f, "XER"),
         }
     }
 }
@@ -57,6 +60,7 @@ impl Codec {
             Self::Jer => crate::jer::encode(value).map(alloc::string::String::into_bytes),
             Self::Oer => crate::oer::encode(value),
             Self::Coer => crate::coer::encode(value),
+            Self::Xer => crate::xer::encode(value),
         }
     }
 
@@ -77,6 +81,7 @@ impl Codec {
             Self::Uper => crate::uper::decode(input),
             Self::Oer => crate::oer::decode(input),
             Self::Coer => crate::coer::decode(input),
+            Self::Xer => crate::xer::decode(input),
             Self::Jer => alloc::string::String::from_utf8(input.to_vec()).map_or_else(
                 |e| {
                     Err(crate::error::DecodeError::from_kind(

@@ -19,6 +19,7 @@ pub enum CodecEncodeError {
     Aper(AperEncodeErrorKind),
     Jer(JerEncodeErrorKind),
     Coer(CoerEncodeErrorKind),
+    Xer(XerEncodeErrorKind),
 }
 macro_rules! impl_from {
     ($variant:ident, $error_kind:ty) => {
@@ -38,6 +39,7 @@ impl_from!(Uper, UperEncodeErrorKind);
 impl_from!(Aper, AperEncodeErrorKind);
 impl_from!(Jer, JerEncodeErrorKind);
 impl_from!(Coer, CoerEncodeErrorKind);
+impl_from!(Xer, XerEncodeErrorKind);
 
 impl From<CodecEncodeError> for EncodeError {
     fn from(error: CodecEncodeError) -> Self {
@@ -243,6 +245,7 @@ impl EncodeError {
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
             CodecEncodeError::Jer(_) => crate::Codec::Jer,
             CodecEncodeError::Coer(_) => crate::Codec::Coer,
+            CodecEncodeError::Xer(_) => crate::Codec::Xer,
         };
         Self {
             kind: Box::new(EncodeErrorKind::CodecSpecific { inner }),
@@ -425,6 +428,24 @@ pub enum UperEncodeErrorKind {}
 #[non_exhaustive]
 pub enum AperEncodeErrorKind {}
 
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for XER.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum XerEncodeErrorKind {
+    /// Upstream `xml` error
+    XmlEncodingError {
+        /// Stringified error of the underlying XML writer
+        upstream: alloc::string::String,
+    },
+    #[snafu(display("Failed to encode integer."))]
+    /// An error indicating an integer value outside of the supported bounds
+    UnsupportedIntegerValue,
+    #[snafu(display("Missing identifier for ASN.1 type."))]
+    /// An error indicating that the XML writer is missing information about the tag name of the item to encode
+    MissingIdentifier,
+}
+
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for COER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -473,7 +494,7 @@ mod tests {
         let oid = vec![3, 5, 4, 3];
 
         let mut enc = enc::Encoder::new(enc::EncoderOptions::ber());
-        let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &oid);
+        let result = enc.encode_object_identifier(Tag::OBJECT_IDENTIFIER, &oid, Identifier::EMPTY);
         assert!(result.is_err());
         match result {
             Err(e) => match *e.kind {
