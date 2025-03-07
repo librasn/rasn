@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0](https://github.com/librasn/rasn/compare/rasn-kerberos-v0.24.0...rasn-kerberos-v0.25.0) - 2025-03-07
+
+### Other
+
+- Feat/xml encoding rules ([#416](https://github.com/librasn/rasn/pull/416))
+
 ## [0.20.2](https://github.com/librasn/rasn/compare/rasn-kerberos-v0.20.1...rasn-kerberos-v0.20.2) - 2024-10-18
 
 ### Fixed
