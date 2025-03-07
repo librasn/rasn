@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.0](https://github.com/librasn/rasn/compare/rasn-smi-v0.24.0...rasn-smi-v0.25.0) - 2025-03-07
+
+### Other
+
+- Feat/xml encoding rules ([#416](https://github.com/librasn/rasn/pull/416))
+
 ## [0.18.0](https://github.com/librasn/rasn/compare/rasn-smi-v0.17.3...rasn-smi-v0.18.0) - 2024-09-17
 
 ### Added
