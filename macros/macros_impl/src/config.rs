@@ -859,13 +859,11 @@ impl<'a> FieldConfig<'a> {
             if self.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
                 if self.default.is_some() {
                     // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
-                    quote!(encoder.encode_default_with_explicit_prefix(#tag, &self.#field,  #default_fn)?;)
+                    quote!(encoder.encode_default_with_explicit_prefix(#tag, &self.#field, #default_fn #identifier)?;)
                 } else {
                     // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
-                    quote!(encoder.encode_explicit_prefix(#tag, &self.#field)?;)
+                    quote!(encoder.encode_explicit_prefix(#tag, &self.#field, #identifier)?;)
                 }
-                // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
-                quote!(encoder.encode_explicit_prefix(#tag, &self.#field, #identifier)?;)
             } else if self.extension_addition {
                 quote!(
                     #constraint_def

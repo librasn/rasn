@@ -461,11 +461,11 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         tag: Tag,
         value: &E,
         default: impl FnOnce() -> E,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         match (*value != (default)()).then_some(value) {
-            Some(value) => self.encode_explicit_prefix(tag, value),
-            // TODO: We need to figure out why this is putting a NULL in when it should just be skipping
-            None => self.encode_none_with_tag(tag),
+            Some(value) => self.encode_explicit_prefix(tag, value, identifier),
+            None => self.encode_none_with_tag(tag, identifier),
         }
     }
 
