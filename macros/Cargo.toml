@@ -15,4 +15,4 @@ proc-macro = true
 [dependencies]
 syn = { version = "2.0.79", features = ["extra-traits"] }
 proc-macro2 = "1.0.88"
-rasn-derive-impl = { version = "0.25.0", path = "macros_impl" }
+rasn-derive-impl = { version = "0.25.1", path = "macros_impl" }
