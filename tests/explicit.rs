@@ -131,7 +131,7 @@ fn works() {
     );
     assert_eq!(
         sequence_multi_default,
-        rasn::der::decode(&EXPECTED_MULTI_DEFAULT_FIELD_ENCODED).unwrap()
+        rasn::der::decode(EXPECTED_MULTI_DEFAULT_FIELD_ENCODED).unwrap()
     );
     assert_eq!(delegate_seq_enc, EXPECTED);
     assert_eq!(inline_seq_enc, EXPECTED);
