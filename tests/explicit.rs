@@ -10,6 +10,23 @@ pub struct Sequence {
 }
 
 #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+pub struct SequenceWithDefault {
+    #[rasn(tag(explicit(application, 1)), default = "default_bool")]
+    b: bool,
+}
+
+#[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+pub struct SequenceWithMultiDefault {
+    #[rasn(tag(explicit(application, 1)), default = "default_bool")]
+    b: bool,
+    #[rasn(tag(explicit(application, 2)), default = "default_bool")]
+    b2: bool,
+}
+pub fn default_bool() -> bool {
+    true
+}
+
+#[derive(AsnType, Decode, Debug, Encode, PartialEq)]
 #[rasn(tag(explicit(application, 1)))]
 pub struct InlineSequence {
     b: bool,
@@ -67,6 +84,18 @@ const _: () = assert!(Tag::const_eq(DelegateSequence::TAG, &InlineSet::TAG,));
 #[test]
 fn works() {
     const EXPECTED: &[u8] = &[0x61, 0x5, 0x30, 0x3, 0x01, 0x1, 0xFF];
+    // Note that the explicitly tagged field is dropped.
+    // This makes it a sequence with 0 elements
+    const EXPECTED_DEFAULT: &[u8] = &[0x30, 0x00];
+    const EXPECTED_NOT_DEFAULT: &[u8] = &[0x30, 0x05, 0x61, 0x03, 0x01, 0x01, 0x00];
+    // NOTE: The explicit tag number is just different
+    const EXPECTED_MULTI_DEFAULT: &[u8] = &[0x30, 0x05, 0x62, 0x03, 0x01, 0x01, 0x00];
+    // This version of the output is what would be generated without a default check.
+    // Using this for backward compat. verification
+    const EXPECTED_MULTI_DEFAULT_FIELD_ENCODED: &[u8] = &[
+        0x30, 0x0a, 0x61, 0x03, 0x01, 0x01, 0xff, 0x62, 0x03, 0x01, 0x01, 0x00,
+    ];
+
     let delegate_seq = DelegateSequence(Sequence { b: true });
     let inline_seq = InlineSequence { b: true };
     let field_seq = SequenceField { b: true };
@@ -84,6 +113,26 @@ fn works() {
     let inline_choice_enc = rasn::der::encode(&inline_choice).unwrap();
     let wrapped_choice_enc = rasn::der::encode(&wrapped_choice).unwrap();
 
+    // Set the field to match the default value to have it dropped
+    let sequence_default = SequenceWithDefault { b: true };
+    let sequence_non_default = SequenceWithDefault { b: false };
+    let sequence_default_enc = rasn::der::encode(&sequence_default).unwrap();
+    let sequence_non_default_enc = rasn::der::encode(&sequence_non_default).unwrap();
+    // Verify it correctly includes encoded fields
+    let sequence_multi_default = SequenceWithMultiDefault { b: true, b2: false };
+    let sequence_multi_default_enc = rasn::der::encode(&sequence_multi_default).unwrap();
+
+    assert_eq!(sequence_non_default_enc, EXPECTED_NOT_DEFAULT);
+    assert_eq!(sequence_default_enc, EXPECTED_DEFAULT);
+    assert_eq!(sequence_multi_default_enc, EXPECTED_MULTI_DEFAULT);
+    assert_eq!(
+        sequence_multi_default,
+        rasn::der::decode(&sequence_multi_default_enc).unwrap()
+    );
+    assert_eq!(
+        sequence_multi_default,
+        rasn::der::decode(EXPECTED_MULTI_DEFAULT_FIELD_ENCODED).unwrap()
+    );
     assert_eq!(delegate_seq_enc, EXPECTED);
     assert_eq!(inline_seq_enc, EXPECTED);
     assert_eq!(field_seq_enc, EXPECTED);
