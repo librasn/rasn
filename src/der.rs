@@ -9,6 +9,17 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeE
         crate::ber::de::DecoderOptions::der(),
     ))
 }
+/// Attempts to decode `T` from `input` using DER. Returns both `T` and reference to the remainder of the input.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid DER encoding specific to the expected type.
+pub fn decode_with_remainder<T: crate::Decode>(
+    input: &[u8],
+) -> Result<(T, &[u8]), crate::error::DecodeError> {
+    let decoder = &mut de::Decoder::new(input, de::DecoderOptions::der());
+    let decoded = T::decode(decoder)?;
+    Ok((decoded, decoder.remaining()))
+}
 
 /// Attempts to encode `value` to DER.
 pub fn encode<T: crate::Encode>(

@@ -276,12 +276,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 let range = if self.options.aligned && range > 256 {
                     input = self.parse_padding(input)?;
                     let range = crate::num::log2(range as i128);
-                    crate::bits::range_from_len(
+                    crate::bits::range_from_len(if range.is_power_of_two() {
                         range
-                            .is_power_of_two()
-                            .then_some(range)
-                            .unwrap_or_else(|| range.next_power_of_two()),
-                    )
+                    } else {
+                        range.next_power_of_two()
+                    })
                 } else {
                     range as i128
                 };
@@ -326,12 +325,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 let range = if self.options.aligned && range > 256 {
                     input = self.parse_padding(input)?;
                     let range = crate::num::log2(range as i128);
-                    crate::bits::range_from_len(
+                    crate::bits::range_from_len(if range.is_power_of_two() {
                         range
-                            .is_power_of_two()
-                            .then_some(range)
-                            .unwrap_or_else(|| range.next_power_of_two()),
-                    )
+                    } else {
+                        range.next_power_of_two()
+                    })
                 } else {
                     range as i128
                 };
@@ -586,10 +584,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                         {
                             let alphabet_width =
                                 crate::num::log2(alphabet.constraint.len() as i128);
-                            alphabet_width
-                                .is_power_of_two()
-                                .then_some(alphabet_width)
-                                .unwrap_or_else(|| alphabet_width.next_power_of_two())
+                            if alphabet_width.is_power_of_two() {
+                                alphabet_width
+                            } else {
+                                alphabet_width.next_power_of_two()
+                            }
                         }
                     } else {
                         crate::num::log2(alphabet.constraint.len() as i128)
@@ -625,10 +624,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 bit_string,
                 if self.options.aligned {
                     {
-                        ALPHABET::CHARACTER_SET_WIDTH
-                            .is_power_of_two()
-                            .then_some(ALPHABET::CHARACTER_SET_WIDTH)
-                            .unwrap_or_else(|| ALPHABET::CHARACTER_SET_WIDTH.next_power_of_two())
+                        if ALPHABET::CHARACTER_SET_WIDTH.is_power_of_two() {
+                            ALPHABET::CHARACTER_SET_WIDTH
+                        } else {
+                            ALPHABET::CHARACTER_SET_WIDTH.next_power_of_two()
+                        }
                     }
                 } else {
                     ALPHABET::CHARACTER_SET_WIDTH

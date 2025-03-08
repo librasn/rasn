@@ -9,6 +9,104 @@ use crate::types::{self, AsnType, Constraints, Enumerated, SetOf, Tag};
 pub use nom::Needed;
 pub use rasn_derive::Decode;
 
+/// A generic ASN.1 decoding iterator. JER and XER are not supported.
+pub fn iter<D: Decode>(input: &[u8], codec: crate::codec::Codec) -> Iter<'_, D> {
+    Iter::new(input, codec)
+}
+
+/// Represents the input buffer in one of two states:
+/// - `Borrowed(&[u8])` for the original input slice.
+/// - `Owned { data: Vec<u8>, pos: usize }` after extra data has been appended.
+///   Here `pos` tracks how many bytes have been consumed.
+enum IterBuffer<'a> {
+    Borrowed(&'a [u8]),
+    Owned { data: Vec<u8>, pos: usize },
+}
+
+impl IterBuffer<'_> {
+    /// Returns the current unread portion of the data.
+    fn as_slice(&self) -> &[u8] {
+        match self {
+            IterBuffer::Borrowed(slice) => slice,
+            IterBuffer::Owned { data, pos } => &data[*pos..],
+        }
+    }
+    /// Updates the buffer to account for the fact that `consumed` bytes were processed.
+    fn update_after_consumption(&mut self, consumed: usize) {
+        match self {
+            IterBuffer::Borrowed(slice) => *slice = &slice[consumed..],
+            IterBuffer::Owned { data, pos } => {
+                *pos += consumed;
+                // Drop the consumed bytes from the buffer once half of the data is already consumed.
+                if *pos > data.len() / 2 {
+                    data.drain(0..*pos);
+                    *pos = 0;
+                }
+            }
+        }
+    }
+
+    /// Converts a Borrowed variant to an Owned one.
+    #[allow(clippy::wrong_self_convention)]
+    fn to_owned(&mut self) {
+        if let IterBuffer::Borrowed(slice) = self {
+            let vec = slice.to_vec();
+            *self = IterBuffer::Owned { data: vec, pos: 0 };
+        }
+    }
+
+    /// Appends new bytes.
+    ///
+    /// Internal buffer is in the Owned state from this point forward.
+    fn extend(&mut self, bytes: &[u8]) {
+        self.to_owned();
+        if let IterBuffer::Owned { data, .. } = self {
+            data.extend_from_slice(bytes);
+        }
+    }
+}
+
+/// A generic ASN.1 decoding iterator.
+pub struct Iter<'input, D: Decode> {
+    buf: IterBuffer<'input>,
+    codec: crate::codec::Codec,
+    _kind: core::marker::PhantomData<D>,
+}
+
+impl<'input, D: Decode> Iter<'input, D> {
+    /// Create a new iterator from a borrowed input slice.
+    pub fn new(input: &'input [u8], codec: crate::codec::Codec) -> Self {
+        Self {
+            buf: IterBuffer::Borrowed(input),
+            codec,
+            _kind: core::marker::PhantomData,
+        }
+    }
+
+    /// Append new bytes to the input stream.
+    /// After this call the iterator will switch to using an owned buffer.
+    pub fn append_bytes(&mut self, bytes: &'input [u8]) {
+        self.buf.extend(bytes);
+    }
+}
+
+impl<D: Decode> Iterator for Iter<'_, D> {
+    type Item = Result<D, DecodeError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let input = self.buf.as_slice();
+        match self.codec.decode_from_binary_with_remainder(input) {
+            Ok((value, remainder)) => {
+                // Determine how many bytes were consumed.
+                let consumed = input.len() - remainder.len();
+                self.buf.update_after_consumption(consumed);
+                Some(Ok(value))
+            }
+            Err(err) => Some(Err(err)),
+        }
+    }
+}
+
 /// A **data type** that can decoded from any ASN.1 format.
 pub trait Decode: Sized + AsnType {
     /// Decode this value from a given ASN.1 decoder.

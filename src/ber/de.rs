@@ -37,6 +37,11 @@ impl<'input> Decoder<'input> {
     pub fn codec(&self) -> crate::Codec {
         self.config.current_codec()
     }
+    /// Returns reference to the remaining input data that has not been parsed.
+    #[must_use]
+    pub fn remaining(&self) -> &'input [u8] {
+        self.input
+    }
     /// Create a new [`Decoder`] from the given `input` and `config`.
     #[must_use]
     pub fn new(input: &'input [u8], config: DecoderOptions) -> Self {

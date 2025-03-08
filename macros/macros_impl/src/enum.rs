@@ -66,12 +66,11 @@ impl Enum<'_> {
 
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
-        let return_val = self
-            .config
-            .tag
-            .is_some()
-            .then(|| quote!(#crate_root::types::TagTree::Leaf(Self::TAG)))
-            .unwrap_or_else(|| quote!(tag_tree));
+        let return_val = if self.config.tag.is_some() {
+            quote!(#crate_root::types::TagTree::Leaf(Self::TAG))
+        } else {
+            quote!(tag_tree)
+        };
 
         let identifiers = variant_configs
             .iter()

@@ -7,6 +7,17 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeE
         crate::ber::de::DecoderOptions::cer(),
     ))
 }
+/// Attempts to decode `T` from `input` using CER. Returns both `T` and reference to the remainder of the input.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid CER encoding specific to the expected type.
+pub fn decode_with_remainder<T: crate::Decode>(
+    input: &[u8],
+) -> Result<(T, &[u8]), crate::error::DecodeError> {
+    let decoder = &mut crate::ber::de::Decoder::new(input, crate::ber::de::DecoderOptions::cer());
+    let decoded = T::decode(decoder)?;
+    Ok((decoded, decoder.remaining()))
+}
 
 /// Attempts to encode `value` to CER.
 pub fn encode<T: crate::Encode>(

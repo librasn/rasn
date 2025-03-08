@@ -95,6 +95,33 @@ impl Codec {
             ),
         }
     }
+    /// Decodes `input` to `D` based on the encoded defined by `Codec`, returning the decoded value and the remaining input.
+    pub fn decode_from_binary_with_remainder<'input, D: Decode>(
+        &self,
+        input: &'input [u8],
+    ) -> Result<(D, &'input [u8]), crate::error::DecodeError> {
+        match self {
+            Self::Aper => crate::aper::decode_with_remainder(input),
+            Self::Ber => crate::ber::decode_with_remainder(input),
+            Self::Cer => crate::cer::decode_with_remainder(input),
+            Self::Der => crate::der::decode_with_remainder(input),
+            Self::Uper => crate::uper::decode_with_remainder(input),
+            Self::Oer => crate::oer::decode_with_remainder(input),
+            Self::Coer => crate::coer::decode_with_remainder(input),
+            Self::Xer => Err(crate::error::DecodeError::from_kind(
+                crate::error::DecodeErrorKind::Custom {
+                    msg: "XER does not support decoding with remainder. ".into(),
+                },
+                *self,
+            )),
+            Self::Jer => Err(crate::error::DecodeError::from_kind(
+                crate::error::DecodeErrorKind::Custom {
+                    msg: "JER does not support decoding with remainder. ".into(),
+                },
+                *self,
+            )),
+        }
+    }
 
     /// Encodes a given value based on the value of `Codec`.
     /// This method shall be used when using text-based encoding rules.

@@ -80,10 +80,11 @@ pub fn derive_struct_impl(
             )
         }
     } else {
-        let operation = config
-            .set
-            .then(|| quote!(encode_set))
-            .unwrap_or_else(|| quote!(encode_sequence));
+        let operation = if config.set {
+            quote!(encode_set)
+        } else {
+            quote!(encode_sequence)
+        };
 
         let encode_impl = quote! {
             // In order to avoid unnecessary allocations, we provide the constant field counts to the encoder when encoding sequences and sets.
