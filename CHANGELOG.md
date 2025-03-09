@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.25.1](https://github.com/librasn/rasn/compare/rasn-v0.25.0...rasn-v0.25.1) - 2025-03-08
+
+### Other
+
+- Fixes librasn/rasn#418. Add support for explict tags and default values to encode correctly ([#419](https://github.com/librasn/rasn/pull/419))
+
 ## [0.25.0](https://github.com/librasn/rasn/compare/rasn-v0.24.0...rasn-v0.25.0) - 2025-03-07
 
 ### Other
