@@ -228,4 +228,37 @@ mod tests {
         round_trip(&Day::Tues);
         round_trip(&Day::Sat);
     }
+    // Test iterator-based decoding
+    #[test]
+    fn decode_with_iterator() {
+        use crate::types::Integer;
+
+        macro_rules! test_codec_iter {
+            ($codec:ident, $codec_enum:expr) => {
+                let mut data = vec![];
+                let integer_before1 = Integer::from(i64::from(i32::MIN) - 1);
+                let integer_before2 = Integer::from(i64::from(i32::MAX) - 1);
+                let integer_before3 = Integer::from(i64::from(i32::MIN) - i64::from(i16::MIN));
+                data.extend(crate::$codec::encode(&integer_before1).unwrap());
+                data.extend(crate::$codec::encode(&integer_before2).unwrap());
+                let mut iter = crate::de::iter(&data, $codec_enum);
+                let decoded: Integer = iter.next().unwrap().unwrap();
+                assert_eq!(integer_before1, decoded);
+                let int3_bytes = crate::$codec::encode(&integer_before3).unwrap();
+                iter.append_bytes(&int3_bytes);
+                let decoded: Integer = iter.next().unwrap().unwrap();
+                assert_eq!(integer_before2, decoded);
+                let decoded: Integer = iter.next().unwrap().unwrap();
+                assert_eq!(integer_before3, decoded);
+            };
+        }
+
+        test_codec_iter!(oer, crate::Codec::Oer);
+        test_codec_iter!(coer, crate::Codec::Coer);
+        test_codec_iter!(uper, crate::Codec::Uper);
+        test_codec_iter!(aper, crate::Codec::Aper);
+        test_codec_iter!(ber, crate::Codec::Ber);
+        test_codec_iter!(cer, crate::Codec::Cer);
+        test_codec_iter!(der, crate::Codec::Der);
+    }
 }

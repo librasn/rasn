@@ -11,6 +11,15 @@ pub use super::per::*;
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeError> {
     crate::per::decode(de::DecoderOptions::aligned(), input)
 }
+/// Attempts to decode `T` from `input` using APER-BASIC. Returns both `T` and reference to the remainder of the input.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid APER-BASIC encoding specific to the expected type.
+pub fn decode_with_remainder<T: crate::Decode>(
+    input: &[u8],
+) -> Result<(T, &[u8]), crate::error::DecodeError> {
+    crate::per::decode_with_remainder(de::DecoderOptions::aligned(), input)
+}
 
 /// Attempts to encode `value` to APER-CANONICAL.
 pub fn encode<T: crate::Encode>(

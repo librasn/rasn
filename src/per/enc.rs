@@ -347,10 +347,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     fn character_width(&self, width: usize) -> usize {
         if self.options.aligned {
             {
-                width
-                    .is_power_of_two()
-                    .then_some(width)
-                    .unwrap_or_else(|| width.next_power_of_two())
+                if width.is_power_of_two() {
+                    width
+                } else {
+                    width.next_power_of_two()
+                }
             }
         } else {
             width
@@ -466,12 +467,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     let range = if self.options.aligned && range > 256 {
                         {
                             let range = crate::num::log2(range as i128);
-                            crate::bits::range_from_len(
+                            crate::bits::range_from_len(if range.is_power_of_two() {
                                 range
-                                    .is_power_of_two()
-                                    .then_some(range)
-                                    .unwrap_or_else(|| range.next_power_of_two()),
-                            )
+                            } else {
+                                range.next_power_of_two()
+                            })
                         }
                     } else {
                         range as i128

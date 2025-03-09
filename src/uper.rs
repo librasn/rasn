@@ -13,6 +13,16 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeE
     crate::per::decode(de::DecoderOptions::unaligned(), input)
 }
 
+/// Attempts to decode `T` from `input` using UPER-BASIC. Returns both `T` and reference to the remainder of the input.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid UPER-BASIC encoding specific to the expected type.
+pub fn decode_with_remainder<T: crate::Decode>(
+    input: &[u8],
+) -> Result<(T, &[u8]), crate::error::DecodeError> {
+    crate::per::decode_with_remainder(de::DecoderOptions::unaligned(), input)
+}
+
 /// Attempts to encode `value` to UPER-CANONICAL.
 pub fn encode<T: crate::Encode>(
     value: &T,

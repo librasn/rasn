@@ -169,10 +169,11 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
     }
 
     fn octet_aligned_char_width(&self) -> usize {
-        Self::CHARACTER_SET_WIDTH
-            .is_power_of_two()
-            .then_some(Self::CHARACTER_SET_WIDTH)
-            .unwrap_or_else(|| Self::CHARACTER_SET_WIDTH.next_power_of_two())
+        if Self::CHARACTER_SET_WIDTH.is_power_of_two() {
+            Self::CHARACTER_SET_WIDTH
+        } else {
+            Self::CHARACTER_SET_WIDTH.next_power_of_two()
+        }
     }
 
     fn to_bit_string(&self) -> types::BitString {

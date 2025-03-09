@@ -15,6 +15,18 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeE
     T::decode(&mut de::Decoder::new(input, de::DecoderOptions::ber()))
 }
 
+/// Attempts to decode `T` from `input` using BER. Returns both `T` and reference to the remainder of the input.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid BER encoding specific to the expected type.
+pub fn decode_with_remainder<T: crate::Decode>(
+    input: &[u8],
+) -> Result<(T, &[u8]), crate::error::DecodeError> {
+    let decoder = &mut de::Decoder::new(input, de::DecoderOptions::ber());
+    let decoded = T::decode(decoder)?;
+    Ok((decoded, decoder.remaining()))
+}
+
 /// Attempts to encode `value` to BER.
 /// # Errors
 /// Returns error specific to BER encoder if encoding is not possible.
