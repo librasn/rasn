@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 +
 +## [Unreleased]
 
+## [0.25.2](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.25.1...rasn-derive-impl-v0.25.2) - 2025-03-09
+
+### Other
+
+- Add decoding iterator, decode_with_remainder, clippy fixes ([#421](https://github.com/librasn/rasn/pull/421))
+
 ## [0.25.1](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.25.0...rasn-derive-impl-v0.25.1) - 2025-03-08
 
 ### Other
