@@ -82,16 +82,16 @@ mod tests {
         //type D = ExtensibleConstrainedInteger<5, 99>;
         type E = ConstrainedInteger<1000, 1000>;
 
-        round_trip!(uper, B, 5.into(), &[0x00]);
-        round_trip!(uper, B, 6.into(), &[0x02]);
-        round_trip!(uper, B, 99.into(), &[0xbc]);
-        round_trip!(uper, C, (-10).into(), &[0x00]);
-        round_trip!(uper, C, (-1).into(), &[0x48]);
-        round_trip!(uper, C, 0.into(), &[0x50]);
-        round_trip!(uper, C, 1.into(), &[0x58]);
-        round_trip!(uper, C, 10.into(), &[0xa0]);
+        round_trip!(uper, B, B::new(5), &[0x00]);
+        round_trip!(uper, B, B::new(6), &[0x02]);
+        round_trip!(uper, B, B::new(99), &[0xbc]);
+        round_trip!(uper, C, C::new(-10), &[0x00]);
+        round_trip!(uper, C, C::new(-1), &[0x48]);
+        round_trip!(uper, C, C::new(0), &[0x50]);
+        round_trip!(uper, C, C::new(1), &[0x58]);
+        round_trip!(uper, C, C::new(10), &[0xa0]);
         // round_trip!(uper, D, 99, &[0x5e]);
-        round_trip!(uper, E, Integer::from(1000).into(), &[]);
+        round_trip!(uper, E, E::new(1000), &[]);
     }
 
     #[test]

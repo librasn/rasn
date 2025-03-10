@@ -215,9 +215,9 @@ mod tests {
         round_trip!(aper, Integer, (-256).into(), &[0x02, 0xff, 0x00]);
         round_trip!(aper, Integer, (-32768).into(), &[0x02, 0x80, 0x00]);
         round_trip!(aper, Integer, (-32769).into(), &[0x03, 0xff, 0x7f, 0xff]);
-        round_trip!(aper, B, 5.into(), &[0x00]);
-        round_trip!(aper, B, 6.into(), &[0x02]);
-        round_trip!(aper, B, 99.into(), &[0xbc]);
+        round_trip!(aper, B, B::new(5), &[0x00]);
+        round_trip!(aper, B, B::new(6), &[0x02]);
+        round_trip!(aper, B, B::new(99), &[0xbc]);
         round_trip!(
             aper,
             C,
@@ -229,19 +229,19 @@ mod tests {
             },
             &[0x80, 0x05, 0x0a, 0x24, 0x0a, 0x8d, 0x1f, 0x00, 0x00, 0x01]
         );
-        round_trip!(aper, D, 253.into(), &[0xfd]);
-        round_trip!(aper, E, 253.into(), &[0xfd]);
-        round_trip!(aper, F, 253.into(), &[0x00, 0xfd]);
-        round_trip!(aper, G, 253.into(), &[0x00, 0xfd]);
-        round_trip!(aper, H, 253.into(), &[0x00, 0xfd]);
-        round_trip!(aper, H, 256.into(), &[0x40, 0x01, 0x00]);
-        round_trip!(aper, H, 65536.into(), &[0x80, 0x01, 0x00, 0x00]);
-        round_trip!(aper, I, 0.into(), &[0x00, 0x00]);
-        round_trip!(aper, I, 1.into(), &[0x00, 0x01]);
+        round_trip!(aper, D, D::new(253), &[0xfd]);
+        round_trip!(aper, E, E::new(253), &[0xfd]);
+        round_trip!(aper, F, F::new(253), &[0x00, 0xfd]);
+        round_trip!(aper, G, G::new(253), &[0x00, 0xfd]);
+        round_trip!(aper, H, H::new(253), &[0x00, 0xfd]);
+        round_trip!(aper, H, H::new(256), &[0x40, 0x01, 0x00]);
+        round_trip!(aper, H, H::new(65536), &[0x80, 0x01, 0x00, 0x00]);
+        round_trip!(aper, I, I::new(0), &[0x00, 0x00]);
+        round_trip!(aper, I, I::new(1), &[0x00, 0x01]);
         round_trip!(
             aper,
             I,
-            10000000000i64.into(),
+            I::new(10000000000i64),
             &[0x80, 0x02, 0x54, 0x0b, 0xe4, 0x00]
         );
         round_trip!(
@@ -249,42 +249,49 @@ mod tests {
             J,
             J {
                 a: false,
-                b: 253.into(),
-                c: 253.into(),
+                b: Integer::from(253),
+                c: Integer::from(253),
                 d: false,
-                e: 253.into()
+                e: Integer::from(253)
             },
             &[0x7e, 0x80, 0xfd, 0x00, 0x00, 0xfd]
         );
-        round_trip!(aper, L, L { a: 7.into() }, &[]);
+        round_trip!(
+            aper,
+            L,
+            L {
+                a: Integer::from(7)
+            },
+            &[]
+        );
         // round_trip!(aper, M, 103.into(), &[0x80, 0x01, 0x67]);
-        round_trip!(aper, N, 1.into(), &[0x00, 0x01]);
-        round_trip!(aper, N, 255.into(), &[0x00, 0xff]);
-        round_trip!(aper, N, 256.into(), &[0x01, 0x00]);
-        round_trip!(aper, N, 65535.into(), &[0xff, 0xff]);
-        round_trip!(aper, O, 1.into(), &[0x00, 0x01]);
-        round_trip!(aper, O, 255.into(), &[0x00, 0xff]);
-        round_trip!(aper, O, 256.into(), &[0x40, 0x01, 0x00]);
-        round_trip!(aper, O, 65535.into(), &[0x40, 0xff, 0xff]);
-        round_trip!(aper, O, 65536.into(), &[0x80, 0x01, 0x00, 0x00]);
-        round_trip!(aper, P, 1.into(), &[0x00, 0x01]);
-        round_trip!(aper, P, 255.into(), &[0x00, 0xff]);
-        round_trip!(aper, P, 256.into(), &[0x40, 0x01, 0x00]);
-        round_trip!(aper, P, 65535.into(), &[0x40, 0xff, 0xff]);
-        round_trip!(aper, P, 65536.into(), &[0x80, 0x01, 0x00, 0x00]);
-        round_trip!(aper, P, 16777215.into(), &[0x80, 0xff, 0xff, 0xff]);
-        round_trip!(aper, P, 16777216.into(), &[0xc0, 0x01, 0x00, 0x00, 0x00]);
-        round_trip!(aper, P, 100000000.into(), &[0xc0, 0x05, 0xf5, 0xe1, 0x00]);
+        round_trip!(aper, N, N::new(1), &[0x00, 0x01]);
+        round_trip!(aper, N, N::new(255), &[0x00, 0xff]);
+        round_trip!(aper, N, N::new(256), &[0x01, 0x00]);
+        round_trip!(aper, N, N::new(65535), &[0xff, 0xff]);
+        round_trip!(aper, O, O::new(1), &[0x00, 0x01]);
+        round_trip!(aper, O, O::new(255), &[0x00, 0xff]);
+        round_trip!(aper, O, O::new(256), &[0x40, 0x01, 0x00]);
+        round_trip!(aper, O, O::new(65535), &[0x40, 0xff, 0xff]);
+        round_trip!(aper, O, O::new(65536), &[0x80, 0x01, 0x00, 0x00]);
+        round_trip!(aper, P, P::new(1), &[0x00, 0x01]);
+        round_trip!(aper, P, P::new(255), &[0x00, 0xff]);
+        round_trip!(aper, P, P::new(256), &[0x40, 0x01, 0x00]);
+        round_trip!(aper, P, P::new(65535), &[0x40, 0xff, 0xff]);
+        round_trip!(aper, P, P::new(65536), &[0x80, 0x01, 0x00, 0x00]);
+        round_trip!(aper, P, P::new(16777215), &[0x80, 0xff, 0xff, 0xff]);
+        round_trip!(aper, P, P::new(16777216), &[0xc0, 0x01, 0x00, 0x00, 0x00]);
+        round_trip!(aper, P, P::new(100000000), &[0xc0, 0x05, 0xf5, 0xe1, 0x00]);
         round_trip!(
             aper,
             Q,
-            4294967295u64.into(),
+            Q::new(4294967295u64),
             &[0xc0, 0xff, 0xff, 0xff, 0xff]
         );
         round_trip!(
             aper,
             R,
-            4294967296u64.into(),
+            R::new(4294967296u64),
             &[0x80, 0x01, 0x00, 0x00, 0x00, 0x00]
         );
         round_trip!(
