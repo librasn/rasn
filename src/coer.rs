@@ -204,45 +204,45 @@ mod tests {
         type E = ConstrainedInteger<0, { i128::MAX }>;
         type F = ConstrainedInteger<2, { u16::MAX as i128 }>;
 
-        round_trip!(coer, A, 0.into(), &[0x00]);
-        round_trip!(coer, A, 5.into(), &[0x05]);
-        round_trip!(coer, A, 255.into(), &[0xff]);
+        round_trip!(coer, A, A::new(0), &[0x00]);
+        round_trip!(coer, A, A::new(5), &[0x05]);
+        round_trip!(coer, A, A::new(255), &[0xff]);
         // Paddings are expected
-        round_trip!(coer, B, 0.into(), &[0x00, 0x00]);
-        round_trip!(coer, B, 255.into(), &[0x00, 0xff]);
-        round_trip!(coer, C, 0.into(), &[0x00, 0x00, 0x00, 0x00]);
-        round_trip!(coer, C, u16::MAX.into(), &[0x00, 0x00, 0xff, 0xff]);
+        round_trip!(coer, B, B::new(0), &[0x00, 0x00]);
+        round_trip!(coer, B, B::new(255), &[0x00, 0xff]);
+        round_trip!(coer, C, C::new(0), &[0x00, 0x00, 0x00, 0x00]);
+        round_trip!(coer, C, C::new(u16::MAX), &[0x00, 0x00, 0xff, 0xff]);
         round_trip!(
             coer,
             D,
-            0.into(),
+            0.try_into().unwrap(),
             &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
         round_trip!(
             coer,
             D,
-            u32::MAX.into(),
+            (u32::MAX as i128).try_into().unwrap(),
             &[0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff]
         );
         // Use length determinant when upper range above u64 max
         round_trip!(
             coer,
             E,
-            (i128::from(u64::MAX) + 1).into(),
+            (i128::from(u64::MAX) + 1).try_into().unwrap(),
             &[0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
-        round_trip!(coer, F, 2.into(), &[0x00, 0x02]);
+        round_trip!(coer, F, F::new(2), &[0x00, 0x02]);
         // Error expected, outside of range constraints
-        encode_error!(coer, A, (-1).into());
-        encode_error!(coer, B, (-1).into());
-        encode_error!(coer, C, (-1).into());
-        encode_error!(coer, D, (-1).into());
-        encode_error!(coer, E, (-1).into());
-        encode_error!(coer, F, (1).into());
-        encode_error!(coer, A, (u16::from(u8::MAX) + 1).into());
-        encode_error!(coer, B, (u32::from(u16::MAX) + 1).into());
-        encode_error!(coer, C, (u64::from(u32::MAX) + 1).into());
-        encode_error!(coer, D, (u128::from(u64::MAX) + 1).into());
+        encode_error!(coer, A, A::new(-1));
+        encode_error!(coer, B, B::new(-1));
+        encode_error!(coer, C, C::new(-1));
+        encode_error!(coer, D, D::new(-1));
+        encode_error!(coer, E, E::new(-1));
+        encode_error!(coer, F, F::new(1));
+        encode_error!(coer, A, A::new(u16::from(u8::MAX) + 1));
+        encode_error!(coer, B, B::new(u32::from(u16::MAX) + 1));
+        encode_error!(coer, C, C::new(u64::from(u32::MAX) + 1));
+        encode_error!(coer, D, D::new(u128::from(u64::MAX) + 1));
     }
     #[test]
     fn test_integer_with_signed_constraints() {
@@ -252,74 +252,74 @@ mod tests {
         type D = ConstrainedInteger<{ i64::MIN as i128 }, { i64::MAX as i128 }>;
         type E = ConstrainedInteger<-5, 5>;
 
-        round_trip!(coer, A, 0.into(), &[0x00]);
-        round_trip!(coer, A, (-1).into(), &[0xff]);
-        round_trip!(coer, A, i8::MIN.into(), &[0x80]);
-        round_trip!(coer, A, i8::MAX.into(), &[0x7f]);
+        round_trip!(coer, A, A::new(0), &[0x00]);
+        round_trip!(coer, A, A::new(-1), &[0xff]);
+        round_trip!(coer, A, A::new(i8::MIN), &[0x80]);
+        round_trip!(coer, A, A::new(i8::MAX), &[0x7f]);
         // Paddings (0xff as 2's complement) are sometimes expected
-        round_trip!(coer, B, 0.into(), &[0x00, 0x00]);
-        round_trip!(coer, B, (-1).into(), &[0xff, 0xff]);
-        round_trip!(coer, B, i8::MIN.into(), &[0xff, 0x80]);
-        round_trip!(coer, B, i8::MAX.into(), &[0x00, 0x7f]);
-        round_trip!(coer, B, i16::MIN.into(), &[0x80, 0x00]);
-        round_trip!(coer, B, i16::MAX.into(), &[0x7f, 0xff]);
+        round_trip!(coer, B, B::new(0), &[0x00, 0x00]);
+        round_trip!(coer, B, B::new(-1), &[0xff, 0xff]);
+        round_trip!(coer, B, B::new(i8::MIN), &[0xff, 0x80]);
+        round_trip!(coer, B, B::new(i8::MAX), &[0x00, 0x7f]);
+        round_trip!(coer, B, B::new(i16::MIN), &[0x80, 0x00]);
+        round_trip!(coer, B, B::new(i16::MAX), &[0x7f, 0xff]);
 
-        round_trip!(coer, C, 0.into(), &[0x00, 0x00, 0x00, 0x00]);
-        round_trip!(coer, C, (-1).into(), &[0xff, 0xff, 0xff, 0xff]);
-        round_trip!(coer, C, i16::MIN.into(), &[0xff, 0xff, 0x80, 0x00]);
-        round_trip!(coer, C, i16::MAX.into(), &[0x00, 0x00, 0x7f, 0xff]);
-        round_trip!(coer, C, i32::MIN.into(), &[0x80, 0x00, 0x00, 0x00]);
-        round_trip!(coer, C, i32::MAX.into(), &[0x7f, 0xff, 0xff, 0xff]);
+        round_trip!(coer, C, 0.try_into().unwrap(), &[0x00, 0x00, 0x00, 0x00]);
+        round_trip!(coer, C, (-1).try_into().unwrap(), &[0xff, 0xff, 0xff, 0xff]);
+        round_trip!(coer, C, C::new(i16::MIN), &[0xff, 0xff, 0x80, 0x00]);
+        round_trip!(coer, C, C::new(i16::MAX), &[0x00, 0x00, 0x7f, 0xff]);
+        round_trip!(coer, C, C::new(i32::MIN), &[0x80, 0x00, 0x00, 0x00]);
+        round_trip!(coer, C, C::new(i32::MAX), &[0x7f, 0xff, 0xff, 0xff]);
 
         round_trip!(
             coer,
             D,
-            0.into(),
+            D::new(0),
             &[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
         round_trip!(
             coer,
             D,
-            (-1).into(),
+            D::new(-1),
             &[0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
         );
         round_trip!(
             coer,
             D,
-            i32::MIN.into(),
+            D::new(i32::MIN),
             &[0xff, 0xff, 0xff, 0xff, 0x80, 0x00, 0x00, 0x00]
         );
         round_trip!(
             coer,
             D,
-            i32::MAX.into(),
+            D::new(i32::MAX),
             &[0x00, 0x00, 0x00, 0x00, 0x7f, 0xff, 0xff, 0xff]
         );
         round_trip!(
             coer,
             D,
-            i64::MIN.into(),
+            D::new(i64::MIN),
             &[0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
         round_trip!(
             coer,
             D,
-            i64::MAX.into(),
+            D::new(i64::MAX),
             &[0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]
         );
-        round_trip!(coer, E, 4.into(), &[0x04]);
-        round_trip!(coer, E, (-4).into(), &[0xfc]);
+        round_trip!(coer, E, E::new(4), &[0x04]);
+        round_trip!(coer, E, E::new(-4), &[0xfc]);
 
         // Error expected, outside of range constraints
-        encode_error!(coer, A, (i16::from(i8::MIN) - 1).into());
-        encode_error!(coer, B, (i32::from(i16::MIN) - 1).into());
-        encode_error!(coer, C, (i64::from(i32::MIN) - 1).into());
-        encode_error!(coer, D, (i128::from(i64::MIN) - 1).into());
+        encode_error!(coer, A, A::new(i16::from(i8::MIN) - 1));
+        encode_error!(coer, B, B::new(i32::from(i16::MIN) - 1));
+        encode_error!(coer, C, C::new(i64::from(i32::MIN) - 1));
+        encode_error!(coer, D, D::new(i128::from(i64::MIN) - 1));
 
-        encode_error!(coer, A, (i16::from(i8::MAX) + 1).into());
-        encode_error!(coer, B, (i32::from(i16::MAX) + 1).into());
-        encode_error!(coer, C, (i64::from(i32::MAX) + 1).into());
-        encode_error!(coer, D, (i128::from(i64::MAX) + 1).into());
+        encode_error!(coer, A, A::new(i16::from(i8::MAX) + 1));
+        encode_error!(coer, B, B::new(i32::from(i16::MAX) + 1));
+        encode_error!(coer, C, C::new(i64::from(i32::MAX) + 1));
+        encode_error!(coer, D, D::new(i128::from(i64::MAX) + 1));
     }
     #[test]
     fn test_integer_single_constraint() {

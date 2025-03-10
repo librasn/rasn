@@ -353,6 +353,14 @@ impl_try_from_integer!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, 
 #[derive(Debug, Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct ConstrainedInteger<const START: i128, const END: i128>(pub(crate) Integer);
 
+impl<const START: i128, const END: i128> ConstrainedInteger<START, END> {
+    /// Unchecked `new` where constraint boundaries are not checked - used only in tests.
+    #[cfg(test)]
+    pub(crate) fn new<T: Into<Integer>>(value: T) -> Self {
+        Self(value.into())
+    }
+}
+
 impl<const START: i128, const END: i128> AsnType for ConstrainedInteger<START, END> {
     const TAG: Tag = Tag::INTEGER;
     const CONSTRAINTS: Constraints =
@@ -369,13 +377,23 @@ impl<const START: i128, const END: i128> core::ops::Deref for ConstrainedInteger
     }
 }
 
-impl<T: Into<Integer>, const START: i128, const END: i128> From<T>
-    for ConstrainedInteger<START, END>
-{
-    fn from(value: T) -> Self {
-        Self(value.into())
+macro_rules! impl_try_from_integer_constrained {
+    ($($t:ty),*) => {
+        $(
+            impl<const START: i128, const END: i128> TryFrom<$t> for ConstrainedInteger<START, END> {
+                type Error = TryFromIntegerError;
+                fn try_from(value: $t) -> Result<Self, Self::Error> {
+                    if value as i128 >= START && value as i128 <= END {
+                        Ok(Self(value.into()))
+                    } else {
+                        Err(TryFromIntegerError::new(value.into()))
+                    }
+                }
+            }
+        )*
     }
 }
+impl_try_from_integer_constrained!(isize, i32, i64, i128);
 
 /// Represents a integer type in Rust that can be decoded or encoded into any
 /// ASN.1 codec.
