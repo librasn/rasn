@@ -173,7 +173,6 @@ impl<'input> Decoder<'input> {
         // If data contains explict Z, result is UTC
         // If data contains + or -, explicit timezone is given
         // If neither Z nor + nor -, purely local time is implied
-        let len = string.len();
         // Helper function to deal with fractions and without timezone
         let parse_without_timezone = |string: &str| -> Result<NaiveDateTime, DecodeError> {
             // Handle both decimal cases (dot . and comma , )
@@ -199,49 +198,40 @@ impl<'input> Decoder<'input> {
                 }
             }
         };
-        if string.ends_with('Z') {
-            let naive = parse_without_timezone(&string[..len - 1])?;
+        if let Some(naive) = &string.strip_suffix("Z") {
+            let naive = parse_without_timezone(naive)?;
             return Ok(naive.and_utc().into());
         }
-        // Check for timezone offset
-        if len > 5
-            && string
-                .chars()
-                .nth(len - 5)
-                .is_some_and(|c| c == '+' || c == '-')
-        {
-            let naive = parse_without_timezone(&string[..len - 5])?;
-            let sign = match string.chars().nth(len - 5) {
-                Some('+') => 1,
-                Some('-') => -1,
-                _ => {
-                    return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
+        // NOTE: this is character length, not byte length
+        let char_len = string.char_indices().count();
+        if char_len > 5 {
+            if let Some((tz_start, tz_sign)) = string.char_indices().nth(char_len - 5) {
+                if tz_sign == '+' || tz_sign == '-' {
+                    let naive = parse_without_timezone(&string[..tz_start])?;
+                    let tz_str = &string[tz_start..];
+                    // All timezone digits should be ASCII, slicing by byte indices is safe after we verify count.
+                    if tz_str.len() != 5 {
+                        return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
+                    }
+                    let sign = if tz_sign == '+' { 1 } else { -1 };
+                    let offset_hours = tz_str[1..3]
+                        .parse::<i32>()
+                        .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
+                    let offset_minutes = tz_str[3..5]
+                        .parse::<i32>()
+                        .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
+                    if offset_hours > 23 || offset_minutes > 59 {
+                        return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
+                    }
+                    let total_offset = sign * (offset_hours * 3600 + offset_minutes * 60);
+                    let offset = FixedOffset::east_opt(total_offset)
+                        .ok_or_else(|| BerDecodeErrorKind::invalid_date(string.to_string()))?;
+                    return Ok(TimeZone::from_local_datetime(&offset, &naive)
+                        .single()
+                        .ok_or_else(|| BerDecodeErrorKind::invalid_date(string.to_string()))?);
                 }
-            };
-            let offset_hours = string
-                .chars()
-                .skip(len - 4)
-                .take(2)
-                .collect::<alloc::string::String>()
-                .parse::<i32>()
-                .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
-            let offset_minutes = string
-                .chars()
-                .skip(len - 2)
-                .take(2)
-                .collect::<alloc::string::String>()
-                .parse::<i32>()
-                .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
-            if offset_hours > 23 || offset_minutes > 59 {
-                return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
             }
-            let offset = FixedOffset::east_opt(sign * (offset_hours * 3600 + offset_minutes * 60))
-                .ok_or_else(|| BerDecodeErrorKind::invalid_date(string.to_string()))?;
-            return Ok(TimeZone::from_local_datetime(&offset, &naive)
-                .single()
-                .ok_or_else(|| BerDecodeErrorKind::invalid_date(string.to_string()))?);
         }
-
         // Parse without timezone details
         let naive = parse_without_timezone(&string)?;
         Ok(naive.and_utc().into())

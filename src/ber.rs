@@ -355,6 +355,12 @@ mod tests {
         let result = crate::ber::decode::<crate::types::GeneralizedTime>(&data);
         assert!(result.is_ok());
         assert_eq!(dt1, result.unwrap());
+        let data = [
+            24, 22, 50, 48, 50, 51, 48, 49, 50, 50, 49, 51, 48, 48, 48, 48, 45, 45, 0xE2, 0x82,
+            0xAC, 45, 45, 45,
+        ];
+        let result = crate::ber::decode::<crate::types::GeneralizedTime>(&data);
+        assert!(result.is_err());
     }
     #[test]
     fn test_utc_time() {
