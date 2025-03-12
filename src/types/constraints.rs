@@ -1,23 +1,25 @@
 //! Constraints of values on a given type.
 
 use super::IntegerType;
-use crate::Codec;
 use num_bigint::BigInt;
 
-/// A marker trait for types that have inner subtype constraints.
+/// A marker trait for types that have ASN.1 inner subtype constraints.
 pub trait InnerSubtypeConstraint: Sized {
     /// Validates the inner subtype constraints and returns the type on success.
-    fn validate_components(self) -> Result<Self, crate::error::InnerSubtypeConstraintError>;
+    /// Does not attempt to decode internal ASN.1 `CONTAINING` constraints as a marked type. See `validate_and_decode_containing` for CONTAINING validation.
+    fn validate_components(self) -> Result<Self, crate::error::InnerSubtypeConstraintError> {
+        self.validate_and_decode_containing(None)
+    }
 
     /// Validates the inner subtype constraints and attempts to decode internal ASN.1 `CONTAINING` constraints as a marked type.
     /// Usually this means that some field has `OPAQUE` data, and we need to decode it further as a specific type, as defined in the inner subtype constraint.
-    #[allow(unused_variables)]
+    /// Manual implementation of this function is required for all types that have inner subtype constraints.
+    /// # Arguments
+    /// * `decode_containing_with` - the codec to validate and decode the containing data with - ASN.1 type definiton has `CONTAINING.
     fn validate_and_decode_containing(
         self,
-        decoder: Codec,
-    ) -> Result<Self, crate::error::InnerSubtypeConstraintError> {
-        Ok(self)
-    }
+        decode_containing_with: Option<crate::Codec>,
+    ) -> Result<Self, crate::error::InnerSubtypeConstraintError>;
 }
 
 /// A set of constraints for a given type on what kinds of values are allowed.

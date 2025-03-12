@@ -4,31 +4,24 @@ use snafu::Snafu;
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum InnerSubtypeConstraintError {
-    /// Subtype constraint violation: invalid component combination
+    /// General error for subtype constraint violation: invalid inner component combination in a newtype.
+    /// Mostly useful when there are specific variants for a base type, e.g. implicit or explicit variants.
     #[snafu(display("Invalid component combination in {type_name}: {details}"))]
-    InvalidCombination {
+    SubtypeConstraintViolation {
         /// The name of the type where the invalid component combination was found.
         type_name: &'static str,
         /// Detailed information about the invalid component combination.
         details: &'static str,
     },
 
-    /// Subtype constraint violation: required component is missing
-    #[snafu(display("Missing required components in {type_name}: all must be present:"))]
+    /// A required component is missing. All components stated in `components` must be present.
+    #[snafu(display(
+        "Missing required components in {type_name}: the following must be present:"
+    ))]
     MissingRequiredComponent {
         /// The name of the type where the required component is missing.
         type_name: &'static str,
         /// List of required components that are missing.
-        components: &'static [&'static str],
-    },
-    /// Subtype constraint violation: at least one of the components must be present
-    #[snafu(display(
-        "At least one of the components must be present in {type_name}: {components:?}"
-    ))]
-    MissingAtLeastOneComponent {
-        /// The name of the type where at least one of the components must be present.
-        type_name: &'static str,
-        /// List of components that must be present. At least one of these must be present.
         components: &'static [&'static str],
     },
 
@@ -49,5 +42,45 @@ pub enum InnerSubtypeConstraintError {
         component_name: &'static str,
         /// Detailed information about the invalid component value.
         details: alloc::string::String,
+    },
+    /// Invalid component variant (applies to enums and choice types)
+    #[snafu(display("Invalid variant for component {component_name} in {type_name}: {details}"))]
+    InvalidComponentVariant {
+        /// The name of the type where the invalid component variant was found.
+        type_name: &'static str,
+        /// The name of the component with the invalid variant.
+        component_name: &'static str,
+        /// Detailed information about the invalid component variant.
+        details: alloc::string::String,
+    },
+    /// Invalid size constraint for a component
+    #[snafu(display(
+        "Invalid size constraint for component {component_name} in {type_name}: {details}"
+    ))]
+    InvalidComponentSize {
+        /// The name of the type where the invalid component value was found.
+        type_name: &'static str,
+        /// The name of the component with the invalid size.
+        component_name: &'static str,
+        /// Detailed information about the inner error.
+        details: alloc::string::String,
+    },
+    /// A field that should be absent is present
+    #[snafu(display(
+        "Component that should be absent is present in {type_name}: {component_name}"
+    ))]
+    UnexpectedComponentPresent {
+        /// The name of the type where the absent component is present.
+        type_name: &'static str,
+        /// The name of the absent component that is present.
+        component_name: &'static str,
+    },
+    /// An error if inner `CONTAINING` constraint is not satisfied.
+    #[snafu(display("CONTAINING does not contain the expected component {expected}: {err}"))]
+    InvalidInnerContaining {
+        /// The name of the expected value in CONTAINING constraint.
+        expected: &'static str,
+        /// Inner decode error
+        err: alloc::string::String,
     },
 }
