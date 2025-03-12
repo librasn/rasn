@@ -255,3 +255,28 @@ fn explicit_identifiers() {
     );
     assert_eq!(MyDelegate::IDENTIFIER, Identifier(Some("my-delegate")));
 }
+#[test]
+fn test_constraint_values() {
+    #[derive(AsnType, Encode, Decode)]
+    struct MyConstrainedStruct {
+        #[rasn(size("10_000"))]
+        value: OctetString,
+    }
+
+    let my_struct = MyConstrainedStruct {
+        value: vec![1].into(),
+    };
+    let encoded = rasn::coer::encode(&my_struct);
+    assert!(encoded.is_err());
+    #[derive(AsnType, Encode, Decode)]
+    struct MyAnotherStruct {
+        #[rasn(value("1..=10_000"))]
+        value: u32,
+    }
+    let my_struct = MyAnotherStruct { value: 10_001 };
+    let encoded = rasn::uper::encode(&my_struct);
+    assert!(encoded.is_err());
+    let my_struct = MyAnotherStruct { value: 9999 };
+    let encoded = rasn::uper::encode(&my_struct);
+    assert!(encoded.is_ok());
+}
