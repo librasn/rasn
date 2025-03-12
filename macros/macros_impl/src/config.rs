@@ -58,6 +58,13 @@ impl Constraints {
             let extensible = value.extensible.is_some();
             let constraint = match value.constraint {
                 Value::Range(Some(min), Some(max)) => {
+                    if min > max {
+                        return syn::Error::new(
+                            Span::call_site(),
+                            "Minimum size constraint must be less than or equal to maximum size constraint.",
+                        )
+                        .to_compile_error();
+                    }
                     quote!(#crate_root::types::constraints::Bounded::const_new(#min as usize, #max as usize))
                 }
                 Value::Range(Some(min), None) => {
@@ -88,9 +95,17 @@ impl Constraints {
 
     fn size_attr(&self) -> Option<proc_macro2::TokenStream> {
         self.size.as_ref().map(|value| {
+
             let extensible = value.extensible.is_some().then_some(quote!(extensible));
             let constraint = match value.constraint {
                 Value::Range(Some(min), Some(max)) => {
+                    if min > max {
+                        return syn::Error::new(
+                            Span::call_site(),
+                            "Minimum size constraint must be less than or equal to maximum size constraint.",
+                        )
+                        .to_compile_error();
+                    }
                     let string = quote!(#min..=#max).to_string();
                     quote!(#string)
                 }
@@ -1428,8 +1443,20 @@ impl Value {
         let mut extensible = None;
         let mut constraint = None;
 
+        // Attempts to parse either size or value constraint value.
+        // These constraints are i128 types - proc macros might add i128 suffix so we need to remove that.
+        // Also check if the value is a valid number in general, noting the underscore separator as well.
         fn parse_character(string: &str) -> Option<i128> {
-            string.parse().ok()
+            let filtered: String = string
+                .chars()
+                .filter(|&c| !c.is_whitespace() && c != '_')
+                .collect();
+            // Remove the "i128" suffix if it exists.
+            if filtered.ends_with("i128") {
+                filtered[..filtered.len() - "i128".len()].parse().ok()
+            } else {
+                filtered.parse().ok()
+            }
         }
 
         let content;
@@ -1463,17 +1490,29 @@ impl Value {
                 Value::Single(number)
             } else {
                 let Some((start, mut end)) = string.split_once("..") else {
-                    return Err(syn::Error::new(span, format!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")));
+                    return Err(syn::Error::new(span, format!("unknown format: {string}, must be a single value or range of values (`..`, `..=`)")));
                 };
 
-                let start = parse_character(start);
+                let start_parsed = parse_character(start);
+                if start_parsed.is_none() && !start.is_empty() {
+                    return Err(syn::Error::new(
+                        span,
+                        format!("start of the range constraint was an invalid value: {start:?}"),
+                    ));
+                }
                 let is_inclusive = end.starts_with('=');
                 if is_inclusive {
                     end = &end[1..];
                 }
 
-                let end = parse_character(end).map(|end| end - (!is_inclusive) as i128);
-                Value::Range(start, end)
+                let end_parsed = parse_character(end).map(|end| end - (!is_inclusive) as i128);
+                if end_parsed.is_none() && !end.is_empty() {
+                    return Err(syn::Error::new(
+                        span,
+                        format!("end of the range constraint was an invalid value: {end:?}"),
+                    ));
+                }
+                Value::Range(start_parsed, end_parsed)
             };
 
             if let Some(extensible_values) = extensible.as_mut() {
