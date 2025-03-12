@@ -61,6 +61,11 @@ as well as being transport layer and encoding rule agnostic.
 - [**S/MIME:** Secure/Multipurpose Internet Mail Extensions](https://docs.rs/rasn-smime)
 
 
+#### C-ITS Standards
+
+- [**IEEE 1609.2:** IEEE Standard for Wireless Access in Vehicular Environments (WAVE) - Security Services for Application and Management Messages ](https://docs.rs/rasn-ieee1609dot2)
+
+
 ### Powerful Derive Macros
 Easily model your structs and enums with derive equivalents of all of the traits. These macros provide a automatic implementation that ensures your model is a valid ASN.1 type at *compile-time*. To explain that though, first we have to explain…
 

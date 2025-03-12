@@ -87,6 +87,7 @@ impl rasn::Encode for EtsiExtContent {
         encoder: &mut EN,
         _: rasn::types::Tag,
         _: rasn::types::Constraints,
+        _: rasn::types::Identifier,
     ) -> core::result::Result<(), EN::Error> {
         Self::encode(self, encoder)
     }

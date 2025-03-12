@@ -1,7 +1,6 @@
 //! Constraints of values on a given type.
 
 use super::IntegerType;
-use crate::Codec;
 use num_bigint::BigInt;
 
 /// A marker trait with validation methods for types that have ASN.1 inner subtype constraints.
