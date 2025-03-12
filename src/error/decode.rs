@@ -686,7 +686,9 @@ pub enum DecodeErrorKind {
         tag: Tag,
     },
     /// An error when there should be more data but it is not present.
-    #[snafu(display("SEQUENCE has at least one required field, but no input provided"))]
+    #[snafu(display(
+        "No input was provided where expected in the given SEQUENCE or INTEGER type"
+    ))]
     UnexpectedEmptyInput,
 }
 
