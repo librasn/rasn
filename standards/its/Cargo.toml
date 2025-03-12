@@ -7,8 +7,8 @@ version.workspace = true
 repository.workspace = true
 
 [dependencies]
-bon = { version = "3.1.1", default-features = false }
-rasn = { version = "0.22", path = "../.." }
+bon = { version = "3.4", default-features = false }
+rasn = { version = "0.25", path = "../.." }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"

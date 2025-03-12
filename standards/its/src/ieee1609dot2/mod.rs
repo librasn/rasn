@@ -1,4 +1,5 @@
 extern crate alloc;
+use crate::delegate;
 use crate::ts103097::extension_module::*;
 use bon::Builder;
 use rasn::error::InnerSubtypeConstraintError;
@@ -24,34 +25,6 @@ pub const IEEE1609_DOT2_OID: &Oid = Oid::const_new(&[
     2,    // major-version-2
     6,    // minor-version-6
 ]);
-
-/// A macro to implement `From` and `Deref` for a delegate type pair.
-#[macro_export]
-macro_rules! delegate {
-    ($from_type:ty, $to_type:ty) => {
-        impl From<$from_type> for $to_type {
-            fn from(item: $from_type) -> Self {
-                Self(item)
-            }
-        }
-        impl From<$to_type> for $from_type {
-            fn from(item: $to_type) -> Self {
-                item.0
-            }
-        }
-        impl core::ops::Deref for $to_type {
-            type Target = $from_type;
-            fn deref(&self) -> &Self::Target {
-                &self.0
-            }
-        }
-        impl core::ops::DerefMut for $to_type {
-            fn deref_mut(&mut self) -> &mut Self::Target {
-                &mut self.0
-            }
-        }
-    };
-}
 
 pub const CERT_EXT_ID_OPERATING_ORGANIZATION: ExtId = ExtId(1);
 pub const P2PCD8_BYTE_LEARNING_REQUEST_ID: ExtId = ExtId(1);
@@ -228,9 +201,12 @@ impl SignedDataPayload {
 }
 
 impl InnerSubtypeConstraint for SignedDataPayload {
-    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_and_decode_containing(
+        self,
+        _: Option<rasn::Codec>,
+    ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
         if self.data.is_none() && self.ext_data_hash.is_none() && self.omitted.is_none() {
-            return Err(InnerSubtypeConstraintError::MissingAtLeastOneComponent {
+            return Err(InnerSubtypeConstraintError::MissingRequiredComponent {
                 type_name: "SignedDataPayload",
                 components: &["data", "ext_data_hash", "omitted"],
             });
@@ -539,7 +515,10 @@ impl Countersignature {
 }
 
 impl InnerSubtypeConstraint for Countersignature {
-    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_and_decode_containing(
+        self,
+        _: Option<rasn::Codec>,
+    ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
         if let Ieee1609Dot2Content::SignedData(ref signed_data) = self.0.content {
             if let SignedData {
                 tbs_data:
@@ -567,14 +546,14 @@ impl InnerSubtypeConstraint for Countersignature {
             {
                 Ok(self)
             } else {
-                Err(InnerSubtypeConstraintError::InvalidCombination {
+                Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
                     type_name: "Countersignature::Ieee1609Dot2Content::SignedData",
                     details:
                         "SignedData does not match innner subtype constraint for Countersignature",
                 })
             }
         } else {
-            Err(InnerSubtypeConstraintError::InvalidCombination {
+            Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
                 type_name: "Countersignature::Ieee1609Dot2Content",
                 details: "SignedData variant is required for Countersignature",
             })
@@ -894,7 +873,7 @@ pub struct CertificateBase {
     #[builder(default = CertificateBase::VERSION)]
     pub version: Uint8,
     #[rasn(identifier = "type")]
-    pub c_type: CertificateType,
+    pub r#type: CertificateType,
     pub issuer: IssuerIdentifier,
     #[rasn(identifier = "toBeSigned")]
     pub to_be_signed: ToBeSignedCertificate,
@@ -907,7 +886,7 @@ impl CertificateBase {
         matches!(
             &self,
             CertificateBase {
-                c_type: CertificateType::Implicit,
+                r#type: CertificateType::Implicit,
                 to_be_signed: ToBeSignedCertificate {
                     verify_key_indicator: VerificationKeyIndicator::ReconstructionValue(_),
                     ..
@@ -922,7 +901,7 @@ impl CertificateBase {
         matches!(
             self,
             CertificateBase {
-                c_type: CertificateType::Explicit,
+                r#type: CertificateType::Explicit,
                 to_be_signed: ToBeSignedCertificate {
                     verify_key_indicator: VerificationKeyIndicator::VerificationKey(_),
                     ..
@@ -961,11 +940,14 @@ impl ImplicitCertificate {
     }
 }
 impl InnerSubtypeConstraint for ImplicitCertificate {
-    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_and_decode_containing(
+        self,
+        _: Option<rasn::Codec>,
+    ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
         if self.0.is_implicit() {
             Ok(self)
         } else {
-            Err(InnerSubtypeConstraintError::InvalidCombination {
+            Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
                 type_name: "ImplicitCertificate",
                 details: "CertificateBase is not implicit certificate",
             })
@@ -994,11 +976,14 @@ impl ExplicitCertificate {
 }
 
 impl InnerSubtypeConstraint for ExplicitCertificate {
-    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_and_decode_containing(
+        self,
+        _: Option<rasn::Codec>,
+    ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
         if self.0.is_explicit() {
             Ok(self)
         } else {
-            Err(InnerSubtypeConstraintError::InvalidCombination {
+            Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
                 type_name: "ExplicitCertificate",
                 details: "CertificateBase is not explicit certificate",
             })
@@ -1195,12 +1180,15 @@ impl ToBeSignedCertificate {
 }
 
 impl InnerSubtypeConstraint for ToBeSignedCertificate {
-    fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
+    fn validate_and_decode_containing(
+        self,
+        _: Option<rasn::Codec>,
+    ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
         if self.app_permissions.is_none()
             && self.cert_issue_permissions.is_none()
             && self.cert_request_permissions.is_none()
         {
-            return Err(InnerSubtypeConstraintError::MissingAtLeastOneComponent {
+            return Err(InnerSubtypeConstraintError::MissingRequiredComponent {
                 type_name: "ToBeSignedCertificate",
                 components: &[
                     "app_permissions",
@@ -1598,12 +1586,13 @@ delegate!(
 pub mod crl {
     extern crate alloc;
     use super::base_types::{Psid, Uint8};
-    use bon::Builder;
-    // use super::crl_base_types::CrlContents;
+    use super::crl_base_types::CrlContents;
     use super::{
         CrlSeries, HeaderInfo, Ieee1609Dot2Content, Ieee1609Dot2Data, SignedData,
         SignedDataPayload, ToBeSignedData,
     };
+    use crate::delegate;
+    use bon::Builder;
     use rasn::error::InnerSubtypeConstraintError;
     use rasn::prelude::*;
 
@@ -1631,9 +1620,11 @@ pub mod crl {
     pub struct SecuredCrl(Ieee1609Dot2Data);
 
     impl InnerSubtypeConstraint for SecuredCrl {
-        /// Validates that the `Ieee1609Dot2Data` contains a valid CRL SPDU. Does not ensure that data indeed has `CrlContents`.
-        /// See method `validate_and_decode_containing` for that.
-        fn validate_components(self) -> Result<Self, InnerSubtypeConstraintError> {
+        /// Validates that the `Ieee1609Dot2Data` contains a valid CRL SPDU. Optionally checks interal bytes for `CrlContents` based on the given codec.
+        fn validate_and_decode_containing(
+            self,
+            decode_containing_with: Option<rasn::Codec>,
+        ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
             let signed_data_content;
             if let Ieee1609Dot2Data {
                 content: Ieee1609Dot2Content::SignedData(signed_data),
@@ -1642,7 +1633,7 @@ pub mod crl {
             {
                 signed_data_content = &**signed_data;
             } else {
-                return Err(InnerSubtypeConstraintError::InvalidCombination {
+                return Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
                     type_name: "SecuredCrl",
                     details: "Ieee1609Dot2Data does not contain a SignedData SPDU",
                 });
@@ -1673,21 +1664,46 @@ pub mod crl {
                     ..
                 }
             ) {
+                if let Some(codec) = decode_containing_with {
+                    let inner_unsecured_data = signed_data_content
+                        .tbs_data
+                        .payload
+                        .data
+                        .as_ref()
+                        .and_then(|data| {
+                            if let Ieee1609Dot2Data {
+                                content: Ieee1609Dot2Content::UnsecuredData(inner_data),
+                                ..
+                            } = data
+                            {
+                                Some(inner_data)
+                            } else {
+                                None
+                            }
+                        });
+                    if let Some(inner_unsecured_data) = inner_unsecured_data {
+                        let decoded = codec.decode_from_binary::<CrlContents>(inner_unsecured_data);
+                        return if decoded.is_ok() {
+                            Ok(self)
+                        } else {
+                            Err(InnerSubtypeConstraintError::InvalidInnerContaining {
+                                expected: "CrlContents",
+                                err: decoded.err().unwrap().to_string(),
+                            })
+                        };
+                    }
+                    // Should be unreachable (UnsecuredData presence already checked)
+                    debug_assert!(false);
+                }
                 Ok(self)
             } else if signed_data_content.tbs_data.header_info.psid == *crl_psid {
-                Err(InnerSubtypeConstraintError::InvalidComponentValue { type_name: "SecuredCrl::Ieee1609Do2Content::SignedData::ToBeSignedData::HeaderInfo::Psid", component_name: "psid", details: alloc::format!("Expecting Psid value {crl_psid:?} for SecuredCrl") })
+                Err(InnerSubtypeConstraintError::InvalidComponentValue { type_name: "SecuredCrl::Ieee1609Do2Content::SignedData::ToBeSignedData::HeaderInfo::Psid", component_name: "psid", details: alloc::format!("Expecting Psid value {} for SecuredCrl", CrlPsid::CRL_PSID) })
             } else {
-                Err(InnerSubtypeConstraintError::InvalidCombination {
+                Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
                     type_name: "SecuredCrl",
                     details: "SignedData does not contain a valid CRL SPDU",
                 })
             }
-        }
-        fn validate_and_decode_containing(
-            self,
-            _: rasn::Codec,
-        ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
-            todo!("This type does not check constrained CrlContents content yet")
         }
     }
     /// Service Specific Permissions (SSP) structure for Certificate Revocation List (CRL) signing.
@@ -1751,6 +1767,7 @@ pub mod crl {
 pub mod peer2peer {
     use super::base_types::Uint8;
     use super::Certificate;
+    use crate::delegate;
     use bon::Builder;
     use rasn::prelude::*;
     /// A Peer-to-Peer PDU structure for IEEE 1609.2 certificate chain responses.
@@ -1951,7 +1968,7 @@ mod tests {
                                 ImplicitCertificate::new(
                                     CertificateBase::builder()
                                         .version(3)
-                                        .c_type(CertificateType::Implicit)
+                                        .r#type(CertificateType::Implicit)
                                         .issuer(IssuerIdentifier::Sha256AndDigest(HashedId8(
                                             "!\"#$%&'(".as_bytes().try_into().unwrap()
                                         )))
@@ -2153,6 +2170,9 @@ mod tests {
         }
         let duration = Duration::Hours(10);
         let output = rasn::coer::encode(&duration).unwrap();
-        dbg!(&output);
+        assert_eq!(
+            rasn::coer::decode::<Duration>(output.as_slice()).unwrap(),
+            duration
+        );
     }
 }
