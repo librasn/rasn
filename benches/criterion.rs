@@ -44,6 +44,13 @@ fn x509(c: &mut Criterion) {
     group.bench_function("x509-certificate", |b| {
         b.iter(|| black_box(x509_certificate::X509Certificate::from_der(data)))
     });
+    group.bench_function("pyca/cryptography-x509", |b| {
+        b.iter(|| {
+            black_box(::asn1::parse_single::<
+                cryptography_x509::certificate::Certificate,
+            >(data))
+        })
+    });
     group.finish();
 }
 
