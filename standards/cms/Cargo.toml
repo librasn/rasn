@@ -7,11 +7,11 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies.rasn]
-version = "0.25"
+version = "0.26"
 path = "../.."
 
 [dependencies.rasn-pkix]
-version = "0.25"
+version = "0.26"
 path = "../pkix"
 
 [dev-dependencies]
