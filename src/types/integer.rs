@@ -5,17 +5,34 @@ use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{identities::Zero, Signed, ToBytes, ToPrimitive};
 use num_traits::{CheckedAdd, CheckedSub};
 
+/// A dynamically sized integer type. This type is similar to [num_bigint::BigInt]
+/// in that it allows for integers of arbitary size making it ideal for handling
+/// ASN.1 `INTEGER` types, in addition this type includes small integer
+/// optimisations accounting for the fact  integers decoded in ASN.1 don't
+/// exceed native platform widths.
+#[derive(Debug, Clone, Ord, PartialOrd)]
+#[allow(missing_docs)]
+pub struct Integer(IntegerKind);
+
+macro_rules! op_or_promote {
+    ($rhs:ident . $op:ident ($($args:tt)*), $promote:expr) => {
+        $rhs.$op($($args)*).map(IntegerKind::Primitive).unwrap_or_else(|| IntegerKind::Variable($promote))
+    }
+}
+
 /// `Integer` enum is variable-sized non-constrained integer type which uses [`isize`] for lower values to optimize performance.
 #[derive(Debug, Clone, Ord, PartialOrd)]
 #[allow(missing_docs)]
-pub enum Integer {
+pub enum IntegerKind {
     Primitive(isize),
     Variable(Box<BigInt>),
 }
 
 impl Integer {
     /// Represents `0`.
-    pub const ZERO: Self = Self::Primitive(0);
+    pub const ZERO: Self = Self(IntegerKind::Primitive(0));
+    /// Represents `1`.
+    pub const ONE: Self = Self(IntegerKind::Primitive(1));
 }
 
 impl Default for Integer {
@@ -26,59 +43,69 @@ impl Default for Integer {
 
 impl core::fmt::Display for Integer {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match self {
-            Self::Primitive(value) => write!(f, "{}", value),
-            Self::Variable(value) => write!(f, "{}", value),
+        match &self.0 {
+            IntegerKind::Primitive(value) => write!(f, "{}", value),
+            IntegerKind::Variable(value) => write!(f, "{}", value),
         }
     }
 }
 
 impl PartialEq for Integer {
     fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl PartialEq for IntegerKind {
+    fn eq(&self, other: &Self) -> bool {
         match (self, other) {
-            (Self::Primitive(lhs), Self::Primitive(rhs)) => lhs == rhs,
-            (Self::Variable(lhs), Self::Variable(rhs)) => lhs == rhs,
-            (Self::Primitive(lhs), Self::Variable(rhs)) => {
+            (IntegerKind::Primitive(lhs), IntegerKind::Primitive(rhs)) => lhs == rhs,
+            (IntegerKind::Variable(lhs), IntegerKind::Variable(rhs)) => lhs == rhs,
+            (IntegerKind::Primitive(lhs), IntegerKind::Variable(rhs)) => {
                 lhs.to_bigint().unwrap_or_default() == **rhs
             }
-            (Self::Variable(lhs), Self::Primitive(rhs)) => {
+            (IntegerKind::Variable(lhs), IntegerKind::Primitive(rhs)) => {
                 **lhs == rhs.to_bigint().unwrap_or_default()
             }
         }
     }
 }
+
 impl Eq for Integer {}
+
+impl Eq for IntegerKind {}
 
 impl Hash for Integer {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
+impl Hash for IntegerKind {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         match self {
-            Self::Primitive(value) => value.hash(state),
-            Self::Variable(value) => value.hash(state),
+            IntegerKind::Primitive(value) => value.hash(state),
+            IntegerKind::Variable(value) => value.hash(state),
         }
     }
 }
 
 impl num_traits::CheckedAdd for Integer {
     fn checked_add(&self, other: &Self) -> Option<Self> {
-        match (self, other) {
-            (Self::Primitive(lhs), Self::Primitive(rhs)) => {
-                let value = lhs.checked_add(rhs);
-                if value.is_some() {
-                    value.map(Integer::from)
-                } else {
-                    Some(Self::Variable(Box::new(BigInt::from(*lhs) + *rhs)))
-                }
+        Some(Self(match (&self.0, &other.0) {
+            (IntegerKind::Primitive(lhs), IntegerKind::Primitive(rhs)) => {
+                op_or_promote!(lhs.checked_add(rhs), Box::new(BigInt::from(*lhs) + *rhs))
             }
-            (Self::Primitive(lhs), Self::Variable(rhs)) => {
-                Some(Self::Variable(Box::new(&**rhs + lhs)))
+            (IntegerKind::Primitive(lhs), IntegerKind::Variable(rhs)) => {
+                IntegerKind::Variable(Box::new(&**rhs + lhs))
             }
-            (Self::Variable(lhs), Self::Primitive(rhs)) => {
-                Some(Self::Variable(Box::new(&**lhs + *rhs)))
+            (IntegerKind::Variable(lhs), IntegerKind::Primitive(rhs)) => {
+                IntegerKind::Variable(Box::new(&**lhs + *rhs))
             }
-            (Self::Variable(lhs), Self::Variable(rhs)) => {
-                Some(Self::Variable(Box::new(&**lhs + &**rhs)))
+            (IntegerKind::Variable(lhs), IntegerKind::Variable(rhs)) => {
+                IntegerKind::Variable(Box::new(&**lhs + &**rhs))
             }
-        }
+        }))
     }
 }
 
@@ -95,35 +122,19 @@ macro_rules! impl_ops_integer {
             impl core::ops::Add<$t> for Integer {
                 type Output = Self;
                 fn add(self, rhs: $t) -> Self::Output {
-                    match self {
-                        Self::Primitive(lhs) => {
-                            let result = lhs.checked_add(rhs as isize);
-                            match result {
-                                Some(value) => Self::Primitive(value),
-                                None => Self::Variable(Box::new(BigInt::from(lhs) + rhs)),
-                            }
-                        }
-                        Self::Variable(lhs) => {
-                            Self::Variable(Box::new(*lhs + rhs))
-                        }
-                    }
+                    Self(match self.0 {
+                        IntegerKind::Primitive(lhs) => op_or_promote!(lhs.checked_add(rhs as isize), Box::new(BigInt::from(lhs) + rhs)),
+                        IntegerKind::Variable(lhs) => IntegerKind::Variable(Box::new(*lhs + rhs)),
+                    })
                 }
             }
             impl core::ops::Sub<$t> for Integer {
                 type Output = Self;
                 fn sub(self, rhs: $t) -> Self::Output {
-                    match self {
-                        Self::Primitive(lhs) => {
-                            let result = lhs.checked_sub(rhs as isize);
-                            match result {
-                                Some(value) => Self::Primitive(value),
-                                None => Self::Variable(Box::new(BigInt::from(lhs) - rhs)),
-                            }
-                        }
-                        Self::Variable(lhs) => {
-                            Self::Variable(Box::new(*lhs - rhs))
-                        }
-                    }
+                    Self(match self.0 {
+                        IntegerKind::Primitive(lhs) => op_or_promote!(lhs.checked_sub(rhs as isize), Box::new(BigInt::from(lhs) - rhs)),
+                        IntegerKind::Variable(lhs) => IntegerKind::Variable(Box::new(*lhs - rhs)),
+                    })
                 }
             }
         )*
@@ -135,45 +146,29 @@ macro_rules! impl_ops_integer_big {
             impl core::ops::Add<$t> for Integer {
                 type Output = Self;
                 fn add(self, rhs: $t) -> Self::Output {
-                    match self {
-                        Self::Primitive(lhs) => {
-                            let value = isize::try_from(rhs);
-                            if let Ok(rhs) = value {
-                                let result = lhs.checked_add(rhs);
-                                match result {
-                                    Some(value) => Self::Primitive(value),
-                                    None => Self::Variable(Box::new(BigInt::from(lhs) + rhs)),
-                                }
-                            } else {
-                                Self::Variable(Box::new(BigInt::from(lhs) + rhs))
-                            }
+                    Self(match self.0 {
+                        IntegerKind::Primitive(lhs) => {
+                            let value = isize::try_from(rhs).ok();
+                            op_or_promote!(value.and_then(|rhs| lhs.checked_add(rhs)), Box::new(BigInt::from(lhs) + rhs))
                         }
-                        Self::Variable(lhs) => {
-                            Self::Variable(Box::new(*lhs + rhs))
+                        IntegerKind::Variable(lhs) => {
+                            IntegerKind::Variable(Box::new(*lhs + rhs))
                         }
-                    }
+                    })
                 }
             }
             impl core::ops::Sub<$t> for Integer {
                 type Output = Self;
                 fn sub(self, rhs: $t) -> Self::Output {
-                    match self {
-                        Self::Primitive(lhs) => {
-                            let value = isize::try_from(rhs);
-                            if let Ok(rhs) = value {
-                                let result = lhs.checked_sub(rhs);
-                                match result {
-                                    Some(value) => Self::Primitive(value),
-                                    None => Self::Variable(Box::new(BigInt::from(lhs) - rhs)),
-                                }
-                            } else {
-                                Self::Variable(Box::new(BigInt::from(lhs) - rhs))
-                            }
+                    Self(match self.0 {
+                        IntegerKind::Primitive(lhs) => {
+                            let value = isize::try_from(rhs).ok();
+                            op_or_promote!(value.and_then(|rhs| lhs.checked_sub(rhs)), Box::new(BigInt::from(lhs) - rhs))
                         }
-                        Self::Variable(lhs) => {
-                            Self::Variable(Box::new(*lhs - rhs))
+                        IntegerKind::Variable(lhs) => {
+                            IntegerKind::Variable(Box::new(*lhs - rhs))
                         }
-                    }
+                    })
                 }
             }
         )*
@@ -194,25 +189,20 @@ impl_ops_integer_big!(u64, u128, usize, i128);
 
 impl num_traits::CheckedSub for Integer {
     fn checked_sub(&self, other: &Self) -> Option<Self> {
-        match (self, other) {
-            (Self::Primitive(lhs), Self::Primitive(rhs)) => {
-                let value = lhs.checked_sub(rhs);
-                if value.is_some() {
-                    value.map(Integer::from)
-                } else {
-                    Some(Self::Variable(Box::new(BigInt::from(*lhs) - *rhs)))
-                }
+        Some(Self(match (&self.0, &other.0) {
+            (IntegerKind::Primitive(lhs), IntegerKind::Primitive(rhs)) => {
+                op_or_promote!(lhs.checked_sub(rhs), Box::new(BigInt::from(*lhs) - *rhs))
             }
-            (Self::Primitive(lhs), Self::Variable(rhs)) => {
-                Some(Self::Variable(Box::new(BigInt::from(*lhs) - &**rhs)))
+            (IntegerKind::Primitive(lhs), IntegerKind::Variable(rhs)) => {
+                IntegerKind::Variable(Box::new(BigInt::from(*lhs) - &**rhs))
             }
-            (Self::Variable(lhs), Self::Primitive(rhs)) => {
-                Some(Self::Variable(Box::new(&**lhs - *rhs)))
+            (IntegerKind::Variable(lhs), IntegerKind::Primitive(rhs)) => {
+                IntegerKind::Variable(Box::new(&**lhs - *rhs))
             }
-            (Self::Variable(lhs), Self::Variable(rhs)) => {
-                Some(Self::Variable(Box::new(&**lhs - &**rhs)))
+            (IntegerKind::Variable(lhs), IntegerKind::Variable(rhs)) => {
+                IntegerKind::Variable(Box::new(&**lhs - &**rhs))
             }
-        }
+        }))
     }
 }
 
@@ -225,27 +215,21 @@ impl core::ops::Sub for Integer {
 
 impl ToPrimitive for Integer {
     fn to_i64(&self) -> Option<i64> {
-        match self {
-            Self::Primitive(value) => Some(*value as i64),
-            Self::Variable(value) => value.to_i64(),
+        match &self.0 {
+            IntegerKind::Primitive(value) => Some(*value as i64),
+            IntegerKind::Variable(value) => value.to_i64(),
         }
     }
     fn to_u64(&self) -> Option<u64> {
-        match self {
-            Self::Primitive(value) => {
-                if *value >= 0 {
-                    Some(*value as u64)
-                } else {
-                    None
-                }
-            }
-            Self::Variable(value) => value.to_u64(),
+        match &self.0 {
+            IntegerKind::Primitive(value) => value.is_zero().then_some(*value as u64),
+            IntegerKind::Variable(value) => value.to_u64(),
         }
     }
     fn to_i128(&self) -> Option<i128> {
-        match self {
-            Self::Primitive(value) => Some(*value as i128),
-            Self::Variable(value) => value.to_i128(),
+        match &self.0 {
+            IntegerKind::Primitive(value) => Some(*value as i128),
+            IntegerKind::Variable(value) => value.to_i128(),
         }
     }
 }
@@ -255,7 +239,7 @@ macro_rules! impl_from_integer_as_prim {
         $(
             impl From<$t> for Integer {
                 fn from(value: $t) -> Self {
-                    Self::Primitive(value as isize)
+                    Self(IntegerKind::Primitive(value as isize))
                 }
             }
         )*
@@ -267,11 +251,7 @@ macro_rules! impl_from_integer_as_big {
         $(
             impl From<$t> for Integer {
                 fn from(value: $t) -> Self {
-                    if let Some(value) = value.to_isize() {
-                        Self::Primitive(value)
-                    } else {
-                        Self::Variable(Box::new((BigInt::from(value))))
-                    }
+                    Self(op_or_promote!(value.to_isize(), Box::new((BigInt::from(value)))))
                 }
             }
         )*
@@ -288,18 +268,18 @@ impl_from_integer_as_big!(u64, u128, i128, usize, BigInt);
 
 impl From<Integer> for BigInt {
     fn from(value: Integer) -> Self {
-        match value {
-            Integer::Primitive(value) => value.to_bigint().unwrap_or_default(),
-            Integer::Variable(value) => *value,
+        match value.0 {
+            IntegerKind::Primitive(value) => value.to_bigint().unwrap_or_default(),
+            IntegerKind::Variable(value) => *value,
         }
     }
 }
 
 impl ToBigInt for Integer {
     fn to_bigint(&self) -> Option<BigInt> {
-        match self {
-            Integer::Primitive(value) => Some(BigInt::from(*value)),
-            Integer::Variable(value) => Some(*value.clone()),
+        match &self.0 {
+            IntegerKind::Primitive(value) => Some(BigInt::from(*value)),
+            IntegerKind::Variable(value) => Some(*value.clone()),
         }
     }
 }
@@ -338,9 +318,9 @@ macro_rules! impl_try_from_integer {
             impl core::convert::TryFrom<&Integer> for $t {
                 type Error = TryFromIntegerError;
                 fn try_from(value: &Integer) -> Result<Self, Self::Error> {
-                    match value {
-                        Integer::Primitive(value) => (*value).try_into().map_err(|_| TryFromIntegerError::new(value.to_bigint().unwrap_or_default())),
-                        Integer::Variable(value) => (**value).clone().try_into().map_err(|_| TryFromIntegerError::new(*value.clone())),
+                    match &value.0 {
+                        IntegerKind::Primitive(value) => (*value).try_into().map_err(|_| TryFromIntegerError::new(value.to_bigint().unwrap_or_default())),
+                        IntegerKind::Variable(value) => (**value).clone().try_into().map_err(|_| TryFromIntegerError::new(*value.clone())),
                     }
                 }
             }
@@ -576,11 +556,7 @@ macro_rules! integer_type_impl {
             }
 
             fn to_integer(self) -> Integer {
-                if let Some(value) = self.to_isize() {
-                    Integer::Primitive(value)
-                } else {
-                    Integer::Variable(Box::new(self.to_bigint().unwrap_or_default()))
-                }
+                Integer(op_or_promote!(self.to_isize(), Box::new(self.to_bigint().unwrap_or_default())))
             }
         }
         impl MinFixedSizeIntegerBytes for $t1 {
@@ -682,11 +658,7 @@ macro_rules! integer_type_impl {
                 false
             }
             fn to_integer(self) -> Integer {
-                if let Some(value) = self.to_isize() {
-                    Integer::Primitive(value)
-                } else {
-                    Integer::Variable(Box::new(self.to_bigint().unwrap_or_default()))
-                }
+                Integer(op_or_promote!(self.to_isize(), Box::new(self.to_bigint().unwrap_or_default())))
             }
         }
         impl MinFixedSizeIntegerBytes for $t1 {
@@ -787,7 +759,7 @@ impl IntegerType for BigInt {
         true
     }
     fn to_integer(self) -> Integer {
-        Integer::Variable(Box::new(self))
+        Integer(IntegerKind::Variable(Box::new(self)))
     }
 }
 /// We cannot use `impl AsRef<[u8]>` as return type for function to return variants' byte presentation
@@ -821,14 +793,14 @@ impl IntegerType for Integer {
         if input.is_empty() {
             return Err(crate::error::DecodeError::unexpected_empty_input(codec));
         }
-        let value = isize::try_from_bytes(input, codec);
-        if let Ok(value) = value {
-            Ok(Integer::Primitive(value))
-        } else {
-            Ok(Integer::Variable(Box::new(BigInt::try_from_bytes(
-                input, codec,
-            )?)))
-        }
+        isize::try_from_bytes(input, codec)
+            .map(IntegerKind::Primitive)
+            .or_else(|_| {
+                BigInt::try_from_bytes(input, codec)
+                    .map(Box::new)
+                    .map(IntegerKind::Variable)
+            })
+            .map(Self)
     }
 
     #[inline(always)]
@@ -847,26 +819,27 @@ impl IntegerType for Integer {
         if input.is_empty() {
             return Err(crate::error::DecodeError::unexpected_empty_input(codec));
         }
-        let value = isize::try_from_unsigned_bytes(input, codec);
-        if let Ok(value) = value {
-            Ok(Integer::Primitive(value))
-        } else {
-            Ok(Integer::Variable(Box::new(
-                BigInt::try_from_unsigned_bytes(input, codec)?,
-            )))
-        }
+
+        isize::try_from_unsigned_bytes(input, codec)
+            .map(IntegerKind::Primitive)
+            .or_else(|_| {
+                BigInt::try_from_unsigned_bytes(input, codec)
+                    .map(Box::new)
+                    .map(IntegerKind::Variable)
+            })
+            .map(Self)
     }
     #[inline(always)]
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-        match self {
-            Integer::Primitive(value) => {
+        match &self.0 {
+            IntegerKind::Primitive(value) => {
                 let (bytes, len) = <isize as IntegerType>::to_signed_bytes_be(value);
                 (
                     IntegerBytesRef::Stack(bytes.as_ref().try_into().unwrap_or_default()),
                     len,
                 )
             }
-            Integer::Variable(value) => {
+            IntegerKind::Variable(value) => {
                 let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
                 (IntegerBytesRef::Heap(bytes), len)
             }
@@ -874,15 +847,15 @@ impl IntegerType for Integer {
     }
     #[inline(always)]
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-        match self {
-            Integer::Primitive(value) => {
+        match &self.0 {
+            IntegerKind::Primitive(value) => {
                 let (bytes, len) = <isize as IntegerType>::to_unsigned_bytes_be(value);
                 (
                     IntegerBytesRef::Stack(bytes.as_ref().try_into().unwrap_or_default()),
                     len,
                 )
             }
-            Integer::Variable(value) => {
+            IntegerKind::Variable(value) => {
                 let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
                 (IntegerBytesRef::Heap(bytes), len)
             }
@@ -893,9 +866,9 @@ impl IntegerType for Integer {
         self + other
     }
     fn is_negative(&self) -> bool {
-        match self {
-            Integer::Primitive(value) => <isize as IntegerType>::is_negative(value),
-            Integer::Variable(value) => <BigInt as IntegerType>::is_negative(value),
+        match &self.0 {
+            IntegerKind::Primitive(value) => <isize as IntegerType>::is_negative(value),
+            IntegerKind::Variable(value) => <BigInt as IntegerType>::is_negative(value),
         }
     }
     fn is_signed(&self) -> bool {
@@ -905,3 +878,157 @@ impl IntegerType for Integer {
         self
     }
 }
+
+#[cfg(test)]
+macro_rules! assert_integer_round_trip {
+    ($t:ty, $value:expr, $expected_unsigned:expr, $expected_signed:expr) => {{
+        let value = <$t>::try_from($value).unwrap();
+
+        // Test unsigned bytes
+        let (unsigned_bytes, unsigned_needed) = value.to_unsigned_bytes_be();
+        assert_eq!(
+            &unsigned_bytes.as_ref()[..unsigned_needed],
+            $expected_unsigned,
+            "Unsigned bytes mismatch for {}",
+            stringify!($value)
+        );
+
+        // Only test unsigned round-trip for non-negative values or unsigned types
+        #[allow(unused_comparisons)]
+        if $value >= 0 || stringify!($t).starts_with('u') {
+            assert_eq!(
+                <$t>::try_from_unsigned_bytes(
+                    &unsigned_bytes.as_ref()[..unsigned_needed],
+                    crate::Codec::Oer
+                )
+                .ok(),
+                Some(value),
+                "Round-trip failed for unsigned bytes of {}",
+                stringify!($value)
+            );
+        }
+
+        // Test signed bytes
+        let (signed_bytes, signed_needed) = value.to_signed_bytes_be();
+        assert_eq!(
+            &signed_bytes.as_ref()[..signed_needed],
+            $expected_signed,
+            "Signed bytes mismatch for {}",
+            stringify!($value)
+        );
+
+        // Always test signed round-trip
+        assert_eq!(
+            <$t>::try_from_signed_bytes(&signed_bytes.as_ref()[..signed_needed], crate::Codec::Oer)
+                .ok(),
+            Some(value),
+            "Round-trip failed for signed bytes of {}",
+            stringify!($value)
+        );
+        // Round trip with Integer type should work for any type with all values
+        let integer = Integer::from($value);
+        let (bytes, needed) = integer.to_signed_bytes_be();
+        assert_eq!(
+            Integer::try_from_signed_bytes(&bytes.as_ref()[..needed], crate::Codec::Oer).ok(),
+            Some($value.into()),
+            "Round-trip failed for Integer({})",
+            stringify!($value)
+        );
+        // Check that encoding matches the signed expected bytes for Integer type
+        assert_eq!(
+            &bytes.as_ref()[..needed],
+            $expected_signed,
+            "Signed bytes mismatch for Integer({})",
+            stringify!($value)
+        );
+    }};
+}
+
+macro_rules! test_integer_conversions_and_operations {
+    ($($t:ident),*) => {
+        #[cfg(test)]
+        mod tests {
+            use crate::prelude::*;
+            use super::*;
+
+            $(
+                #[test]
+                fn $t() {
+                    let min = <$t>::MIN as i128;
+                    let max = <$t>::MAX as u128;
+
+                    if min >= isize::MIN as i128 {
+                        assert!(matches!(min.into(), Integer(IntegerKind::Primitive(_))));
+                    } else {
+                        assert!(matches!(min.into(), Integer(IntegerKind::Variable(_))));
+                    }
+                    if max <= isize::MAX as u128 {
+                        assert!(matches!(max.into(), Integer(IntegerKind::Primitive(_))));
+                    } else {
+                        assert!(matches!(max.into(), Integer(IntegerKind::Variable(_))));
+                    }
+
+                    // Test positive values
+                    assert_integer_round_trip!($t, 1, &[1], &[1]);
+
+                    // Test some signed maximum values, should be identical to unsigned
+                    if <$t>::MAX as u128 >= i8::MAX as u128 {
+                        assert_integer_round_trip!($t, i8::MAX as $t, &[127], &[127]);
+                    }
+                    // Even if the type is wider than 2 bytes, the value remains the same
+                    if <$t>::MAX as u128 >= i16::MAX as u128 {
+                        assert_integer_round_trip!($t, i16::MAX as $t, &[127, 255], &[127, 255]);
+                        // 127 + 1 results to leading zero for signed types
+                        assert_integer_round_trip!($t, 128, &[128], &[0, 128]);
+                    }
+                    if <$t>::MAX as u128 >= i32::MAX as u128 {
+                        assert_integer_round_trip!($t, i32::MAX as $t, &[127, 255, 255, 255], &[127, 255, 255, 255]);
+                        // 32_767 + 1 results to leading zero for signed types
+                        assert_integer_round_trip!($t, (i16::MAX as $t + 1), &[128, 0], &[0, 128, 0]);
+                    }
+                    if <$t>::MAX as u128 >= i64::MAX as u128 {
+                        assert_integer_round_trip!($t, i64::MAX as $t, &[127, 255, 255, 255, 255, 255, 255, 255], &[127, 255, 255, 255, 255, 255, 255, 255]);
+                    }
+
+
+                    // Test negative values for signed types
+                    match stringify!($t) {
+                        "i8" => {
+                            assert_integer_round_trip!($t, -1, &[255], &[255]);
+                        },
+                        "i16" => {
+                            assert_integer_round_trip!($t, -1, &[255, 255], &[255]);
+                        },
+                        "i32" => {
+                            assert_integer_round_trip!($t, -1, &[255, 255, 255, 255], &[255]);
+                        },
+                        "i64" => {
+                            assert_integer_round_trip!($t, -1, &[255, 255, 255, 255, 255, 255, 255, 255], &[255]);
+                        },
+                        _ => {},
+                    }
+                }
+            )*
+
+            #[test]
+            fn test_overflow_addition() {
+                let max = Integer(IntegerKind::Primitive(isize::MAX));
+                let one = Integer(IntegerKind::Primitive(1));
+                let result = max + one;
+                assert!(matches!(result, Integer(IntegerKind::Variable(_))));
+            }
+
+            #[test]
+            fn test_overflow_subtraction() {
+                let min = Integer(IntegerKind::Primitive(isize::MIN));
+                let one = Integer(IntegerKind::Primitive(1));
+                let result = min - one;
+                assert!(matches!(result, Integer(IntegerKind::Variable(_))));
+            }
+        }
+    };
+}
+
+test_integer_conversions_and_operations!(
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+);
