@@ -816,3 +816,12 @@ impl<T: AsnType, V: Decode> Decode for types::Explicit<T, V> {
         Ok(Self::new(decoder.decode_explicit_prefix(tag)?))
     }
 }
+impl<T: AsnType> Decode for core::marker::PhantomData<T> {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        _: &mut D,
+        _: Tag,
+        _: Constraints,
+    ) -> Result<Self, D::Error> {
+        Ok(core::marker::PhantomData)
+    }
+}
