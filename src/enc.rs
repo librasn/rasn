@@ -1064,3 +1064,15 @@ impl<T: AsnType, V: Encode> Encode for types::Explicit<T, V> {
             .map(drop)
     }
 }
+
+impl<T: AsnType> Encode for core::marker::PhantomData<T> {
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
+        &self,
+        _: &mut E,
+        _: Tag,
+        _: Constraints,
+        _: Identifier,
+    ) -> Result<(), E::Error> {
+        Ok(())
+    }
+}

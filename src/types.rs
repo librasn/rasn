@@ -350,3 +350,8 @@ impl AsnType for f64 {
     const TAG: Tag = Tag::REAL;
     const IDENTIFIER: Identifier = Identifier::REAL;
 }
+
+impl<T> AsnType for core::marker::PhantomData<T> {
+    const TAG: Tag = Tag::NULL;
+    const TAG_TREE: TagTree = TagTree::Leaf(Tag::NULL);
+}
