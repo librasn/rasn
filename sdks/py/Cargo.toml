@@ -1,0 +1,14 @@
+[package]
+name = "rasn-py"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "rasn"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.24.0", features = ["extension-module"] }
+rasn = { version = "0.25.1", features = ["pyo3"], path = "../.." }
