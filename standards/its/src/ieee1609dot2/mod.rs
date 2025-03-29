@@ -207,7 +207,7 @@ impl InnerSubtypeConstraint for SignedDataPayload {
     ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
         if self.data.is_none() && self.ext_data_hash.is_none() && self.omitted.is_none() {
             return Err(InnerSubtypeConstraintError::MissingRequiredComponent {
-                type_name: "SignedDataPayload",
+                component_path: "SignedDataPayload",
                 components: &["data", "ext_data_hash", "omitted"],
             });
         }
@@ -546,16 +546,19 @@ impl InnerSubtypeConstraint for Countersignature {
             {
                 Ok(self)
             } else {
-                Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
-                    type_name: "Countersignature::Ieee1609Dot2Content::SignedData",
+                Err(InnerSubtypeConstraintError::InvalidComponentVariant {
+                    component_path: "Ieee1609Dot2Data.content.tbsData",
+                    component_type: "Ieee1609Dot2Content::SignedData",
                     details:
-                        "SignedData does not match innner subtype constraint for Countersignature",
+                        "SignedData does not match inner subtype constraint for Countersignature"
+                            .to_string(),
                 })
             }
         } else {
-            Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
-                type_name: "Countersignature::Ieee1609Dot2Content",
-                details: "SignedData variant is required for Countersignature",
+            Err(InnerSubtypeConstraintError::InvalidComponentVariant {
+                component_path: "Ieee1609Dot2Data.content",
+                component_type: "Ieee1609Dot2Content",
+                details: "SignedData variant is required for Countersignature".to_string(),
             })
         }
     }
@@ -948,7 +951,7 @@ impl InnerSubtypeConstraint for ImplicitCertificate {
             Ok(self)
         } else {
             Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
-                type_name: "ImplicitCertificate",
+                component_path: "ImplicitCertificate",
                 details: "CertificateBase is not implicit certificate",
             })
         }
@@ -984,7 +987,7 @@ impl InnerSubtypeConstraint for ExplicitCertificate {
             Ok(self)
         } else {
             Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
-                type_name: "ExplicitCertificate",
+                component_path: "ExplicitCertificate",
                 details: "CertificateBase is not explicit certificate",
             })
         }
@@ -1189,7 +1192,7 @@ impl InnerSubtypeConstraint for ToBeSignedCertificate {
             && self.cert_request_permissions.is_none()
         {
             return Err(InnerSubtypeConstraintError::MissingRequiredComponent {
-                type_name: "ToBeSignedCertificate",
+                component_path: "ToBeSignedCertificate",
                 components: &[
                     "app_permissions",
                     "cert_issue_permissions",
@@ -1633,9 +1636,9 @@ pub mod crl {
             {
                 signed_data_content = &**signed_data;
             } else {
-                return Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
-                    type_name: "SecuredCrl",
-                    details: "Ieee1609Dot2Data does not contain a SignedData SPDU",
+                return Err(InnerSubtypeConstraintError::MissingRequiredComponent {
+                    component_path: "Ieee1609Dot2Data.content",
+                    components: &["Ieee1609Dot2Content::SignedData"],
                 });
             }
             let crl_psid = CrlPsid::default();
@@ -1697,10 +1700,17 @@ pub mod crl {
                 }
                 Ok(self)
             } else if signed_data_content.tbs_data.header_info.psid == *crl_psid {
-                Err(InnerSubtypeConstraintError::InvalidComponentValue { type_name: "SecuredCrl::Ieee1609Do2Content::SignedData::ToBeSignedData::HeaderInfo::Psid", component_name: "psid", details: alloc::format!("Expecting Psid value {} for SecuredCrl", CrlPsid::CRL_PSID) })
+                Err(InnerSubtypeConstraintError::InvalidComponentValue {
+                    component_path: "Ieee1609Dot2Data.content.signedData.tbsData.headerInfo",
+                    component_name: "psid",
+                    details: alloc::format!(
+                        "Expecting Psid value {} for SecuredCrl",
+                        CrlPsid::CRL_PSID
+                    ),
+                })
             } else {
                 Err(InnerSubtypeConstraintError::SubtypeConstraintViolation {
-                    type_name: "SecuredCrl",
+                    component_path: "Ieee1609Dot2Data.content.signedData",
                     details: "SignedData does not contain a valid CRL SPDU",
                 })
             }

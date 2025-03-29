@@ -37,7 +37,7 @@ pub fn build_sample() -> Ieee1609Dot2Data {
                         ImplicitCertificate::new(
                             CertificateBase::builder()
                                 .version(3)
-                                .c_type(CertificateType::Implicit)
+                                .r#type(CertificateType::Implicit)
                                 .issuer(IssuerIdentifier::Sha256AndDigest(HashedId8(
                                     "!\"#$%&'(".as_bytes().try_into().unwrap(),
                                 )))

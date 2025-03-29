@@ -46,7 +46,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Certificate {
         if !matches!(id, CertificateId::Name(_) | CertificateId::None(_)) {
             return Err(
                 rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
-                    type_name: "EtsiTs103097Certificate::toBeSignedCertificate::CertificateId",
+                    component_path: "EtsiTs103097Certificate.toBeSignedCertificate.certificateId",
                     component_name: "CertificateId",
                     details: "Only CertificateId::Name or CertificateId::None is permitted"
                         .to_string(),
@@ -56,7 +56,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Certificate {
         if tbs.cert_request_permissions.is_some() {
             return Err(
                 rasn::error::InnerSubtypeConstraintError::UnexpectedComponentPresent {
-                    type_name: "EtsiTs103097Certificate::toBeSignedCertificate",
+                    component_path: "EtsiTs103097Certificate.toBeSignedCertificate",
                     component_name: "certRequestPermissions",
                 },
             );
@@ -64,7 +64,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Certificate {
         if tbs.can_request_rollover.is_some() {
             return Err(
                 rasn::error::InnerSubtypeConstraintError::UnexpectedComponentPresent {
-                    type_name: "EtsiTs103097Certificate::toBeSignedCertificate",
+                    component_path: "EtsiTs103097Certificate.toBeSignedCertificate",
                     component_name: "canRequestRollover",
                 },
             );
@@ -90,7 +90,8 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                 if header_info.generation_time.is_none() {
                     return Err(
                         rasn::error::InnerSubtypeConstraintError::MissingRequiredComponent {
-                            type_name: "EtsiTs103097Data::Content::SignedData::TbsData::HeaderInfo",
+                            component_path:
+                                "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
                             components: &["generationTime"],
                         },
                     );
@@ -98,7 +99,8 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                 if header_info.p2pcd_learning_request.is_some() {
                     return Err(
                         rasn::error::InnerSubtypeConstraintError::UnexpectedComponentPresent {
-                            type_name: "EtsiTs103097Data::Content::SignedData::TbsData::HeaderInfo",
+                            component_path:
+                                "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
                             component_name: "p2pcdLearningRequest",
                         },
                     );
@@ -106,7 +108,8 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                 if header_info.missing_crl_identifier.is_some() {
                     return Err(
                         rasn::error::InnerSubtypeConstraintError::UnexpectedComponentPresent {
-                            type_name: "EtsiTs103097Data::Content::SignedData::TbsData::HeaderInfo",
+                            component_path:
+                                "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
                             component_name: "missingCrlIdentifier",
                         },
                     );
@@ -117,7 +120,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                         if cert.len() != 1 {
                             return Err(
                                 rasn::error::InnerSubtypeConstraintError::InvalidComponentSize {
-                                    type_name: "EtsiTs103097Data::Content::SignedData::Signer",
+                                    component_path: "EtsiTs103097Data.content.signedData.signer",
                                     component_name: "certificate",
                                     details: "Exactly one certificate is required".to_string(),
                                 },
@@ -127,7 +130,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                     _ => {
                         return Err(
                             rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
-                                type_name: "EtsiTs103097Data::Content::SignedData::Signer",
+                                component_path: "EtsiTs103097Data.content.signedData.signer",
                                 component_name: "signer",
                                 details: "Only Certificate variant is allowed".to_string(),
                             },
@@ -146,7 +149,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                     ) {
                         return Err(
                             rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
-                                type_name: "EtsiTs103097Data::Content::EncryptedData::Recipients",
+                                component_path: "EtsiTs103097Data.content.encryptedData.recipients",
                                 component_name: "RecipientInfo",
                                 details:
                                     format!("PskRecipInfo, SymmRecipInfo or RekRecipInfo is not allowed, occured in index {}", index),
@@ -158,7 +161,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
             _ => {
                 return Err(
                     rasn::error::InnerSubtypeConstraintError::MissingRequiredComponent {
-                        type_name: "EtsiTs103097Data::Content",
+                        component_path: "EtsiTs103097Data.content",
                         components: &["signedData", "encryptedData"],
                     },
                 );
@@ -172,44 +175,19 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
 delegate!(Ieee1609Dot2Data, EtsiTs103097Data);
 
 /// ETSI TS 103 097 data - unsecured
-#[derive(Debug, Clone, AsnType, PartialEq, Eq)]
-pub struct EtsiTs103097DataUnsecured<T: rasn::Decode> {
-    data: EtsiTs103097Data,
-    __phantom: core::marker::PhantomData<T>,
-}
-
-impl Encode for EtsiTs103097DataUnsecured<HashedData> {
-    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
-        &self,
-        encoder: &mut E,
-        tag: Tag,
-        constraints: Constraints,
-        identifier: Identifier,
-    ) -> Result<(), E::Error> {
-        self.data
-            .encode_with_tag_and_constraints(encoder, tag, constraints, identifier)
-    }
-}
-impl Decode for EtsiTs103097DataUnsecured<HashedData> {
-    fn decode_with_tag_and_constraints<D: Decoder>(
-        decoder: &mut D,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<Self, D::Error> {
-        let data = EtsiTs103097Data::decode_with_tag_and_constraints(decoder, tag, constraints)?;
-        Ok(EtsiTs103097DataUnsecured {
-            data,
-            __phantom: core::marker::PhantomData,
-        })
-    }
-}
+#[derive(Debug, Clone, Encode, Decode, AsnType, PartialEq, Eq)]
+#[rasn(delegate)]
+pub struct EtsiTs103097DataUnsecured<T: rasn::Decode>(
+    EtsiTs103097Data,
+    core::marker::PhantomData<T>,
+);
 
 impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataUnsecured<T> {
     fn validate_and_decode_containing(
         self,
         decode_containing_with: Option<rasn::Codec>,
     ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
-        match &self.data.content {
+        match &self.0.content {
             Ieee1609Dot2Content::UnsecuredData(unsecured) => {
                 if let Some(codec) = decode_containing_with {
                     let decoded = codec.decode_from_binary::<T>(unsecured);
@@ -217,7 +195,7 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataUnsecured<T> {
                         Ok(_) => Ok(self),
                         Err(_) => Err(
                             rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
-                                type_name: "EtsiTs103097DataUnsecured::Content",
+                                component_path: "EtsiTs103097Data.content",
                                 component_name: "unsecuredData",
                                 details:
                                     "Invalid value for unsecuredData that is constrained by generic T"
@@ -231,7 +209,7 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataUnsecured<T> {
             }
             _ => Err(
                 rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
-                    type_name: "EtsiTs103097DataUnsecured::Content",
+                    component_path: "EtsiTs103097DataUnsecured.content",
                     component_name: "unsecuredData",
                     details: "Only UnsecuredData is allowed".to_string(),
                 },
@@ -240,62 +218,17 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataUnsecured<T> {
     }
 }
 
-// EtsiTs103097Data-Signed {ToBeSignedDataContent} ::= EtsiTs103097Data (WITH COMPONENTS {...,
-//     content (WITH COMPONENTS {
-//       signedData (WITH COMPONENTS {...,
-//         tbsData (WITH COMPONENTS {
-//           payload (WITH COMPONENTS {
-//             data (WITH COMPONENTS {...,
-//               content (WITH COMPONENTS {
-//                 unsecuredData (CONTAINING ToBeSignedDataContent)
-//               })
-//             }) PRESENT
-//           })
-//         })
-//       })
-//     })
-//   })
-
 /// ETSI TS 103 097 data - signed
 #[derive(Debug, Clone, AsnType, PartialEq, Eq)]
-pub struct EtsiTs103097DataSigned<T: rasn::Decode> {
-    data: EtsiTs103097Data,
-    __phantom: core::marker::PhantomData<T>,
-}
-
-impl<T: rasn::Decode> Encode for EtsiTs103097DataSigned<T> {
-    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
-        &self,
-        encoder: &mut E,
-        tag: Tag,
-        constraints: Constraints,
-        identifier: Identifier,
-    ) -> Result<(), E::Error> {
-        self.data
-            .encode_with_tag_and_constraints(encoder, tag, constraints, identifier)
-    }
-}
-
-impl<T: rasn::Decode> Decode for EtsiTs103097DataSigned<T> {
-    fn decode_with_tag_and_constraints<D: Decoder>(
-        decoder: &mut D,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<Self, D::Error> {
-        let data = EtsiTs103097Data::decode_with_tag_and_constraints(decoder, tag, constraints)?;
-        Ok(EtsiTs103097DataSigned {
-            data,
-            __phantom: core::marker::PhantomData,
-        })
-    }
-}
+#[rasn(delegate)]
+pub struct EtsiTs103097DataSigned<T: rasn::Decode>(EtsiTs103097Data, core::marker::PhantomData<T>);
 
 impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSigned<T> {
     fn validate_and_decode_containing(
         self,
         decode_containing_with: Option<rasn::Codec>,
     ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
-        match &self.data.content {
+        match &self.0.content {
             Ieee1609Dot2Content::SignedData(signed_data) => {
                 let tbs_payload = &signed_data.tbs_data.payload.data;
                 match tbs_payload {
@@ -308,7 +241,7 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSigned<T> {
                                             Ok(_) => Ok(self),
                                             Err(_) => Err(
                                                 rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
-                                                    type_name: "EtsiTs103097DataSigned::Content::SignedData::TbsData::Payload::Data::Content",
+                                                    component_path: "EtsiTs103097Data.content.signedData.tbsData.payload.data.content",
                                                     component_name: "unsecuredData",
                                                     details: "Invalid value for unsecuredData that is constrained by generic T".to_string(),
                                                 }
@@ -320,8 +253,8 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSigned<T> {
                                 }
                                 _ => Err(
                                     rasn::error::InnerSubtypeConstraintError::InvalidComponentVariant {
-                                        type_name: "EtsiTs103097DataSigned::Content::SignedData::TbsData::Payload::Data::Content",
-                                        component_name: "Ieee1609Dot2Content",
+                                        component_path: "EtsiTs103097Data.content.signedData.tbsData.payload.data.content",
+                                        component_type: "Ieee1609Dot2Content",
                                         details: "Only UnsecuredData is allowed".to_string(),
                                     }
                                 ),
@@ -329,7 +262,7 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSigned<T> {
                         }
                         _ => Err(
                             rasn::error::InnerSubtypeConstraintError::MissingRequiredComponent {
-                                type_name: "EtsiTs103097DataSigned::Content::SignedData::TbsData::Payload",
+                                component_path: "EtsiTs103097DataSigned.content.signedData.tbsData.payload",
                                 components: &["Data payload field must be present."],
                             }
                         ),
@@ -337,11 +270,43 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSigned<T> {
             }
             _ => Err(
                 rasn::error::InnerSubtypeConstraintError::InvalidComponentVariant {
-                    type_name: "EtsiTs103097DataSigned::Content",
-                    component_name: "Ieee1609Dot2Content",
+                    component_path: "EtsiTs103097DataSigned.content",
+                    component_type: "Ieee1609Dot2Content",
                     details: "Only SignedData is allowed".to_string(),
                 },
             ),
         }
     }
 }
+
+/// ETSI TS 103 097 data - signed
+#[derive(Debug, Clone, AsnType, Encode, Decode, PartialEq, Eq)]
+#[rasn(delegate)]
+pub struct EtsiTs103097DataSignedExternalPayload<T: rasn::Decode>(
+    EtsiTs103097Data,
+    core::marker::PhantomData<T>,
+);
+// impl<T: rasn::Decode + rasn::Decode> rasn::Decode for EtsiTs103097DataSignedExternalPayload<T> {
+//     fn decode_with_tag_and_constraints<D: rasn::Decoder>(
+//         decoder: &mut D,
+//         tag: rasn::types::Tag,
+//         constraints: rasn::types::Constraints,
+//     ) -> core::result::Result<Self, D::Error> {
+//         let delegate_constraint: rasn::types::Constraints =
+//             <EtsiTs103097Data as rasn::AsnType>::CONSTRAINTS
+//                 .intersect(constraints)
+//                 .intersect(const { rasn::types::Constraints::default() });
+//         match tag {
+//             rasn::types::Tag::EOC => Ok(Self(
+//                 <EtsiTs103097Data>::decode(decoder)?,
+//                 core::marker::PhantomData,
+//             )),
+//             _ => <EtsiTs103097Data as rasn::Decode>::decode_with_tag_and_constraints(
+//                 decoder,
+//                 tag,
+//                 delegate_constraint,
+//             )
+//             .map(|data| Self(data, core::marker::PhantomData)),
+//         }
+//     }
+// }
