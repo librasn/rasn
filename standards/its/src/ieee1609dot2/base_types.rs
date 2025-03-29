@@ -42,14 +42,14 @@ pub type Uint32 = u32;
 pub type Uint64 = u64;
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfUint16(pub SequenceOf<Uint16>);
 
 delegate!(SequenceOf<Uint16>, SequenceOfUint16);
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfUint8(pub SequenceOf<Uint8>);
 
@@ -61,7 +61,7 @@ delegate!(SequenceOf<Uint8>, SequenceOfUint8);
 
 /// This is a synonym for ASN.1 OCTET STRING, and is used in the
 /// definition of other data structures.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct Opaque(pub OctetString);
 
@@ -90,14 +90,14 @@ delegate!(OctetString, Opaque);
 ///
 /// Resulting HashedId3 = 52b855
 /// ```
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct HashedId3(pub FixedOctetString<3usize>);
 
 delegate!(FixedOctetString<3usize>, HashedId3);
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfHashedId3(pub SequenceOf<HashedId3>);
 
@@ -126,7 +126,7 @@ delegate!(SequenceOf<HashedId3>, SequenceOfHashedId3);
 ///
 /// Resulting HashedId8 = a495991b7852b855
 /// ```
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct HashedId8(pub FixedOctetString<8usize>);
 
@@ -156,7 +156,7 @@ delegate!(FixedOctetString<8usize>, HashedId8);
 /// Resulting HashedId10 = 934ca495991b7852b855
 /// ```
 
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct HashedId10(pub FixedOctetString<10usize>);
 
@@ -187,7 +187,7 @@ delegate!(FixedOctetString<10usize>, HashedId10);
 /// e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 /// ```
 
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct HashedId32(pub FixedOctetString<32usize>);
 
@@ -217,7 +217,7 @@ delegate!(FixedOctetString<32usize>, HashedId32);
 /// Resulting HashedId48 =
 /// 38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b
 /// ```
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct HashedId48(pub FixedOctetString<48usize>);
 
@@ -229,7 +229,7 @@ delegate!(FixedOctetString<48usize>, HashedId48);
 
 /// This type gives the number of (TAI) seconds since 00:00:00 UTC, 1
 /// January, 2004.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct Time32(pub Uint32);
 
@@ -237,7 +237,7 @@ delegate!(Uint32, Time32);
 
 /// This data structure is a 64-bit integer giving an estimate of the
 /// number of (TAI) microseconds since 00:00:00 UTC, 1 January, 2004.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct Time64(pub Uint64);
 
@@ -245,7 +245,7 @@ delegate!(Uint64, Time64);
 
 /// This type gives the validity period of a certificate.
 /// The start of the validity period is given by `start` and the end is given by `start + duration`.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct ValidityPeriod {
     pub start: Time32,
@@ -259,7 +259,7 @@ pub struct ValidityPeriod {
 /// # Note
 /// Years can be mapped more closely to wall-clock days using the `hours` choice for up to 7 years
 /// and the `sixtyHours` choice for up to 448 years.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 pub enum Duration {
     Microseconds(Uint16),
@@ -302,7 +302,7 @@ pub enum Duration {
 /// - For `IdentifiedRegion`:
 ///   - Implementation must support at least eight entries
 ///   - If number of entries is not supported, SPDU must be marked invalid
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum GeographicRegion {
@@ -322,7 +322,7 @@ pub enum GeographicRegion {
 /// A point containing an elevation component is considered to be within the
 /// circular region if its horizontal projection onto the reference ellipsoid
 /// lies within the region.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct CircularRegion {
     pub center: TwoDLocation,
@@ -347,7 +347,7 @@ pub struct CircularRegion {
 /// # Fields
 /// - `north_west`: The north-west corner of the rectangle
 /// - `south_east`: The south-east corner of the rectangle
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct RectangularRegion {
     #[rasn(identifier = "northWest")]
@@ -357,7 +357,7 @@ pub struct RectangularRegion {
 }
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfRectangularRegion(pub SequenceOf<RectangularRegion>);
 
@@ -390,7 +390,7 @@ delegate!(SequenceOf<RectangularRegion>, SequenceOfRectangularRegion);
 /// - Implementation must support at least eight `TwoDLocation` entries
 /// - If the number of `TwoDLocation` entries is not supported when verifying
 ///   a signed SPDU, the implementation must indicate that the SPDU is invalid
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, size("3.."))]
 pub struct PolygonalRegion(pub SequenceOf<TwoDLocation>);
 
@@ -423,7 +423,7 @@ delegate!(SequenceOf<TwoDLocation>, PolygonalRegion);
 /// - Implementation must support at least eight `TwoDLocation` entries
 /// - If the number of `TwoDLocation` entries is not supported when verifying
 ///   a signed SPDU, the implementation must indicate that the SPDU is invalid
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct TwoDLocation {
     pub latitude: Latitude,
@@ -449,7 +449,7 @@ pub struct TwoDLocation {
 /// - An implementation that does not recognize the indicated CHOICE when verifying
 ///   a signed SPDU shall indicate that the SPDU is invalid (per 4.2.2.3.2)
 /// - Invalid in this context means its validity cannot be established
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum IdentifiedRegion {
@@ -459,7 +459,7 @@ pub enum IdentifiedRegion {
 }
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfIdentifiedRegion(pub SequenceOf<IdentifiedRegion>);
 
@@ -494,14 +494,14 @@ delegate!(SequenceOf<IdentifiedRegion>, SequenceOfIdentifiedRegion);
 /// # Important Note
 /// An unrecognized value in a certificate may still prevent determining the
 /// validity of both the certificate and SPDU.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct UnCountryId(pub Uint16);
 
 delegate!(Uint16, UnCountryId);
 
 /// This type is defined only for backwards compatibility.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct CountryOnly(pub UnCountryId);
 
@@ -542,7 +542,7 @@ delegate!(UnCountryId, CountryOnly);
 /// implementations to declare:
 /// - Recognized `UnCountryId` values
 /// - Recognized region values within each country
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct CountryAndRegions {
     #[rasn(identifier = "countryOnly")]
@@ -580,7 +580,7 @@ pub struct CountryAndRegions {
 /// # Fields
 /// - `country`: A `UnCountryId` value identifying the country
 /// - `region_and_subregions`: Identifies one or more subregions within the country
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct CountryAndSubregions {
     #[rasn(identifier = "countryOnly")]
@@ -630,7 +630,7 @@ pub struct CountryAndSubregions {
 /// # Fields
 /// - `region`: Identifies a region within a country
 /// - `subregions`: Identifies one or more subregions within the region
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct RegionAndSubregions {
     pub region: Uint8,
@@ -638,7 +638,7 @@ pub struct RegionAndSubregions {
 }
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfRegionAndSubregions(pub SequenceOf<RegionAndSubregions>);
 
@@ -653,7 +653,7 @@ delegate!(
 /// # Compatibility Note
 /// The units used in this structure are consistent with SAE J2735 B26 location
 /// data structures, though the encoding is incompatible.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct ThreeDLocation {
     pub latitude: Latitude,
@@ -669,7 +669,7 @@ pub struct ThreeDLocation {
 /// - Minimum: -900,000,000
 /// - Maximum: 900,000,000
 /// - Special Value: 900,000,001 indicates latitude was not available to sender
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct Latitude(pub NinetyDegreeInt);
 
@@ -683,7 +683,7 @@ delegate!(NinetyDegreeInt, Latitude);
 /// - Minimum: -1,799,999,999
 /// - Maximum: 1,800,000,000
 /// - Special Value: 1,800,000,001 indicates longitude was not available to sender
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct Longitude(pub OneEightyDegreeInt);
 
@@ -693,7 +693,7 @@ delegate!(OneEightyDegreeInt, Longitude);
 /// or below the WGS84 ellipsoid. The 16-bit value is interpreted as an
 /// integer number of decimeters representing the height above a minimum
 /// height of -409.5 m, with the maximum height being 6143.9 m.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct Elevation(pub Uint16);
 
@@ -702,7 +702,7 @@ delegate!(Uint16, Elevation);
 /// The integer in the latitude field is no more than 900,000,000 and
 /// no less than -900,000,000, except that the value 900,000,001 is used to
 /// indicate the latitude was not available to the sender.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, value("-900000000..=900000001"))]
 pub struct NinetyDegreeInt(i32);
 
@@ -723,7 +723,7 @@ delegate!(i32, NinetyDegreeInt);
 
 /// The known latitudes are from -900,000,000 to +900,000,000 in 0.1
 /// microdegree intervals.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, value("-900000000..=900000000"))]
 pub struct KnownLatitude(NinetyDegreeInt);
 
@@ -743,7 +743,7 @@ delegate!(NinetyDegreeInt, KnownLatitude);
 
 /// The value 900,000,001 indicates that the latitude was not
 /// available to the sender.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, value("900000001"))]
 pub struct UnknownLatitude(NinetyDegreeInt);
 
@@ -769,7 +769,7 @@ delegate!(NinetyDegreeInt, UnknownLatitude);
 /// - Minimum: -1,799,999,999
 /// - Maximum: 1,800,000,000
 /// - Special Value: 1,800,000,001 (indicates longitude not available to sender)
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, value("-1799999999..=1800000001"))]
 pub struct OneEightyDegreeInt(pub i32);
 
@@ -811,7 +811,7 @@ delegate!(i32, OneEightyDegreeInt);
 /// - Minimum: -1,799,999,999 (-180 degrees)
 /// - Maximum: 1,800,000,000 (180 degrees)
 /// - Precision: 0.1 microdegrees
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, value("-1799999999..=1800000000"))]
 pub struct KnownLongitude(OneEightyDegreeInt);
 
@@ -834,7 +834,7 @@ delegate!(OneEightyDegreeInt, KnownLongitude);
 ///
 /// This type can only have the value 1,800,000,001, indicating that the longitude
 /// was not available to the sender.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, value("1800000001"))]
 pub struct UnknownLongitude(OneEightyDegreeInt);
 
@@ -871,7 +871,7 @@ delegate!(OneEightyDegreeInt, UnknownLongitude);
 /// in 6.1.2. Canonicalization applies to:
 /// - `EcdsaP256Signature` instances
 /// - `EcdsaP384Signature` instances
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum Signature {
@@ -917,7 +917,7 @@ pub enum Signature {
 /// Brainpool p256:
 /// - p = A9FB57DBA1EEA9BC3E660A909D838D726E3BF623D52620282013481D1F6E5377
 /// - n = A9FB57DBA1EEA9BC3E660A909D838D718C397AA3B561A6F7901E0E82974856A7
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct EcdsaP256Signature {
     #[rasn(identifier = "rSig")]
@@ -957,7 +957,7 @@ pub struct EcdsaP256Signature {
 /// n = 8CB91E82A3386D280F5D6F7E50E641DF152F7109ED5456B31F166E6CAC0425A7\
 ///     CF3AB6AF6B7FC3103B883202E9046565
 /// ```
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct EcdsaP384Signature {
     #[rasn(identifier = "rSig")]
@@ -967,7 +967,7 @@ pub struct EcdsaP384Signature {
 }
 /// Represents an elliptic curve signature where the component r is constrained
 /// to be an integer. This structure supports SM2 signatures as specified in 5.3.1.3.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct EcsigP256Signature {
     #[rasn(identifier = "rSig")]
@@ -998,7 +998,7 @@ pub struct EcsigP256Signature {
 /// - `ToBeSignedCertificate`
 ///
 /// See respective type definitions for specific canonicalization operations.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 pub enum EccP256CurvePoint {
     #[rasn(identifier = "x-only")]
@@ -1012,7 +1012,7 @@ pub enum EccP256CurvePoint {
     Uncompressed(EccP256CurvePointUncompressedP256),
 }
 /// Inner type of `EccP256CurvePoint` representing an uncompressed point on the NIST P-256 curve.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct EccP256CurvePointUncompressedP256 {
     pub x: FixedOctetString<32>,
@@ -1039,7 +1039,7 @@ pub struct EccP256CurvePointUncompressedP256 {
 /// - `ToBeSignedCertificate`
 ///
 /// See respective type definitions for specific canonicalization operations.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 pub enum EccP384CurvePoint {
     #[rasn(identifier = "x-only")]
@@ -1053,7 +1053,7 @@ pub enum EccP384CurvePoint {
     Uncompressed(EccP384CurvePointUncompressedP384),
 }
 /// Inner type of `EccP384CurvePoint` representing an uncompressed point on the Brainpool P-384 curve.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct EccP384CurvePointUncompressedP384 {
     pub x: FixedOctetString<48>,
@@ -1070,7 +1070,7 @@ pub struct EccP384CurvePointUncompressedP384 {
 /// Authentication Code (CCM).
 ///
 /// Full implementation details are specified in section 5.3.8.
-#[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(enumerated)]
 #[non_exhaustive]
 pub enum SymmAlgorithm {
@@ -1091,7 +1091,7 @@ pub enum SymmAlgorithm {
 /// - An implementation that does not recognize the enumerated value when verifying
 ///   a signed SPDU shall indicate that the SPDU is invalid (per 4.2.2.3.2)
 /// - Invalid in this context means its validity cannot be established
-#[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Copy, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(enumerated)]
 #[non_exhaustive]
 pub enum HashAlgorithm {
@@ -1115,7 +1115,7 @@ pub enum HashAlgorithm {
 ///   The algorithm is identified by the CHOICE in the following `SymmetricCiphertext`.
 ///   For ECIES, this algorithm must be AES-128.
 /// - `t`: Authentication tag (output tag from encryption as specified in 5.3.5.1)
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct EciesP256EncryptedKey {
     pub v: EccP256CurvePoint,
@@ -1137,7 +1137,7 @@ pub struct EciesP256EncryptedKey {
 ///   The algorithm is identified by the CHOICE in the following `SymmetricCiphertext`.
 ///   For SM2, this algorithm must be SM4.
 /// - `t`: Authentication tag (output tag from encryption as specified in 5.3.5.2)
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct EcencP256EncryptedKey {
     pub v: EccP256CurvePoint,
@@ -1153,7 +1153,7 @@ pub struct EcencP256EncryptedKey {
 ///
 /// Canonicalization applies to the `PublicEncryptionKey`. See respective type
 /// definitions for specific canonicalization operations.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 pub enum EncryptionKey {
     Public(PublicEncryptionKey),
@@ -1170,7 +1170,7 @@ pub enum EncryptionKey {
 ///
 /// Canonicalization applies to the `BasePublicEncryptionKey`. See respective type
 /// definitions for specific canonicalization operations.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct PublicEncryptionKey {
     #[rasn(identifier = "supportedSymmAlg")]
@@ -1189,7 +1189,7 @@ pub struct PublicEncryptionKey {
 /// HeaderInfo or in a ToBeSignedCertificate. See the definitions of HeaderInfo
 /// and ToBeSignedCertificate for a specification of the canonicalization
 /// operations.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum BasePublicEncryptionKey {
@@ -1216,7 +1216,7 @@ pub enum BasePublicEncryptionKey {
 /// Subject to canonicalization for operations specified in 6.1.2:
 /// - Applies to both `EccP256CurvePoint` and `EccP384CurvePoint`
 /// - Points must be encoded in compressed form (`compressed-y-0` or `compressed-y-1`)
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum PublicVerificationKey {
@@ -1237,7 +1237,7 @@ pub enum PublicVerificationKey {
 /// - SM4 in CCM mode
 ///
 /// See section 5.3.8 for implementation details.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum SymmetricEncryptionKey {
@@ -1279,7 +1279,7 @@ pub enum SymmetricEncryptionKey {
 ///   - P's `sspRange` field indicates "opaque" and contains an empty OCTET STRING
 ///
 /// See following subclauses for consistency rules with other `ssp` field forms.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct PsidSsp {
     pub psid: Psid,
@@ -1287,21 +1287,21 @@ pub struct PsidSsp {
 }
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfPsidSsp(pub SequenceOf<PsidSsp>);
 
 delegate!(SequenceOf<PsidSsp>, SequenceOfPsidSsp);
 
 /// This type represents the PSID defined in IEEE Std 1609.2.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, value("0.."))]
 pub struct Psid(pub Integer);
 
 delegate!(Integer, Psid);
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfPsid(pub SequenceOf<Psid>);
 
@@ -1333,7 +1333,7 @@ delegate!(SequenceOf<Psid>, SequenceOfPsid);
 ///
 /// See following subclauses for consistency rules with other
 /// `ServiceSpecificPermissions` types.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum ServiceSpecificPermissions {
@@ -1364,7 +1364,7 @@ pub enum ServiceSpecificPermissions {
 /// identical position in B may be freely set to 0 or 1, i.e., if a bit is
 /// set to 0 in the sspBitmask in R, the value of corresponding bit in the
 /// identical position in B has no bearing on whether B and R are consistent.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, size("0..=31"))]
 pub struct BitmapSsp(pub OctetString);
 
@@ -1378,7 +1378,7 @@ delegate!(OctetString, BitmapSsp);
 /// - `ssp_range`: Identifies the SSPs associated with the PSID for which the holder
 ///   may issue or request certificates. If omitted, the holder may issue or request
 ///   certificates for any SSP for that PSID.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct PsidSspRange {
     pub psid: Psid,
@@ -1387,7 +1387,7 @@ pub struct PsidSspRange {
 }
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfPsidSspRange(pub SequenceOf<PsidSspRange>);
 
@@ -1429,7 +1429,7 @@ delegate!(SequenceOf<PsidSspRange>, SequenceOfPsidSspRange);
 /// # Note
 /// While "all" can be indicated either by omitting `SspRange` in the enclosing
 /// `PsidSspRange` or explicitly, omission is preferred.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(choice, automatic_tags)]
 #[non_exhaustive]
 pub enum SspRange {
@@ -1464,7 +1464,7 @@ pub enum SspRange {
 ///
 /// Reference: ETSI TS 103 097
 
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct BitmapSspRange {
     #[rasn(size("1..=32"), identifier = "sspValue")]
@@ -1503,7 +1503,7 @@ pub struct BitmapSspRange {
 /// # Historical Note
 /// Originally specified in ETSI TS 103 097. Future uses are expected to maintain
 /// consistency with future versions of that standard.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SubjectAssurance(pub FixedOctetString<1usize>);
 
@@ -1521,28 +1521,28 @@ delegate!(Uint16, CrlSeries);
 // *****************************************************************************
 
 /// This atomic type is used in the definition of other data structures.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct IValue(pub Uint16);
 
 delegate!(Uint16, IValue);
 
 /// This is a UTF-8 string as defined in IETF RFC 3629. The contents are determined by policy.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate, size("0..=255"))]
 pub struct Hostname(pub Utf8String);
 
 delegate!(Utf8String, Hostname);
 
 /// This is the individual linkage value. See 5.1.3 and 7.3 for details of use.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct LinkageValue(pub FixedOctetString<9usize>);
 
 delegate!(FixedOctetString<9usize>, LinkageValue);
 
 /// This is the group linkage value. See 5.1.3 and 7.3 for details of use.
-#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(Builder, AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(automatic_tags)]
 pub struct GroupLinkageValue {
     #[rasn(identifier = "jValue")]
@@ -1551,21 +1551,21 @@ pub struct GroupLinkageValue {
 }
 
 /// This structure contains a LA Identifier for use in the algorithms specified in 5.1.3.4.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct LaId(pub FixedOctetString<2usize>);
 
 delegate!(FixedOctetString<2usize>, LaId);
 
 /// This type is used for clarity of definitions.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct SequenceOfLinkageSeed(pub SequenceOf<LinkageSeed>);
 
 delegate!(SequenceOf<LinkageSeed>, SequenceOfLinkageSeed);
 
 /// This structure contains a linkage seed value for use in the algorithms specified in 5.1.3.4.
-#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[rasn(delegate)]
 pub struct LinkageSeed(pub FixedOctetString<16usize>);
 
