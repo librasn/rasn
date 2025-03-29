@@ -51,7 +51,7 @@ pub fn encode_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 /// - `crate_root` The path to the `rasn` library to use in the macro.
 /// - `enumerated/choice` Use either `#[rasn(choice)]` or `#[rasn(enumerated)]`
 /// - `delegate` Only available for newtype wrappers (e.g. `struct Delegate(T)`);
-///   uses the inner `T` type for implementing the trait.
+///   uses the inner `T` type for implementing the trait. Tuple-struct can have more than one field if other fields are `PhantomData` types.
 #[proc_macro_derive(AsnType, attributes(rasn))]
 pub fn asn_type_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let derive_input = parse_macro_input!(input as DeriveInput);
