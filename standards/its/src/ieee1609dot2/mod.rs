@@ -1,6 +1,7 @@
 extern crate alloc;
 use crate::delegate;
 use crate::ts103097::extension_module::*;
+use alloc::string::ToString;
 use bon::Builder;
 use rasn::error::InnerSubtypeConstraintError;
 use rasn::prelude::*;
@@ -1686,14 +1687,15 @@ pub mod crl {
                         });
                     if let Some(inner_unsecured_data) = inner_unsecured_data {
                         let decoded = codec.decode_from_binary::<CrlContents>(inner_unsecured_data);
-                        return if decoded.is_ok() {
-                            Ok(self)
-                        } else {
-                            Err(InnerSubtypeConstraintError::InvalidInnerContaining {
-                                expected: "CrlContents",
-                                err: decoded.err().unwrap().to_string(),
-                            })
-                        };
+                        match decoded {
+                            Ok(_) => return Ok(self),
+                            Err(err) => {
+                                return Err(InnerSubtypeConstraintError::InvalidInnerContaining {
+                                    expected: "CrlContents",
+                                    err,
+                                });
+                            }
+                        }
                     }
                     // Should be unreachable (UnsecuredData presence already checked)
                     debug_assert!(false);

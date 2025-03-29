@@ -1,5 +1,4 @@
 /// ASN.1 definitions for ETSI TS 103 097 extension module
-extern crate alloc;
 use alloc::string::ToString;
 pub mod extension_module;
 use crate::ieee1609dot2::{
@@ -163,7 +162,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                                 component_path: "EtsiTs103097Data.content.encryptedData.recipients",
                                 component_name: "RecipientInfo",
                                 details:
-                                    format!("PskRecipInfo, SymmRecipInfo or RekRecipInfo is not allowed, occured in index {}", index),
+                                    alloc::format!("PskRecipInfo, SymmRecipInfo or RekRecipInfo is not allowed, occured in index {}", index),
                             },
                         );
                     }
@@ -216,13 +215,10 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataUnsecured<T> {
                     let decoded = codec.decode_from_binary::<T>(unsecured);
                     match decoded {
                         Ok(_) => Ok(self),
-                        Err(_) => Err(
-                            rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
-                                component_path: "EtsiTs103097Data.content",
-                                component_name: "unsecuredData",
-                                details:
-                                    "Invalid value for unsecuredData that is constrained by generic T"
-                                        .to_string(),
+                        Err(err) => Err(
+                            rasn::error::InnerSubtypeConstraintError::InvalidInnerContaining {
+                                expected: "Ieee1609Dot2Content::UnsecuredData::T",
+                                err,
                             },
                         ),
                     }
@@ -276,11 +272,11 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSigned<T> {
                                         let decoded = codec.decode_from_binary::<T>(unsecured);
                                         match decoded {
                                             Ok(_) => Ok(self),
-                                            Err(_) => Err(
-                                                rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
-                                                    component_path: "EtsiTs103097Data.content.signedData.tbsData.payload.data.content",
-                                                    component_name: "unsecuredData",
-                                                    details: "Invalid value for unsecuredData that is constrained by generic T".to_string(),
+                                            Err(err) => Err(
+                                                rasn::error::InnerSubtypeConstraintError::InvalidInnerContaining  {
+                                                    expected: "Ieee1609Dot2Content::UnsecuredData::T",
+                                                    err
+
                                                 }
                                             ),
                                         }
