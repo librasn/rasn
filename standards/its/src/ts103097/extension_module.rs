@@ -1,4 +1,5 @@
 extern crate alloc;
+use crate::ieee1609dot2::base_types::{HashedId8, Time32};
 use bon::Builder;
 use rasn::prelude::*;
 
@@ -8,10 +9,6 @@ pub const ETSI_TS103097_EXTENSION_MODULE_OID: &Oid =
 
 pub const ETSI_TS102941_CRL_REQUEST_ID: ExtId = ExtId(1);
 pub const ETSI_TS102941_DELTA_CTL_REQUEST_ID: ExtId = ExtId(2);
-
-// In order to avoid cyclic dependencies, make "weak" types
-type HashedId8 = FixedOctetString<8>;
-type Time32 = u32;
 
 /// This type is used as an identifier for instances of ExtContent within an EXT-TYPE.
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
@@ -219,8 +216,8 @@ mod tests {
     #[test]
     fn test_crl_request() {
         let crl_request = EtsiTs102941CrlRequest::builder()
-            .issuer_id([2; 8].into())
-            .last_known_update(10)
+            .issuer_id(HashedId8([2; 8].into()))
+            .last_known_update(10.into())
             .build();
         let extension = EtsiOriginatingHeaderInfoExtension::new_crl_request(crl_request);
         let encoded = rasn::coer::encode(&extension).unwrap();
@@ -248,7 +245,7 @@ mod tests {
     #[test]
     fn test_ctl_request() {
         let ctl_request = EtsiTs102941CtlRequest::builder()
-            .issuer_id([2; 8].into())
+            .issuer_id(HashedId8([2; 8].into()))
             .last_known_ctl_sequence(10)
             .build();
         let extension = EtsiOriginatingHeaderInfoExtension::new_delta_ctl_request(ctl_request);

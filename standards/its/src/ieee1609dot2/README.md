@@ -14,4 +14,4 @@ Basic features:
  * All `newtype`'s implement `Deref` and `DerefMut` the inner type.
  * `From` and `Into` implementations for converting between similar types.
  * Most structs use `builder` pattern for construction with [bon](https://github.com/elastio/bon) crate.
- * For types with inner subtype constraints `validate_components()` trait method is available. It is automatically used on type construction, but for other use cases user need to use it manually. Inner `CONTAINING` is not separately decoded and validated (TODO).
+ * For types with inner subtype constraints, there is `InnerSubtypeConstraint` marker trait and relevant validation methods.
