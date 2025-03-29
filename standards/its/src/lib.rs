@@ -7,6 +7,12 @@ pub mod ts103097;
 pub mod ieee1609dot2;
 
 /// A macro to implement `From` and `Deref` for a delegate type pair.
+/// This is not suitable for newtypes with inner constraints.
+///
+/// # Example
+/// ```
+/// delegate!(Inner, Outer);         
+/// ```
 #[macro_export]
 macro_rules! delegate {
     ($from_type:ty, $to_type:ty) => {
@@ -26,10 +32,10 @@ macro_rules! delegate {
                 &self.0
             }
         }
-        // impl core::ops::DerefMut for $to_type {
-        //     fn deref_mut(&mut self) -> &mut Self::Target {
-        //         &mut self.0
-        //     }
-        // }
+        impl core::ops::DerefMut for $to_type {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
     };
 }
