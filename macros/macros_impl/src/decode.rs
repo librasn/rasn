@@ -24,6 +24,21 @@ pub fn derive_struct_impl(
 
     let decode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
+        let field_count = field_configs.len();
+        // For any field_count >= 2, use an iterator to create the appropriate number of PhantomData fields
+        let phantom_data = (1..field_count)
+            .map(|_| quote!(core::marker::PhantomData))
+            .collect::<Vec<_>>();
+        let map_quote = if field_count == 1 {
+            quote!(Self)
+        } else {
+            quote!(|data| Self(data, #(#phantom_data),*))
+        };
+        let ok_quote = if field_count == 1 {
+            quote!(Self(<#ty>::decode(decoder)?))
+        } else {
+            quote!(Self(<#ty>::decode(decoder)?, #(#phantom_data),*))
+        };
 
         if config
             .tag
@@ -32,7 +47,7 @@ pub fn derive_struct_impl(
             .unwrap_or_default()
         {
             quote! {
-                decoder.decode_explicit_prefix::<#ty>(tag).map(Self)
+                decoder.decode_explicit_prefix::<#ty>(tag).map(#map_quote)
             }
         } else {
             let constraints = config
@@ -53,14 +68,14 @@ pub fn derive_struct_impl(
                 #constraint_def
                 match tag {
                     #crate_root::types::Tag::EOC => {
-                        Ok(Self(<#ty>::decode(decoder)?))
+                        Ok(#ok_quote)
                     }
                     _ => {
                         <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
                             decoder,
                             tag,
                             #constraint_name
-                        ).map(Self)
+                        ).map(#map_quote)
                     }
                 }
             }

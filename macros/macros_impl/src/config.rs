@@ -324,14 +324,37 @@ impl Config {
             invalid_delegate = true;
         } else if delegate {
             if let syn::Data::Struct(data) = &input.data {
-                invalid_delegate = data.fields.len() != 1;
+                // Delegate works also for tuple structs with multiple fields if fields beyond the first are phantom data type
+                let fields = &data.fields;
+                let first_is_phantom = fields.iter().next().is_some_and(|field| {
+                    if let syn::Type::Path(type_path) = &field.ty {
+                        if let Some(last_segment) = type_path.path.segments.last() {
+                            return last_segment.ident == "PhantomData";
+                        }
+                    }
+                    false
+                });
+
+                let non_phantom_fields_count = fields
+                    .iter()
+                    .filter(|field| {
+                        if let syn::Type::Path(type_path) = &field.ty {
+                            if let Some(last_segment) = type_path.path.segments.last() {
+                                return last_segment.ident != "PhantomData";
+                            }
+                        }
+                        true // The count of non-phantom fields should be 1
+                    })
+                    .count();
+
+                invalid_delegate = first_is_phantom || non_phantom_fields_count != 1;
             }
         }
 
         if invalid_delegate {
             return Err(syn::Error::new(
                 input.ident.span(),
-                "`#[rasn(delegate)]` is only valid on single-unit structs.",
+                "`#[rasn(delegate)]` is only valid on single-field tuple structs. This does not count fields with `PhantomData` type. The first field must be a non-phantom field.",
             ));
         }
 
