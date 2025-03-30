@@ -189,6 +189,18 @@ impl DecodeError {
             codec,
         )
     }
+    /// Creates a wrapper around a inner subtype constraint error from a given codec.
+    /// This is mainly used by standards.
+    #[must_use]
+    pub fn inner_subtype_constraint_not_satisfied(
+        reason: super::InnerSubtypeConstraintError,
+        codec: Codec,
+    ) -> Self {
+        Self::from_kind(
+            DecodeErrorKind::InnerSubtypeConstraintNotSatisfied { reason },
+            codec,
+        )
+    }
 
     /// Creates a wrapper around a discriminant value error from a given codec.
     #[must_use]
@@ -442,6 +454,12 @@ pub enum DecodeErrorKind {
         value: BigInt,
         /// Expected value by the constraint
         expected: Bounded<i128>,
+    },
+    /// Inner subtype constraint not satisfied.
+    #[snafu(display("Inner subtype constraint not satisfied: {reason}"))]
+    InnerSubtypeConstraintNotSatisfied {
+        /// The reason the constraint wasn't satisfied.
+        reason: super::InnerSubtypeConstraintError,
     },
 
     /// Codec specific error.

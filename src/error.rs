@@ -4,6 +4,7 @@
 //! Backtraces are enabled by default with `backtraces` feature.
 //! See submodules for other error types.
 #![allow(clippy::module_name_repetitions)]
+mod components;
 mod decode;
 mod encode;
 mod string;
@@ -27,3 +28,5 @@ pub use encode::JerEncodeErrorKind;
 pub use encode::{
     BerEncodeErrorKind, CodecEncodeError, CoerEncodeErrorKind, EncodeError, XerEncodeErrorKind,
 };
+
+pub use components::InnerSubtypeConstraintError;
