@@ -381,7 +381,14 @@ impl Value {
     }
     /// Intersect between two `Value` constraints
     pub const fn intersect(&self, other: &Self) -> Self {
-        let value = self.value.intersect(other.value);
+        let value = match self.value.intersect(other.value) {
+            Some(value) => value,
+            // if the intersection is empty, return impossible range
+            None => Bounded::Range {
+                start: Some(1),
+                end: Some(-1),
+            },
+        };
         let (signed, range) = value.range_in_bytes();
         Self {
             value,
@@ -468,7 +475,11 @@ impl Size {
     /// Intersect between two `Size` constraints
     #[must_use]
     pub const fn intersect(&self, other: &Self) -> Self {
-        Self(self.0.intersect(other.0))
+        match self.0.intersect(other.0) {
+            Some(value) => Self(value),
+            // if the intersection is empty, return a zero size
+            None => Self(Bounded::Single(0)),
+        }
     }
 }
 
@@ -638,38 +649,92 @@ macro_rules! impl_bounded_range {
                     }
                 }
                 /// Intersect the values of two bounded ranges.
-                pub const fn intersect(&self, other: Self) -> Self {
-                    match (self, other) {
-                        (Self::None, _) | (_, Self::None) => Self::None,
-                        (Self::Single(a), Self::Single(b)) if *a == b => Self::Single(*a),
-                        (
-                            Self::Single(a),
-                            Self::Range {
-                                start: Some(b),
-                                end: Some(c),
+                ///
+                /// # Returns
+                ///
+                /// Returns the intersection of two bounded ranges, if any.
+                /// If the values do not intersect, returns `None`.
+                ///
+                ///              None  Single  Range(s,e)  Range(s,-)  Range(-,e)  Range(-,-)
+                /// None         ✓     ✓       ✓           ✓           ✓           ✓
+                /// Single       ✓     ✓       ✓           ✓           ✓           ✓
+                /// Range(s,e)   ✓     ✓       ✓           ✓           ✓           ✓
+                /// Range(s,-)   ✓     ✓       ✓           ✓           ✓           ✓
+                /// Range(-,e)   ✓     ✓       ✓           ✓           ✓           ✓
+                /// Range(-,-)   ✓     ✓       ✓           ✓           ✓           ✓
+                pub const fn intersect(&self, other: Self) -> Option<Self> {
+                    match self {
+                        Self::None => Some(other),
+                        Self::Single(a) => match other {
+                            Self::None => Some(Self::Single(*a)),
+                            Self::Single(b) => if *a == b { Some(Self::Single(*a)) } else { None },
+                            Self::Range { start, end } => {
+                                let within_start = if let Some(s) = start.as_ref() {
+                                    *a >= *s
+                                } else {
+                                    true
+                                };
+                                let within_end = if let Some(e) = end.as_ref() {
+                                    *a <= *e
+                                } else {
+                                    true
+                                };
+                                if within_start && within_end {
+                                    Some(Self::Single(*a))
+                                } else {
+                                    None
+                                }
                             },
-                        ) if *a >= b && *a <= c => Self::Single(*a),
-                        (
-                            Self::Range {
-                                start: Some(b),
-                                end: Some(c),
-                            },
-                            Self::Single(a),
-                        ) if a >= *b && a <= *c => Self::Single(a),
-                        (
-                            Self::Range {
-                                start: Some(a),
-                                end: Some(b),
-                            },
-                            Self::Range {
-                                start: Some(c),
-                                end: Some(d),
-                            },
-                        ) if *a <= d && *b >= c => Self::Range {
-                            start: Some(max(*a as i128, c as i128) as $type),
-                            end: Some(min(*b as i128, d as i128) as $type),
                         },
-                        _ => Self::None,
+                        Self::Range { start: self_start, end: self_end } => match other {
+                            Self::None => Some(*self),
+
+                            Self::Single(b) => {
+                                let within_start = match self_start.as_ref() {
+                                    Some(s) => b >= *s,
+                                    None => true,
+                                };
+                                let within_end = match self_end.as_ref() {
+                                    Some(e) => b <= *e,
+                                    None => true,
+                                };
+                                if within_start && within_end {
+                                    Some(Self::Single(b))
+                                } else {
+                                    None
+                                }
+                            },
+
+                            Self::Range { start: other_start, end: other_end } => {
+                                // Determine the effective start bound (maximum of the two starts)
+                                let new_start = match (self_start, other_start) {
+                                    (None, None) => None,
+                                    (Some(a), None) => Some(*a),
+                                    (None, Some(b)) => Some(b),
+                                    (Some(a), Some(b)) => Some(max(*a as i128, b as i128) as $type),
+                                };
+
+                                // Determine the effective end bound (minimum of the two ends)
+                                let new_end = match (self_end, other_end) {
+                                    (None, None) => None,
+                                    (Some(a), None) => Some(*a),
+                                    (None, Some(b)) => Some(b),
+                                    (Some(a), Some(b)) => Some(min(*a as i128, b as i128) as $type),
+                                };
+
+                                match (new_start, new_end) {
+                                    (Some(start), Some(end)) => {
+                                        if start <= end {
+                                            Some(Self::Range { start: Some(start), end: Some(end) })
+                                        } else {
+                                            // No intersection
+                                           None
+                                        }
+                                    },
+                                    _ => Some(Self::Range { start: new_start, end: new_end }),
+                                }
+                            },
+                        },
                     }
                 }
             }
@@ -857,5 +922,345 @@ mod tests {
     fn range() {
         let constraints = Bounded::new(0, 255usize);
         assert_eq!(256, constraints.range().unwrap());
+    }
+
+    #[test]
+    fn test_bounded_intersections() {
+        // None intersections
+        let none = Bounded::<i128>::None;
+        let single = Bounded::<i128>::Single(5);
+        let range_both = Bounded::<i128>::Range {
+            start: Some(1),
+            end: Some(10),
+        };
+        let range_start = Bounded::<i128>::Range {
+            start: Some(1),
+            end: None,
+        };
+        let range_end = Bounded::<i128>::Range {
+            start: None,
+            end: Some(10),
+        };
+        let range_none = Bounded::<i128>::Range {
+            start: None,
+            end: None,
+        };
+
+        // None ∩ X cases
+        assert_eq!(none.intersect(none), Some(none));
+        assert_eq!(none.intersect(single), Some(single));
+        assert_eq!(none.intersect(range_both), Some(range_both));
+        assert_eq!(none.intersect(range_start), Some(range_start));
+        assert_eq!(none.intersect(range_end), Some(range_end));
+        assert_eq!(none.intersect(range_none), Some(range_none));
+
+        // Single ∩ X cases
+        assert_eq!(single.intersect(none), Some(single));
+        assert_eq!(single.intersect(single), Some(single));
+        assert_eq!(single.intersect(Bounded::<i128>::Single(6)), None);
+
+        // Single in range
+        assert_eq!(
+            single.intersect(Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(10)
+            }),
+            Some(single)
+        );
+        // Single below range
+        assert_eq!(
+            single.intersect(Bounded::<i128>::Range {
+                start: Some(6),
+                end: Some(10)
+            }),
+            None
+        );
+        // Single above range
+        assert_eq!(
+            single.intersect(Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(4)
+            }),
+            None
+        );
+
+        // Single ∩ Range(s,-)
+        assert_eq!(
+            single.intersect(Bounded::<i128>::Range {
+                start: Some(1),
+                end: None
+            }),
+            Some(single)
+        );
+        assert_eq!(
+            single.intersect(Bounded::<i128>::Range {
+                start: Some(6),
+                end: None
+            }),
+            None
+        );
+
+        // Single ∩ Range(-,e)
+        assert_eq!(
+            single.intersect(Bounded::<i128>::Range {
+                start: None,
+                end: Some(10)
+            }),
+            Some(single)
+        );
+        assert_eq!(
+            single.intersect(Bounded::<i128>::Range {
+                start: None,
+                end: Some(4)
+            }),
+            None
+        );
+
+        // Single ∩ Range(-,-)
+        assert_eq!(single.intersect(range_none), Some(single));
+
+        // Range(s,e) ∩ X cases
+        assert_eq!(range_both.intersect(none), Some(range_both));
+
+        // Range(s,e) ∩ Single
+        assert_eq!(
+            range_both.intersect(Bounded::<i128>::Single(5)),
+            Some(Bounded::<i128>::Single(5))
+        );
+        assert_eq!(range_both.intersect(Bounded::<i128>::Single(0)), None);
+        assert_eq!(range_both.intersect(Bounded::<i128>::Single(11)), None);
+
+        // Range(s,e) ∩ Range(s,e) - overlapping cases
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(10)
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: Some(5),
+                end: Some(15)
+            }),
+            Some(Bounded::<i128>::Range {
+                start: Some(5),
+                end: Some(10)
+            })
+        );
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(10)
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: Some(0),
+                end: Some(5)
+            }),
+            Some(Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(5)
+            })
+        );
+
+        // Range(s,e) ∩ Range(s,e) - non-overlapping
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(5)
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: Some(6),
+                end: Some(10)
+            }),
+            None
+        );
+
+        // Range(s,e) ∩ Range(s,-)
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(10)
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: Some(5),
+                end: None
+            }),
+            Some(Bounded::<i128>::Range {
+                start: Some(5),
+                end: Some(10)
+            })
+        );
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(10)
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: Some(11),
+                end: None
+            }),
+            None
+        );
+
+        // Range(s,e) ∩ Range(-,e)
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(10)
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: None,
+                end: Some(5)
+            }),
+            Some(Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(5)
+            })
+        );
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(6),
+                end: Some(10)
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: None,
+                end: Some(5)
+            }),
+            None
+        );
+
+        // Range(s,e) ∩ Range(-,-)
+        assert_eq!(range_both.intersect(range_none), Some(range_both));
+
+        // Range(s,-) ∩ X cases
+        assert_eq!(range_start.intersect(none), Some(range_start));
+
+        // Range(s,-) ∩ Single
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: None
+            }
+            .intersect(Bounded::<i128>::Single(5)),
+            Some(Bounded::<i128>::Single(5))
+        );
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(6),
+                end: None
+            }
+            .intersect(Bounded::<i128>::Single(5)),
+            None
+        );
+
+        // Range(s,-) ∩ Range(s,-)
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: None
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: Some(5),
+                end: None
+            }),
+            Some(Bounded::<i128>::Range {
+                start: Some(5),
+                end: None
+            })
+        );
+
+        // Range(s,-) ∩ Range(-,e)
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: Some(1),
+                end: None
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: None,
+                end: Some(10)
+            }),
+            Some(Bounded::<i128>::Range {
+                start: Some(1),
+                end: Some(10)
+            })
+        );
+
+        // Range(s,-) ∩ Range(-,-)
+        assert_eq!(range_start.intersect(range_none), Some(range_start));
+
+        // Range(-,e) ∩ X cases
+        assert_eq!(range_end.intersect(none), Some(range_end));
+
+        // Range(-,e) ∩ Single
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: None,
+                end: Some(10)
+            }
+            .intersect(Bounded::<i128>::Single(5)),
+            Some(Bounded::<i128>::Single(5))
+        );
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: None,
+                end: Some(5)
+            }
+            .intersect(Bounded::<i128>::Single(10)),
+            None
+        );
+
+        // Range(-,e) ∩ Range(-,e)
+        assert_eq!(
+            Bounded::<i128>::Range {
+                start: None,
+                end: Some(10)
+            }
+            .intersect(Bounded::<i128>::Range {
+                start: None,
+                end: Some(5)
+            }),
+            Some(Bounded::<i128>::Range {
+                start: None,
+                end: Some(5)
+            })
+        );
+
+        // Range(-,-) ∩ X cases
+        assert_eq!(range_none.intersect(none), Some(range_none));
+        assert_eq!(range_none.intersect(single), Some(single));
+        assert_eq!(range_none.intersect(range_both), Some(range_both));
+        assert_eq!(range_none.intersect(range_start), Some(range_start));
+        assert_eq!(range_none.intersect(range_end), Some(range_end));
+        assert_eq!(range_none.intersect(range_none), Some(range_none));
+
+        // Add couple tests for usize type just in case
+        let u_single = Bounded::<usize>::Single(5);
+        let u_range = Bounded::<usize>::Range {
+            start: Some(1),
+            end: Some(10),
+        };
+
+        assert_eq!(
+            u_range.intersect(Bounded::<usize>::Range {
+                start: Some(5),
+                end: Some(15),
+            }),
+            Some(Bounded::<usize>::Range {
+                start: Some(5),
+                end: Some(10),
+            })
+        );
+
+        assert_eq!(
+            Bounded::<usize>::Range {
+                start: Some(1),
+                end: Some(5)
+            }
+            .intersect(Bounded::<usize>::Range {
+                start: Some(6),
+                end: Some(10)
+            }),
+            None
+        );
+
+        assert_eq!(u_range.intersect(u_single), Some(u_single));
     }
 }

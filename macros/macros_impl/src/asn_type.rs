@@ -87,8 +87,27 @@ pub fn derive_struct_impl(
             }
         }
     });
-
-    let constraints_def = config.constraints.const_static_def(crate_root);
+    let constraints = config
+        .constraints
+        .const_expr(crate_root)
+        .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
+    // Intersect the constraints of the wrapped type with the constraints of the container
+    let constraints_def = if config.delegate {
+        let inner_type = match container.fields {
+            syn::Fields::Unnamed(ref fields) => &fields.unnamed.first().unwrap().ty,
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &container.fields,
+                    "Delegate is only supported for newtype pattern",
+                ));
+            }
+        };
+        Some(quote! {
+            const CONSTRAINTS: #crate_root::types::Constraints =<#inner_type as #crate_root::AsnType>::CONSTRAINTS.intersect(#constraints);
+        })
+    } else {
+        config.constraints.const_static_def(crate_root)
+    };
 
     let alt_identifier = config.identifier.as_ref().map_or(
         quote!(const IDENTIFIER: #crate_root::types::Identifier = #crate_root::types::Identifier(Some(#name_literal));),

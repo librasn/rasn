@@ -50,22 +50,9 @@ pub fn derive_struct_impl(
                 decoder.decode_explicit_prefix::<#ty>(tag).map(#map_quote)
             }
         } else {
-            let constraints = config
-                .constraints
-                .const_expr(crate_root)
-                .unwrap_or_else(|| quote!(#crate_root::types::Constraints::default()));
-            let constraint_name = format_ident!("delegate_constraint");
-            let constraint_def = if generics.params.is_empty() {
-                quote! {
-                    let #constraint_name: #crate_root::types::Constraints  = const {<#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(#constraints)}.intersect(constraints);
-                }
-            } else {
-                quote! {
-                    let #constraint_name: #crate_root::types::Constraints  = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(constraints).intersect(const {#constraints });
-                }
-            };
+            // NOTE: AsnType trait already implements correct delegate constraints, and those are passed here
+            // We don't need to do double intersection here!
             quote! {
-                #constraint_def
                 match tag {
                     #crate_root::types::Tag::EOC => {
                         Ok(#ok_quote)
@@ -74,7 +61,7 @@ pub fn derive_struct_impl(
                         <#ty as #crate_root::Decode>::decode_with_tag_and_constraints(
                             decoder,
                             tag,
-                            #constraint_name
+                            constraints
                         ).map(#map_quote)
                     }
                 }

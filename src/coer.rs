@@ -1465,4 +1465,20 @@ mod tests {
         assert_eq!(octets, vec![0x01, 0x02, 0x03, 0x04]);
         assert_eq!(remaining[0], 0x05);
     }
+    #[test]
+    fn test_delegate_constraints() {
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq, Eq, Hash, PartialOrd, Ord)]
+        #[rasn(delegate, value("0.."))]
+        pub struct Positive(pub Integer);
+        let negative = Positive(Integer::from(-1));
+        let encoded = rasn::coer::encode(&negative);
+        assert!(encoded.is_err());
+
+        #[derive(Debug, Clone, AsnType, Encode, Decode, PartialEq, Eq, Hash, PartialOrd, Ord)]
+        #[rasn(delegate, value("..0"))]
+        pub struct Negative<T: AsnType + Encode + Decode>(T);
+        let positive = Negative(0u32);
+        let encoded = rasn::coer::encode(&positive);
+        assert!(encoded.is_err());
+    }
 }
