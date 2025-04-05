@@ -5,7 +5,7 @@ categories = ["encoding", "no-std", "parser-implementations"]
 description = "A safe no_std ASN.1 codec framework."
 license.workspace = true
 exclude = ["fuzzing"]
-keywords = ["asn1", "der", "ber", "cer", "per"]
+keywords = ["asn1", "der", "ber", "cer", "per", "oer", "xer", "jer"]
 repository.workspace = true
 edition.workspace = true
 
