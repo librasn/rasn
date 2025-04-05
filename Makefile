@@ -1,11 +1,14 @@
 CARGO ?= cargo
 CROSS ?= $(CARGO)
-TARGET_TRIPLE ?= $(shell rustc -Vv | grep host | cut -d' ' -f2)
 RUST_CHANNEL ?= stable
+TARGET_TRIPLE ?= $(shell rustc -Vv | grep host | cut -d' ' -f2)
 TARGET_FLAGS := --workspace --all-targets --all-features
 DOC_TARGET_FLAGS := --no-deps --target $(TARGET_TRIPLE) --release --workspace --all-features
+
 FMT_FLAGS := --all -- --check
 CLIPPY_FLAGS := $(TARGET_FLAGS) -- -D warnings
+
+RUSTFLAGS ?= --deny warnings
 RUSTDOCFLAGS ?= --deny warnings
 
 # === Helper functions ===============================================
@@ -53,11 +56,11 @@ test:
 	@echo "Running all tests...(excluding doc)"
 	$(CROSS) test $(TARGET_FLAGS)
 
-
-
 # Documentation tests for all local (non-dependency) crates.
 # Requires jq to parse JSON output from cargo metadata.
 doc:
+	@echo "Building documentation..."
+	$(CROSS) doc $(DOC_TARGET_FLAGS)
 	@echo "Running documentation tests for each workspace crate..."
 	@for crate in $$( $(CROSS) metadata --no-deps --format-version 1 | jq -r '.packages[].name' ); do \
 	  echo "Testing docs for: $$crate"; \
@@ -73,12 +76,12 @@ all: check build test doc
 #   TARGET_TRIPLE   - the target triple to build/test for
 #   RELEASE_BUILD   - if non-empty, build in release mode
 
-.PHONY: ci-setup ci-build ci-doc ci-test ci-all
+.PHONY: ci-setup ci-build ci-test ci-all
 
 ci-setup: setup-toolchain
 
 ci-build:
-	@echo "Running CI build..."
+	@echo "Running CI build for both code and docs..."
 	$(call require,CROSS)
 	$(call require,TARGET_TRIPLE)
 ifneq ($(RELEASE_BUILD),)
@@ -89,15 +92,10 @@ else
 	$(CROSS) doc $(DOC_TARGET_FLAGS) --target-dir /tmp/rasn-docs
 endif
 
-ci-doc:
-	@echo "Running CI documentation build..."
-	$(call require,CROSS)
-	RUSTDOCFLAGS='--deny warnings' $(CROSS) doc $(TARGET_FLAGS) --no-deps
-
 ci-test:
 	@echo "Running CI tests..."
 	$(call require,CROSS)
 	$(call require,TARGET_TRIPLE)
 	$(CROSS) test --target $(TARGET_TRIPLE) $(TARGET_FLAGS)
 
-ci-all: fmt lint ci-build ci-doc ci-test
+ci-all: fmt lint ci-build doc ci-test

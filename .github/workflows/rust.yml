@@ -93,7 +93,7 @@ jobs:
       - run: make lint
         if: matrix.channel == 'stable'
         shell: bash
-      - run: make ci-doc
+      - run: make doc
         if: matrix.channel == 'stable'
         shell: bash
 
