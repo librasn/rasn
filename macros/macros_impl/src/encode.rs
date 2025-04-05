@@ -51,18 +51,9 @@ pub fn derive_struct_impl(
             // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
             quote!(encoder.encode_explicit_prefix(#tag, &self.0, identifier.or(Self::IDENTIFIER)).map(drop))
         } else {
-            let constraint_name = quote::format_ident!("effective_constraint");
-            let constraint_def = if generics.params.is_empty() {
-                quote! {
-                    let #constraint_name: #crate_root::types::Constraints  = const {<#ty as #crate_root::AsnType>::CONSTRAINTS}.intersect(constraints);
-                }
-            } else {
-                quote! {
-                    let #constraint_name: #crate_root::types::Constraints  = <#ty as #crate_root::AsnType>::CONSTRAINTS.intersect(constraints);
-                }
-            };
+            // NOTE: AsnType trait already implements correct delegate constraints, and those are passed here
+            // We don't need to do double intersection here!
             quote!(
-                #constraint_def
                 match tag {
                     #crate_root::types::Tag::EOC => {
                         self.0.encode_with_identifier(encoder, identifier.or(Self::IDENTIFIER))
@@ -72,7 +63,7 @@ pub fn derive_struct_impl(
                             &self.0,
                             encoder,
                             tag,
-                            #constraint_name,
+                            constraints,
                             identifier.or(Self::IDENTIFIER),
                         )
                     }
