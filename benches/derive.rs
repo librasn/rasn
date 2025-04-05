@@ -1,5 +1,10 @@
 #![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+fn main() {
+    println!("Derive benchmark not supported on this architecture.");
+}
+
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use quote::ToTokens;
 use std::ffi::OsStr;

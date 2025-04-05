@@ -45,9 +45,9 @@ jobs:
         shell: bash
       - run: make ci-test TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: make ci-fmt
+      - run: make fmt
         shell: bash
-      - run: make ci-lint
+      - run: make lint
         if: matrix.channel == 'stable'
         shell: bash
 
@@ -88,9 +88,9 @@ jobs:
       - run: make ci-test CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
         if: matrix.target == 'x86_64-apple-darwin'
         shell: bash
-      - run: make ci-fmt
+      - run: make fmt
         shell: bash
-      - run: make ci-lint CROSS=cargo
+      - run: make lint
         if: matrix.channel == 'stable'
         shell: bash
       - run: make ci-doc
@@ -137,9 +137,9 @@ jobs:
           matrix.target != 'armv5te-unknown-linux-musleabi' &&
           matrix.target != 'sparc64-unknown-linux-gnu'
         shell: bash
-      - run: make ci-fmt
+      - run: make fmt
         shell: bash
-      - run: make ci-lint
+      - run: make lint
         if: matrix.channel == 'stable'
         shell: bash
 

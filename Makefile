@@ -38,19 +38,19 @@ check: fmt lint
 
 lint:
 	@echo "Running clippy..."
-	$(CARGO) clippy $(CLIPPY_FLAGS)
+	$(CROSS) clippy $(CLIPPY_FLAGS)
 
 fmt:
 	@echo "Checking formatting..."
-	$(CARGO) fmt $(FMT_FLAGS)
+	$(CROSS) fmt $(FMT_FLAGS)
 
 build:
 	@echo "Building workspace..."
-	$(CARGO) build $(TARGET_FLAGS)
+	$(CROSS) build $(TARGET_FLAGS)
 
 test:
 	@echo "Running all tests...(excluding doc)"
-	$(CARGO) test $(TARGET_FLAGS)
+	$(CROSS) test $(TARGET_FLAGS)
 
 
 
@@ -58,9 +58,9 @@ test:
 # Requires jq to parse JSON output from cargo metadata.
 doc:
 	@echo "Running documentation tests for each workspace crate..."
-	@for crate in $$( $(CARGO) metadata --no-deps --format-version 1 | jq -r '.packages[].name' ); do \
+	@for crate in $$( $(CROSS) metadata --no-deps --format-version 1 | jq -r '.packages[].name' ); do \
 	  echo "Testing docs for: $$crate"; \
-	  $(CARGO) test --doc -p $$crate; \
+	  $(CROSS) test --doc -p $$crate; \
 	done
 
 all: check build test doc
@@ -72,7 +72,7 @@ all: check build test doc
 #   TARGET_TRIPLE   - the target triple to build/test for
 #   RELEASE_BUILD   - if non-empty, build in release mode
 
-.PHONY: ci-setup ci-build ci-lint ci-fmt ci-doc ci-test ci-all
+.PHONY: ci-setup ci-build ci-doc ci-test ci-all
 
 ci-setup: setup-toolchain
 
@@ -88,16 +88,6 @@ else
 	$(CROSS) doc --no-deps --target $(TARGET_TRIPLE) --release $(TARGET_FLAGS) --target-dir /tmp/rasn-docs
 endif
 
-ci-lint:
-	@echo "Running CI clippy..."
-	$(call require,CROSS)
-	$(CROSS) clippy $(CLIPPY_FLAGS)
-
-ci-fmt:
-	@echo "Running CI formatting check..."
-	$(call require,CROSS)
-	$(CROSS) fmt $(FMT_FLAGS)
-
 ci-doc:
 	@echo "Running CI documentation build..."
 	$(call require,CROSS)
@@ -109,4 +99,4 @@ ci-test:
 	$(call require,TARGET_TRIPLE)
 	$(CROSS) test --target $(TARGET_TRIPLE) $(TARGET_FLAGS)
 
-ci-all: ci-fmt ci-lint ci-build ci-doc ci-test
+ci-all: fmt lint ci-build ci-doc ci-test
