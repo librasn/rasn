@@ -16,6 +16,8 @@ CLIPPY_FLAGS := $(TARGET_FLAGS) -- -D warnings
 
 RUSTFLAGS ?= --deny warnings
 RUSTDOCFLAGS ?= --deny warnings
+export RUSTFLAGS
+export RUSTDOCFLAGS
 
 # === Setup toolchain ==============================================
 # This target is used to set up the Rust toolchain for the specified target triple.
@@ -61,6 +63,7 @@ test:
 # Requires jq to parse JSON output from cargo metadata.
 doc:
 	@echo "Building documentation..."
+	@echo "RUSTDOCFLAGS: $(RUSTDOCFLAGS)"
 	$(CROSS) doc $(DOC_TARGET_FLAGS)
 	@echo "Running documentation tests for each workspace crate..."
 	@for crate in $$( $(CROSS) metadata --no-deps --format-version 1 | jq -r '.packages[].name' ); do \
