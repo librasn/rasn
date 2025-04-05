@@ -655,13 +655,16 @@ macro_rules! impl_bounded_range {
                 /// Returns the intersection of two bounded ranges, if any.
                 /// If the values do not intersect, returns `None`.
                 ///
-                ///              None  Single  Range(s,e)  Range(s,-)  Range(-,e)  Range(-,-)
-                /// None         ✓     ✓       ✓           ✓           ✓           ✓
-                /// Single       ✓     ✓       ✓           ✓           ✓           ✓
-                /// Range(s,e)   ✓     ✓       ✓           ✓           ✓           ✓
-                /// Range(s,-)   ✓     ✓       ✓           ✓           ✓           ✓
-                /// Range(-,e)   ✓     ✓       ✓           ✓           ✓           ✓
-                /// Range(-,-)   ✓     ✓       ✓           ✓           ✓           ✓
+                /// ## Intersection Matrix
+                ///
+                /// | First \ Second | None | Single | Range(s,e) | Range(s,-) | Range(-,e) | Range(-,-) |
+                /// |----------------|------|--------|------------|------------|------------|------------|
+                /// | None           | ✓    | ✓      | ✓          | ✓          | ✓          | ✓          |
+                /// | Single         | ✓    | ✓      | ✓          | ✓          | ✓          | ✓          |
+                /// | Range(s,e)     | ✓    | ✓      | ✓          | ✓          | ✓          | ✓          |
+                /// | Range(s,-)     | ✓    | ✓      | ✓          | ✓          | ✓          | ✓          |
+                /// | Range(-,e)     | ✓    | ✓      | ✓          | ✓          | ✓          | ✓          |
+                /// | Range(-,-)     | ✓    | ✓      | ✓          | ✓          | ✓          | ✓          |
                 pub const fn intersect(&self, other: Self) -> Option<Self> {
                     match self {
                         Self::None => Some(other),
