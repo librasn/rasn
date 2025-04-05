@@ -286,7 +286,7 @@ pub enum TrustAnchorChoice {
     #[rasn(tag(explicit(1)))]
     TbsCertificate(TbsCertificate),
     #[rasn(tag(explicit(2)))]
-    TrustAnchorInfo(TrustAnchorInfo),
+    TrustAnchorInfo(alloc::boxed::Box<TrustAnchorInfo>),
 }
 
 /// The validity period of the certificate.

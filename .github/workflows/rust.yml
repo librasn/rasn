@@ -39,15 +39,15 @@ jobs:
       - uses: actions/checkout@v2
         with:
           depth: 50
-      - run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
+      - run: make setup-toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: ci/build.bash cargo ${{ matrix.target }}
+      - run: make ci-build TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: ci/test.bash cargo ${{ matrix.target }}
+      - run: make ci-test TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: ci/fmt-check.bash cargo
+      - run: make ci-fmt
         shell: bash
-      - run: ci/clippy.bash cargo
+      - run: make ci-lint
         if: matrix.channel == 'stable'
         shell: bash
 
@@ -80,17 +80,20 @@ jobs:
 
       - run: chmod +x /usr/local/bin/cross
 
-      - run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
-      - run: ci/build.bash cross ${{ matrix.target }}
-        # Only test on macOS platforms since we can't simulate the others.
-      - run: ci/test.bash cross ${{ matrix.target }}
-        if: matrix.target == 'x86_64-apple-darwin'
-      - run: ci/fmt-check.bash cargo
+      - run: make setup-toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: ci/clippy.bash cargo
+      - run: make ci-build CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
+        shell: bash
+      # Only test on macOS platforms since we can't simulate the others.
+      - run: make ci-test CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
+        if: matrix.target == 'x86_64-apple-darwin'
+        shell: bash
+      - run: make ci-fmt
+        shell: bash
+      - run: make ci-lint CROSS=cargo
         if: matrix.channel == 'stable'
         shell: bash
-      - run: ci/rustdoc.bash cargo
+      - run: make ci-doc
         if: matrix.channel == 'stable'
         shell: bash
 
@@ -119,21 +122,24 @@ jobs:
           name: cross-linux-musl
           path: /tmp/
       - run: chmod +x /tmp/cross
-      - run: ci/set_rust_version.bash ${{ matrix.channel }} ${{ matrix.target }}
-      - run: ci/build.bash /tmp/cross ${{ matrix.target }}
+      - run: make setup-toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
+        shell: bash
+      - run: make ci-build CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }}
+        shell: bash
         # These targets have issues with being tested so they are disabled
         # by default. You can try disabling to see if they work for
         # your project.
-      - run: ci/test.bash /tmp/cross ${{ matrix.target }}
+      - run: make ci-test CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }}
         if: |
           !contains(matrix.target, 'android') &&
           !contains(matrix.target, 'bsd') &&
           !contains(matrix.target, 'solaris') &&
           matrix.target != 'armv5te-unknown-linux-musleabi' &&
           matrix.target != 'sparc64-unknown-linux-gnu'
-      - run: ci/fmt-check.bash cargo
         shell: bash
-      - run: ci/clippy.bash cargo
+      - run: make ci-fmt
+        shell: bash
+      - run: make ci-lint
         if: matrix.channel == 'stable'
         shell: bash
 
