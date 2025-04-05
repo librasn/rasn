@@ -39,11 +39,11 @@ jobs:
       - uses: actions/checkout@v2
         with:
           depth: 50
-      - run: make setup-toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
+      - run: make toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: make ci-build TARGET_TRIPLE=${{ matrix.target }}
+      - run: make release TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: make ci-test TARGET_TRIPLE=${{ matrix.target }}
+      - run: make test TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
       - run: make fmt
         shell: bash
@@ -80,12 +80,12 @@ jobs:
 
       - run: chmod +x /usr/local/bin/cross
 
-      - run: make setup-toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
+      - run: make toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: make ci-build CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
+      - run: make release CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
       # Only test on macOS platforms since we can't simulate the others.
-      - run: make ci-test CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
+      - run: make test CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
         if: matrix.target == 'x86_64-apple-darwin'
         shell: bash
       - run: make fmt
@@ -122,14 +122,14 @@ jobs:
           name: cross-linux-musl
           path: /tmp/
       - run: chmod +x /tmp/cross
-      - run: make setup-toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
+      - run: make toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
-      - run: make ci-build CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }}
+      - run: make release CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }}
         shell: bash
         # These targets have issues with being tested so they are disabled
         # by default. You can try disabling to see if they work for
         # your project.
-      - run: make ci-test CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }}
+      - run: make test CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }}
         if: |
           !contains(matrix.target, 'android') &&
           !contains(matrix.target, 'bsd') &&
