@@ -20,9 +20,9 @@ RUSTDOCFLAGS ?= --deny warnings
 # === Setup toolchain ==============================================
 # This target is used to set up the Rust toolchain for the specified target triple.
 # In local development, it will update the toolchain and add the target, and missing components.
-.PHONY: setup-toolchain
 
-setup-toolchain:
+.PHONY: toolchain
+toolchain:
 	@echo "Setting up Rust toolchain $(RUST_CHANNEL) for target $(TARGET_TRIPLE)"
 	@if [ "$$GITHUB_JOB" = "windows" ]; then \
 		rustup set auto-self-update disable; \
@@ -33,7 +33,7 @@ setup-toolchain:
 	rustup target add $(TARGET_TRIPLE)
 	rustup component add rustfmt clippy
 
-.PHONY: check lint fmt build test doc all
+.PHONY: check lint fmt build test doc release all
 
 check: fmt lint
 
@@ -73,8 +73,3 @@ release: build
 	$(CROSS) doc $(DOC_TARGET_FLAGS) --target-dir /tmp/rasn-docs
 
 all: check build test doc
-
-
-.PHONY: ci-setup
-
-toolchain: setup-toolchain
