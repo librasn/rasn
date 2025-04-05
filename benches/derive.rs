@@ -1,3 +1,5 @@
+#![cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use quote::ToTokens;
 use std::ffi::OsStr;

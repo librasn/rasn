@@ -73,6 +73,7 @@ test = true
 name = "derive"
 path = "benches/derive.rs"
 harness = false
+test = false
 
 [dependencies]
 bitvec.workspace = true
@@ -84,16 +85,16 @@ nom-bitvec = { package = "bitvec-nom2", version = "0.2.1" }
 num-bigint = { version = "0.4.6", default-features = false }
 num-traits = { version = "0.2.19", default-features = false }
 num-integer = { version = "0.1.46", default-features = false, features = [
-    "i128",
+  "i128",
 ] }
 once_cell = { version = "1.20.2", default-features = false, features = [
-    "race",
-    "alloc",
+  "race",
+  "alloc",
 ] }
 rasn-compiler = { version = "0.7", optional = true }
 rasn-derive = { version = "0.26", path = "macros" }
 snafu = { version = "0.8.5", default-features = false, features = [
-    "rust_1_81",
+  "rust_1_81",
 ] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 xml-no-std = "0.8.19"
@@ -101,8 +102,8 @@ xml-no-std = "0.8.19"
 [dev-dependencies]
 asn1 = "=0.20.0"
 criterion = { version = "0.5.1", default-features = false, features = [
-    "plotters",
-    "cargo_bench_support",
+  "plotters",
+  "cargo_bench_support",
 ] }
 cryptography-x509 = { git = "https://github.com/pyca/cryptography.git", tag = "44.0.2" }
 iai-callgrind = "0.14.0"
@@ -116,7 +117,7 @@ rustls-webpki = "0.102.8"
 x509-cert = "0.2.5"
 x509-certificate = "0.23.1"
 x509-parser = "0.16"
-proc-macro2 = "1.0.86"
-quote = "1.0.37"
+proc-macro2 = "1"
 rasn-derive-impl = { path = "macros/macros_impl" }
-syn = { version = "2.0.87", features = ["full"] }
+quote = "1"
+syn = { version = "2", features = ["full"] }
