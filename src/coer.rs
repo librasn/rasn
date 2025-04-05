@@ -1477,8 +1477,12 @@ mod tests {
         #[derive(Debug, Clone, AsnType, Encode, Decode, PartialEq, Eq, Hash, PartialOrd, Ord)]
         #[rasn(delegate, value("..0"))]
         pub struct Negative<T: AsnType + Encode + Decode>(T);
-        let positive = Negative(0u32);
+        let positive = Negative(Positive(Integer::from(1)));
         let encoded = rasn::coer::encode(&positive);
         assert!(encoded.is_err());
+        // valid negative
+        let negative = Negative(Integer::from(-1));
+        let encoded = rasn::coer::encode(&negative);
+        assert!(encoded.is_ok());
     }
 }
