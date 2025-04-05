@@ -3,6 +3,7 @@ CROSS ?= $(CARGO)
 TARGET_TRIPLE ?= $(shell rustc -Vv | grep host | cut -d' ' -f2)
 RUST_CHANNEL ?= stable
 TARGET_FLAGS := --workspace --all-targets --all-features
+DOC_TARGET_FLAGS := --no-deps --target $(TARGET_TRIPLE) --release --workspace --all-features
 FMT_FLAGS := --all -- --check
 CLIPPY_FLAGS := $(TARGET_FLAGS) -- -D warnings
 RUSTDOCFLAGS ?= --deny warnings
@@ -82,10 +83,10 @@ ci-build:
 	$(call require,TARGET_TRIPLE)
 ifneq ($(RELEASE_BUILD),)
 	$(CROSS) build --target $(TARGET_TRIPLE) $(TARGET_FLAGS) --release
-	$(CROSS) doc --no-deps --target $(TARGET_TRIPLE) --release $(TARGET_FLAGS) --target-dir /tmp/rasn-docs
+	$(CROSS) doc $(DOC_TARGET_FLAGS) --target-dir /tmp/rasn-docs
 else
 	$(CROSS) build --target $(TARGET_TRIPLE) $(TARGET_FLAGS)
-	$(CROSS) doc --no-deps --target $(TARGET_TRIPLE) --release $(TARGET_FLAGS) --target-dir /tmp/rasn-docs
+	$(CROSS) doc $(DOC_TARGET_FLAGS) --target-dir /tmp/rasn-docs
 endif
 
 ci-doc:
