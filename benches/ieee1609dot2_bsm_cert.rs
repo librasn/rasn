@@ -160,6 +160,23 @@ fn oer_enc_dec(c: &mut Criterion) {
         },
     );
 }
+// Ieee1609Dot2Data
+// FROM https://cpoc.jrc.ec.europa.eu/ECTL.html
+fn ectl_list_enc_dec(c: &mut Criterion) {
+    let tlm_data: &[u8] = include_bytes!("../standards/its/tests/data/CE4CF6C19BFED720.oer");
+    let mut buffer = Vec::<u8>::with_capacity(tlm_data.len());
 
-criterion_group!(benches, oer_enc_dec);
+    c.bench_function(
+        "RASN/ decode/encode OER ieee1609dot2 - ECTL - European Certificate Trust List",
+        |b| {
+            b.iter(|| {
+                let decoded = rasn::coer::decode::<Ieee1609Dot2Data>(tlm_data).unwrap();
+                rasn::coer::encode_buf(&decoded, &mut buffer).unwrap();
+                buffer.clear();
+            })
+        },
+    );
+}
+
+criterion_group!(benches, oer_enc_dec, ectl_list_enc_dec);
 criterion_main!(benches);
