@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.2](https://github.com/librasn/rasn/compare/rasn-pkix-v0.26.1...rasn-pkix-v0.26.2) - 2025-04-06
+
+### Fixed
+
+- improve constraint performance and bounded intersection ([#440](https://github.com/librasn/rasn/pull/440))
+
 ## [0.25.0](https://github.com/librasn/rasn/compare/rasn-pkix-v0.24.0...rasn-pkix-v0.25.0) - 2025-03-07
 
 ### Other

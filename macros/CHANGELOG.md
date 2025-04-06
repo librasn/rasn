@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.2](https://github.com/librasn/rasn/compare/rasn-derive-v0.26.1...rasn-derive-v0.26.2) - 2025-04-06
+
+### Added
+
+- support multi-field tuple-structs with delegate if other types are ([#436](https://github.com/librasn/rasn/pull/436))
+
 ## [0.22.2](https://github.com/librasn/rasn/compare/rasn-derive-v0.22.1...rasn-derive-v0.22.2) - 2025-01-05
 
 ### Other
