@@ -1,10 +1,22 @@
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+fn main() {
+    println!("Derive benchmark not supported on this architecture.");
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use quote::ToTokens;
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use std::ffi::OsStr;
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use std::fs;
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use std::path::PathBuf;
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use syn::DeriveInput;
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn recurse_dir(path: &PathBuf, prefix: &PathBuf, files: &mut Vec<(String, Vec<DeriveInput>)>) {
     for file in
         fs::read_dir(path).unwrap_or_else(|_| panic!("Unable to recurse into dir {:?}", path))
@@ -46,6 +58,7 @@ fn recurse_dir(path: &PathBuf, prefix: &PathBuf, files: &mut Vec<(String, Vec<De
     }
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn check_attrs(attrs: &[syn::Attribute]) -> bool {
     for attr in attrs {
         if !attr.path().is_ident("derive") {
@@ -69,6 +82,7 @@ fn check_attrs(attrs: &[syn::Attribute]) -> bool {
     false
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 macro_rules! derive_bench {
     ($bench_name:ident, $name:literal, $fn:ident ) => {
         fn $bench_name(c: &mut Criterion) {
@@ -97,13 +111,19 @@ macro_rules! derive_bench {
     };
 }
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 derive_bench!(derive_asntype, "derive_asntype", asn_type_derive_inner);
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 derive_bench!(derive_decode, "derive_decode", decode_derive_inner);
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 derive_bench!(derive_encode, "derive_encode", encode_derive_inner);
 
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 criterion_group!(
     name = derive;
     config = Criterion::default().sample_size(200);
     targets = derive_encode, derive_decode, derive_asntype
 );
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 criterion_main!(derive);
