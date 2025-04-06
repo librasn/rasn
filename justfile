@@ -12,7 +12,7 @@ TARGET_FLAGS := "--workspace --all-targets --all-features"
 RELEASE_FLAG := if env_var_or_default("RELEASE_BUILD", "") != "" { "--release" } else { "" }
 DOC_TARGET_FLAGS := "--no-deps --target " + TARGET_TRIPLE + " --release --workspace --all-features"
 
-WORKSPACE_CRATES := shell("CROSS metadata --no-deps --format-version=1 | jq -r '.packages[].name' | tr '\n' ' '")
+WORKSPACE_CRATES := shell('$1 metadata --no-deps --format-version=1 | jq -r ".packages[].name" | tr "\n" " "', CROSS)
 
 FMT_FLAGS := "--all -- --check"
 CLIPPY_FLAGS := TARGET_FLAGS + " -- -D warnings"
