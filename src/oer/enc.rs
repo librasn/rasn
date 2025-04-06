@@ -337,7 +337,8 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         // We must swap the first bit to show long form
         // It is always zero by default with u8 type when value being < 128
         length |= 0b_1000_0000;
-        self.output.extend_from_slice(&length.to_be_bytes());
+        self.output.reserve(1 + needed);
+        self.output.push(length);
         self.output.extend_from_slice(&bytes.as_ref()[..needed]);
         Ok(())
     }
@@ -349,7 +350,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         let (bytes, needed) = length.to_unsigned_bytes_be();
         if length < 128 {
             // First bit should be always zero when below 128: ITU-T X.696 8.6.4
-            buffer.extend_from_slice(&bytes.as_ref()[..needed]);
+            buffer.push(length as u8);
             return Ok(());
         }
         let mut length_of_length = u8::try_from(needed).map_err(|err| {
@@ -367,7 +368,8 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         // We must swap the first bit to show long form
         // It is always zero by default with u8 type when value being < 128
         length_of_length |= 0b_1000_0000;
-        buffer.extend_from_slice(&length_of_length.to_be_bytes());
+        buffer.reserve(1 + needed);
+        buffer.push(length_of_length);
         buffer.extend_from_slice(&bytes.as_ref()[..needed]);
         Ok(())
     }
@@ -591,8 +593,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         let mut cursor = self.cursor.extension_bitmap_cursor + self.worker.len();
         self.output[self.cursor.extension_bitmap_cursor..cursor].copy_from_slice(self.worker);
         self.worker.clear();
-        self.output[cursor..=cursor]
-            .copy_from_slice(&self.cursor.extension_missing_bits.to_be_bytes());
+        self.output[cursor] = self.cursor.extension_missing_bits;
         cursor += 1;
         for (i, bit) in self.extension_bitfield.1.iter().enumerate() {
             extension_bitmap_buffer.set(i, *bit);
@@ -647,8 +648,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         value: bool,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.output
-            .extend_from_slice(if value { &[0xffu8] } else { &[0x00u8] });
+        self.output.push(if value { 0xffu8 } else { 0x00u8 });
         self.extend(tag);
         Ok(())
     }
@@ -698,7 +698,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         // If the BitString is empty, length is one and initial octet is zero
         if value.is_empty() {
             Self::encode_length(self.output, 1)?;
-            self.output.extend_from_slice(&[0x00u8]);
+            self.output.push(0x00u8);
         } else {
             // TODO 22.7 X.680, NamedBitString and COER
             // if self.options.encoding_rules.is_coer()
@@ -979,9 +979,9 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         );
         cursor.set_preamble_cursor(encoder.output.len());
         // reserve bytes for preamble
-        for _ in 0..cursor.preamble_width {
-            encoder.output.push(0);
-        }
+        encoder
+            .output
+            .resize(encoder.output.len() + cursor.preamble_width, 0);
 
         encoder.cursor = cursor;
         encoder_scope(&mut encoder)?;
@@ -1100,7 +1100,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         // Encode the value
         let _tag = encode_fn(self)?;
         debug_assert_eq!(_tag, tag);
-        let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
+        let is_root_extension = E::VARIANTS.contains(&tag);
         if is_root_extension {
             // all good, correct data in the buffer already
         } else {

@@ -1234,22 +1234,22 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     ) -> Result<Self::Ok, Self::Error> {
         let mut buffer = BitString::new();
 
-        let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
+        let is_root_extension = E::VARIANTS.contains(&tag);
         self.encode_extensible_bit(&constraints, &mut buffer, || is_root_extension);
-        let variants = crate::types::variants::Variants::from_static(if is_root_extension {
+        let tags = if is_root_extension {
             E::VARIANTS
         } else {
             E::EXTENDED_VARIANTS.unwrap_or(&[])
-        });
+        };
 
-        let index = variants
+        let index = tags
             .iter()
             .enumerate()
             .find_map(|(i, &variant_tag)| (tag == variant_tag).then_some(i))
             .ok_or_else(|| Error::variant_not_in_choice(self.codec()))?;
 
         let bounds = if is_root_extension {
-            let variance = variants.len();
+            let variance = tags.len();
             debug_assert!(variance > 0);
             if variance == 1 {
                 None
