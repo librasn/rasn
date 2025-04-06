@@ -4,8 +4,7 @@
 #   RELEASE_BUILD   - if non-empty, build in release mode
 #   RUST_CHANNEL    - the rust toolchain channel to use (default: stable)
 
-CARGO := require("cargo")
-CROSS := env_var_or_default("CROSS", CARGO)
+CROSS := `which cross 2>/dev/null || which cargo 2>/dev/null`
 RUST_CHANNEL := "stable"
 TARGET_TRIPLE := `rustc -Vv | grep host | cut -d' ' -f2`
 TARGET_FLAGS := "--workspace --all-targets --all-features"
