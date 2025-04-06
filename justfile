@@ -6,8 +6,8 @@
 
 CARGO := require("cargo")
 CROSS := env_var_or_default("CROSS", CARGO)
-RUST_CHANNEL := env_var_or_default("RUST_CHANNEL", "stable")
-TARGET_TRIPLE := env_var_or_default("TARGET_TRIPLE", `rustc -Vv | grep host | cut -d' ' -f2`)
+RUST_CHANNEL := "stable"
+TARGET_TRIPLE := `rustc -Vv | grep host | cut -d' ' -f2`
 TARGET_FLAGS := "--workspace --all-targets --all-features"
 RELEASE_FLAG := if env_var_or_default("RELEASE_BUILD", "") != "" { "--release" } else { "" }
 DOC_TARGET_FLAGS := "--no-deps --target " + TARGET_TRIPLE + " --release --workspace --all-features"

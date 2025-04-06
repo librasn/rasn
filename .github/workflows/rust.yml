@@ -42,11 +42,11 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: just
-      - run: just toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
+      - run: just RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }} toolchain
         shell: bash
-      - run: just release TARGET_TRIPLE=${{ matrix.target }}
+      - run: just TARGET_TRIPLE=${{ matrix.target }} release
         shell: bash
-      - run: just test TARGET_TRIPLE=${{ matrix.target }}
+      - run: just TARGET_TRIPLE=${{ matrix.target }} test
         shell: bash
       - run: just fmt
         shell: bash
@@ -85,12 +85,12 @@ jobs:
 
       - run: chmod +x /usr/local/bin/cross
 
-      - run: just toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
+      - run: just RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }} toolchain
         shell: bash
-      - run: just release CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
+      - run: just CROSS=cross TARGET_TRIPLE=${{ matrix.target }} release
         shell: bash
       # Only test on macOS platforms since we can't simulate the others.
-      - run: just test CROSS=cross TARGET_TRIPLE=${{ matrix.target }}
+      - run: just CROSS=cross TARGET_TRIPLE=${{ matrix.target }} test
         if: matrix.target == 'x86_64-apple-darwin'
         shell: bash
       - run: just fmt
@@ -129,14 +129,14 @@ jobs:
           name: cross-linux-musl
           path: /tmp/
       - run: chmod +x /tmp/cross
-      - run: just toolchain RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }}
+      - run: just RUST_CHANNEL=${{ matrix.channel }} TARGET_TRIPLE=${{ matrix.target }} toolchain
         shell: bash
-      - run: just release CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }}
+      - run: just CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }} release
         shell: bash
         # These targets have issues with being tested so they are disabled
         # by default. You can try disabling to see if they work for
         # your project.
-      - run: just test CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }}
+      - run: just CROSS=/tmp/cross TARGET_TRIPLE=${{ matrix.target }} test
         if: |
           !contains(matrix.target, 'android') &&
           !contains(matrix.target, 'bsd') &&
