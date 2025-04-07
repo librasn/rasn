@@ -1,8 +1,11 @@
-use super::*;
+use super::{
+    constrained, AsnType, Constraints, Decode, Decoder, Encode, Encoder, Identifier,
+    StaticPermittedAlphabet, Tag,
+};
 use alloc::vec::Vec;
 use once_cell::race::OnceBox;
 
-/// A Basic Multilingual Plane (BMP) string, which is a subtype of [`UniversalString`]
+/// A Basic Multilingual Plane (BMP) string, which is a subtype of [`super::UniversalString`]
 /// containing only the BMP set of characters.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BmpString(pub(super) Vec<u16>);
@@ -34,7 +37,7 @@ impl StaticPermittedAlphabet for BmpString {
         self.0.push(ch as u16);
     }
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
-        self.0.iter().map(|&byte| byte as u32)
+        self.0.iter().map(|&byte| u32::from(byte))
     }
 
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {

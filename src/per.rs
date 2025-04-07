@@ -32,12 +32,12 @@ pub(crate) fn decode_with_remainder<T: crate::Decode>(
     input: &[u8],
 ) -> Result<(T, &[u8]), crate::error::DecodeError> {
     let decoder = &mut Decoder::<0, 0>::new(crate::types::BitStr::from_slice(input), options);
-    let decoded = T::decode(decoder)?;
+    let decoded_instance = T::decode(decoder)?;
     let remaining_bits = decoder.input().len();
     // Consider only whole bytes, ignore padding bits
     let remaining_size = remaining_bits / 8;
     debug_assert!(input.len() >= remaining_size);
-    Ok((decoded, &input[input.len() - remaining_size..]))
+    Ok((decoded_instance, &input[input.len() - remaining_size..]))
 }
 
 /// Attempts to encode `value` to PER.

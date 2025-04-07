@@ -26,7 +26,7 @@ impl Identifier {
     pub const ENUMERATED: Self = Self(Some("ENUMERATED"));
     /// Identifier for the built-in External type
     pub const EXTERNAL: Self = Self(Some("SEQUENCE"));
-    /// Identifier for the built-in Instance_Of type
+    /// Identifier for the built-in `Instance_Of` type
     pub const INSTANCE_OF: Self = Self(Some("SEQUENCE"));
     /// Identifier for the built-in Integer type
     pub const INTEGER: Self = Self(Some("INTEGER"));
@@ -34,7 +34,7 @@ impl Identifier {
     pub const IRI: Self = Self(Some("OID_IRI"));
     /// Identifier for the built-in Null type
     pub const NULL: Self = Self(Some("NULL"));
-    /// Identifier for the built-in Object_Identifier type
+    /// Identifier for the built-in `Object_Identifier` type
     pub const OBJECT_IDENTIFIER: Self = Self(Some("OBJECT_IDENTIFIER"));
     /// Identifier for the built-in Octet String type
     pub const OCTET_STRING: Self = Self(Some("OCTET_STRING"));
@@ -82,6 +82,7 @@ impl Identifier {
     pub const UTC_TIME: Self = Self(Some("UTCTime"));
 
     /// Returns a reference of `self` if the identifier is not empty, or `other` if it is.
+    #[must_use]
     pub fn or(&self, other: Self) -> Self {
         if self.0.is_none() {
             other
@@ -91,6 +92,10 @@ impl Identifier {
     }
 
     /// Returns the undelying string or panics if identifier is empty.
+    ///
+    /// ## Panics
+    /// Panics if the self value equals None.
+    #[must_use]
     pub fn unwrap(&self) -> &'static str {
         self.0.unwrap()
     }

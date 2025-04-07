@@ -63,6 +63,7 @@ impl Default for Encoder {
 
 impl Encoder {
     /// Creates a new XER encoder instance
+    #[must_use]
     pub fn new() -> Self {
         Self {
             writer: xml_no_std::EmitterConfig::new()
@@ -77,6 +78,7 @@ impl Encoder {
     }
 
     /// Returns the encoded XER value as UTF-8 bytes
+    #[must_use]
     pub fn finish(self) -> Vec<u8> {
         self.writer.into_inner().into_bytes()
     }
@@ -280,7 +282,7 @@ impl crate::Encoder<'_> for Encoder {
             self,
             Cow::Borrowed(identifier.or(GeneralString::IDENTIFIER).unwrap()),
             write_string_type,
-            &String::from_utf8(value.deref().to_vec()).map_err(|e| {
+            &String::from_utf8(value.deref().clone()).map_err(|e| {
                 XerEncodeErrorKind::XmlEncodingError {
                     upstream: e.to_string(),
                 }
@@ -642,15 +644,15 @@ impl crate::Encoder<'_> for Encoder {
                 .0
                 .ok_or(XerEncodeErrorKind::MissingIdentifier)?,
         ));
-        if !self.entering_list_item_type {
+        if self.entering_list_item_type {
+            self.set_entering_list_item_type(false);
+            encode_fn(self)?;
+            Ok(())
+        } else {
             self.write_start_element(&xml_tag)?;
             self.entering_choice_value();
             encode_fn(self)?;
             self.write_end_element(&xml_tag)
-        } else {
-            self.set_entering_list_item_type(false);
-            encode_fn(self)?;
-            Ok(())
         }
     }
 
@@ -771,6 +773,7 @@ impl Encoder {
         ))
     }
 
+    #[allow(clippy::unnecessary_wraps)]
     fn write_null(&mut self) -> Result<(), EncodeError> {
         Ok(())
     }
@@ -864,9 +867,7 @@ impl Encoder {
                 xml_no_std::reader::XmlEvent::Characters(characters) => {
                     self.write(XmlEvent::Characters(&characters))?;
                 }
-                xml_no_std::reader::XmlEvent::Whitespace(_) => {
-                    continue;
-                }
+                xml_no_std::reader::XmlEvent::Whitespace(_) => {}
             }
         }
 
