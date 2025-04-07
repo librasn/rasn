@@ -2,7 +2,17 @@
 
 use serde_json::Value;
 
-use crate::{de::Error, error::*, types::*, Decode};
+use crate::{
+    de::Error,
+    error::{DecodeError, JerDecodeErrorKind},
+    types::{
+        variants, Any, BitString, BmpString, Constraints, Constructed, Date, DecodeChoice,
+        Enumerated, GeneralString, GeneralizedTime, GraphicString, Ia5String, NumericString,
+        ObjectIdentifier, Oid, PrintableString, SequenceOf, SetOf, Tag, TeletexString, UtcTime,
+        Utf8String, VisibleString,
+    },
+    Decode,
+};
 
 macro_rules! decode_jer_value {
     ($decoder_fn:expr, $input:expr) => {
@@ -116,13 +126,13 @@ impl crate::Decoder for Decoder {
             padded.pop();
         }
 
-        if bitstring_length != padded.len() {
+        if bitstring_length == padded.len() {
+            Ok(padded)
+        } else {
             Err(DecodeError::custom(
                 alloc::format!("Failed to create BitString from bytes: invalid value length (was: {}, expected: {})", padded.len(), bitstring_length),
                 self.codec(),
             ))
-        } else {
-            Ok(padded)
         }
     }
 
@@ -392,7 +402,7 @@ impl crate::Decoder for Decoder {
         {
             self.stack
                 .push(value_map.remove(field.name).unwrap_or(Value::Null));
-            fields.push((decode_fn)(self, index + SET::FIELDS.len(), field.tag)?)
+            fields.push((decode_fn)(self, index + SET::FIELDS.len(), field.tag)?);
         }
 
         (field_fn)(fields)

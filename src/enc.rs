@@ -371,10 +371,10 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         value: &E,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        if value != &E::default() {
-            self.encode_some(value, identifier)
-        } else {
+        if value == &E::default() {
             self.encode_none::<E>(identifier)
+        } else {
+            self.encode_some(value, identifier)
         }
     }
 
@@ -385,10 +385,10 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         value: &E,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        if value != &E::default() {
-            self.encode_some_with_tag(tag, value, identifier)
-        } else {
+        if value == &E::default() {
             self.encode_none_with_tag(tag, identifier)
+        } else {
+            self.encode_some_with_tag(tag, value, identifier)
         }
     }
 

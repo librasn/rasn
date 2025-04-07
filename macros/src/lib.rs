@@ -2,7 +2,7 @@ use syn::{parse_macro_input, DeriveInput};
 
 /// Helper function print out the derive.
 fn __print_stream(stream: proc_macro2::TokenStream) -> proc_macro::TokenStream {
-    println!("{}", stream);
+    println!("{stream}");
     stream.into()
 }
 
