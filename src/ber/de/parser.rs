@@ -10,11 +10,11 @@ use crate::{
 };
 
 #[allow(clippy::type_complexity)]
-pub(crate) fn parse_value<'input>(
-    config: &DecoderOptions,
-    input: &'input [u8],
+pub(crate) fn parse_value(
+    config: DecoderOptions,
+    input: &[u8],
     tag: Option<Tag>,
-) -> super::Result<(&'input [u8], (Identifier, Option<&'input [u8]>))> {
+) -> super::Result<(&[u8], (Identifier, Option<&[u8]>))> {
     let (input, identifier) = parse_identifier_octet(input).map_err(|e| match e {
         ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, config.current_codec()),
         ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, config.current_codec()),
@@ -30,8 +30,8 @@ pub(crate) fn parse_value<'input>(
     Ok((input, (identifier, contents)))
 }
 
-pub(crate) fn parse_encoded_value<'config, 'input, RV>(
-    config: &'config DecoderOptions,
+pub(crate) fn parse_encoded_value<'input, RV>(
+    config: DecoderOptions,
     slice: &'input [u8],
     tag: Tag,
     primitive_callback: fn(&'input [u8], crate::Codec) -> super::Result<RV>,
@@ -132,7 +132,7 @@ pub fn parse_base128_number(input: &[u8]) -> Result<(&[u8], u32), ParseNumberErr
     let (input, end) = nom::bytes::streaming::take(1usize)(input)?;
 
     let mut number = 0u32;
-    for byte in body.iter() {
+    for byte in body {
         number = match number.checked_shl(7) {
             Some(n) => n,
             None => return Err(ParseNumberError::Overflow),
@@ -154,16 +154,16 @@ fn parse_initial_octet(input: &[u8]) -> IResult<&[u8], Identifier> {
     let class_bits = (initial_octet & 0xC0) >> 6;
     let class = Class::from_u8(class_bits);
     let constructed = (initial_octet & 0x20) != 0;
-    let tag = (initial_octet & 0x1f) as u32;
+    let tag = u32::from(initial_octet & 0x1f);
 
     Ok((input, Identifier::new(class, constructed, tag)))
 }
 
-pub(crate) fn parse_contents<'input>(
-    config: &DecoderOptions,
+pub(crate) fn parse_contents(
+    config: DecoderOptions,
     identifier: Identifier,
-    input: &'input [u8],
-) -> IResult<&'input [u8], Option<&'input [u8]>> {
+    input: &[u8],
+) -> IResult<&[u8], Option<&[u8]>> {
     let (input, length) = nom::bytes::streaming::take(1usize)(input)?;
     let length = length[0];
     if length == 0x80 {
@@ -218,7 +218,7 @@ fn concat_number(body: &[u8], start: u8) -> Result<u32, ParseNumberError<&[u8]>>
 
     let mut number = u32::from(body[0] & 0x7F);
 
-    for byte in body[1..].iter() {
+    for byte in &body[1..] {
         number = match number.checked_shl(7) {
             Some(n) => n,
             None => return Err(ParseNumberError::Overflow),
@@ -281,7 +281,7 @@ mod tests {
     #[test]
     fn value_long_length_form() {
         let (_, (_, contents)) = parse_value(
-            &BER_OPTIONS,
+            BER_OPTIONS,
             [0x1, 0x81, 0x2, 0xF0, 0xF0][..].into(),
             Tag::BOOL.into(),
         )
@@ -297,7 +297,7 @@ mod tests {
         let mut value = alloc::vec![0x1, 0x82, 0x1, 0x0];
         value.extend_from_slice(&full_buffer);
 
-        let (_, (_, contents)) = parse_value(&BER_OPTIONS, &value, Tag::BOOL.into()).unwrap();
+        let (_, (_, contents)) = parse_value(BER_OPTIONS, &value, Tag::BOOL.into()).unwrap();
 
         assert_eq!(contents.unwrap(), &full_buffer[..]);
     }
@@ -305,8 +305,8 @@ mod tests {
     #[test]
     fn value_indefinite_length_form() {
         let bytes = [0x30, 0x80, 0xf0, 0xf0, 0xf0, 0xf0, 0, 0][..].into();
-        assert!(parse_value(&BER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_ok());
-        assert!(parse_value(&DER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_err());
-        assert!(parse_value(&CER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_ok());
+        assert!(parse_value(BER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_ok());
+        assert!(parse_value(DER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_err());
+        assert!(parse_value(CER_OPTIONS, bytes, Tag::SEQUENCE.into()).is_ok());
     }
 }

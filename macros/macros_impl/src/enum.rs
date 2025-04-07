@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use syn::LitStr;
 
-use crate::config::*;
+use crate::config::{Config, Constraint, Constraints, Value, VariantConfig};
 
 pub struct Enum<'a> {
     pub name: &'a syn::Ident,
@@ -43,7 +43,7 @@ impl Enum<'_> {
         let field_tags = if self.config.choice {
             variant_configs
                 .iter()
-                .map(|config| config.tag_tree())
+                .map(super::config::VariantConfig::tag_tree)
                 .collect::<Result<Vec<_>, _>>()?
         } else {
             Vec::new()
@@ -518,7 +518,7 @@ impl Enum<'_> {
                 .iter()
                 .cloned()
                 .map(|mut variant| {
-                    for field in variant.fields.iter_mut() {
+                    for field in &mut variant.fields {
                         field.ty = syn::Type::Reference(syn::TypeReference {
                             and_token: <_>::default(),
                             lifetime: encode_lifetime.clone().into(),

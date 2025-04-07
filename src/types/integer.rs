@@ -5,7 +5,7 @@ use num_bigint::{BigInt, BigUint, ToBigInt};
 use num_traits::{identities::Zero, Signed, ToBytes, ToPrimitive};
 use num_traits::{CheckedAdd, CheckedSub};
 
-/// A dynamically sized integer type. This type is similar to [num_bigint::BigInt]
+/// A dynamically sized integer type. This type is similar to [`num_bigint::BigInt`]
 /// in that it allows for integers of arbitary size making it ideal for handling
 /// ASN.1 `INTEGER` types, in addition this type includes small integer
 /// optimisations accounting for the fact  integers decoded in ASN.1 don't
@@ -77,7 +77,7 @@ impl Eq for IntegerKind {}
 
 impl Hash for Integer {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
+        self.0.hash(state);
     }
 }
 
@@ -222,6 +222,7 @@ impl ToPrimitive for Integer {
     }
     fn to_u64(&self) -> Option<u64> {
         match &self.0 {
+            #[allow(clippy::cast_sign_loss)] // Primitive is not larger than `isize`
             IntegerKind::Primitive(value) => (*value >= 0).then_some(*value as u64),
             IntegerKind::Variable(value) => value.to_u64(),
         }
@@ -239,6 +240,7 @@ macro_rules! impl_from_integer_as_prim {
         $(
             impl From<$t> for Integer {
                 fn from(value: $t) -> Self {
+                    #[allow(clippy::cast_possible_wrap, clippy::cast_possible_truncation)] // We don't support 16-bit arch
                     Self(IntegerKind::Primitive(value as isize))
                 }
             }

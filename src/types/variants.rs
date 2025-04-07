@@ -12,21 +12,25 @@ pub struct Variants {
 
 impl Variants {
     /// Creates a new set of variants from a given set of tag trees.
+    #[must_use]
     pub fn new(fields: Cow<'static, [TagTree]>) -> Self {
         Self::flatten_tree((*fields).iter())
     }
 
     /// Returns an empty set of variants.
+    #[must_use]
     pub const fn empty() -> Self {
         Self { fields: Vec::new() }
     }
 
     /// Creates a new set of variants from a static set of tag trees.
+    #[must_use]
     pub fn from_static(fields: &'static [TagTree]) -> Self {
         Self::new(Cow::Borrowed(fields))
     }
 
     /// Creates a new set of variants a static set of tag trees.
+    #[must_use]
     pub fn from_slice(fields: &[TagTree]) -> Self {
         Self::flatten_tree(fields.iter())
     }

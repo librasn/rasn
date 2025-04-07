@@ -70,6 +70,7 @@ impl Encoder {
     /// `Vec<u8>` buffer. This allows reuse of an existing buffer instead of
     /// allocating a new encoding buffer each time an [`Encoder`] is created.
     /// The buffer will be cleared before use.
+    #[must_use]
     pub fn new_with_buffer(config: EncoderOptions, mut buffer: Vec<u8>) -> Self {
         buffer.clear();
         Self {
@@ -81,6 +82,7 @@ impl Encoder {
     }
 
     /// Consumes the encoder and returns the output of the encoding.
+    #[must_use]
     pub fn output(self) -> Vec<u8> {
         if self.is_set_encoding {
             self.set_buffer
@@ -180,6 +182,7 @@ impl Encoder {
 
     fn encode_definite_length(&mut self, len: usize) -> ByteOrBytes {
         if len <= 127 {
+            #[allow(clippy::cast_possible_truncation)]
             ByteOrBytes::Single(len as u8)
         } else {
             let mut length = len;
@@ -656,7 +659,7 @@ impl crate::Encoder<'_> for Encoder {
             .map(|val| {
                 let mut sequence_encoder = Self::new(self.config);
                 val.encode(&mut sequence_encoder)
-                    .map(|_| sequence_encoder.output)
+                    .map(|()| sequence_encoder.output)
             })
             .collect::<Result<Vec<Vec<u8>>, _>>()?;
 

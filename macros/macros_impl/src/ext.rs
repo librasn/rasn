@@ -18,7 +18,7 @@ impl GenericsExt for syn::Generics {
     fn add_trait_bounds(&mut self, crate_root: &syn::Path, ident: syn::Ident) {
         for param in self.type_params_mut() {
             if param.colon_token.is_none() {
-                param.colon_token = Some(Default::default());
+                param.colon_token = Some(syn::token::Colon::default());
             }
             param.bounds.push(
                 syn::TraitBound {

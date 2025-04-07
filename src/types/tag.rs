@@ -24,6 +24,7 @@ impl Class {
     ///
     /// # Panics
     /// If `value` is greater than 3.
+    #[must_use]
     pub fn from_u8(value: u8) -> Self {
         match value {
             0 => Class::Universal,
@@ -35,6 +36,7 @@ impl Class {
     }
 
     /// Returns whether the given class is universal.
+    #[must_use]
     pub fn is_universal(self) -> bool {
         self == Class::Universal
     }
@@ -62,6 +64,7 @@ pub struct Tag {
 }
 impl Tag {
     /// Constant implementation for [Ord] for [Tag].
+    #[must_use]
     pub const fn const_cmp(&self, other: &Tag) -> core::cmp::Ordering {
         if (self.class as u8) < (other.class as u8) {
             core::cmp::Ordering::Less
@@ -158,43 +161,51 @@ impl Tag {
     pub const CHOICE: Self = Self::EOC;
 
     /// Create a new tag from `class` and `value`.
+    #[must_use]
     pub const fn new(class: Class, value: u32) -> Self {
         Self { class, value }
     }
 
     /// Create a new `APPLICATION` tag from `value`.
+    #[must_use]
     pub const fn new_application(value: u32) -> Self {
         Self::new(Class::Application, value)
     }
 
     /// Create a new `CONTEXT` tag from `value`.
+    #[must_use]
     pub const fn new_context(value: u32) -> Self {
         Self::new(Class::Context, value)
     }
 
     /// Create a new `PRIVATE` tag from `value`.
+    #[must_use]
     pub const fn new_private(value: u32) -> Self {
         Self::new(Class::Private, value)
     }
 
     /// Set the value of the tag.
+    #[allow(clippy::return_self_not_must_use, clippy::must_use_candidate)]
     pub fn set_value(mut self, value: u32) -> Self {
         self.value = value;
         self
     }
 
     #[doc(hidden)]
+    #[must_use]
     pub const fn const_eq(self, rhs: &Self) -> bool {
         self.class as u8 == rhs.class as u8 && self.value == rhs.value
     }
 
     #[doc(hidden)]
+    #[must_use]
     pub const fn const_less_than(self, rhs: Self) -> bool {
         (self.class as u8) < (rhs.class as u8) && self.value < rhs.value
     }
 
     /// Returns whether `Tag` is defined as `Tag::EOC`, and thus is an invalid
     /// tag and must be CHOICE structure.
+    #[must_use]
     pub const fn is_choice(&self) -> bool {
         self.const_eq(&Tag::CHOICE)
     }
@@ -215,11 +226,13 @@ pub enum TagTree {
 
 impl TagTree {
     /// Returns an empty tree.
+    #[must_use]
     pub const fn empty() -> Self {
         Self::Choice(&[])
     }
 
     /// Returns the tag with the smallest possible value from the tree.
+    #[must_use]
     pub const fn smallest_tag(&self) -> Tag {
         match self {
             Self::Leaf(tag) => *tag,
@@ -242,6 +255,7 @@ impl TagTree {
     }
 
     /// Returns whether a given `TagTree` only contains unique entries.
+    #[must_use]
     pub const fn is_unique(&self) -> bool {
         match self {
             Self::Choice(tree) => Self::is_unique_set(tree),
@@ -318,6 +332,7 @@ impl TagTree {
     }
 
     /// Whether `needle` matches any `Leaf`s in `nodes`.
+    #[must_use]
     pub const fn tag_contains(needle: &Tag, nodes: &[TagTree]) -> bool {
         let mut index = 0;
 

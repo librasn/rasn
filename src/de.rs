@@ -10,6 +10,7 @@ pub use nom::Needed;
 pub use rasn_derive::Decode;
 
 /// A generic ASN.1 decoding iterator. JER and XER are not supported.
+#[must_use]
 pub fn iter<D: Decode>(input: &[u8], codec: crate::codec::Codec) -> Iter<'_, D> {
     Iter::new(input, codec)
 }
@@ -75,6 +76,7 @@ pub struct Iter<'input, D: Decode> {
 
 impl<'input, D: Decode> Iter<'input, D> {
     /// Create a new iterator from a borrowed input slice.
+    #[must_use]
     pub fn new(input: &'input [u8], codec: crate::codec::Codec) -> Self {
         Self {
             buf: IterBuffer::Borrowed(input),

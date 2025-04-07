@@ -38,7 +38,7 @@ pub struct DecoderOptions {
 }
 
 impl DecoderOptions {
-    /// Returns the default decoding rules options for [EncodingRules::Oer].
+    /// Returns the default decoding rules options for [`EncodingRules::Oer`].
     #[must_use]
     pub const fn oer() -> Self {
         Self {
@@ -46,7 +46,7 @@ impl DecoderOptions {
         }
     }
 
-    /// Returns the default decoding rules options for [EncodingRules::Coer].
+    /// Returns the default decoding rules options for [`EncodingRules::Coer`].
     #[must_use]
     pub const fn coer() -> Self {
         Self {
@@ -123,7 +123,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             let mut tag_number = 0u32;
             let mut next_byte = self.parse_one_byte()?;
             // The first octet cannot have last 7 bits set to 0
-            if next_byte & 0b0111_1111 == 0 || next_byte == 0 {
+            if next_byte.trailing_zeros() >= 7 || next_byte == 0 {
                 return Err(OerDecodeErrorKind::invalid_tag_number_on_choice(u32::from(
                     next_byte & 0b1000_0000,
                 )));
@@ -168,7 +168,8 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 .split_at_checked(length as usize)
                 .ok_or_else(|| {
                     DecodeError::parser_fail(
-                        alloc::format!("Unexpected end of data when parsing length by length of length {length} from &[u8]"),
+                        alloc::format!("Unexpected end of data when parsing length by length of length {length} from &[u8]"
+                            ),
                         self.codec(),
                     )
                 })?;
@@ -437,7 +438,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     {
         let is_extensible = D::IS_EXTENSIBLE;
         let preamble_width =
-            D::FIELDS.number_of_optional_and_default_fields() + is_extensible as usize;
+            D::FIELDS.number_of_optional_and_default_fields() + usize::from(is_extensible);
         let bytes = self.extract_data_by_length(preamble_width.div_ceil(8))?;
 
         let mut result = [false; RC];
@@ -451,8 +452,8 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
             if i == 0 && is_extensible {
                 extensible_present = is_set;
-            } else if i - (is_extensible as usize) < RC {
-                result[i - is_extensible as usize] = is_set;
+            } else if i - usize::from(is_extensible) < RC {
+                result[i - usize::from(is_extensible)] = is_set;
             }
         }
 

@@ -9,16 +9,19 @@ pub struct Any {
 
 impl Any {
     /// Creates a new wrapper around the opaque value.
+    #[must_use]
     pub fn new(contents: Vec<u8>) -> Self {
         Self { contents }
     }
 
     /// Provides the raw representation of the value as bytes.
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.contents
     }
 
     /// Converts `Self` into the raw representation of the value.
+    #[must_use]
     pub fn into_bytes(self) -> Vec<u8> {
         self.contents
     }

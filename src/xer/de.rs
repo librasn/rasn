@@ -164,9 +164,8 @@ impl Decoder {
             let next = reader.next().map_err(|e| error!(XmlParser, "{e:?}"))?;
             if next == XmlEvent::EndDocument {
                 break 'read_xml;
-            } else {
-                elements.push_back(next);
             }
+            elements.push_back(next);
         }
         elements.try_into()
     }
@@ -231,7 +230,7 @@ impl Decoder {
         for i in (0..field_names.len()).rev() {
             self.stack.push(reordered.remove(&i).unwrap_or(XerElement {
                 events: alloc::vec![XmlEvent::Characters(OPTIONAL_ITEM_NOT_PRESENT.into())].into(),
-            }))
+            }));
         }
         Ok(())
     }
@@ -273,7 +272,7 @@ impl TryFrom<alloc::collections::VecDeque<XmlEvent>> for Decoder {
                         name,
                         attributes,
                         namespace,
-                    })
+                    });
                 }
                 (None, _) => {
                     continue 'xml_elements;
@@ -293,7 +292,7 @@ impl TryFrom<alloc::collections::VecDeque<XmlEvent>> for Decoder {
                         name,
                         attributes,
                         namespace,
-                    })
+                    });
                 }
                 (Some(t), XmlEvent::EndElement { name }) => {
                     if &name == t && level_of_nested_items != 0 {
@@ -787,7 +786,7 @@ impl crate::Decoder for Decoder {
             .sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
         let mut sequence_decoder = Decoder::try_from(events)?;
         sequence_decoder.sort_by_field_tag_order(&field_indices)?;
-        for (index, field) in field_indices.into_iter() {
+        for (index, field) in field_indices {
             fields.push((decode_fn)(&mut sequence_decoder, index, field.tag)?);
         }
 
@@ -800,7 +799,7 @@ impl crate::Decoder for Decoder {
                 &mut sequence_decoder,
                 index + SET::FIELDS.len(),
                 field.tag,
-            )?)
+            )?);
         }
 
         (field_fn)(fields)

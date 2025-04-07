@@ -17,8 +17,8 @@ pub fn decode_with_remainder<T: crate::Decode>(
     input: &[u8],
 ) -> Result<(T, &[u8]), crate::error::DecodeError> {
     let decoder = &mut de::Decoder::new(input, de::DecoderOptions::der());
-    let decoded = T::decode(decoder)?;
-    Ok((decoded, decoder.remaining()))
+    let decoded_instance = T::decode(decoder)?;
+    Ok((decoded_instance, decoder.remaining()))
 }
 
 /// Attempts to encode `value` to DER.

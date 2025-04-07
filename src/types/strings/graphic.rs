@@ -21,6 +21,7 @@ impl GraphicString {
     }
 
     /// Provides a slice of bytes representing the current value.
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }

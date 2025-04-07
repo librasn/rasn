@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    constrained, AsnType, Constraints, Decode, Decoder, Encode, Encoder, Identifier,
+    PermittedAlphabetError, StaticPermittedAlphabet, Tag,
+};
 
 use alloc::{borrow::ToOwned, vec::Vec};
 use once_cell::race::OnceBox;
@@ -19,6 +22,7 @@ impl Ia5String {
     }
 
     /// Provides a slice of bytes representing the current value.
+    #[must_use]
     pub fn as_iso646_bytes(&self) -> &[u8] {
         &self.0
     }

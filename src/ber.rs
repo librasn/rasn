@@ -23,8 +23,8 @@ pub fn decode_with_remainder<T: crate::Decode>(
     input: &[u8],
 ) -> Result<(T, &[u8]), crate::error::DecodeError> {
     let decoder = &mut de::Decoder::new(input, de::DecoderOptions::ber());
-    let decoded = T::decode(decoder)?;
-    Ok((decoded, decoder.remaining()))
+    let decoded_instance = T::decode(decoder)?;
+    Ok((decoded_instance, decoder.remaining()))
 }
 
 /// Attempts to encode `value` to BER.
@@ -91,10 +91,10 @@ mod tests {
     #[test]
     fn leading_integer_bytes() {
         const DATA: &[u8] = &[0x02, 0x06, 0x00, 0x00, 0x33, 0x44, 0x55, 0x66];
-        assert_eq!(decode::<u32>(DATA).unwrap(), 0x33445566u32);
+        assert_eq!(decode::<u32>(DATA).unwrap(), 0x3344_5566_u32);
 
         const SIGNED_DATA: &[u8] = &[0x02, 0x06, 0xFF, 0xFF, 0x83, 0x44, 0x55, 0x66];
-        assert_eq!(decode::<i32>(SIGNED_DATA).unwrap(), -2092673690);
+        assert_eq!(decode::<i32>(SIGNED_DATA).unwrap(), -2_092_673_690);
     }
 
     #[test]

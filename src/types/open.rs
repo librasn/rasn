@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    AsnType, BitString, GeneralizedTime, InstanceOf, Integer, ObjectIdentifier, OctetString,
+    UniversalString, UtcTime, VisibleString,
+};
 use crate::{Decode, Encode};
 
 /// An "open" type representing any valid ASN.1 type.

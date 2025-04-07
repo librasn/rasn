@@ -1,3 +1,4 @@
+#![allow(clippy::unreadable_literal)]
 use core::ops;
 
 pub(crate) const MAX_OID_FIRST_OCTET: u32 = 2;
@@ -23,6 +24,7 @@ impl Oid {
     ///
     /// let internet = Oid::new(&[1, 3, 6, 1]).unwrap();
     /// ```
+    #[must_use]
     pub const fn new(slice: &[u32]) -> Option<&Self> {
         if is_valid_oid(slice) {
             Some(Self::new_unchecked(slice))
@@ -35,6 +37,7 @@ impl Oid {
     ///
     /// Panics if `vec` is empty or the first
     /// component is greater than 2.
+    #[must_use]
     pub const fn const_new(oid: &'static [u32]) -> &'static Self {
         match Self::new(oid) {
             Some(oid) => oid,
@@ -64,8 +67,9 @@ impl Oid {
     /// # Safety
     /// This allows you to create potentially invalid object identifiers which
     /// may affect encoding validity.
+    #[must_use]
     pub const fn new_unchecked(slice: &[u32]) -> &Self {
-        unsafe { &*(slice as *const [u32] as *const Self) }
+        unsafe { &*(core::ptr::from_ref::<[u32]>(slice) as *const Self) }
     }
 
     /// Creates a new object identifier from `slice`.
@@ -74,7 +78,7 @@ impl Oid {
     /// This allows you to create potentially invalid object identifiers which
     /// may affect encoding validity.
     pub fn new_unchecked_mut(slice: &mut [u32]) -> &mut Self {
-        unsafe { &mut *(slice as *mut [u32] as *mut Self) }
+        unsafe { &mut *(core::ptr::from_mut::<[u32]>(slice) as *mut Self) }
     }
 }
 
@@ -188,6 +192,7 @@ impl ObjectIdentifier {
     /// # Safety
     /// This allows you to create potentially invalid object identifiers which
     /// may affect encoding validity.
+    #[must_use]
     pub const fn new_unchecked(vec: alloc::borrow::Cow<'static, [u32]>) -> Self {
         Self(vec)
     }
