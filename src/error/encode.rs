@@ -261,7 +261,7 @@ impl EncodeError {
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum EncodeErrorKind {
-    /// Error when the BitString does not align with the `u8` byte boundary.
+    /// Error when the `BitString` does not align with the `u8` byte boundary.
     #[snafu(display("Failed to convert BIT STRING unused bits to u8: {err}"))]
     FailedBitStringUnusedBitsToU8 {
         /// Internal integer conversion error
@@ -294,7 +294,7 @@ pub enum EncodeErrorKind {
         /// The custom error message
         msg: alloc::string::String,
     },
-    /// Wraps codec-specific errors as inner [CodecEncodeError].
+    /// Wraps codec-specific errors as inner [`CodecEncodeError`].
     #[snafu(display("Wrapped codec-specific encode error"))]
     CodecSpecific {
         /// Inner codec-specific error
@@ -360,7 +360,7 @@ pub enum BerEncodeErrorKind {
     },
 }
 impl BerEncodeErrorKind {
-    /// Create an error [BerEncodeErrorKind::InvalidObjectIdentifier}.
+    /// Create an error [`BerEncodeErrorKind::InvalidObjectIdentifier`}.
     #[must_use]
     pub fn invalid_object_identifier(oid: alloc::vec::Vec<u32>) -> Self {
         Self::InvalidObjectIdentifier { oid }

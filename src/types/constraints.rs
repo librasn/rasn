@@ -15,7 +15,7 @@ pub trait InnerSubtypeConstraint: Sized {
     /// Usually this means that some field has `OPAQUE` data, and we need to decode it further as a specific type, as defined in the inner subtype constraint.
     /// Manual implementation of this function is required for all types that have inner subtype constraints.
     /// # Arguments
-    /// * `decode_containing_with` - the codec to validate and decode the containing data with - ASN.1 type definiton has `CONTAINING.
+    /// * `decode_containing_with` - the codec to validate and decode the containing data with when ASN.1 type definiton has `CONTAINING`.
     fn validate_and_decode_containing(
         self,
         decode_containing_with: Option<crate::Codec>,
@@ -52,6 +52,7 @@ impl Constraints {
     };
 
     /// Creates a new set of constraints from a given slice.
+    #[must_use]
     pub const fn new(constraints: &[Constraint]) -> Self {
         let mut value: Option<Extensible<Value>> = None;
         let mut size: Option<Extensible<Size>> = None;
@@ -95,11 +96,13 @@ impl Constraints {
     }
 
     /// A const variant of the default function.
+    #[must_use]
     pub const fn default() -> Self {
         Self::NONE
     }
 
     /// Creates an intersection of two constraint sets.
+    #[must_use]
     pub const fn intersect(&self, rhs: Constraints) -> Self {
         let value = match (self.value, rhs.value) {
             (Some(value), Some(rhs_value)) => Some(value.intersect(&rhs_value)),
@@ -130,16 +133,19 @@ impl Constraints {
     }
 
     /// Returns the effective size constraint, if available.
+    #[must_use]
     pub const fn size(&self) -> Option<&Extensible<Size>> {
         self.size.as_ref()
     }
 
     /// Returns the effective permitted alphabet constraint, if available.
+    #[must_use]
     pub const fn permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
         self.permitted_alphabet.as_ref()
     }
 
     /// Returns whether any of the constraints are extensible.
+    #[must_use]
     pub const fn extensible(&self) -> bool {
         if self.extensible {
             return true;
@@ -163,6 +169,7 @@ impl Constraints {
     }
 
     /// Returns the value constraint from the set, if available.
+    #[must_use]
     pub const fn value(&self) -> Option<&Extensible<Value>> {
         self.value.as_ref()
     }
@@ -193,6 +200,7 @@ pub enum ConstraintDiscriminant {
 }
 impl ConstraintDiscriminant {
     /// Constant equality check.
+    #[must_use]
     pub const fn eq(&self, other: &ConstraintDiscriminant) -> bool {
         *self as isize == *other as isize
     }
@@ -200,6 +208,7 @@ impl ConstraintDiscriminant {
 
 impl Constraint {
     /// Returns the discriminant of the value.
+    #[must_use]
     pub const fn kind(&self) -> ConstraintDiscriminant {
         match self {
             Self::Value(_) => ConstraintDiscriminant::Value,
@@ -209,6 +218,7 @@ impl Constraint {
         }
     }
     /// Returns the discriminant as an `isize` integer.
+    #[must_use]
     pub const fn variant_as_isize(&self) -> isize {
         match self {
             Self::Value(_) => 0,
@@ -219,6 +229,7 @@ impl Constraint {
     }
 
     /// Returns the value constraint, if set.
+    #[must_use]
     pub const fn as_value(&self) -> Option<&Extensible<Value>> {
         match self {
             Self::Value(integer) => Some(integer),
@@ -227,6 +238,7 @@ impl Constraint {
     }
 
     /// Returns the permitted alphabet constraint, if set.
+    #[must_use]
     pub const fn as_permitted_alphabet(&self) -> Option<&Extensible<PermittedAlphabet>> {
         match self {
             Self::PermittedAlphabet(alphabet) => Some(alphabet),
@@ -235,6 +247,7 @@ impl Constraint {
     }
 
     /// Returns the size constraint, if set.
+    #[must_use]
     pub const fn to_size(&self) -> Option<&Extensible<Size>> {
         match self {
             Self::Size(size) => Some(size),
@@ -243,6 +256,7 @@ impl Constraint {
     }
 
     /// Returns the value constraint, if set.
+    #[must_use]
     pub const fn to_value(&self) -> Option<&Extensible<Value>> {
         match self {
             Self::Value(integer) => Some(integer),
@@ -251,6 +265,7 @@ impl Constraint {
     }
 
     /// Returns whether the type is extensible.
+    #[must_use]
     pub const fn is_extensible(&self) -> bool {
         match self {
             Self::Value(value) => value.extensible.is_some(),
@@ -296,6 +311,7 @@ impl<T> Extensible<T> {
 
     /// Sets the constraint to be extensible with no constraints on extended
     /// values.
+    #[must_use]
     pub const fn set_extensible(self, extensible: bool) -> Self {
         let extensible = if extensible {
             let empty: &[T] = &[];
@@ -309,6 +325,7 @@ impl<T> Extensible<T> {
 
     /// Sets the constraint to either not be extended or extensible with a set
     /// of constraints.
+    #[must_use]
     pub const fn extensible_with_constraints(mut self, constraints: Option<&'static [T]>) -> Self {
         self.extensible = constraints;
         self
@@ -320,7 +337,7 @@ macro_rules! impl_extensible {
         $(
             impl Extensible<$type> {
                 /// Intersects two extensible constraints.
-                pub const fn intersect(&self, other: &Self) -> Self {
+                #[must_use] pub const fn intersect(&self, other: &Self) -> Self {
                     // All lost in our use case? https://stackoverflow.com/questions/33524834/whats-the-result-set-operation-of-extensible-constraints-in-asn-1
                     // ASN.1 treats serially applied constraints differently from nested extensible constraints?
                     // We currently support only serially applied constraints.
@@ -363,6 +380,7 @@ pub struct Value {
 
 impl Value {
     /// Creates a new value constraint from a given bound.
+    #[must_use]
     pub const fn new(value: Bounded<i128>) -> Self {
         let (signed, range) = value.range_in_bytes();
         Self {
@@ -372,14 +390,17 @@ impl Value {
         }
     }
     /// Gets the sign of the value constraint.
+    #[must_use]
     pub const fn get_sign(&self) -> bool {
         self.signed
     }
     /// Gets the range of the value constraint.
+    #[must_use]
     pub const fn get_range(&self) -> Option<u8> {
         self.range
     }
     /// Intersect between two `Value` constraints
+    #[must_use]
     pub const fn intersect(&self, other: &Self) -> Self {
         let value = match self.value.intersect(other.value) {
             Some(value) => value,
@@ -503,11 +524,13 @@ pub struct PermittedAlphabet(&'static [u32]);
 
 impl PermittedAlphabet {
     /// Creates a new constraint from a given range.
+    #[must_use]
     pub const fn new(range: &'static [u32]) -> Self {
         Self(range)
     }
 
     /// Returns the range of allowed possible values.
+    #[must_use]
     pub const fn as_inner(&self) -> &'static [u32] {
         self.0
     }
@@ -516,6 +539,7 @@ impl PermittedAlphabet {
     /// TODO not currently possible to intersect
     /// because new instance requires a static lifetime,
     /// so we just override for now.
+    #[must_use]
     pub const fn intersect(&self, other: &Self) -> Self {
         Self(other.0)
     }
@@ -794,6 +818,7 @@ const fn min(a: i128, b: i128) -> i128 {
 
 impl Bounded<i128> {
     /// Returns the sign and the range in bytes of the constraint.
+    #[must_use]
     pub const fn range_in_bytes(&self) -> (bool, Option<u8>) {
         match self {
             Self::Single(value) => (*value < 0, Self::octet_size_by_range(*value)),
@@ -895,9 +920,10 @@ impl<T: PartialEq + PartialOrd> Bounded<T> {
     /// Returns whether a given element is contained within a bound, returning
     /// an error if not.
     pub fn contains_or_else<E>(&self, element: &T, error: impl FnOnce() -> E) -> Result<(), E> {
-        match self.contains(element) {
-            true => Ok(()),
-            false => Err((error)()),
+        if self.contains(element) {
+            Ok(())
+        } else {
+            Err((error)())
         }
     }
 }
@@ -928,6 +954,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_bounded_intersections() {
         // None intersections
         let none = Bounded::<i128>::None;

@@ -588,7 +588,7 @@ pub enum DecodeErrorKind {
     #[snafu(display("Decoder doesn't support REAL types"))]
     RealNotSupported,
 
-    /// BitString contains an invalid amount of unused bits.
+    /// `BitString` contains an invalid amount of unused bits.
     #[snafu(display("BitString contains an invalid amount of unused bits: {}", bits))]
     InvalidBitString {
         /// The amount of invalid bits.
@@ -741,12 +741,12 @@ pub enum BerDecodeErrorKind {
 }
 
 impl BerDecodeErrorKind {
-    /// A helper function to create an error [BerDecodeErrorKind::InvalidDate].
+    /// A helper function to create an error [`BerDecodeErrorKind::InvalidDate`].
     #[must_use]
     pub fn invalid_date(msg: alloc::string::String) -> CodecDecodeError {
         CodecDecodeError::Ber(Self::InvalidDate { msg })
     }
-    /// A helper function to create an error [BerDecodeErrorKind::MismatchedTag].
+    /// A helper function to create an error [`BerDecodeErrorKind::MismatchedTag`].
     pub fn assert_tag(expected: Tag, actual: Tag) -> core::result::Result<(), DecodeError> {
         if expected == actual {
             Ok(())
@@ -795,7 +795,7 @@ pub enum JerDecodeErrorKind {
     /// An error when the JSON value is not a valid bit string.
     #[snafu(display("Found invalid byte in bit string. {parse_int_err}"))]
     InvalidJerBitstring {
-        /// The error that occurred when parsing the BitString byte.
+        /// The error that occurred when parsing the `BitString` byte.
         parse_int_err: ParseIntError,
     },
     /// An error when the JSON value is not a valid octet string.
@@ -816,7 +816,8 @@ pub enum JerDecodeErrorKind {
 }
 
 impl JerDecodeErrorKind {
-    /// Helper function to create an error [JerDecodeErrorKind::EndOfInput].
+    /// Helper function to create an error [`JerDecodeErrorKind::EndOfInput`].
+    #[must_use]
     pub fn eoi() -> CodecDecodeError {
         CodecDecodeError::Jer(JerDecodeErrorKind::EndOfInput {})
     }
@@ -929,7 +930,7 @@ pub enum OerDecodeErrorKind {
         /// The amount of invalid bits.
         msg: alloc::string::String,
     },
-    /// An error scenario where the BitString is invalid for some reason.
+    /// An error scenario where the `BitString` is invalid for some reason.
     #[snafu(display("Invalid BitString: {msg}"))]
     InvalidOerBitString {
         /// The amount of invalid bits.
@@ -945,12 +946,12 @@ pub enum OerDecodeErrorKind {
 
 impl OerDecodeErrorKind {
     #[must_use]
-    /// Helper function to create an error [OerDecodeErrorKind::InvalidTagNumberOnChoice].
+    /// Helper function to create an error [`OerDecodeErrorKind::InvalidTagNumberOnChoice`].
     pub fn invalid_tag_number_on_choice(value: u32) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidTagNumberOnChoice { value }).into()
     }
     #[must_use]
-    /// Helper function to create an error [OerDecodeErrorKind::InvalidTagVariantOnChoice].
+    /// Helper function to create an error [`OerDecodeErrorKind::InvalidTagVariantOnChoice`].
     pub fn invalid_tag_variant_on_choice(value: Tag, is_extensible: bool) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidTagVariantOnChoice {
             value,
@@ -959,17 +960,17 @@ impl OerDecodeErrorKind {
         .into()
     }
 
-    /// Helper function to create an error [OerDecodeErrorKind::InvalidExtensionHeader].
+    /// Helper function to create an error [`OerDecodeErrorKind::InvalidExtensionHeader`].
     #[must_use]
     pub fn invalid_extension_header(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidExtensionHeader { msg }).into()
     }
-    /// Helper function to create an error [OerDecodeErrorKind::InvalidOerBitString].
+    /// Helper function to create an error [`OerDecodeErrorKind::InvalidOerBitString`].
     #[must_use]
     pub fn invalid_bit_string(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidOerBitString { msg }).into()
     }
-    /// Helper function to create an error [OerDecodeErrorKind::InvalidPreamble].
+    /// Helper function to create an error [`OerDecodeErrorKind::InvalidPreamble`].
     #[must_use]
     pub fn invalid_preamble(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidPreamble { msg }).into()
