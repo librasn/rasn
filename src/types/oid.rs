@@ -171,6 +171,7 @@ impl ops::DerefMut for Oid {
 /// A global unique identifier that identifies an concept, such as a
 /// organisation, or encoding rules. The "owned" version of [`Oid`].
 #[derive(Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass)]
 pub struct ObjectIdentifier(alloc::borrow::Cow<'static, [u32]>);
 
 impl ObjectIdentifier {
