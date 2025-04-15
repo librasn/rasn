@@ -434,3 +434,40 @@ pub struct ExtendedCertificateInfo {
     pub certificate: Certificate,
     pub attributes: UnauthAttributes,
 }
+
+/** CMSAlgorithmProtection
+
+[RFC 6211](https://www.rfc-editor.org/rfc/rfc6211#section-2):
+
+```text
+   aa-cmsAlgorithmProtection ATTRIBUTE ::= {
+       TYPE CMSAlgorithmProtection
+       IDENTIFIED BY { id-aa-CMSAlgorithmProtection }
+   }
+
+   id-aa-CMSAlgorithmProtection OBJECT IDENTIFIER ::= { iso(1)
+        member-body(2) us(840) rsadsi(113549) pkcs(1) pkcs9(9) 52 }
+
+   CMSAlgorithmProtection ::= SEQUENCE {
+       digestAlgorithm         DigestAlgorithmIdentifier,
+       signatureAlgorithm  [1] SignatureAlgorithmIdentifier OPTIONAL,
+       macAlgorithm        [2] MessageAuthenticationCodeAlgorithm
+                                        OPTIONAL
+   }
+   (WITH COMPONENTS { signatureAlgorithm PRESENT,
+                      macAlgorithm ABSENT } |
+    WITH COMPONENTS { signatureAlgorithm ABSENT,
+                      macAlgorithm PRESENT })
+```
+
+Please note that `signatureAlgorithm` and `macAlgorithm` are mutually exclusive.
+*/
+#[allow(missing_docs)]
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct CmsAlgorithmProtection {
+    pub digest_algorithm: DigestAlgorithmIdentifier,
+    #[rasn(tag(1))]
+    pub signature_algorithm: Option<SignatureAlgorithmIdentifier>,
+    #[rasn(tag(2))]
+    pub mac_algorithm: Option<MessageAuthenticationCodeAlgorithm>,
+}
