@@ -998,6 +998,34 @@ pub struct IssuingDistributionPoint {
     pub only_contains_attribute_certs: bool,
 }
 
+/** PrivateKeyUsagePeriod
+
+This certificate extensions was deprecated in
+[RFC3280 4.2.1.4](https://www.rfc-editor.org/rfc/rfc3280#section-4.2.1.4) but
+this was undone by
+[RFC5280 1](https://www.rfc-editor.org/rfc/rfc5280#section-1).
+
+[RFC 5280 A.2](https://www.rfc-editor.org/rfc/rfc5280#appendix-A.2):
+
+```text
+   -- private key usage period extension OID and syntax
+
+   id-ce-privateKeyUsagePeriod OBJECT IDENTIFIER ::=  { id-ce 16 }
+
+   PrivateKeyUsagePeriod ::= SEQUENCE {
+        notBefore       [0]     GeneralizedTime OPTIONAL,
+        notAfter        [1]     GeneralizedTime OPTIONAL }
+        -- either notBefore or notAfter MUST be present
+```
+*/
+#[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PrivateKeyUsagePeriod {
+    #[rasn(tag(0))]
+    pub not_before: Option<GeneralizedTime>,
+    #[rasn(tag(1))]
+    pub not_after: Option<GeneralizedTime>,
+}
+
 #[cfg(test)]
 mod tests {
     extern crate alloc;
