@@ -1,9 +1,9 @@
 //! [RFC 3161](https://www.rfc-editor.org/rfc/rfc3161) Time Stamp Protocol (TSP).
 
+use crate::ContentInfo;
 use rasn::prelude::*;
 use rasn::types::OctetString;
 use rasn::{AsnType, Decode, Encode};
-use crate::ContentInfo;
 use rasn_pkix::{AlgorithmIdentifier, Extensions, GeneralName};
 
 /// Time-stamp token eContentType of EncapsulatedContentInfo in the SignedData.
