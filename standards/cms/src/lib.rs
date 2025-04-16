@@ -9,7 +9,7 @@ pub mod firmware_wrapper;
 pub mod pkcs7_compat;
 
 use alloc::boxed::Box;
-
+use rasn::error::InnerSubtypeConstraintError;
 use rasn::prelude::*;
 pub use rasn_pkix::{
     AlgorithmIdentifier, Attribute, Certificate, CertificateList, CertificateSerialNumber, Name,
@@ -470,4 +470,45 @@ pub struct CmsAlgorithmProtection {
     pub signature_algorithm: Option<SignatureAlgorithmIdentifier>,
     #[rasn(tag(2))]
     pub mac_algorithm: Option<MessageAuthenticationCodeAlgorithm>,
+}
+
+impl CmsAlgorithmProtection {
+    pub fn with_signature_algorithm(
+        digest_algorithm: DigestAlgorithmIdentifier,
+        signature_algorithm: SignatureAlgorithmIdentifier,
+    ) -> Result<Self, InnerSubtypeConstraintError> {
+        Self {
+            digest_algorithm,
+            signature_algorithm: Some(signature_algorithm),
+            mac_algorithm: None,
+        }
+        .validate_components()
+    }
+
+    pub fn with_mac_algorithm(
+        digest_algorithm: DigestAlgorithmIdentifier,
+        mac_algorithm: MessageAuthenticationCodeAlgorithm,
+    ) -> Result<Self, InnerSubtypeConstraintError> {
+        Self {
+            digest_algorithm,
+            signature_algorithm: None,
+            mac_algorithm: Some(mac_algorithm),
+        }
+        .validate_components()
+    }
+}
+
+impl InnerSubtypeConstraint for CmsAlgorithmProtection {
+    fn validate_and_decode_containing(
+        self,
+        _: Option<rasn::Codec>,
+    ) -> Result<Self, rasn::error::InnerSubtypeConstraintError> {
+        if self.signature_algorithm.is_some() != self.mac_algorithm.is_some() {
+            return Err(InnerSubtypeConstraintError::MissingRequiredComponent {
+                component_path: "CmsAlgorithmProtection",
+                components: &["digest_algorithm", "signature_algorithm", "mac_algorithm"],
+            });
+        }
+        Ok(self)
+    }
 }
