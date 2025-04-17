@@ -7,6 +7,7 @@ pub mod algorithms;
 pub mod authenticode;
 pub mod firmware_wrapper;
 pub mod pkcs7_compat;
+pub mod tsp;
 
 use alloc::boxed::Box;
 use rasn::error::InnerSubtypeConstraintError;
