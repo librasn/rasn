@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.2](https://github.com/librasn/rasn/compare/rasn-cms-v0.26.1...rasn-cms-v0.26.2) - 2025-04-17
+
+### Other
+
+- RFC 3161 Time-Stamp Protocol (TSP) ASN.1 module.  ([#451](https://github.com/librasn/rasn/pull/451))
+- Add CMS signed attribute CMSAlgorithmProtection. ([#449](https://github.com/librasn/rasn/pull/449))
+
 ## [0.21.0](https://github.com/librasn/rasn/compare/rasn-cms-v0.20.2...rasn-cms-v0.21.0) - 2024-11-12
 
 ### Fixed
