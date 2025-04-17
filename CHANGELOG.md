@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.2](https://github.com/librasn/rasn/compare/rasn-v0.26.1...rasn-v0.26.2) - 2025-04-17
+
+### Added
+
+- inner subtype constraint ([#437](https://github.com/librasn/rasn/pull/437))
+- support multi-field tuple-structs with delegate if other types are ([#436](https://github.com/librasn/rasn/pull/436))
+
+### Fixed
+
+- improve constraint performance and bounded intersection ([#440](https://github.com/librasn/rasn/pull/440))
+- remove SetOf hashbrown dependency ([#438](https://github.com/librasn/rasn/pull/438))
+
+### Other
+
+- RFC 3161 Time-Stamp Protocol (TSP) ASN.1 module.  ([#451](https://github.com/librasn/rasn/pull/451))
+- Add CMS signed attribute CMSAlgorithmProtection. ([#449](https://github.com/librasn/rasn/pull/449))
+- Add PrivateKeyUsagePeriod certificate extension. ([#448](https://github.com/librasn/rasn/pull/448))
+- OER origins ([#446](https://github.com/librasn/rasn/pull/446))
+- Replace CI scripts with justfile which can be used locally as well ([#441](https://github.com/librasn/rasn/pull/441))
+
 ## [0.26.1](https://github.com/librasn/rasn/compare/rasn-v0.26.0...rasn-v0.26.1) - 2025-03-27
 
 ### Added
