@@ -12,6 +12,7 @@ use num_traits::{CheckedAdd, CheckedSub};
 /// exceed native platform widths.
 #[derive(Debug, Clone, Ord, PartialOrd)]
 #[allow(missing_docs)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass)]
 pub struct Integer(IntegerKind);
 
 macro_rules! op_or_promote {

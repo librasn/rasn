@@ -1,5 +1,5 @@
 #![doc = include_str!("../README.md")]
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(not(any(test, feature = "pyo3")), no_std)]
 #![warn(missing_docs)]
 
 extern crate alloc;
