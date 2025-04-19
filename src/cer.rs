@@ -15,8 +15,8 @@ pub fn decode_with_remainder<T: crate::Decode>(
     input: &[u8],
 ) -> Result<(T, &[u8]), crate::error::DecodeError> {
     let decoder = &mut crate::ber::de::Decoder::new(input, crate::ber::de::DecoderOptions::cer());
-    let decoded = T::decode(decoder)?;
-    Ok((decoded, decoder.remaining()))
+    let decoded_instance = T::decode(decoder)?;
+    Ok((decoded_instance, decoder.remaining()))
 }
 
 /// Attempts to encode `value` to CER.
