@@ -50,7 +50,6 @@ pub type KeyIdentifier = OctetString;
 pub type SubjectKeyIdentifier = KeyIdentifier;
 pub type PolicyQualifierId = ObjectIdentifier;
 pub type TrustAnchorTitle = Utf8String;
-pub type TrustAnchorInfoVersion = Integer;
 pub type TrustAnchorList = SequenceOf<TrustAnchorChoice>;
 pub type CertPolicyFlags = BitString;
 
@@ -287,6 +286,35 @@ pub enum TrustAnchorChoice {
     TbsCertificate(TbsCertificate),
     #[rasn(tag(explicit(2)))]
     TrustAnchorInfo(alloc::boxed::Box<TrustAnchorInfo>),
+}
+
+/// TrustAnchorInfoVersion identifies the version of TrustAnchorInfo. Future updates
+/// to RFC 5914 may include changes to the TrustAnchorInfo structure,
+/// in which case the version number should be incremented.
+#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[rasn(delegate)]
+pub struct TrustAnchorInfoVersion(u64);
+
+impl TrustAnchorInfoVersion {
+    pub const V1: Self = Self(1);
+
+    /// Returns the raw value of the version. Note that the version is
+    /// one-indexed.
+    pub fn raw_value(self) -> u64 {
+        self.0
+    }
+}
+
+impl Default for TrustAnchorInfoVersion {
+    fn default() -> Self {
+        Self::V1
+    }
+}
+
+impl core::fmt::Display for TrustAnchorInfoVersion {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::write!(f, "{}", self.0)
+    }
 }
 
 /// The validity period of the certificate.
@@ -1098,5 +1126,35 @@ mod tests {
             expected_de,
             rasn::der::decode::<CertificatePolicies>(expected_enc).unwrap()
         );
+    }
+
+    #[test]
+    fn trust_anchor_info_version() {
+        let alg_id = AlgorithmIdentifier {
+            algorithm: ObjectIdentifier::new_unchecked((&[1, 2][..]).into()),
+            parameters: None,
+        };
+
+        let spki = SubjectPublicKeyInfo {
+            algorithm: alg_id,
+            subject_public_key: Default::default(),
+        };
+
+        let tai = TrustAnchorInfo {
+            version: Default::default(),
+            pub_key: spki,
+            key_id: Default::default(),
+            ta_title: None,
+            cert_path: None,
+            exts: None,
+            ta_title_lang_tag: None,
+        };
+
+        let expected_enc = &[0x30, 0x0b, 0x30, 0x07, 0x30, 0x03, 0x06, 0x01, 0x2A, 0x03,
+            0x00, 0x04, 0x00][..];
+        let actual_enc = rasn::der::encode(&tai).unwrap();
+
+        assert_eq!(expected_enc, actual_enc);
+        assert_eq!(TrustAnchorInfoVersion(1), tai.version);
     }
 }
