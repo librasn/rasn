@@ -346,25 +346,20 @@ impl crate::Encoder<'_> for Encoder {
         value: &types::BitStr,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        if value.is_empty() {
-            self.encode_primitive(tag, &[]);
-            Ok(())
-        } else {
-            let bit_length = value.len();
-            let vec = value.to_bitvec();
-            let bytes = vec.as_raw_slice();
-            let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
-                EncodeError::from_kind(
-                    EncodeErrorKind::FailedBitStringUnusedBitsToU8 { err },
-                    self.codec(),
-                )
-            })?;
-            let mut encoded = Vec::with_capacity(bytes.len() + 1);
-            encoded.push(unused_bits);
-            encoded.extend(bytes);
+        let bit_length = value.len();
+        let vec = value.to_bitvec();
+        let bytes = vec.as_raw_slice();
+        let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
+            EncodeError::from_kind(
+                EncodeErrorKind::FailedBitStringUnusedBitsToU8 { err },
+                self.codec(),
+            )
+        })?;
+        let mut encoded = Vec::with_capacity(bytes.len() + 1);
+        encoded.push(unused_bits);
+        encoded.extend(bytes);
 
-            self.encode_string(tag, Tag::BIT_STRING, &encoded)
-        }
+        self.encode_string(tag, Tag::BIT_STRING, &encoded)
     }
 
     fn encode_bool(
@@ -769,6 +764,13 @@ mod tests {
         let primitive_encoded = &[0x03, 0x07, 0x00, 0x0A, 0x3B, 0x5F, 0x29, 0x1C, 0xD0][..];
 
         assert_eq!(primitive_encoded, super::super::encode(&bitstring).unwrap());
+
+        let empty_bitstring = BitString::from_vec(vec![]);
+        let empty_bitstring_encoded = &[0x03, 0x01, 0x00][..];
+        assert_eq!(
+            empty_bitstring_encoded,
+            super::super::encode(&empty_bitstring).unwrap()
+        );
     }
 
     #[test]

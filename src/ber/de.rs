@@ -461,9 +461,10 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(&self.config, self.input, tag, |input, codec| {
-                let Some(unused_bits) = input.first().copied() else {
-                    return Ok(types::BitString::new());
-                };
+                let unused_bits = input
+                    .first()
+                    .copied()
+                    .ok_or(DecodeError::unexpected_empty_input(codec))?;
 
                 match unused_bits {
                     // TODO: https://github.com/myrrlyn/bitvec/issues/72
@@ -928,6 +929,15 @@ mod tests {
 
         assert_eq!(bitstring, primitive_encoded);
         assert_eq!(bitstring, constructed_encoded);
+
+        let empty_bitstring_primitive_encoded: types::BitString =
+            decode(&[0x03, 0x01, 0x00][..]).unwrap();
+        assert_eq!(
+            types::BitString::from_vec(vec![]),
+            empty_bitstring_primitive_encoded
+        );
+
+        assert!(decode::<types::BitString>(&[0x03, 0x00][..]).is_err());
     }
 
     #[test]
