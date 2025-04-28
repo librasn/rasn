@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.3](https://github.com/librasn/rasn/compare/rasn-v0.26.2...rasn-v0.26.3) - 2025-04-27
+
+### Other
+
+- Always emit and accept initial octet for empty BIT STRING ([#458](https://github.com/librasn/rasn/pull/458))
+
 ## [0.26.2](https://github.com/librasn/rasn/compare/rasn-v0.26.1...rasn-v0.26.2) - 2025-04-17
 
 ### Added
