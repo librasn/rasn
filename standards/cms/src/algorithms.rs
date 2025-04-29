@@ -25,6 +25,7 @@ pub const RC2_CBC: &Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_ENCRYPTION_ALGORITHM_RC
 pub const HMAC_SHA1: &Oid =
     Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SECURITY_MECHANISMS_HMAC_SHA1;
 pub const PBKDF2: &Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS5_PBKDF2;
+pub const PBMAC1: &Oid = Oid::ISO_MEMBER_BODY_US_RSADSI_PKCS5_PBMAC1;
 
 pub const AES: &Oid = Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_AES;
 pub const AES128_CBC: &Oid =
@@ -112,4 +113,12 @@ pub fn default_pbkdf2_algorithm() -> AlgorithmIdentifier {
 pub enum Pbkdf2Salt {
     Specified(OctetString),
     OtherSource(AlgorithmIdentifier),
+}
+
+/// Password-Based Message Authentication Code 1 (PBMAC1) parameters defined in
+/// [RFC 8018 A.5](https://www.rfc-editor.org/rfc/rfc8018#appendix-A.5)
+#[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub struct Pbmac1Parameter {
+    pub key_derivation_func: AlgorithmIdentifier,
+    pub message_auth_scheme: AlgorithmIdentifier,
 }
