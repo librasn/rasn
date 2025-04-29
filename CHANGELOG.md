@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.4](https://github.com/librasn/rasn/compare/rasn-v0.26.3...rasn-v0.26.4) - 2025-04-29
+
+### Other
+
+- RFC 8018 PBMAC1 parameters and OID. ([#459](https://github.com/librasn/rasn/pull/459))
+
 ## [0.26.3](https://github.com/librasn/rasn/compare/rasn-v0.26.2...rasn-v0.26.3) - 2025-04-27
 
 ### Other
