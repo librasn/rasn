@@ -122,20 +122,7 @@ pub struct PkiStatusInfo {
        -- notification that a revocation has occurred  }
 ```
 */
-#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[rasn(enumerated)]
-pub enum PkiStatus {
-    /// A TimeStampToken, as requested, is present.
-    Granted = 0,
-    /// A TimeStampToken, with modifications, is present.
-    GrantedWithMods = 1,
-    Rejection = 2,
-    Waiting = 3,
-    /// This message contains a warning that a revocation is imminent.
-    RevocationWarning = 4,
-    /// Notification that a revocation has occurred.
-    RevocationNotification = 5,
-}
+pub type PkiStatus = Integer;
 
 /** Time-stamp response status free text.
 
