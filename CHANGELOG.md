@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.5](https://github.com/librasn/rasn/compare/rasn-v0.26.4...rasn-v0.26.5) - 2025-05-08
+
+### Other
+
+- *(xer)* update xml-no-std ([#462](https://github.com/librasn/rasn/pull/462))
+
 ## [0.26.4](https://github.com/librasn/rasn/compare/rasn-v0.26.3...rasn-v0.26.4) - 2025-04-29
 
 ### Other
