@@ -1,0 +1,14 @@
+[package]
+name = "rasn-its"
+description = "ASN.1 implementations for Intelligent Transport Systems (ITS) V2X communications"
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+repository.workspace = true
+
+[dependencies]
+bon = { version = "3.5", default-features = false }
+rasn = { version = "0.26", path = "../.." }
+
+[dev-dependencies]
+pretty_assertions = "1.4.1"
