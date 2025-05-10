@@ -1,6 +1,12 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(test), no_std)]
 #![warn(missing_docs)]
+#![allow(
+    clippy::missing_errors_doc,
+    clippy::float_cmp,
+    clippy::no_effect_underscore_binding,
+    clippy::items_after_statements
+)]
 
 extern crate alloc;
 
@@ -205,8 +211,8 @@ mod tests {
     fn object_identifier() {
         round_trip(&ObjectIdentifier::new(vec![1, 2]).unwrap());
         round_trip(&ObjectIdentifier::new(vec![1, 2, 840]).unwrap());
-        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap());
-        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113549, 1]).unwrap());
+        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113_549]).unwrap());
+        round_trip(&ObjectIdentifier::new(vec![1, 2, 840, 113_549, 1]).unwrap());
         round_trip(&ObjectIdentifier::new(vec![0, 3, 0, 3]).unwrap());
     }
 

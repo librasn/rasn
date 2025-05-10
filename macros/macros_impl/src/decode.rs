@@ -1,7 +1,7 @@
 use quote::ToTokens;
 use syn::Fields;
 
-use crate::config::*;
+use crate::config::{map_to_inner_type, Config, FieldConfig};
 
 #[allow(clippy::too_many_lines)]
 pub fn derive_struct_impl(
@@ -40,12 +40,7 @@ pub fn derive_struct_impl(
             quote!(Self(<#ty>::decode(decoder)?, #(#phantom_data),*))
         };
 
-        if config
-            .tag
-            .as_ref()
-            .map(|tag| tag.is_explicit())
-            .unwrap_or_default()
-        {
+        if config.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
             quote! {
                 decoder.decode_explicit_prefix::<#ty>(tag).map(#map_quote)
             }
@@ -312,8 +307,7 @@ pub fn map_from_inner_type(
         let name = field
             .ident
             .as_ref()
-            .map(|ident| quote!(#ident))
-            .unwrap_or_else(|| quote!(#i));
+            .map_or_else(|| quote!(#i), |ident| quote!(#ident));
         quote!(#name : inner.#name)
     });
 

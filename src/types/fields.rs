@@ -12,6 +12,7 @@ pub struct Fields<const N: usize> {
 
 impl<const N: usize> Fields<N> {
     /// Creates a set of fields from a static set.
+    #[must_use]
     pub const fn from_static(fields: [Field; N]) -> Self {
         let mut i = 0;
         let (has_required, number_optional_default) = {
@@ -35,42 +36,49 @@ impl<const N: usize> Fields<N> {
     }
 
     /// Returns the number of fields.
+    #[must_use]
     pub const fn len(&self) -> usize {
         self.fields.len()
     }
 
     /// Returns whether the set doesn't contain any fields.
+    #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.fields.is_empty()
     }
 
     /// Returns whether the set contains any fields.
+    #[must_use]
     pub const fn is_not_empty(&self) -> bool {
         !self.is_empty()
     }
     /// Checks if any field is required.
+    #[must_use]
     pub const fn has_required_field(&self) -> bool {
         self.has_required
     }
 
-    /// Returns an iterator over all fields which are [FieldPresence::Optional] or
-    /// [FieldPresence::Default].
+    /// Returns an iterator over all fields which are [`FieldPresence::Optional`] or
+    /// [`FieldPresence::Default`].
     pub fn optional_and_default_fields(&self) -> impl Iterator<Item = Field> + '_ {
         self.iter().filter(Field::is_optional_or_default)
     }
 
-    /// Returns the number of fields which are [FieldPresence::Optional] or
-    /// [FieldPresence::Default].
+    /// Returns the number of fields which are [`FieldPresence::Optional`] or
+    /// [`FieldPresence::Default`].
+    #[must_use]
     pub const fn number_of_optional_and_default_fields(&self) -> usize {
         self.number_optional_default
     }
 
     /// Returns the canonical sorted version of `self`.
+    #[must_use]
     pub const fn canonised(&self) -> Self {
         self.canonical_sort()
     }
 
     /// Sorts the fields by their canonical tag order in constant matter.
+    #[must_use]
     pub const fn canonical_sort(mut self) -> Self {
         let len = self.fields.len();
         let mut i = 0;
@@ -126,7 +134,8 @@ pub struct Field {
 }
 
 impl Field {
-    /// Creates a new field with [FieldPresence::Required] from the given values.
+    /// Creates a new field with [`FieldPresence::Required`] from the given values.
+    #[must_use]
     pub const fn new_required(
         index: usize,
         tag: Tag,
@@ -142,7 +151,8 @@ impl Field {
         }
     }
 
-    /// Creates a new field with [FieldPresence::Required] from `T::AsnType`.
+    /// Creates a new field with [`FieldPresence::Required`] from `T::AsnType`.
+    #[must_use]
     pub const fn new_required_type<T: crate::types::AsnType>(
         index: usize,
         name: &'static str,
@@ -156,7 +166,8 @@ impl Field {
         }
     }
 
-    /// Creates a new field with [FieldPresence::Optional] from the given values.
+    /// Creates a new field with [`FieldPresence::Optional`] from the given values.
+    #[must_use]
     pub const fn new_optional(
         index: usize,
         tag: Tag,
@@ -172,7 +183,8 @@ impl Field {
         }
     }
 
-    /// Creates a new field with [FieldPresence::Optional] from `T::AsnType`.
+    /// Creates a new field with [`FieldPresence::Optional`] from `T::AsnType`.
+    #[must_use]
     pub const fn new_optional_type<T: crate::types::AsnType>(
         index: usize,
         name: &'static str,
@@ -186,7 +198,8 @@ impl Field {
         }
     }
 
-    /// Creates a new field with [FieldPresence::Default] from the given values.
+    /// Creates a new field with [`FieldPresence::Default`] from the given values.
+    #[must_use]
     pub const fn new_default(
         index: usize,
         tag: Tag,
@@ -202,7 +215,8 @@ impl Field {
         }
     }
 
-    /// Creates a new field with [FieldPresence::Default] from `T::AsnType`.
+    /// Creates a new field with [`FieldPresence::Default`] from `T::AsnType`.
+    #[must_use]
     pub const fn new_default_type<T: crate::types::AsnType>(
         index: usize,
         name: &'static str,
@@ -218,12 +232,14 @@ impl Field {
 }
 
 impl Field {
-    /// Returns whether the field is [FieldPresence::Optional] or [FieldPresence::Default].
+    /// Returns whether the field is [`FieldPresence::Optional`] or`FieldPresence::Default`lt].
+    #[must_use]
     pub const fn is_optional_or_default(&self) -> bool {
         self.presence.is_optional_or_default()
     }
 
-    /// Returns whether the field is [FieldPresence::Required].
+    /// Returns whether the field is [`FieldPresence::Required`].
+    #[must_use]
     pub const fn is_not_optional_or_default(&self) -> bool {
         !self.is_optional_or_default()
     }
@@ -244,8 +260,9 @@ pub enum FieldPresence {
 }
 
 impl FieldPresence {
-    /// Returns whether the current values matches [FieldPresence::Optional] or
-    /// [FieldPresence::Default].
+    /// Returns whether the current values matches [`FieldPresence::Optional`] or
+    /// [`FieldPresence::Default`].
+    #[must_use]
     pub const fn is_optional_or_default(&self) -> bool {
         matches!(self, Self::Optional | Self::Default)
     }

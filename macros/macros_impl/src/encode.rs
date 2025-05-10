@@ -1,6 +1,6 @@
 use syn::LitStr;
 
-use crate::config::*;
+use crate::config::{Config, FieldConfig};
 
 pub fn derive_struct_impl(
     name: &syn::Ident,
@@ -85,7 +85,11 @@ pub fn derive_struct_impl(
             }, identifier).map(drop)
         };
 
-        if config.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
+        if config
+            .tag
+            .as_ref()
+            .is_some_and(super::tag::Tag::is_explicit)
+        {
             map_to_inner_type(
                 config.tag.as_ref().unwrap(),
                 name,
@@ -152,6 +156,7 @@ pub fn map_to_inner_type(
                 quote!(#name : &#name_prefixed)
             });
 
+            #[allow(clippy::items_after_statements)]
             fn wrap(
                 fields: impl Iterator<Item = proc_macro2::TokenStream>,
             ) -> proc_macro2::TokenStream {
@@ -171,6 +176,7 @@ pub fn map_to_inner_type(
                 quote!(&self.#i)
             });
 
+            #[allow(clippy::items_after_statements)]
             fn wrap(
                 fields: impl Iterator<Item = proc_macro2::TokenStream>,
             ) -> proc_macro2::TokenStream {
@@ -201,26 +207,24 @@ pub fn map_to_inner_type(
 
 fn fields_as_vars(fields: &syn::Fields) -> impl Iterator<Item = proc_macro2::TokenStream> + '_ {
     fields.iter().enumerate().map(|(i, field)| {
-        let self_name = field
-            .ident
-            .as_ref()
-            .map(|ident| quote!(#ident))
-            .unwrap_or_else(|| {
+        let self_name = field.ident.as_ref().map_or_else(
+            || {
                 let i = syn::Index::from(i);
                 quote!(#i)
-            });
+            },
+            |ident| quote!(#ident),
+        );
 
-        let name = field
-            .ident
-            .as_ref()
-            .map(|ident| {
-                let prefixed = format_ident!("__rasn_field_{}", ident);
-                quote!(#prefixed)
-            })
-            .unwrap_or_else(|| {
+        let name = field.ident.as_ref().map_or_else(
+            || {
                 let ident = format_ident!("i{}", i);
                 quote!(#ident)
-            });
+            },
+            |ident| {
+                let prefixed = format_ident!("__rasn_field_{}", ident);
+                quote!(#prefixed)
+            },
+        );
 
         quote!(#[allow(unused)] let #name = &self.#self_name;)
     })

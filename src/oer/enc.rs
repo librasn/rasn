@@ -30,7 +30,7 @@ pub struct EncoderOptions {
 }
 
 impl EncoderOptions {
-    /// Returns the default encoding rules options for [EncodingRules::Coer].
+    /// Returns the default encoding rules options for [`EncodingRules::Coer`].
     #[must_use]
     pub const fn coer() -> Self {
         Self {
@@ -198,7 +198,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
                 .copied()
                 .collect::<Vec<u8>>()
                 .as_mut(),
-        )
+        );
     }
 
     /// Sets the presence of a `OPTIONAL` or `DEFAULT` field in the bitfield.
@@ -225,12 +225,11 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
             self.extension_bitfield.0 += 1;
         }
     }
-    fn extend(&mut self, tag: Tag) -> Result<(), EncodeError> {
+    fn extend(&mut self, tag: Tag) {
         if self.options.set_encoding {
             // If not using mem::take here, remember to call output.clear() after encoding
             self.set_output.insert(tag, core::mem::take(self.output));
         }
-        Ok(())
     }
     /// Encode a tag as specified in ITU-T X.696 8.7
     ///
@@ -431,7 +430,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         } else {
             self.encode_unconstrained_integer(value_to_enc, true)?;
         }
-        self.extend(tag)?;
+        self.extend(tag);
         Ok(())
     }
 
@@ -463,7 +462,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
                 const PADDED_BYTES_NEG: [u8; 8] = [0xffu8; 8];
                 const PADDED_BYTES_POS: [u8; 8] = [0x00u8; 8];
                 // Branchless selection using array indexing
-                let idx = (signed && value.is_negative()) as usize;
+                let idx = usize::from(signed && value.is_negative());
                 let padded_bytes = [&PADDED_BYTES_POS, &PADDED_BYTES_NEG][idx];
                 self.output
                     .extend_from_slice(&padded_bytes[..octets - needed]);
@@ -550,7 +549,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
             self.root_bitfield
         };
         debug_assert!(C::FIELDS.number_of_optional_and_default_fields() == needed);
-        for (bit, _tag) in option_bitfield[..needed].iter() {
+        for (bit, _tag) in &option_bitfield[..needed] {
             preamble.set(preamble_index, *bit);
             preamble_index += 1;
         }
@@ -559,7 +558,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         if needed > 0 || C::IS_EXTENSIBLE {
             // `.as_raw_slice` seems to be faster than `BitSlice::domain()`
             if RC == 0 && C::IS_EXTENSIBLE {
-                self.output.push((extensions_present as u8) << 7);
+                self.output.push(u8::from(extensions_present) << 7);
             } else {
                 // replace reserved preamble position with correct values, starting from preamble_start index
                 if self.options.set_encoding {
@@ -591,7 +590,7 @@ impl<'buffer, const RCL: usize, const ECL: usize> Encoder<'buffer, RCL, ECL> {
         let mut cursor = self.cursor.extension_bitmap_cursor + self.worker.len();
         self.output[self.cursor.extension_bitmap_cursor..cursor].copy_from_slice(self.worker);
         self.worker.clear();
-        self.output[cursor..cursor + 1]
+        self.output[cursor..=cursor]
             .copy_from_slice(&self.cursor.extension_missing_bits.to_be_bytes());
         cursor += 1;
         for (i, bit) in self.extension_bitfield.1.iter().enumerate() {
@@ -649,7 +648,8 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     ) -> Result<Self::Ok, Self::Error> {
         self.output
             .extend_from_slice(if value { &[0xffu8] } else { &[0x00u8] });
-        self.extend(tag)
+        self.extend(tag);
+        Ok(())
     }
 
     fn encode_bit_string(
@@ -689,7 +689,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
                         self.codec(),
                     ));
                 }
-                self.extend(tag)?;
+                self.extend(tag);
                 return Ok(());
             }
         }
@@ -721,7 +721,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
             self.output
                 .extend_from_slice(bit_string_encoding.as_raw_slice());
         }
-        self.extend(tag)?;
+        self.extend(tag);
         Ok(())
     }
 
@@ -743,7 +743,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
             // Long form but different from regular length determinant encoding
             self.encode_unconstrained_enum_index(number)?;
         }
-        self.extend(tag)?;
+        self.extend(tag);
         Ok(())
     }
 
@@ -757,7 +757,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         let mut octets = enc.object_identifier_as_bytes(value)?;
         Self::encode_length(self.output, octets.len())?;
         self.output.append(&mut octets);
-        self.extend(tag)?;
+        self.extend(tag);
         Ok(())
     }
 
@@ -780,7 +780,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     ) -> Result<Self::Ok, Self::Error> {
         let (bytes, len) = value.to_ieee754_bytes();
         self.output.extend_from_slice(&bytes.as_ref()[..len]);
-        self.extend(tag)?;
+        self.extend(tag);
 
         Ok(())
     }
@@ -803,7 +803,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
             Self::encode_length(self.output, value.len())?;
             self.output.extend_from_slice(value);
         }
-        self.extend(tag)?;
+        self.extend(tag);
         Ok(())
     }
 
@@ -1009,7 +1009,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
                 E::encode(one, &mut encoder)?;
             }
         }
-        self.extend(tag)?;
+        self.extend(tag);
         Ok(())
     }
 
@@ -1110,7 +1110,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
             Self::encode_length(self.output, self.worker.len())?;
             self.output.append(self.worker);
         }
-        self.extend(tag)?;
+        self.extend(tag);
         Ok(())
     }
 
@@ -1211,7 +1211,7 @@ mod tests {
         let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &CONSTRAINT_1, &244);
         assert!(result.is_ok());
         let v = vec![244u8];
-        assert_eq!(encoder.output.to_vec(), v);
+        assert_eq!(encoder.output.clone(), v);
         encoder.output.clear();
         let value = BigInt::from(256);
         let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &CONSTRAINT_1, &value);

@@ -26,7 +26,7 @@ pub(crate) fn octet_string_ascending(a: &Vec<u8>, b: &Vec<u8>) -> Ordering {
     let min_length = b.len().min(a.len());
     for i in 0..min_length {
         match a[i].cmp(&b[i]) {
-            Ordering::Equal => continue,
+            Ordering::Equal => (),
             o => return o,
         }
     }
