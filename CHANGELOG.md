@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.6](https://github.com/librasn/rasn/compare/rasn-v0.26.5...rasn-v0.26.6) - 2025-05-18
+
+### Added
+
+- Add IEEE 1609.2-2022 , ETSI TS 103097 standards ([#389](https://github.com/librasn/rasn/pull/389))
+
 ## [0.26.5](https://github.com/librasn/rasn/compare/rasn-v0.26.4...rasn-v0.26.5) - 2025-05-08
 
 ### Other
