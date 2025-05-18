@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.6](https://github.com/librasn/rasn/compare/rasn-cms-v0.26.5...rasn-cms-v0.26.6) - 2025-05-18
+
+### Other
+
+- Fix invalid mapping of PKIStatus in TSP.  ([#461](https://github.com/librasn/rasn/pull/461))
+
 ## [0.26.4](https://github.com/librasn/rasn/compare/rasn-cms-v0.26.3...rasn-cms-v0.26.4) - 2025-04-29
 
 ### Other
