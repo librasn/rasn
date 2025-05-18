@@ -75,6 +75,12 @@ path = "benches/derive.rs"
 harness = false
 test = false
 
+[[bench]]
+name = "ieee1609dot2cert"
+path = "benches/ieee1609dot2_bsm_cert.rs"
+harness = false
+test = true
+
 [dependencies]
 bitvec.workspace = true
 bytes = { version = "1.7.2", default-features = false }
@@ -110,6 +116,7 @@ iai-callgrind = "0.14.0"
 once_cell = "1.20.2"
 pretty_assertions.workspace = true
 rasn-pkix = { path = "standards/pkix" }
+rasn-its = { path = "standards/its" }
 
 # Assume that we need these dependencies only when benching manually on specific targets
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dev-dependencies]

@@ -86,6 +86,6 @@ pub enum InnerSubtypeConstraintError {
         /// The name of the expected value in CONTAINING constraint.
         expected: &'static str,
         /// Inner decode error
-        err: alloc::string::String,
+        err: crate::error::DecodeError,
     },
 }
