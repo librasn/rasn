@@ -1,6 +1,7 @@
 //! [RFC 3161](https://www.rfc-editor.org/rfc/rfc3161) Time Stamp Protocol (TSP).
 
 use crate::ContentInfo;
+use rasn::error::DecodeError;
 use rasn::prelude::*;
 use rasn::types::OctetString;
 use rasn::{AsnType, Decode, Encode};
@@ -122,7 +123,7 @@ pub struct PkiStatusInfo {
        -- notification that a revocation has occurred  }
 ```
 */
-#[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(AsnType, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(enumerated)]
 pub enum PkiStatus {
     /// A TimeStampToken, as requested, is present.
@@ -135,6 +136,33 @@ pub enum PkiStatus {
     RevocationWarning = 4,
     /// Notification that a revocation has occurred.
     RevocationNotification = 5,
+}
+
+impl Decode for PkiStatus {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        decoder: &mut D,
+        _tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Self, D::Error> {
+        let discriminant = decoder.decode_integer::<isize>(Tag::INTEGER, constraints)?;
+        let pki_status = PkiStatus::from_discriminant(discriminant).ok_or_else(|| {
+            DecodeError::discriminant_value_not_found(discriminant, decoder.codec())
+        })?;
+        Ok(pki_status)
+    }
+}
+
+impl Encode for PkiStatus {
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
+        &self,
+        encoder: &mut E,
+        _tag: Tag,
+        constraints: Constraints,
+        identifier: Identifier,
+    ) -> Result<(), <E as Encoder<'b>>::Error> {
+        encoder.encode_integer(Tag::INTEGER, constraints, &self.discriminant(), identifier)?;
+        Ok(())
+    }
 }
 
 /** Time-stamp response status free text.
