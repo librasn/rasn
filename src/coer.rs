@@ -17,8 +17,8 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
 /// Returns `DecodeError` if `input` is not valid COER encoding specific to the expected type.
 pub fn decode_with_remainder<T: crate::Decode>(input: &[u8]) -> Result<(T, &[u8]), DecodeError> {
     let decoder = &mut Decoder::<0, 0>::new(input, de::DecoderOptions::coer());
-    let decoded = T::decode(decoder)?;
-    Ok((decoded, decoder.remaining()))
+    let decoded_instance = T::decode(decoder)?;
+    Ok((decoded_instance, decoder.remaining()))
 }
 /// Attempts to encode `value` of type `T` to COER.
 ///
@@ -221,7 +221,7 @@ mod tests {
         round_trip!(
             coer,
             D,
-            (u32::MAX as i128).try_into().unwrap(),
+            i128::from(u32::MAX).try_into().unwrap(),
             &[0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff]
         );
         // Use length determinant when upper range above u64 max
@@ -723,7 +723,7 @@ mod tests {
     }
     #[test]
     fn test_utf8_string() {
-        round_trip!(coer, Utf8String, "".into(), &[0x00]);
+        round_trip!(coer, Utf8String, String::new(), &[0x00]);
         round_trip!(coer, Utf8String, "2".into(), &[0x01, 0x32]);
         round_trip!(
             coer,
@@ -954,6 +954,7 @@ mod tests {
         );
     }
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_sequence_with_extensions() {
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(automatic_tags)]
@@ -1407,7 +1408,7 @@ mod tests {
                 is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
                 late: None
             },
-            &[0b10000000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03]
+            &[0b1000_0000, 0x01, 0x01, 0x03, 0x01, 0x02, 0x03]
         );
 
         #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
@@ -1448,8 +1449,21 @@ mod tests {
                 today: OctetString::from_static(&[0x05, 0x06, 0x07])
             },
             &[
-                0b11000000, 0x01, 0x01, 0x03, 0x02, 0x03, 0x04, 0x02, 0x07, 0b10000000, 0x04, 0x03,
-                0x05, 0x06, 0x07
+                0b1100_0000,
+                0x01,
+                0x01,
+                0x03,
+                0x02,
+                0x03,
+                0x04,
+                0x02,
+                0x07,
+                0b1000_0000,
+                0x04,
+                0x03,
+                0x05,
+                0x06,
+                0x07
             ]
         );
     }

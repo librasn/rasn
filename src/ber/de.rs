@@ -67,14 +67,14 @@ impl<'input> Decoder<'input> {
 
     pub(crate) fn parse_value(&mut self, tag: Tag) -> Result<(Identifier, Option<&'input [u8]>)> {
         let (input, (identifier, contents)) =
-            self::parser::parse_value(&self.config, self.input, Some(tag))?;
+            self::parser::parse_value(self.config, self.input, Some(tag))?;
         self.input = input;
         Ok((identifier, contents))
     }
 
     pub(crate) fn parse_primitive_value(&mut self, tag: Tag) -> Result<(Identifier, &'input [u8])> {
         let (input, (identifier, contents)) =
-            self::parser::parse_value(&self.config, self.input, Some(tag))?;
+            self::parser::parse_value(self.config, self.input, Some(tag))?;
         self.input = input;
         match contents {
             Some(contents) => Ok((identifier, contents)),
@@ -322,11 +322,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
     fn decode_any(&mut self) -> Result<types::Any> {
         let (mut input, (identifier, contents)) =
-            self::parser::parse_value(&self.config, self.input, None)?;
+            self::parser::parse_value(self.config, self.input, None)?;
 
         if contents.is_none() {
             let (i, _) = self::parser::parse_encoded_value(
-                &self.config,
+                self.config,
                 self.input,
                 identifier.tag,
                 |input, _| Ok(alloc::vec::Vec::from(input)),
@@ -419,7 +419,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             if let Some(mut contents) = contents {
                 while !contents.is_empty() {
                     let (c, mut vec) = self::parser::parse_encoded_value(
-                        &self.config,
+                        self.config,
                         contents,
                         Tag::OCTET_STRING,
                         |input, _| Ok(alloc::vec::Vec::from(input)),
@@ -431,7 +431,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             } else {
                 while !self.input.starts_with(EOC) {
                     let (c, mut vec) = self::parser::parse_encoded_value(
-                        &self.config,
+                        self.config,
                         self.input,
                         Tag::OCTET_STRING,
                         |input, _| Ok(alloc::vec::Vec::from(input)),
@@ -460,7 +460,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {
         let (input, bs) =
-            self::parser::parse_encoded_value(&self.config, self.input, tag, |input, codec| {
+            self::parser::parse_encoded_value(self.config, self.input, tag, |input, codec| {
                 let unused_bits = input
                     .first()
                     .copied()
