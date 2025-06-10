@@ -44,10 +44,9 @@ pub fn derive_struct_impl(
         .filter_map(|(key, fields)| key.then_some(fields))
         .map(|fields| {
             let error_message = format!(
-                "{}'s fields is not a valid \
+                "{name}'s fields is not a valid \
                         order of ASN.1 tags, ensure that your field's tags and \
                         OPTIONALs are correct.",
-                name
             );
 
             let tag_tree = fields.map(|f| f.tag_tree()).collect::<Vec<_>>();

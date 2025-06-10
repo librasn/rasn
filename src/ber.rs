@@ -362,7 +362,7 @@ mod tests {
         let result = crate::ber::decode::<crate::types::GeneralizedTime>(&data);
         // if err, print error
         if result.is_err() {
-            println!("{:?}", result);
+            println!("{result:?}");
         }
         assert!(result.is_ok());
         let data = [

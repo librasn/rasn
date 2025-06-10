@@ -1391,7 +1391,7 @@ impl StringValue {
                 let path: syn::Path = content.parse()?;
                 (path.span(), path.require_ident()?.to_string())
             } else {
-                return Err(content.error(format!("Unsupported meta item: {:?}", content)));
+                return Err(content.error(format!("Unsupported meta item: {content:?}")));
             };
             if string == "extensible" {
                 extensible = Some(Vec::new());
@@ -1500,7 +1500,7 @@ impl Value {
                 skip_comma(&content);
                 continue;
             } else {
-                return Err(content.error(format!("Value Unsupported meta item: {:?}", content)));
+                return Err(content.error(format!("Value Unsupported meta item: {content:?}")));
             };
 
             if string == "extensible" {

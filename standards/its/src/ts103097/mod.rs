@@ -162,7 +162,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                                 component_path: "EtsiTs103097Data.content.encryptedData.recipients",
                                 component_name: "RecipientInfo",
                                 details:
-                                    alloc::format!("PskRecipInfo, SymmRecipInfo or RekRecipInfo is not allowed, occured in index {}", index),
+                                    alloc::format!("PskRecipInfo, SymmRecipInfo or RekRecipInfo is not allowed, occured in index {index}"),
                             },
                         );
                     }

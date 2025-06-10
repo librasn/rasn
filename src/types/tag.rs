@@ -30,7 +30,7 @@ impl Class {
             1 => Class::Application,
             2 => Class::Context,
             3 => Class::Private,
-            num => panic!("'{}' is not a valid class.", num),
+            num => panic!("'{num}' is not a valid class."),
         }
     }
 

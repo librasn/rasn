@@ -51,6 +51,6 @@ fn it_works() {
     });
 
     let bin = rasn::ber::encode(&data).unwrap();
-    println!("{:?}", bin);
+    println!("{bin:?}");
     assert_eq!(data, rasn::ber::decode(&bin).unwrap());
 }

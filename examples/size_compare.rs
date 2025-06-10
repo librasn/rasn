@@ -9,7 +9,7 @@ fn main() {
     let aper = rasn::aper::encode(&original).unwrap();
 
     let der_len = DER_BYTES.len();
-    println!("Original DER size: {:.2}", der_len);
+    println!("Original DER size: {der_len:.2}");
     println!(
         "BER size: {} ({:.2}%)",
         ber.len(),

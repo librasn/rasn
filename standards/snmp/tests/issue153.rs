@@ -13,7 +13,7 @@ fn test_snmp() {
         let mut s = String::with_capacity(bytes.len() * 2);
         for byte in &bytes {
             use std::fmt::Write;
-            write!(&mut s, "{:02X}", byte).unwrap();
+            write!(&mut s, "{byte:02X}").unwrap();
         }
         s
     });
@@ -23,7 +23,7 @@ fn test_snmp() {
         let mut s = String::with_capacity(bytes2.len() * 2);
         for byte in &bytes2 {
             use std::fmt::Write;
-            write!(&mut s, "{:02X}", byte).unwrap();
+            write!(&mut s, "{byte:02X}").unwrap();
         }
         s
     });

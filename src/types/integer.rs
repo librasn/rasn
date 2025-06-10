@@ -44,8 +44,8 @@ impl Default for Integer {
 impl core::fmt::Display for Integer {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match &self.0 {
-            IntegerKind::Primitive(value) => write!(f, "{}", value),
-            IntegerKind::Variable(value) => write!(f, "{}", value),
+            IntegerKind::Primitive(value) => write!(f, "{value}"),
+            IntegerKind::Variable(value) => write!(f, "{value}"),
         }
     }
 }

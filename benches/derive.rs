@@ -18,11 +18,10 @@ use syn::DeriveInput;
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn recurse_dir(path: &PathBuf, prefix: &PathBuf, files: &mut Vec<(String, Vec<DeriveInput>)>) {
-    for file in
-        fs::read_dir(path).unwrap_or_else(|_| panic!("Unable to recurse into dir {:?}", path))
+    for file in fs::read_dir(path).unwrap_or_else(|_| panic!("Unable to recurse into dir {path:?}"))
     {
         let Ok(file) = file else {
-            panic!("Unable to read dir entry inside {:?}", path);
+            panic!("Unable to read dir entry inside {path:?}");
         };
         if file
             .metadata()

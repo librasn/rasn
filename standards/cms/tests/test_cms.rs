@@ -54,7 +54,7 @@ fn test_authenticode() {
     .unwrap();
 
     let image_data = decode::<SpcPeImageData>(content.data.value.unwrap().as_bytes()).unwrap();
-    println!("{:#?}", image_data);
+    println!("{image_data:#?}");
 
     match image_data.file {
         Some(SpcLink::Moniker(obj)) if obj.class_id == SPC_CLASS_UUID => {}

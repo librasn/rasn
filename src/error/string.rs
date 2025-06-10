@@ -111,14 +111,14 @@ pub enum InvalidRestrictedString {
 impl core::fmt::Display for InvalidRestrictedString {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            InvalidRestrictedString::InvalidBmpString(e) => write!(f, "{}", e),
-            InvalidRestrictedString::InvalidGeneralString(e) => write!(f, "{}", e),
-            InvalidRestrictedString::InvalidGraphicString(e) => write!(f, "{}", e),
-            InvalidRestrictedString::InvalidIA5String(e) => write!(f, "{}", e),
-            InvalidRestrictedString::InvalidNumericString(e) => write!(f, "{}", e),
-            InvalidRestrictedString::InvalidPrintableString(e) => write!(f, "{}", e),
-            InvalidRestrictedString::InvalidVisibleString(e) => write!(f, "{}", e),
-            InvalidRestrictedString::InvalidTeletexString(e) => write!(f, "{}", e),
+            InvalidRestrictedString::InvalidBmpString(e) => write!(f, "{e}"),
+            InvalidRestrictedString::InvalidGeneralString(e) => write!(f, "{e}"),
+            InvalidRestrictedString::InvalidGraphicString(e) => write!(f, "{e}"),
+            InvalidRestrictedString::InvalidIA5String(e) => write!(f, "{e}"),
+            InvalidRestrictedString::InvalidNumericString(e) => write!(f, "{e}"),
+            InvalidRestrictedString::InvalidPrintableString(e) => write!(f, "{e}"),
+            InvalidRestrictedString::InvalidVisibleString(e) => write!(f, "{e}"),
+            InvalidRestrictedString::InvalidTeletexString(e) => write!(f, "{e}"),
         }
     }
 }

@@ -157,7 +157,7 @@ impl rasn::Decode for EtsiOriginatingHeaderInfoExtension {
                         }
                         _ => {
                              Err(rasn::de::Error::custom(
-                                alloc::format!("Unknown extension id: {:?}", id),
+                                alloc::format!("Unknown extension id: {id:?}"),
                                 decoder.codec(),
                             ))
                         }

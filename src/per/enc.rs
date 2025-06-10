@@ -213,14 +213,13 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         buffer: &mut BitString,
         extensible_condition: impl FnOnce() -> bool,
     ) -> bool {
-        constraints
-            .extensible()
-            .then(|| {
-                let is_in_constraints = !(extensible_condition)();
-                buffer.push(is_in_constraints);
-                is_in_constraints
-            })
-            .unwrap_or_default()
+        if constraints.extensible() {
+            let is_in_constraints = !(extensible_condition)();
+            buffer.push(is_in_constraints);
+            is_in_constraints
+        } else {
+            <_>::default()
+        }
     }
 
     fn encode_known_multiplier_string<S: StaticPermittedAlphabet>(

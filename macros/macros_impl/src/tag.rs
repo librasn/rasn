@@ -20,8 +20,7 @@ impl Class {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!(
-                    "Class MUST BE `universal`, `application`, `context`, or `private`. Found: {}",
-                    s
+                    "Class MUST BE `universal`, `application`, `context`, or `private`. Found: {s}",
                 ),
                 ))
             }

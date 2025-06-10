@@ -168,8 +168,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 .split_at_checked(length as usize)
                 .ok_or_else(|| {
                     DecodeError::parser_fail(
-                        alloc::format!("Unexpected end of data when parsing length by length of length {} from &[u8]", length
-                            ),
+                        alloc::format!("Unexpected end of data when parsing length by length of length {length} from &[u8]"),
                         self.codec(),
                     )
                 })?;
