@@ -75,10 +75,10 @@ macro_rules! impl_restricted_core_traits {
         }
     }
 
-    impl TryFrom<bytes::Bytes> for $target {
+    impl TryFrom<OctetString> for $target {
         type Error = PermittedAlphabetError;
 
-        fn try_from(value: bytes::Bytes) -> Result<Self, Self::Error> {
+        fn try_from(value: OctetString) -> Result<Self, Self::Error> {
             Ok(Self(Self::try_from_slice(value.as_ref().as_bytes())?))
         }
     }
