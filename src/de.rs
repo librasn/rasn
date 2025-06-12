@@ -700,9 +700,13 @@ impl Decode for types::OctetString {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder
-            .decode_octet_string::<Vec<u8>>(tag, constraints)
-            .map(Into::into)
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "arc-slice")] {
+                decoder.decode_octet_string(tag, constraints)
+            } else {
+                decoder.decode_octet_string::<Vec<u8>>(tag, constraints).map(From::from)
+            }
+        }
     }
 }
 

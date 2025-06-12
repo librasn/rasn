@@ -5,7 +5,115 @@ use crate::{
 
 use alloc::vec::Vec;
 
-pub use bytes::Bytes as OctetString;
+#[cfg(all(feature = "arc-slice", feature = "bytes"))]
+compile_error!("features `arc-slice` and `bytes` conflict, choose one");
+
+#[cfg(all(not(feature = "arc-slice"), feature = "bytes"))]
+type BytesImpl = bytes::Bytes;
+
+#[cfg(all(feature = "arc-slice", not(feature = "bytes")))]
+type BytesImpl = arc_slice::ArcBytes<arc_slice::layout::ArcLayout<true, true>>;
+
+/// The `OCTET STRING` type.
+///
+/// This type represents a contiguous sequence of bytes. It is the ASN.1
+/// equivalent to `Vec<u8>`. Rasn uses a specialised type to allow for `Vec<T>`
+/// to represent `SEQUENCE OF`, and to provide optimisations specific to bytes.
+///
+/// This type should be considered cheaply clonable.
+///
+/// ```
+/// use rasn::types::OctetString;
+///
+/// let os = OctetString::from(vec![0xDE, 0xAD, 0xBE, 0xEF]);
+///
+/// for byte in &*os {
+///    println!("{byte:0x}");
+/// }
+/// ```
+/// ### Feature Flags
+/// You can enable an alternative container implementation `arc-slice`, this
+/// should provide roughly 7–10% performance increase, but is newer and less
+/// well tested than the default `bytes` implementation.
+#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+pub struct OctetString(BytesImpl);
+
+impl OctetString {
+    /// Creates a new [OctetString] from a static slice.
+    ///
+    /// The returned [OctetString] will point directly to the static slice.
+    /// There is no allocating or copying.
+    pub const fn from_static(value: &'static [u8]) -> Self {
+        Self(BytesImpl::from_static(value))
+    }
+
+    /// Creates a new [OctetString] from a slice by copying it.
+    pub fn from_slice(value: &[u8]) -> Self {
+        Self::from(value)
+    }
+}
+
+impl AsRef<[u8]> for OctetString {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for OctetString {
+    fn from(value: [u8; N]) -> Self {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "arc-slice")] {
+                Self(value.into())
+            } else {
+                Self(bytes::Bytes::copy_from_slice(&value))
+            }
+        }
+    }
+}
+
+impl From<Vec<u8>> for OctetString {
+    fn from(value: Vec<u8>) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<&[u8]> for OctetString {
+    fn from(value: &[u8]) -> Self {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "arc-slice")] {
+                Self(value.into())
+            } else {
+                Self(bytes::Bytes::copy_from_slice(value))
+            }
+        }
+    }
+}
+
+impl core::ops::Deref for OctetString {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialEq<[u8]> for OctetString {
+    fn eq(&self, value: &[u8]) -> bool {
+        self.0 == value
+    }
+}
+
+impl PartialEq<&[u8]> for OctetString {
+    fn eq(&self, value: &&[u8]) -> bool {
+        self.0 == value
+    }
+}
+
+impl PartialEq<Vec<u8>> for OctetString {
+    fn eq(&self, value: &Vec<u8>) -> bool {
+        self.0 == *value
+    }
+}
 
 /// An `OCTET STRING` which has a fixed size range. This type uses const
 /// generics to be able to place the octet string on the stack rather than the

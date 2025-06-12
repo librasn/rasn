@@ -859,7 +859,7 @@ mod tests {
         }
 
         let ext_value = TestSequence {
-            hello: bytes::Bytes::from(vec![1, 2, 3, 4]),
+            hello: vec![1, 2, 3, 4].into(),
             world: 4,
         };
 

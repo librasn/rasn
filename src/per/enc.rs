@@ -1662,22 +1662,22 @@ mod tests {
         // Extensible OCTET STRING with size range constraint
         assert_encode(
             EncoderOptions::unaligned(),
-            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2])),
+            ExtSizeRangeOctetStr(OctetString::from_static(&[1, 2])),
             &[32, 32, 64],
         );
         assert_encode(
             EncoderOptions::aligned(),
-            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2])),
+            ExtSizeRangeOctetStr(OctetString::from_static(&[1, 2])),
             &[32, 1, 2],
         );
         assert_encode(
             EncoderOptions::unaligned(),
-            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2, 3, 4])),
+            ExtSizeRangeOctetStr(OctetString::from_static(&[1, 2, 3, 4])),
             &[130, 0, 129, 1, 130, 0],
         );
         assert_encode(
             EncoderOptions::aligned(),
-            ExtSizeRangeOctetStr(OctetString::copy_from_slice(&[1, 2, 3, 4])),
+            ExtSizeRangeOctetStr(OctetString::from_static(&[1, 2, 3, 4])),
             &[128, 4, 1, 2, 3, 4],
         );
     }

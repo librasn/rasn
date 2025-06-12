@@ -128,7 +128,7 @@ mod tests {
     fn encode_decode_response() {
         let request = crate::v2c::Message {
             version: 1.into(),
-            community: "public".into(),
+            community: "public".as_bytes().into(),
             data: Response(Pdu {
                 request_id: 1414684022,
                 error_status: Pdu::ERROR_STATUS_NO_ERROR,

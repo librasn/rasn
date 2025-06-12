@@ -91,7 +91,7 @@ impl Decode for Ia5String {
     }
 }
 
-impl From<Ia5String> for bytes::Bytes {
+impl From<Ia5String> for crate::types::OctetString {
     fn from(value: Ia5String) -> Self {
         value.0.into()
     }

@@ -374,12 +374,12 @@ fn test_per_encode_octet_string() {
         }
         buf_expected.extend_from_slice(case);
 
-        let bytes = OctetString::copy_from_slice(case);
+        let bytes = OctetString::from_static(case);
         assert_eq!(buf_expected, aper::encode::<OctetString>(&bytes).unwrap());
         assert_eq!(buf_expected, uper::encode::<OctetString>(&bytes).unwrap());
 
-        assert_eq!(*case, aper::decode::<OctetString>(&buf_expected).unwrap());
-        assert_eq!(*case, uper::decode::<OctetString>(&buf_expected).unwrap());
+        assert_eq!(*case, &*aper::decode::<OctetString>(&buf_expected).unwrap());
+        assert_eq!(*case, &*uper::decode::<OctetString>(&buf_expected).unwrap());
     }
 }
 
