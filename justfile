@@ -7,9 +7,10 @@
 CROSS := `which cross 2>/dev/null || which cargo 2>/dev/null`
 RUST_CHANNEL := "stable"
 TARGET_TRIPLE := `rustc -Vv | grep host | cut -d' ' -f2`
-TARGET_FLAGS := "--workspace --all-targets --all-features"
+FEATURE_FLAGS := "--features=f32,f64,bytes,std,backtraces,compiler"
+TARGET_FLAGS := "--workspace --all-targets " + FEATURE_FLAGS
 RELEASE_FLAG := if env_var_or_default("RELEASE_BUILD", "") != "" { "--release" } else { "" }
-DOC_TARGET_FLAGS := "--no-deps --target " + TARGET_TRIPLE + " --release --workspace --all-features"
+DOC_TARGET_FLAGS := "--no-deps --target " + TARGET_TRIPLE + " --release --workspace " + FEATURE_FLAGS
 
 WORKSPACE_CRATES := shell('$1 metadata --no-deps --format-version=1 | jq -r ".packages[].name" | tr "\n" " "', CROSS)
 
