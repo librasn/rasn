@@ -222,7 +222,7 @@ impl ToPrimitive for Integer {
     }
     fn to_u64(&self) -> Option<u64> {
         match &self.0 {
-            IntegerKind::Primitive(value) => value.is_zero().then_some(*value as u64),
+            IntegerKind::Primitive(value) => (*value >= 0).then_some(*value as u64),
             IntegerKind::Variable(value) => value.to_u64(),
         }
     }
@@ -1024,6 +1024,90 @@ macro_rules! test_integer_conversions_and_operations {
                 let one = Integer(IntegerKind::Primitive(1));
                 let result = min - one;
                 assert!(matches!(result, Integer(IntegerKind::Variable(_))));
+            }
+
+            #[test]
+            fn test_primitive_to_i64() {
+                let zero = Integer(IntegerKind::Primitive(0));
+                let positive = Integer(IntegerKind::Primitive(42));
+                let negative = Integer(IntegerKind::Primitive(-42));
+                let max = Integer(IntegerKind::Primitive(isize::MAX));
+                let min = Integer(IntegerKind::Primitive(isize::MIN));
+
+                assert_eq!(zero.to_i64(), Some(0i64));
+                assert_eq!(positive.to_i64(), Some(42i64));
+                assert_eq!(negative.to_i64(), Some(-42i64));
+                assert_eq!(max.to_i64(), Some(isize::MAX as i64));
+                assert_eq!(min.to_i64(), Some(isize::MIN as i64));
+            }
+            #[test]
+            fn test_primitive_to_u64() {
+                let zero = Integer(IntegerKind::Primitive(0));
+                let positive = Integer(IntegerKind::Primitive(42));
+                let negative = Integer(IntegerKind::Primitive(-42));
+                let max = Integer(IntegerKind::Primitive(isize::MAX));
+
+                assert_eq!(zero.to_u64(), Some(0u64));
+                assert_eq!(positive.to_u64(), Some(42u64));
+                assert_eq!(negative.to_u64(), None); // Negative
+                assert_eq!(max.to_u64(), Some(isize::MAX as u64));
+            }
+            #[test]
+            fn test_primitive_to_i128() {
+                let zero = Integer(IntegerKind::Primitive(0));
+                let positive = Integer(IntegerKind::Primitive(42));
+                let negative = Integer(IntegerKind::Primitive(-42));
+                let max = Integer(IntegerKind::Primitive(isize::MAX));
+                let min = Integer(IntegerKind::Primitive(isize::MIN));
+
+                assert_eq!(zero.to_i128(), Some(0i128));
+                assert_eq!(positive.to_i128(), Some(42i128));
+                assert_eq!(negative.to_i128(), Some(-42i128));
+                assert_eq!(max.to_i128(), Some(isize::MAX as i128));
+                assert_eq!(min.to_i128(), Some(isize::MIN as i128));
+            }
+            #[test]
+            fn test_variable_to_i64() {
+                let zero = Integer(IntegerKind::Variable(Box::new(BigInt::from(0))));
+                let positive = Integer(IntegerKind::Variable(Box::new(BigInt::from(100))));
+                let negative = Integer(IntegerKind::Variable(Box::new(BigInt::from(-100))));
+                let large_positive = Integer(IntegerKind::Variable(Box::new(BigInt::from(i64::MAX) + 1)));
+                let large_negative = Integer(IntegerKind::Variable(Box::new(BigInt::from(i64::MIN) - 1)));
+
+                assert_eq!(zero.to_i64(), Some(0i64));
+                assert_eq!(positive.to_i64(), Some(100i64));
+                assert_eq!(negative.to_i64(), Some(-100i64));
+                assert_eq!(large_positive.to_i64(), None); // Too large for i64
+                assert_eq!(large_negative.to_i64(), None); // Too small for i64
+            }
+
+            #[test]
+            fn test_variable_to_u64() {
+                let zero = Integer(IntegerKind::Variable(Box::new(BigInt::from(0))));
+                let positive = Integer(IntegerKind::Variable(Box::new(BigInt::from(100))));
+                let negative = Integer(IntegerKind::Variable(Box::new(BigInt::from(-100))));
+                let large_positive = Integer(IntegerKind::Variable(Box::new(BigInt::from(u64::MAX) + 1)));
+
+                assert_eq!(zero.to_u64(), Some(0u64));
+                assert_eq!(positive.to_u64(), Some(100u64));
+                assert_eq!(negative.to_u64(), None); // Negative BigInt to u64
+                assert_eq!(large_positive.to_u64(), None); // Too large for u64
+            }
+
+            #[test]
+            fn test_variable_to_i128() {
+                let zero = Integer(IntegerKind::Variable(Box::new(BigInt::from(0))));
+                let positive = Integer(IntegerKind::Variable(Box::new(BigInt::from(1000))));
+                let negative = Integer(IntegerKind::Variable(Box::new(BigInt::from(-1000))));
+                let very_large_positive = Integer(IntegerKind::Variable(Box::new(BigInt::from(i128::MAX) + BigInt::from(1))));
+                let very_large_negative = Integer(IntegerKind::Variable(Box::new(BigInt::from(i128::MIN) - BigInt::from(1))));
+
+
+                assert_eq!(zero.to_i128(), Some(0i128));
+                assert_eq!(positive.to_i128(), Some(1000i128));
+                assert_eq!(negative.to_i128(), Some(-1000i128));
+                assert_eq!(very_large_positive.to_i128(), None);
+                assert_eq!(very_large_negative.to_i128(), None);
             }
         }
     };
