@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0](https://github.com/librasn/rasn/compare/rasn-its-v0.26.6...rasn-its-v0.27.0) - 2025-06-14
+
+### Other
+
+- *(ci)* fix clippy lints
+
 ## [0.26.6](https://github.com/librasn/rasn/compare/rasn-its-v0.26.5...rasn-its-v0.26.6) - 2025-05-18
 
 ### Added

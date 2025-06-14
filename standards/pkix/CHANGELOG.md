@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0](https://github.com/librasn/rasn/compare/rasn-pkix-v0.26.6...rasn-pkix-v0.27.0) - 2025-06-14
+
+### Fixed
+
+- [**breaking**] typo in RevokedCertificate ([#473](https://github.com/librasn/rasn/pull/473))
+
 ## [0.26.3](https://github.com/librasn/rasn/compare/rasn-pkix-v0.26.2...rasn-pkix-v0.26.3) - 2025-04-27
 
 ### Other
