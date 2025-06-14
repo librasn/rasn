@@ -102,7 +102,7 @@ impl Decode for VisibleString {
     }
 }
 
-impl From<VisibleString> for bytes::Bytes {
+impl From<VisibleString> for crate::types::OctetString {
     fn from(value: VisibleString) -> Self {
         value.0.into()
     }

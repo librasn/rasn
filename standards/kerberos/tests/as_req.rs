@@ -39,7 +39,7 @@ fn as_req() {
             etype: vec![18, 23, -133, -128, 24, -135],
             addresses: Some(vec![HostAddress {
                 addr_type: 20,
-                address: OctetString::from("CLIENT01        "),
+                address: OctetString::from_slice(b"CLIENT01        "),
             }]),
             enc_authorization_data: None,
             additional_tickets: None,

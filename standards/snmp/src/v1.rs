@@ -171,7 +171,7 @@ mod tests {
 
         let encode_msg = Message {
             version: 0.into(),
-            community: "public".into(),
+            community: "public".as_bytes().into(),
             data: Trap {
                 enterprise: ObjectIdentifier::new_unchecked(
                     vec![1, 3, 6, 1, 4, 1, 11779, 1, 42, 3, 7, 8].into(),
