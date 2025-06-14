@@ -183,7 +183,7 @@ impl core::fmt::Display for Version {
 }
 
 /// Trust anchors are widely used to verify digital signatures and
-/// validate certification paths [RFC 5280][X.509].  
+/// validate certification paths [RFC 5280][X.509].
 ///
 /// They are required when validating certification paths. Though widely used, there is no
 /// standard format for representing trust anchor information.  The RFC-5914
@@ -388,7 +388,7 @@ pub struct TbsCertList {
     /// sooner than `next_update`, but it will not be issued later.
     pub next_update: Option<Time>,
     /// The list of revoked certificates.
-    pub revoked_certificates: SequenceOf<RevokedCerificate>,
+    pub revoked_certificates: SequenceOf<RevokedCertificate>,
     /// Extensions to the list.
     #[rasn(tag(explicit(0)))]
     pub crl_extensions: Option<Extensions>,
@@ -396,7 +396,7 @@ pub struct TbsCertList {
 
 /// Identifies a revoked certificate.
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct RevokedCerificate {
+pub struct RevokedCertificate {
     /// The ID of the certificate being revoked.
     pub user_certificate: CertificateSerialNumber,
     /// When the certificate was revoked.
