@@ -117,8 +117,8 @@ cryptography-x509 = { git = "https://github.com/pyca/cryptography.git", tag = "4
 iai-callgrind = "0.14.0"
 once_cell = "1.20.2"
 pretty_assertions.workspace = true
-rasn-pkix = { path = "standards/pkix" }
-rasn-its = { path = "standards/its" }
+rasn-pkix = { path = "standards/pkix", default-features = false }
+rasn-its = { path = "standards/its", default-features = false }
 
 # Assume that we need these dependencies only when benching manually on specific targets
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dev-dependencies]
