@@ -923,7 +923,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
     fn decode_explicit_prefix<D: Decode>(&mut self, tag: Tag) -> Result<D> {
         // Whether we have a choice here
-        if D::TAG == Tag::EOC {
+        if D::IS_CHOICE {
             D::decode(self)
         } else {
             D::decode_with_tag(self, tag)

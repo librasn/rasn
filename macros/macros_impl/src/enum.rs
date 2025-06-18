@@ -175,6 +175,11 @@ impl Enum<'_> {
             quote!(const IDENTIFIER: #crate_root::types::Identifier = #crate_root::types::Identifier(Some(#name_literal));),
             |id| quote!(const IDENTIFIER: #crate_root::types::Identifier = #crate_root::types::Identifier(Some(#id));),
         );
+        let is_choice = if self.config.choice {
+            quote!(true)
+        } else {
+            quote!(false)
+        };
 
         Ok(quote! {
             impl #impl_generics #crate_root::AsnType for #name #ty_generics #where_clause {
@@ -191,6 +196,8 @@ impl Enum<'_> {
                 };
                 #alt_identifier
                 #constraints_def
+                const IS_CHOICE: bool = #is_choice;
+
             }
 
             #choice_impl

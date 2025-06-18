@@ -1249,4 +1249,36 @@ mod tests {
             &[]
         );
     }
+    #[test]
+    // https://github.com/librasn/rasn/issues/478
+    fn test_explicit_tagged_null_choice() {
+        use crate as rasn;
+        use rasn::prelude::*;
+
+        #[doc = " Inner type "]
+        #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+        #[rasn(choice, tag(explicit(context, 123)))]
+        pub enum FizzBuzz {
+            #[rasn(tag(context, 456))]
+            Foo(()),
+            #[rasn(tag(context, 789))]
+            Bar(()),
+        }
+        #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+        pub struct Fizz {
+            #[rasn(tag(explicit(context, 123)))]
+            pub buzz: FizzBuzz,
+        }
+        let encoded = rasn::uper::encode(&Fizz {
+            buzz: FizzBuzz::Foo(()),
+        })
+        .unwrap();
+        let decoded: Fizz = rasn::uper::decode(&encoded).unwrap();
+        assert_eq!(
+            decoded,
+            Fizz {
+                buzz: FizzBuzz::Foo(())
+            }
+        );
+    }
 }
