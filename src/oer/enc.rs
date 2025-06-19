@@ -950,7 +950,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         // Whether we have a choice type being encoded
-        if V::TAG == Tag::EOC {
+        if V::IS_CHOICE {
             value.encode(self)
         } else {
             value.encode_with_tag(self, tag)

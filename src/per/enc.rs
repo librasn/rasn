@@ -1143,7 +1143,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &V,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        if V::TAG == Tag::EOC {
+        if V::IS_CHOICE {
             value.encode(self)
         } else {
             value.encode_with_tag(self, tag)

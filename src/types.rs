@@ -77,6 +77,9 @@ pub trait AsnType {
     /// if not identical with the identifier of `Self`
     const IDENTIFIER: Identifier = Identifier::EMPTY;
 
+    /// Whether the type is choice type. PER/OER encoding rules require this knowledge.
+    const IS_CHOICE: bool = false;
+
     /// Whether the type is present with value. `OPTIONAL` fields are common in `SEQUENCE` or `SET`.
     ///
     /// Custom implementation is only used for `OPTIONAL` type.
