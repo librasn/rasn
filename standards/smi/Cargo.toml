@@ -8,6 +8,9 @@ repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
+
 [dependencies]
-rasn = { path = "../..", version = "0.26" }
+rasn = { path = "../..", version = "0.26", default-features = false }
 chrono.workspace = true

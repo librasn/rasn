@@ -6,13 +6,12 @@ description = "Data types for handling Cryptographic Message Syntax."
 license.workspace = true
 repository.workspace = true
 
-[dependencies.rasn]
-version = "0.26"
-path = "../.."
+[features]
+default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
 
-[dependencies.rasn-pkix]
-version = "0.26"
-path = "../pkix"
+[dependencies]
+rasn = { path = "../..", version = "0.26", default-features = false }
+rasn-pkix = { path = "../pkix", version = "0.26", default-features = false }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"

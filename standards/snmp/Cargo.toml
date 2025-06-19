@@ -7,9 +7,12 @@ license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
+
 [dependencies]
 smi = { path = "../smi", package = "rasn-smi", version = "0.26" }
-rasn = { path = "../..", version = "0.26" }
+rasn = { path = "../..", version = "0.26", default-features = false }
 
 [dev-dependencies]
 hex = "0.4.3"

@@ -11,10 +11,11 @@ license.workspace = true
 features = ["otp"]
 
 [features]
+default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
 otp = ["rasn-pkix"]
 
 [dependencies]
-rasn = { path = "../..", version = "0.26" }
+rasn = { path = "../..", version = "0.26", default-features = false }
 rasn-pkix = { path = "../pkix", version = "0.26", optional = true }
 
 [dev-dependencies]
