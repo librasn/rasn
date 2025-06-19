@@ -105,7 +105,7 @@ impl PartialEq<[u8]> for OctetString {
 
 impl PartialEq<&[u8]> for OctetString {
     fn eq(&self, value: &&[u8]) -> bool {
-        self.0 == value
+        self.0 == *value
     }
 }
 
