@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0](https://github.com/librasn/rasn/compare/rasn-ocsp-v0.26.6...rasn-ocsp-v0.27.0) - 2025-06-19
+
+### Other
+
+- reexport rasn default-features in standard crates ([#477](https://github.com/librasn/rasn/pull/477))
+
 ## [0.18.0](https://github.com/librasn/rasn/compare/rasn-ocsp-v0.17.3...rasn-ocsp-v0.18.0) - 2024-09-17
 
 ### Added

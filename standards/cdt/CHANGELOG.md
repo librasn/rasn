@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0](https://github.com/librasn/rasn/compare/rasn-cdt-v0.26.6...rasn-cdt-v0.27.0) - 2025-06-19
+
+### Other
+
+- reexport rasn default-features in standard crates ([#477](https://github.com/librasn/rasn/pull/477))
+
 ## [0.22.1](https://github.com/librasn/rasn/compare/rasn-cdt-v0.22.0...rasn-cdt-v0.22.1) - 2025-01-03
 
 ### Other
