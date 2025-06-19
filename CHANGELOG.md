@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0](https://github.com/librasn/rasn/compare/rasn-v0.26.6...rasn-v0.27.0) - 2025-06-19
+
+### Fixed
+
+- OctetString PartialEq implementation with arc-slice feature ([#476](https://github.com/librasn/rasn/pull/476))
+- *(OER/PER)* detect choice type always correctly on explicit prefix ([#479](https://github.com/librasn/rasn/pull/479))
+- #472 and add explicit integer conversion tests ([#474](https://github.com/librasn/rasn/pull/474))
+
+### Other
+
+- reexport rasn default-features in standard crates ([#477](https://github.com/librasn/rasn/pull/477))
+- *(octet-string)* [**breaking**] wrap octet string in new type ([#469](https://github.com/librasn/rasn/pull/469))
+- *(ci)* fix clippy lints
+
 ## [0.26.6](https://github.com/librasn/rasn/compare/rasn-v0.26.5...rasn-v0.26.6) - 2025-05-18
 
 ### Added

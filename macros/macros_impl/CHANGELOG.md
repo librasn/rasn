@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 +
 +## [Unreleased]
 
+## [0.27.0](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.26.6...rasn-derive-impl-v0.27.0) - 2025-06-19
+
+### Fixed
+
+- *(OER/PER)* detect choice type always correctly on explicit prefix ([#479](https://github.com/librasn/rasn/pull/479))
+
+### Other
+
+- *(ci)* fix clippy lints
+
 ## [0.26.2](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.26.1...rasn-derive-impl-v0.26.2) - 2025-04-17
 
 ### Added

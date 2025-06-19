@@ -12,7 +12,7 @@ repository.workspace = true
 default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
 
 [dependencies]
-rasn = { path = "../..", version = "0.26", default-features = false }
+rasn = { path = "../..", version = "0.27", default-features = false }
 
 [dev-dependencies]
 base64 = "0.22"
