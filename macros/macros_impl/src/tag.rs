@@ -1,6 +1,8 @@
 use syn::spanned::Spanned;
 use syn::{parenthesized, Token};
 
+use crate::ext::TypeExt;
+
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
     Universal = 0,
@@ -143,7 +145,8 @@ impl Tag {
                         "Unnamed fields are not supported.",
                     ));
                 } else {
-                    let ty = fields.iter().next().cloned().unwrap().ty;
+                    let mut ty = fields.iter().next().cloned().unwrap().ty;
+                    ty.strip_lifetimes();
 
                     Self::Delegate { ty }
                 }
