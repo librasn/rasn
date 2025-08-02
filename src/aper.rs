@@ -58,6 +58,7 @@ mod tests {
         // B ::= BIT STRING (SIZE (9))
         // C ::= BIT STRING (SIZE (5..7))
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct D {
@@ -65,6 +66,7 @@ mod tests {
             b: BitString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct E {
@@ -75,6 +77,7 @@ mod tests {
             c: BitString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct G {
@@ -88,6 +91,7 @@ mod tests {
         // K ::= SEQUENCE SIZE (0..2) OF BIT STRING (SIZE(2..257))
         // L ::= BIT STRING (SIZE (1..160, ...))
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct M {
@@ -105,16 +109,21 @@ mod tests {
             bitvec::bitvec![u8, Msb0; 0, 1, 0, 0],
             &[0x04, 0x40]
         );
-        // round_trip!(aper, BitString, BitString::from_vec({
-        //     let mut bytes = vec![0x55; 300];
-        //     bytes[299] = 0x54;
-        //     bytes
-        // }), &*{
-        //     let mut bytes = vec![0x89, 0x5f];
-        //     bytes.extend([0x55; 299]);
-        //     bytes.push(0x54);
-        //     bytes
-        // });
+        // round_trip!(
+        //     aper,
+        //     BitString,
+        //     BitString::from_vec({
+        //         let mut bytes = vec![0x55; 300];
+        //         bytes[299] = 0x54;
+        //         bytes
+        //     }),
+        //     &*{
+        //         let mut bytes = vec![0x89, 0x5f];
+        //         bytes.extend([0x55; 299]);
+        //         bytes.push(0x54);
+        //         bytes
+        //     }
+        // );
         round_trip!(
             aper,
             BitString,
@@ -326,6 +335,7 @@ mod tests {
         // }
         // I ::= VisibleString (FROM (\a\..\z\)) (SIZE (1..255))
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct D {
@@ -334,6 +344,7 @@ mod tests {
             b: VisibleString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct E {
@@ -342,6 +353,7 @@ mod tests {
             b: VisibleString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct F {
@@ -350,6 +362,7 @@ mod tests {
             b: VisibleString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct G {
@@ -358,6 +371,7 @@ mod tests {
             b: VisibleString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct H {

@@ -298,6 +298,7 @@ mod tests {
     #[test]
     #[allow(clippy::too_many_lines)]
     fn sequence() {
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct B {
@@ -331,6 +332,7 @@ mod tests {
             a: bool,
         }
 
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         #[non_exhaustive]
@@ -440,6 +442,7 @@ mod tests {
             a: bool,
         }
 
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct O {
@@ -500,6 +503,7 @@ mod tests {
             a: Option<SequenceOf<T>>,
         }
 
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         #[non_exhaustive]
@@ -526,6 +530,7 @@ mod tests {
             c: Option<bool>,
         }
 
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate", automatic_tags)]
         #[non_exhaustive]

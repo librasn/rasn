@@ -906,10 +906,10 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             let mut decoder = Decoder::<0, 0>::new(bytes, options);
             D::from_tag(&mut decoder, tag)
         } else {
-            return Err(OerDecodeErrorKind::invalid_tag_variant_on_choice(
+            Err(OerDecodeErrorKind::invalid_tag_variant_on_choice(
                 tag,
                 is_extensible,
-            ));
+            ))
         }
     }
 

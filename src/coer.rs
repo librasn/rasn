@@ -962,7 +962,7 @@ mod tests {
         struct Sequence1 {
             a: bool,
         }
-        // round_trip!(coer, Sequence1, Sequence1 { a: true }, &[0x00, 0xff]);
+        round_trip!(coer, Sequence1, Sequence1 { a: true }, &[0x00, 0xff]);
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(automatic_tags)]
         #[non_exhaustive]

@@ -111,6 +111,7 @@ macro_rules! consts {
             use super::*;
 
             $(
+                #[allow(dead_code)]
                 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
                 pub struct $name;
 
