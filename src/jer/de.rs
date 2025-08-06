@@ -724,7 +724,7 @@ impl Decoder {
 
 /// Parses a hex string into bytes.
 fn bytes_from_hexstring(hex_string: &str) -> Option<alloc::vec::Vec<u8>> {
-    if hex_string.len() % 2 != 0 {
+    if !hex_string.len().is_multiple_of(2) {
         return None;
     }
     let mut bytes = alloc::vec::Vec::<u8>::with_capacity(hex_string.len() / 2);

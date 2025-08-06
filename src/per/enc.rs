@@ -187,7 +187,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         if self.options.aligned {
             let mut output_length = self.output_length();
             output_length += buffer.len();
-            if output_length % 8 != 0 {
+            if !output_length.is_multiple_of(8) {
                 for _ in 0..(8 - output_length % 8) {
                     buffer.push(false);
                 }
@@ -197,7 +197,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
     fn force_pad_to_alignment(buffer: &mut BitString) {
         const BYTE_WIDTH: usize = 8;
-        if buffer.len() % BYTE_WIDTH != 0 {
+        if !buffer.len().is_multiple_of(BYTE_WIDTH) {
             let mut string = BitString::new();
             for _ in 0..BYTE_WIDTH - (buffer.len() % 8) {
                 string.push(false);

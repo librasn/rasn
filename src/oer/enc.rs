@@ -78,13 +78,14 @@ impl<const RC: usize, const EC: usize> ConstructedCursor<RC, EC> {
         let preamble_missing_bits =
             (8 - ((is_extensible as usize + number_optional_default) & 7)) & 7;
         debug_assert!(
-            (preamble_missing_bits + is_extensible as usize + number_optional_default) % 8 == 0
+            (preamble_missing_bits + is_extensible as usize + number_optional_default)
+                .is_multiple_of(8)
         );
         let preamble_width =
             (number_optional_default + is_extensible as usize + preamble_missing_bits) / 8;
         let extension_missing_bits: u8 =
             ((EC > 0) as u8).wrapping_neg() & ((8 - (EC & 7) as u8) & 7);
-        debug_assert!((EC + extension_missing_bits as usize) % 8 == 0);
+        debug_assert!((EC + extension_missing_bits as usize).is_multiple_of(8));
         let extension_bitfield_width = (EC + extension_missing_bits as usize) / 8;
         let extension_bitmap_width = 1 + extension_bitfield_width;
         let extension_bitmap_width_length = if extension_bitmap_width <= 127 {
