@@ -27,7 +27,12 @@ pub fn decode_with_remainder<T: crate::Decode>(
 pub fn encode<T: crate::Encode>(
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
-    crate::per::encode(enc::EncoderOptions::unaligned(), value)
+    let result = crate::per::encode(enc::EncoderOptions::unaligned(), value)?;
+    if result.is_empty() {
+        Ok(alloc::vec![0x00])
+    } else {
+        Ok(result)
+    }
 }
 
 /// Attempts to decode `T` from `input` using UPER-BASIC.
@@ -43,7 +48,13 @@ pub fn encode_with_constraints<T: crate::Encode>(
     constraints: Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
-    crate::per::encode_with_constraints(enc::EncoderOptions::unaligned(), constraints, value)
+    let result =
+        crate::per::encode_with_constraints(enc::EncoderOptions::unaligned(), constraints, value)?;
+    if result.is_empty() {
+        Ok(alloc::vec![0x00])
+    } else {
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -91,7 +102,7 @@ mod tests {
         round_trip!(uper, C, C::new(1), &[0x58]);
         round_trip!(uper, C, C::new(10), &[0xa0]);
         // round_trip!(uper, D, 99, &[0x5e]);
-        round_trip!(uper, E, E::new(1000), &[]);
+        round_trip!(uper, E, E::new(1000), &[0x00]);
     }
 
     #[test]
@@ -1267,7 +1278,7 @@ mod tests {
             AlignedZeroLength {
                 the_string: OctetString::from_static(&[])
             },
-            &[]
+            &[0x00]
         );
     }
     #[test]
