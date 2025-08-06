@@ -1,4 +1,7 @@
-use super::*;
+use super::{
+    constrained, AsnType, Constraints, Decode, Decoder, Encode, Encoder, Identifier,
+    StaticPermittedAlphabet, Tag,
+};
 
 use crate::error::strings::PermittedAlphabetError;
 use alloc::vec::Vec;
@@ -22,6 +25,7 @@ impl GeneralString {
     }
 
     /// Provides a slice of bytes representing the current value.
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }

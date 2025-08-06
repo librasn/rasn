@@ -86,6 +86,7 @@ fn sequence() {
     assert_eq!(raw, &*ber::encode(&default).unwrap());
 }
 
+#[allow(dead_code)]
 #[derive(AsnType, Debug, Decode, Encode, PartialEq)]
 #[rasn(choice)]
 enum NestedAnonChoiceStruct {
@@ -192,6 +193,7 @@ fn result_scoping() {
     enum Error {}
     type Result<T> = core::result::Result<T, Error>;
 
+    #[allow(dead_code)]
     #[derive(rasn::AsnType, rasn::Encode, rasn::Decode)]
     #[rasn(choice)]
     enum Choose {
@@ -204,6 +206,7 @@ fn result_scoping() {
 // This makes sure enum fields can have a field named `encoder` or `tag`
 #[test]
 fn enum_with_encoder_tag_name_variants() {
+    #[allow(dead_code)]
     #[derive(AsnType, Encode, Decode)]
     #[rasn(choice)]
     enum MyEnum {

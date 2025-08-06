@@ -1,7 +1,8 @@
 use itertools::Itertools;
 
-use crate::config::*;
+use crate::config::{Config, FieldConfig};
 
+#[allow(clippy::too_many_lines)]
 pub fn derive_struct_impl(
     name: &syn::Ident,
     generics: syn::Generics,

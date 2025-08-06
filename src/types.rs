@@ -128,11 +128,13 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug + As
     }
 
     /// Returns the number of "extended" variants for a given type.
+    #[must_use]
     fn extended_variance() -> usize {
-        Self::EXTENDED_VARIANTS.map_or(0, |array| array.len())
+        Self::EXTENDED_VARIANTS.map_or(0, <[Self]>::len)
     }
 
     /// Returns the number of "root" and "extended" variants for a given type.
+    #[must_use]
     fn complete_variance() -> usize {
         Self::variance() + Self::extended_variance()
     }
@@ -190,6 +192,7 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug + As
     }
 
     /// Returns a variant, if the index matches any "extended" variant.
+    #[must_use]
     fn from_extended_enumeration_index(index: usize) -> Option<Self> {
         Self::EXTENDED_VARIANTS.and_then(|array| array.get(index).copied())
     }
@@ -213,6 +216,7 @@ pub trait Enumerated: Sized + 'static + PartialEq + Copy + core::fmt::Debug + As
     }
 
     /// Returns a variant, if the provided identifier matches any variant.
+    #[must_use]
     fn from_identifier(identifier: &str) -> Option<Self> {
         Self::IDENTIFIERS
             .iter()
@@ -260,6 +264,7 @@ macro_rules! asn_integer_type {
             impl AsnType for $int {
                 const TAG: Tag = Tag::INTEGER;
                 const IDENTIFIER: Identifier = Identifier::INTEGER;
+                #[allow(clippy::cast_possible_wrap)]
                 const CONSTRAINTS: Constraints = constraints!(value_constraint!((<$int>::MIN as i128), (<$int>::MAX as i128)));
             }
         )+

@@ -96,8 +96,8 @@ mod tests {
 
     #[test]
     fn sequence_of() {
-        round_trip!(uper, Vec<u8>, vec![1; 5], &[0b00000101, 1, 1, 1, 1, 1]);
-        round_trip!(aper, Vec<u8>, vec![1; 5], &[0b00000101, 1, 1, 1, 1, 1]);
+        round_trip!(uper, Vec<u8>, vec![1; 5], &[0b0000_0101, 1, 1, 1, 1, 1]);
+        round_trip!(aper, Vec<u8>, vec![1; 5], &[0b0000_0101, 1, 1, 1, 1, 1]);
     }
 
     #[test]
@@ -296,7 +296,9 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn sequence() {
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct B {
@@ -330,6 +332,7 @@ mod tests {
             a: bool,
         }
 
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         #[non_exhaustive]
@@ -439,6 +442,7 @@ mod tests {
             a: bool,
         }
 
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct O {
@@ -499,6 +503,7 @@ mod tests {
             a: Option<SequenceOf<T>>,
         }
 
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         #[non_exhaustive]
@@ -525,6 +530,7 @@ mod tests {
             c: Option<bool>,
         }
 
+        #[allow(dead_code)]
         #[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate", automatic_tags)]
         #[non_exhaustive]
@@ -1031,7 +1037,7 @@ mod tests {
                 is: Some(OctetString::from_static(&[0x01, 0x02, 0x03])),
                 late: None
             },
-            &[0b10000000, 0x40, 0x40, 0xc0, 0x40, 0x80, 0xc0]
+            &[0b1000_0000, 0x40, 0x40, 0xc0, 0x40, 0x80, 0xc0]
         );
         #[derive(AsnType, Decode, Encode, Clone, Debug, PartialEq, Eq)]
         #[non_exhaustive]
@@ -1051,12 +1057,27 @@ mod tests {
                 late: None,
                 today: OctetString::from_static(&[0x01, 0x02, 0x03])
             },
-            &[0b11000000, 0x20, 0x20, 0x60, 0x20, 0x40, 0x60, 0x20, 0x80, 0x60, 0x20, 0x40, 0x60]
+            &[
+                0b1100_0000,
+                0x20,
+                0x20,
+                0x60,
+                0x20,
+                0x40,
+                0x60,
+                0x20,
+                0x80,
+                0x60,
+                0x20,
+                0x40,
+                0x60
+            ]
         );
     }
 
-    /// Tests that unaligned OctetStrings are encoded and decoded correctly (UPER).
+    /// Tests that unaligned `OctetStrings` are encoded and decoded correctly (UPER).
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_unaligned_sequence_with_octet_string() {
         use crate as rasn;
         #[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq)]
@@ -1211,7 +1232,7 @@ mod tests {
                 offset_bits: 7,
                 the_string: OctetString::from_static(&[])
             },
-            &[0b11100000, 0b00000000]
+            &[0b1110_0000, 0b0000_0000]
         );
 
         #[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq)]
@@ -1230,7 +1251,7 @@ mod tests {
                 offset_bits: 7,
                 the_string: OctetString::from_static(&[])
             },
-            &[0b11100000]
+            &[0b1110_0000]
         );
 
         #[derive(AsnType, Clone, Debug, Default, Decode, Encode, PartialEq)]

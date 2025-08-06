@@ -187,9 +187,9 @@ mod tests {
         round_trip_jer!(i8, -1, "-1");
         round_trip_jer!(u16, 0, "0");
         round_trip_jer!(i16, -14321, "-14321");
-        round_trip_jer!(i64, -1213428598524996264, "-1213428598524996264");
+        round_trip_jer!(i64, -1_213_428_598_524_996_264, "-1213428598524996264");
         round_trip_jer!(Integer, 1.into(), "1");
-        round_trip_jer!(Integer, (-1235352).into(), "-1235352");
+        round_trip_jer!(Integer, (-1_235_352).into(), "-1235352");
         round_trip_jer!(ConstrainedInt, ConstrainedInt(1.into()), "1");
     }
 
@@ -227,12 +227,12 @@ mod tests {
     fn bit_string() {
         round_trip_jer!(
             BitString,
-            BitString::from_iter([true, false].into_iter()),
+            [true, false].into_iter().collect::<BitString>(),
             r#"{"length":2,"value":"80"}"#
         );
         round_trip_jer!(
             ConstrainedBitString,
-            ConstrainedBitString(BitString::from_iter([true, false, true].into_iter())),
+            ConstrainedBitString([true, false, true].into_iter().collect::<BitString>()),
             "\"A0\""
         );
     }
@@ -342,7 +342,7 @@ mod tests {
             TestTypeA {
                 juice: 0.into(),
                 wine: Inner::Wine(4),
-                grappa: BitString::from_iter([true, false].iter())
+                grappa: [true, false].iter().collect::<BitString>()
             },
             r#"{"grappa":{"length":2,"value":"80"},"juice":0,"wine":{"Wine":4}}"#
         );

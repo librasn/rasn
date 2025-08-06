@@ -22,8 +22,8 @@ pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, DecodeError> {
 /// Returns `DecodeError` if `input` is not valid OER encoding specific to the expected type.
 pub fn decode_with_remainder<T: crate::Decode>(input: &[u8]) -> Result<(T, &[u8]), DecodeError> {
     let decoder = &mut Decoder::<0, 0>::new(input, de::DecoderOptions::oer());
-    let decoded = T::decode(decoder)?;
-    Ok((decoded, decoder.remaining()))
+    let decoded_instance = T::decode(decoder)?;
+    Ok((decoded_instance, decoder.remaining()))
 }
 /// Attempts to encode `value` of type `T` to OER.
 ///
@@ -93,20 +93,20 @@ pub enum EncodingRules {
     Oer,
     /// Canonical Octet Encoding Rules.
     ///
-    /// This is a superset of [Self::Oer] that includes additional restrictions
+    /// This is a superset of [`Self::Oer`] that includes additional restrictions
     /// to ensure that encoded values are always canonical (A given value
     /// always produces the same encoding).
     Coer,
 }
 
 impl EncodingRules {
-    /// Returns whether the current variant matches [Self::Coer].
+    /// Returns whether the current variant matches [`Self::Coer`].
     #[must_use]
     pub fn is_coer(self) -> bool {
         matches!(self, Self::Coer)
     }
 
-    /// Returns whether the current variant matches [Self::Oer].
+    /// Returns whether the current variant matches [`Self::Oer`].
     #[must_use]
     pub fn is_oer(self) -> bool {
         matches!(self, Self::Oer)

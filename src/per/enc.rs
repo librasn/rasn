@@ -168,7 +168,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
     fn output_length(&self) -> usize {
         let mut output_length = self.output.len();
-        output_length += self.is_extension_sequence as usize;
+        output_length += usize::from(self.is_extension_sequence);
         output_length += self.number_optional_default_fields;
         output_length += self.parent_output_length.unwrap_or_default();
 
@@ -176,7 +176,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             output_length += self
                 .set_output
                 .values()
-                .map(|output| output.len())
+                .map(bitvec::vec::BitVec::len)
                 .sum::<usize>();
         }
 
@@ -222,6 +222,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn encode_known_multiplier_string<S: StaticPermittedAlphabet>(
         &mut self,
         tag: Tag,
@@ -385,7 +386,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         };
         debug_assert!(C::FIELDS.number_of_optional_and_default_fields() == needed);
         if needed > 0 || C::IS_EXTENSIBLE {
-            for (bit, _tag) in option_bitfield[..needed].iter() {
+            for (bit, _tag) in &option_bitfield[..needed] {
                 buffer.push(*bit);
             }
         }
@@ -556,9 +557,8 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     // Add final fragment in the frame.
                     buffer.extend(&[0]);
                     break;
-                } else {
-                    length = length.saturating_sub(amount);
                 }
+                length = length.saturating_sub(amount);
             }
         }
 
@@ -636,6 +636,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)]
     fn encode_integer_into_buffer<I: IntegerType>(
         &mut self,
         constraints: Constraints,
@@ -706,7 +707,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             match (self.options.aligned, range) {
                 (true, 256) => {
                     self.pad_to_alignment(buffer);
-                    self.encode_non_negative_binary_integer(buffer, range, &bytes[..needed])
+                    self.encode_non_negative_binary_integer(buffer, range, &bytes[..needed]);
                 }
                 (true, 257..=K64) => {
                     self.pad_to_alignment(buffer);
@@ -714,7 +715,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 }
                 (true, OVER_K64..) => {
                     let range_len_in_bytes =
-                        num_integer::div_ceil(crate::num::log2(range), 8) as i128;
+                        i128::from(num_integer::div_ceil(crate::num::log2(range), 8));
 
                     if effective_value == 0 {
                         self.encode_non_negative_binary_integer(
@@ -729,8 +730,10 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                             &bytes[..needed],
                         );
                     } else {
-                        let range_value_in_bytes =
-                            num_integer::div_ceil(crate::num::log2(effective_value + 1), 8) as i128;
+                        let range_value_in_bytes = i128::from(num_integer::div_ceil(
+                            crate::num::log2(effective_value + 1),
+                            8,
+                        ));
                         self.encode_non_negative_binary_integer(
                             buffer,
                             range_len_in_bytes,

@@ -51,6 +51,7 @@ where
     T: Eq,
 {
     /// Construct a new empty set of value.
+    #[must_use]
     pub fn new() -> Self {
         SetOf {
             elements: alloc::vec::Vec::new(),
@@ -58,11 +59,13 @@ where
     }
 
     /// Create a new `SetOf` from a `Vec<T>`.
+    #[must_use]
     pub fn from_vec(elements: alloc::vec::Vec<T>) -> Self {
         Self { elements }
     }
 
     /// Create a new `SetOf` with capacity for `n` elements.
+    #[must_use]
     pub fn with_capacity(n: usize) -> Self {
         Self {
             elements: alloc::vec::Vec::with_capacity(n),
@@ -75,11 +78,13 @@ where
     }
 
     /// Get the number of elements in the set.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.elements.len()
     }
 
     /// Returns whether the given value doesn't contain any elements.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty()
     }
@@ -106,6 +111,7 @@ where
     }
 
     /// Convert the set to a `Vec<&T>`. `&T` refers to the original element in the set.
+    #[must_use]
     pub fn to_vec(&self) -> alloc::vec::Vec<&T> {
         self.elements.iter().collect()
     }
@@ -124,7 +130,7 @@ where
                 return false;
             }
         }
-        for item in other.elements.iter() {
+        for item in &other.elements {
             if !self.elements.contains(item) {
                 return false;
             }

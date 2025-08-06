@@ -58,6 +58,7 @@ mod tests {
         // B ::= BIT STRING (SIZE (9))
         // C ::= BIT STRING (SIZE (5..7))
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct D {
@@ -65,6 +66,7 @@ mod tests {
             b: BitString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct E {
@@ -75,6 +77,7 @@ mod tests {
             c: BitString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct G {
@@ -88,6 +91,7 @@ mod tests {
         // K ::= SEQUENCE SIZE (0..2) OF BIT STRING (SIZE(2..257))
         // L ::= BIT STRING (SIZE (1..160, ...))
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct M {
@@ -105,16 +109,21 @@ mod tests {
             bitvec::bitvec![u8, Msb0; 0, 1, 0, 0],
             &[0x04, 0x40]
         );
-        // round_trip!(aper, BitString, BitString::from_vec({
-        //     let mut bytes = vec![0x55; 300];
-        //     bytes[299] = 0x54;
-        //     bytes
-        // }), &*{
-        //     let mut bytes = vec![0x89, 0x5f];
-        //     bytes.extend([0x55; 299]);
-        //     bytes.push(0x54);
-        //     bytes
-        // });
+        // round_trip!(
+        //     aper,
+        //     BitString,
+        //     BitString::from_vec({
+        //         let mut bytes = vec![0x55; 300];
+        //         bytes[299] = 0x54;
+        //         bytes
+        //     }),
+        //     &*{
+        //         let mut bytes = vec![0x89, 0x5f];
+        //         bytes.extend([0x55; 299]);
+        //         bytes.push(0x54);
+        //         bytes
+        //     }
+        // );
         round_trip!(
             aper,
             BitString,
@@ -146,6 +155,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn integer() {
         type B = ConstrainedInteger<5, 99>;
 
@@ -164,7 +174,7 @@ mod tests {
         type F = ConstrainedInteger<0, 256>;
         type G = ConstrainedInteger<0, 65535>;
         type H = ConstrainedInteger<0, 65536>;
-        type I = ConstrainedInteger<0, 10000000000>;
+        type I = ConstrainedInteger<0, 10_000_000_000>;
 
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
@@ -188,9 +198,9 @@ mod tests {
 
         type N = ConstrainedInteger<0, 65535>;
         type O = ConstrainedInteger<0, 65536>;
-        type P = ConstrainedInteger<0, 2147483647>;
-        type Q = ConstrainedInteger<0, 4294967295>;
-        type R = ConstrainedInteger<0, 4294967296>;
+        type P = ConstrainedInteger<0, 2_147_483_647>;
+        type Q = ConstrainedInteger<0, 4_294_967_295>;
+        type R = ConstrainedInteger<0, 4_294_967_296>;
 
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
@@ -223,7 +233,7 @@ mod tests {
             C,
             C {
                 a: true,
-                b: Integer::from(43554344223i64),
+                b: Integer::from(43_554_344_223_i64),
                 c: false,
                 d: Integer::from(-9)
             },
@@ -241,7 +251,7 @@ mod tests {
         round_trip!(
             aper,
             I,
-            I::new(10000000000i64),
+            I::new(10_000_000_000_i64),
             &[0x80, 0x02, 0x54, 0x0b, 0xe4, 0x00]
         );
         round_trip!(
@@ -279,19 +289,24 @@ mod tests {
         round_trip!(aper, P, P::new(256), &[0x40, 0x01, 0x00]);
         round_trip!(aper, P, P::new(65535), &[0x40, 0xff, 0xff]);
         round_trip!(aper, P, P::new(65536), &[0x80, 0x01, 0x00, 0x00]);
-        round_trip!(aper, P, P::new(16777215), &[0x80, 0xff, 0xff, 0xff]);
-        round_trip!(aper, P, P::new(16777216), &[0xc0, 0x01, 0x00, 0x00, 0x00]);
-        round_trip!(aper, P, P::new(100000000), &[0xc0, 0x05, 0xf5, 0xe1, 0x00]);
+        round_trip!(aper, P, P::new(16_777_215), &[0x80, 0xff, 0xff, 0xff]);
+        round_trip!(aper, P, P::new(16_777_216), &[0xc0, 0x01, 0x00, 0x00, 0x00]);
+        round_trip!(
+            aper,
+            P,
+            P::new(100_000_000),
+            &[0xc0, 0x05, 0xf5, 0xe1, 0x00]
+        );
         round_trip!(
             aper,
             Q,
-            Q::new(4294967295u64),
+            Q::new(4_294_967_295_u64),
             &[0xc0, 0xff, 0xff, 0xff, 0xff]
         );
         round_trip!(
             aper,
             R,
-            R::new(4294967296u64),
+            R::new(4_294_967_296_u64),
             &[0x80, 0x01, 0x00, 0x00, 0x00, 0x00]
         );
         round_trip!(
@@ -320,6 +335,7 @@ mod tests {
         // }
         // I ::= VisibleString (FROM (\a\..\z\)) (SIZE (1..255))
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct D {
@@ -328,6 +344,7 @@ mod tests {
             b: VisibleString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct E {
@@ -336,6 +353,7 @@ mod tests {
             b: VisibleString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct F {
@@ -344,6 +362,7 @@ mod tests {
             b: VisibleString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct G {
@@ -352,6 +371,7 @@ mod tests {
             b: VisibleString,
         }
 
+        #[allow(dead_code)]
         #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
         #[rasn(crate_root = "crate")]
         struct H {

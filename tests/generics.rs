@@ -43,6 +43,7 @@ fn test_sequence_with_generics_issue_193() {
 // This test is just for checking that generics will compile
 #[test]
 fn test_sequence_with_generic_and_constraints() {
+    #[allow(dead_code)]
     #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
     #[rasn(automatic_tags)]
     pub struct ConstrainedBlock<T>
@@ -53,12 +54,15 @@ fn test_sequence_with_generic_and_constraints() {
         #[rasn(size("1.."))]
         extn: SequenceOf<T>,
     }
+
+    #[allow(dead_code)]
     #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
     #[rasn(automatic_tags)]
     #[rasn(delegate)]
     #[rasn(size("4"))]
     pub struct ConstrainedDelegateBlock<T: LeetTrait>(T);
 
+    #[allow(dead_code)]
     #[derive(AsnType, Debug, Encode, Decode, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
     #[rasn(automatic_tags)]
     #[rasn(choice)]

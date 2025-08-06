@@ -41,7 +41,7 @@ impl Class {
 }
 
 impl Class {
-    pub fn as_tokens(&self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
+    pub fn as_tokens(self, crate_root: &syn::Path) -> proc_macro2::TokenStream {
         match self {
             Self::Universal => quote!(#crate_root::types::Class::Universal),
             Self::Application => quote!(#crate_root::types::Class::Application),
@@ -70,7 +70,7 @@ impl Tag {
         let content;
         parenthesized!(content in meta.input);
         if content.peek(syn::Lit) {
-            tag = (Class::Context, content.parse::<syn::Lit>()?)
+            tag = (Class::Context, content.parse::<syn::Lit>()?);
         } else if content.peek(syn::Ident) {
             let ident: syn::Ident = content.parse()?;
             if content.peek(syn::token::Paren) {
@@ -137,15 +137,15 @@ impl Tag {
             },
             syn::Fields::Named(_) => Self::SEQUENCE(),
             syn::Fields::Unnamed(_) => {
-                if fields.iter().count() != 1 {
+                if fields.iter().count() == 1 {
+                    let ty = fields.iter().next().cloned().unwrap().ty;
+
+                    Self::Delegate { ty }
+                } else {
                     return Err(syn::Error::new(
                         fields.span(),
                         "Unnamed fields are not supported.",
                     ));
-                } else {
-                    let ty = fields.iter().next().cloned().unwrap().ty;
-
-                    Self::Delegate { ty }
                 }
             }
         })
@@ -154,7 +154,7 @@ impl Tag {
     pub fn is_explicit(&self) -> bool {
         match self {
             Self::Value { explicit, .. } => *explicit,
-            _ => false,
+            Self::Delegate { .. } => false,
         }
     }
 

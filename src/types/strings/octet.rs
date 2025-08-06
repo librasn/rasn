@@ -123,6 +123,7 @@ pub struct FixedOctetString<const N: usize>([u8; N]);
 
 impl<const N: usize> FixedOctetString<N> {
     /// Creates a new octet string from a given array.
+    #[must_use]
     pub fn new(value: [u8; N]) -> Self {
         Self(value)
     }

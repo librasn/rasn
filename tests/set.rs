@@ -7,13 +7,6 @@ struct Set {
     name: String,
 }
 
-#[derive(AsnType, Decode, Encode, Debug, PartialEq)]
-#[rasn(set)]
-struct OptionalSet {
-    age: Integer,
-    name: Option<String>,
-}
-
 #[test]
 fn asn_type() {
     const _: () = assert!(Set::TAG.const_eq(&Tag::SET));

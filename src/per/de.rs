@@ -33,11 +33,13 @@ pub struct DecoderOptions {
 
 impl DecoderOptions {
     /// Returns the default decoding rules options for Aligned Packed Encoding Rules.
+    #[must_use]
     pub fn aligned() -> Self {
         Self { aligned: true }
     }
 
     /// Returns the default decoding rules options for unaligned Packed Encoding Rules.
+    #[must_use]
     pub fn unaligned() -> Self {
         Self { aligned: false }
     }
@@ -65,11 +67,13 @@ pub struct Decoder<'input, const RFC: usize = 0, const EFC: usize = 0> {
 
 impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     /// Returns the currently selected codec.
+    #[must_use]
     pub fn codec(&self) -> crate::Codec {
         self.options.current_codec()
     }
 
     /// Creates a new Decoder from the given input and options.
+    #[must_use]
     pub fn new(input: &'input crate::types::BitStr, options: DecoderOptions) -> Self {
         Self {
             input: input.into(),
@@ -81,6 +85,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     }
 
     /// Returns the remaining input, if any.
+    #[must_use]
     pub fn input(&self) -> &'input crate::types::BitStr {
         self.input.0
     }
@@ -90,8 +95,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         if self
             .fields
             .front()
-            .map(|field| field.0.tag_tree.smallest_tag() == tag)
-            .unwrap_or_default()
+            .is_some_and(|field| field.0.tag_tree.smallest_tag() == tag)
         {
             Ok(self.fields.pop_front().unwrap().1)
         } else {
@@ -108,7 +112,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             .extensible()
             .then(|| self.parse_one_bit())
             .transpose()
-            .map(|opt| opt.unwrap_or_default())
+            .map(core::option::Option::unwrap_or_default)
     }
 
     fn extension_is_present(&mut self) -> Result<Option<(Field, bool)>> {
@@ -123,10 +127,10 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     }
 
     fn parse_padding(&self, input: InputSlice<'input>) -> Result<InputSlice<'input>> {
-        if !self.options.aligned {
-            Ok(input)
-        } else {
+        if self.options.aligned {
             self.force_parse_padding(input)
+        } else {
+            Ok(input)
         }
     }
 
@@ -447,11 +451,10 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             }
         } else {
             let bytes = &self.decode_octets()?;
-            let number = value_constraint
-                .constraint
-                .as_start()
-                .map(|_| I::try_from_unsigned_bytes(bytes.as_raw_slice(), self.codec()))
-                .unwrap_or_else(|| I::try_from_signed_bytes(bytes.as_raw_slice(), self.codec()))?;
+            let number = value_constraint.constraint.as_start().map_or_else(
+                || I::try_from_signed_bytes(bytes.as_raw_slice(), self.codec()),
+                |_| I::try_from_unsigned_bytes(bytes.as_raw_slice(), self.codec()),
+            )?;
 
             return minimum
                 .checked_add(&number)
@@ -505,8 +508,9 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let mut bit_string = types::BitString::default();
         let char_width = constraints
             .permitted_alphabet()
-            .map(|alphabet| crate::num::log2(alphabet.constraint.len() as i128) as usize)
-            .unwrap_or(ALPHABET::character_width() as usize);
+            .map_or(ALPHABET::character_width() as usize, |alphabet| {
+                crate::num::log2(alphabet.constraint.len() as i128) as usize
+            });
 
         let char_width = if self.options.aligned && !char_width.is_power_of_two() {
             char_width.next_power_of_two()
