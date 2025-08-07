@@ -244,7 +244,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         character_width: usize,
     ) -> Result<Self, PermittedAlphabetError> {
         let mut string = Self::default();
-        if character_width == 0 || bits.len() % character_width != 0 {
+        if character_width == 0 || !bits.len().is_multiple_of(character_width) {
             return Err(PermittedAlphabetError::InvalidData {
                 length: bits.len(),
                 width: character_width,

@@ -135,7 +135,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     }
 
     fn force_parse_padding(&self, input: InputSlice<'input>) -> Result<InputSlice<'input>> {
-        if input.len() % 8 == 0 {
+        if input.len().is_multiple_of(8) {
             Ok(input)
         } else {
             let (input, _) = nom::bytes::streaming::take(input.len() % 8)(input)
