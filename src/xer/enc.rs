@@ -455,38 +455,46 @@ impl crate::Encoder<'_> for Encoder {
         value: &V,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        match (identifier.0, tag, self.entering_list_item_type) {
-            (None, _, _) => value.encode(self),
-            (Some(id), Tag::EOC, false) => {
-                // Special handling is needed for `CHOICE` delegate types
-                // First we write the start tag of the delegate: <Delegate
-                self.write_start_element(id)?;
-                // Then we write an empty string to prompt the XML writer to close the start tag: <Delegate>
-                self.write_empty()?;
-                // We use a new encoder to write the inner choice value: <ChoiceType><option /></ChoiceType>
-                let mut inner_encoder = Self::new();
-                value.encode(&mut inner_encoder)?;
-                // We then remove the outer tag pair: <option />
-                inner_encoder.erase_outer_tags();
-                // ...append the output of the inner encoder: <Delegate><option />
-                self.append(&mut inner_encoder);
-                // ...and finally close the delegate: <Delegate><option /></Delegate>
-                self.write_end_element(id)
-            }
-            (Some(_), Tag::EOC, true) => {
-                // List items that are `CHOICE` delegate types are encoded without their outer tags
-                // We use a new encoder to write the inner choice value of the delegate: <ChoiceType><option /></ChoiceType>
-                let mut inner_encoder = Self::new();
-                // Then we write an empty string to prompt the XML writer to close any uncloses start tags.
-                self.write_empty()?;
-                value.encode(&mut inner_encoder)?;
-                // We then remove the outer tag pair: <option />
-                inner_encoder.erase_outer_tags();
-                // ... and append the output of the inner encoder: <option />
-                self.append(&mut inner_encoder);
-                Ok(())
-            }
-            _ => value.encode_with_tag_and_constraints(self, V::TAG, V::CONSTRAINTS, identifier),
+        if identifier.0.is_none() {
+            return value.encode(self);
+        }
+
+        if tag != Tag::EOC {
+            return value.encode_with_tag_and_constraints(self, V::TAG, V::CONSTRAINTS, identifier);
+        }
+
+        // Read current xml tag
+        let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
+            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+        ));
+
+        if self.entering_list_item_type {
+            // List items that are `CHOICE` delegate types are encoded without their outer tags
+            // We use a new encoder to write the inner choice value of the delegate: <ChoiceType><option /></ChoiceType>
+            let mut inner_encoder = Self::new();
+            // Then we write an empty string to prompt the XML writer to close any uncloses start tags.
+            self.write_empty()?;
+            value.encode(&mut inner_encoder)?;
+            // We then remove the outer tag pair: <option />
+            inner_encoder.erase_outer_tags();
+            // ... and append the output of the inner encoder: <option />
+            self.append(&mut inner_encoder);
+            Ok(())
+        } else {
+            // Special handling is needed for `CHOICE` delegate types
+            // First we write the start tag of the delegate: <Delegate
+            self.write_start_element(&xml_tag)?;
+            // Then we write an empty string to prompt the XML writer to close the start tag: <Delegate>
+            self.write_empty()?;
+            // We use a new encoder to write the inner choice value: <ChoiceType><option /></ChoiceType>
+            let mut inner_encoder = Self::new();
+            value.encode(&mut inner_encoder)?;
+            // We then remove the outer tag pair: <option />
+            inner_encoder.erase_outer_tags();
+            // ...append the output of the inner encoder: <Delegate><option />
+            self.append(&mut inner_encoder);
+            // ...and finally close the delegate: <Delegate><option /></Delegate>
+            self.write_end_element(&xml_tag)
         }
     }
 
