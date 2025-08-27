@@ -84,6 +84,14 @@ mod tests {
         Recursion(Box<RecursiveChoice>),
     }
 
+    #[derive(AsnType, Debug, Encode, Decode, PartialEq)]
+    #[rasn(automatic_tags)]
+    #[rasn(crate_root = "crate")]
+    struct SequenceWithChoice {
+        recursion: RecursiveChoice,
+        nested: NestedTestA,
+    }
+
     #[derive(AsnType, Debug, Encode, Decode, PartialEq, Copy, Clone, Eq, Hash)]
     #[rasn(enumerated, automatic_tags)]
     #[rasn(crate_root = "crate")]
@@ -472,6 +480,23 @@ mod tests {
         }]),
         "SET_OF",
         "<Enum-Sequence><enum-field><zwei /></enum-field></Enum-Sequence>"
+    );
+    round_trip!(
+        sequence_with_element_after_choice,
+        SequenceWithChoice,
+        SequenceWithChoice {
+            recursion: RecursiveChoice::Leaf,
+            nested: NestedTestA {
+                wine: true,
+                grappa: vec![0, 1, 2, 3].into(),
+                inner: InnerTestA {
+                    hidden: Some(false),
+                },
+                oid: Some(ObjectIdentifier::from(Oid::const_new(&[1, 8270, 4, 1]))),
+            }
+        },
+        "SequenceWithChoice",
+        "<recursion><Leaf /></recursion><nested><wine><true /></wine><grappa>00010203</grappa><inner><hidden><false /></hidden></inner><oid>1.8270.4.1</oid></nested>"
     );
 
     #[test]
