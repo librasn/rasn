@@ -126,6 +126,26 @@ mod tests {
         recursion: Vec<DefaultSequence>,
     }
 
+    #[derive(AsnType, Debug, Encode, Decode, PartialEq)]
+    #[rasn(automatic_tags)]
+    #[rasn(crate_root = "crate")]
+    pub struct SequenceWithSequenceOf {
+        ids: SequenceOfIntegers,
+        flag: bool,
+        int: Integer,
+        enum_val: EnumType,
+    }
+
+    #[derive(AsnType, Debug, Encode, Decode, PartialEq)]
+    #[rasn(automatic_tags)]
+    #[rasn(crate_root = "crate")]
+    pub struct SequenceWithSetOf {
+        ids: SetOfIntegers,
+        flag: bool,
+        int: Integer,
+        enum_val: EnumType,
+    }
+
     fn bool_default() -> bool {
         bool::default()
     }
@@ -497,6 +517,30 @@ mod tests {
         },
         "SequenceWithChoice",
         "<recursion><Leaf /></recursion><nested><wine><true /></wine><grappa>00010203</grappa><inner><hidden><false /></hidden></inner><oid>1.8270.4.1</oid></nested>"
+    );
+    round_trip!(
+        sequence_with_element_after_sequence_of,
+        SequenceWithSequenceOf,
+        SequenceWithSequenceOf {
+            ids: vec![42, 13],
+            flag: false,
+            int: Integer::from(12),
+            enum_val: EnumType::First
+        },
+        "SequenceWithSequenceOf",
+        "<ids><INTEGER>42</INTEGER><INTEGER>13</INTEGER></ids><flag><false /></flag><int>12</int><enum_val><eins /></enum_val>"
+    );
+    round_trip!(
+        sequence_with_element_after_set_of,
+        SequenceWithSetOf,
+        SequenceWithSetOf {
+            ids: SetOf::from_vec(vec![42, 13]),
+            flag: false,
+            int: Integer::from(12),
+            enum_val: EnumType::First
+        },
+        "SequenceWithSetOf",
+        "<ids><INTEGER>42</INTEGER><INTEGER>13</INTEGER></ids><flag><false /></flag><int>12</int><enum_val><eins /></enum_val>"
     );
 
     #[test]
