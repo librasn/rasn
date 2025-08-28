@@ -27,7 +27,10 @@ use super::{BOOLEAN_FALSE_TAG, BOOLEAN_TRUE_TAG, MINUS_INFINITY_TAG, NAN_TAG, PL
 
 macro_rules! wrap_in_tags {
     ($this:ident, $tag:expr, $inner:ident, $($args:expr)*) => {{
-        let xml_tag = $this.field_tag_stack.pop().unwrap_or($tag);
+        let xml_tag = match $this.entering_list_item_type {
+            true => $tag,
+            false => $this.field_tag_stack.pop().unwrap_or($tag),
+        };
         $this.write_start_element(&xml_tag)?;
         $this.$inner($($args),*)?;
         $this.write_end_element(&xml_tag)
@@ -464,9 +467,12 @@ impl crate::Encoder<'_> for Encoder {
         }
 
         // Read current xml tag
-        let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
-        ));
+        let xml_tag = match self.entering_list_item_type {
+            true => Cow::Borrowed(identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?),
+            false => self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
+                identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            )),
+        };
 
         if self.entering_list_item_type {
             // List items that are `CHOICE` delegate types are encoded without their outer tags
@@ -508,9 +514,12 @@ impl crate::Encoder<'_> for Encoder {
         C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
-        let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
-        ));
+        let xml_tag = match self.entering_list_item_type {
+            true => Cow::Borrowed(identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?),
+            false => self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
+                identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            )),
+        };
         self.write_start_element(&xml_tag)?;
 
         let mut ids = C::FIELDS
@@ -538,9 +547,12 @@ impl crate::Encoder<'_> for Encoder {
         _constraints: Constraints,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
-        ));
+        let xml_tag = match self.entering_list_item_type {
+            true => Cow::Borrowed(identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?),
+            false => self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
+                identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            )),
+        };
         self.write_start_element(&xml_tag)?;
         for elem in value {
             self.set_entering_list_item_type(true);
@@ -559,9 +571,12 @@ impl crate::Encoder<'_> for Encoder {
         C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
-        let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
-        ));
+        let xml_tag = match self.entering_list_item_type {
+            true => Cow::Borrowed(identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?),
+            false => self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
+                identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            )),
+        };
         self.write_start_element(&xml_tag)?;
 
         let mut ids = C::FIELDS
@@ -589,9 +604,12 @@ impl crate::Encoder<'_> for Encoder {
         _constraints: Constraints,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
-        ));
+        let xml_tag = match self.entering_list_item_type {
+            true => Cow::Borrowed(identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?),
+            false => self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
+                identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            )),
+        };
         self.write_start_element(&xml_tag)?;
         for elem in value.to_vec() {
             self.set_entering_list_item_type(true);
@@ -646,12 +664,12 @@ impl crate::Encoder<'_> for Encoder {
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let xml_tag = self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
-            identifier
-                .or(E::IDENTIFIER)
-                .0
-                .ok_or(XerEncodeErrorKind::MissingIdentifier)?,
-        ));
+        let xml_tag = match self.entering_list_item_type {
+            true => Cow::Borrowed(identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?),
+            false => self.field_tag_stack.pop().unwrap_or(Cow::Borrowed(
+                identifier.0.ok_or(XerEncodeErrorKind::MissingIdentifier)?,
+            )),
+        };
         if self.entering_list_item_type {
             self.set_entering_list_item_type(false);
             encode_fn(self)?;
