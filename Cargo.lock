@@ -996,7 +996,7 @@ dependencies = [
 
 [[package]]
 name = "rasn"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "arc-slice",
  "asn1",
@@ -1034,42 +1034,42 @@ dependencies = [
 
 [[package]]
 name = "rasn-atn-cpdlc"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-atn-ulcs"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-cap"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-cbr"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-cdt"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-cms"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "pretty_assertions",
  "rasn",
@@ -1093,14 +1093,14 @@ dependencies = [
 
 [[package]]
 name = "rasn-credssp"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-derive"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "proc-macro2",
  "rasn-derive-impl",
@@ -1109,7 +1109,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-derive-impl"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "either",
  "itertools 0.13.0",
@@ -1121,14 +1121,14 @@ dependencies = [
 
 [[package]]
 name = "rasn-h282"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-its"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "bon",
  "pretty_assertions",
@@ -1137,7 +1137,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-kerberos"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "pretty_assertions",
  "rasn",
@@ -1146,14 +1146,14 @@ dependencies = [
 
 [[package]]
 name = "rasn-ldap"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
 ]
 
 [[package]]
 name = "rasn-mib"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
  "rasn-smi",
@@ -1161,7 +1161,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-ocsp"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
  "rasn-pkix",
@@ -1169,7 +1169,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-pkix"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "base64",
  "bitvec",
@@ -1181,7 +1181,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-smi"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "chrono",
  "rasn",
@@ -1189,7 +1189,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-smime"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "rasn",
  "rasn-cms",
@@ -1198,7 +1198,7 @@ dependencies = [
 
 [[package]]
 name = "rasn-snmp"
-version = "0.27.1"
+version = "0.27.2"
 dependencies = [
  "hex",
  "pretty_assertions",
