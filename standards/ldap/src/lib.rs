@@ -78,10 +78,7 @@ impl rasn::Decode for LdapString {
     ) -> core::result::Result<Self, D::Error> {
         String::from_utf8(decoder.decode_octet_string(tag, constraints)?)
             .map_err(|error| {
-                rasn::de::Error::custom(
-                    alloc::format!("LdapString not valid UTF-8: {error}"),
-                    decoder.codec(),
-                )
+                rasn::de::Error::custom(alloc::format!("LdapString not valid UTF-8: {error}"), decoder.codec())
             })
             .map(Self::from)
     }
@@ -228,11 +225,7 @@ pub struct LdapResult {
 
 impl LdapResult {
     /// LdapResult constructor
-    pub fn new(
-        result_code: ResultCode,
-        matched_dn: LdapDn,
-        diagnostic_message: LdapString,
-    ) -> Self {
+    pub fn new(result_code: ResultCode, matched_dn: LdapDn, diagnostic_message: LdapString) -> Self {
         Self {
             result_code,
             matched_dn,
@@ -298,11 +291,7 @@ pub struct Control {
 
 impl Control {
     /// Control constructor
-    pub fn new(
-        control_type: LdapOid,
-        criticality: bool,
-        control_value: Option<OctetString>,
-    ) -> Self {
+    pub fn new(control_type: LdapOid, criticality: bool, control_value: Option<OctetString>) -> Self {
         Self {
             control_type,
             criticality,
@@ -375,10 +364,7 @@ pub struct SaslCredentials {
 impl SaslCredentials {
     /// SaslCredentials constructor
     pub fn new(mechanism: LdapString, credentials: Option<OctetString>) -> Self {
-        Self {
-            mechanism,
-            credentials,
-        }
+        Self { mechanism, credentials }
     }
 }
 
@@ -609,6 +595,13 @@ pub enum Filter {
     ///
     #[rasn(tag(9))]
     ExtensibleMatch(MatchingRuleAssertion),
+}
+
+impl core::ops::Not for Filter {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self::Not(alloc::boxed::Box::new(self))
+    }
 }
 
 /// The SUBSTR matching rule for the attribute type or subtype.
