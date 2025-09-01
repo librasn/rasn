@@ -611,6 +611,13 @@ pub enum Filter {
     ExtensibleMatch(MatchingRuleAssertion),
 }
 
+impl core::ops::Not for Filter {
+    type Output = Self;
+    fn not(self) -> Self {
+        Self::Not(alloc::boxed::Box::new(self))
+    }
+}
+
 /// The SUBSTR matching rule for the attribute type or subtype.
 #[derive(AsnType, Encode, Decode, Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[non_exhaustive]
