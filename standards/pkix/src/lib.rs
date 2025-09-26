@@ -120,7 +120,7 @@ pub struct TbsCertificate {
     /// the certificate.
     ///
     /// This field MUST contain the same algorithm identifier as the
-    /// [`Certificate.signature_algorithm`].  The contents of the optional
+    /// `Certificate.signature_algorithm`.  The contents of the optional
     /// parameters field will vary according to the algorithm identified.
     /// [RFC 3279], [RFC 4055], and [RFC 4491] list supported signature algorithms,
     /// but other signature algorithms MAY also be supported.
@@ -188,6 +188,7 @@ impl core::fmt::Display for Version {
 /// They are required when validating certification paths. Though widely used, there is no
 /// standard format for representing trust anchor information.  The RFC-5914
 /// document describes the TrustAnchorInfo structure.
+/// [X.509]: https://www.itu.int/rec/T-REC-X.509
 #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq, Eq, Hash)]
 pub struct TrustAnchorInfo {
     /// version identifies the version of TrustAnchorInfo.  Defaults to 1.
