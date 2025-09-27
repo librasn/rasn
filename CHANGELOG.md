@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.3](https://github.com/librasn/rasn/compare/rasn-v0.27.2...rasn-v0.27.3) - 2025-09-27
+
+### Fixed
+
+- *(per)* Fix constrained length encoding/decoding for SIZE(0..65535) ([#493](https://github.com/librasn/rasn/pull/493))
+
 ## [0.27.0](https://github.com/librasn/rasn/compare/rasn-v0.26.6...rasn-v0.27.0) - 2025-06-19
 
 ### Fixed

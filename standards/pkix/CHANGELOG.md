@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.3](https://github.com/librasn/rasn/compare/rasn-pkix-v0.27.2...rasn-pkix-v0.27.3) - 2025-09-27
+
+### Other
+
+- fix link.
+- fix rustdoc errors
+
 ## [0.27.0](https://github.com/librasn/rasn/compare/rasn-pkix-v0.26.6...rasn-pkix-v0.27.0) - 2025-06-19
 
 ### Fixed
