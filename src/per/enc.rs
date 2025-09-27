@@ -462,7 +462,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 } else if range == 1 {
                     buffer.extend((encode_fn)(0..length)?);
                     Ok(())
-                } else if range < SIXTY_FOUR_K as usize {
+                } else if range <= SIXTY_FOUR_K as usize {
                     let effective_length = constraints.effective_value(length).into_inner();
                     let range = if self.options.aligned && range > 256 {
                         {

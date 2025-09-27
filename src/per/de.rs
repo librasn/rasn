@@ -267,7 +267,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let size_constraint = constraints.constraint;
         if let Some(range) = size_constraint
             .range()
-            .filter(|range| *range <= u16::MAX.into())
+            .filter(|range| *range <= SIXTY_FOUR_K as usize)
         {
             if range == 0 {
                 Ok(input)
@@ -319,7 +319,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let size_constraint = constraints.constraint;
         if let Some(range) = size_constraint
             .range()
-            .filter(|range| *range <= u16::MAX.into())
+            .filter(|range| *range <= SIXTY_FOUR_K as usize)
         {
             if range == 0 {
                 Ok(input)
