@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.4](https://github.com/librasn/rasn/compare/rasn-v0.27.3...rasn-v0.27.4) - 2025-10-15
+
+### Fixed
+
+- *(ber)* don't include full error information when encountering EOF during decoding ([#497](https://github.com/librasn/rasn/pull/497))
+
 ## [0.27.3](https://github.com/librasn/rasn/compare/rasn-v0.27.2...rasn-v0.27.3) - 2025-09-27
 
 ### Fixed
