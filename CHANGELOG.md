@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.5](https://github.com/librasn/rasn/compare/rasn-v0.27.4...rasn-v0.27.5) - 2025-10-15
+
+### Fixed
+
+- use full paths for field encode/decode, remove nightly CI ([#499](https://github.com/librasn/rasn/pull/499))
+
 ## [0.27.4](https://github.com/librasn/rasn/compare/rasn-v0.27.3...rasn-v0.27.4) - 2025-10-15
 
 ### Fixed
