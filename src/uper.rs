@@ -60,7 +60,6 @@ pub fn encode_with_constraints<T: crate::Encode>(
 #[cfg(test)]
 mod tests {
     use crate::{
-        macros::{constraints, permitted_alphabet_constraint, size_constraint},
         prelude::*,
         types::{constraints::*, *},
     };

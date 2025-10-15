@@ -79,7 +79,7 @@ pub fn encode_with_constraints<T: crate::Encode>(
 #[allow(clippy::items_after_statements)]
 mod tests {
     use crate::prelude::*;
-    use crate::{self as rasn, constraints, size_constraint, value_constraint};
+    use crate::{self as rasn};
     use bitvec::prelude::*;
     #[test]
     fn bool() {

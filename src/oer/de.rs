@@ -1021,7 +1021,6 @@ mod tests {
     const MAX_LENGTH: [u8; 127] = [0xff; 127];
     const MAX_LENGTH_LENGTH: usize = MAX_LENGTH.len();
     use super::*;
-    use crate::macros::{constraints, value_constraint};
     use crate::types::constraints::Constraints;
     use bitvec::prelude::BitSlice;
     use num_bigint::BigInt;

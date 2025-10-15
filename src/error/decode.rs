@@ -158,6 +158,11 @@ impl core::fmt::Display for DecodeError {
 }
 
 impl DecodeError {
+    /// Creates a wrapper around  EOF error from a given codec.
+    fn eof(codec: Codec) -> Self {
+        Self::from_kind(DecodeErrorKind::Eof, codec)
+    }
+
     /// Creates a wrapper around a permitted alphabet error from a given codec.
     #[must_use]
     pub fn permitted_alphabet_error(reason: PermittedAlphabetError, codec: Codec) -> Self {
@@ -380,11 +385,16 @@ impl DecodeError {
         error: nom::Err<nom::error::Error<T>>,
         codec: Codec,
     ) -> DecodeError {
-        let msg = match error {
-            nom::Err::Incomplete(needed) => return DecodeError::incomplete(needed, codec),
-            err => alloc::format!("Parsing Failure: {err}"),
-        };
-        DecodeError::parser_fail(msg, codec)
+        match error {
+            nom::Err::Incomplete(needed) => DecodeError::incomplete(needed, codec),
+            nom::Err::Failure(e) | nom::Err::Error(e) => {
+                if e.code == nom::error::ErrorKind::Eof {
+                    DecodeError::eof(codec)
+                } else {
+                    DecodeError::parser_fail(alloc::format!("Parsing Failure: {e:?}"), codec)
+                }
+            }
+        }
     }
 
     /// Creates a new error from a given decode error kind and codec.
@@ -552,6 +562,10 @@ pub enum DecodeErrorKind {
         /// Amount of bits/bytes needed.
         needed: nom::Needed,
     },
+    /// Encountered EOF when decoding.
+    /// BER/CER/DER uses EOF as part of the decoding logic.
+    #[snafu(display("EOF when decoding"))]
+    Eof,
 
     /// Invalid item number in sequence.
     #[snafu(display(
