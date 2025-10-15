@@ -108,7 +108,7 @@ pub fn derive_struct_impl(
     Ok(quote! {
         #[allow(clippy::mutable_key_type)]
         impl #impl_generics  #crate_root::Encode for #name #ty_generics #where_clause {
-            fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'encoder, _ENCODER: #crate_root::Encoder<'encoder>>(&self, encoder: &mut _ENCODER, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), _ENCODER::Error> {
                 #(#vars)*
 
                 #encode_impl

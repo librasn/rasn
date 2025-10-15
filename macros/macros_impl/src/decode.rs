@@ -281,7 +281,7 @@ pub fn derive_struct_impl(
 
     Ok(quote! {
         impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-            fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<_DECODER: #crate_root::Decoder>(decoder: &mut _DECODER, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<Self, _DECODER::Error> {
                 #decode_impl
             }
         }
