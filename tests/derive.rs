@@ -283,3 +283,40 @@ fn test_constraint_values() {
     let encoded = rasn::uper::encode(&my_struct);
     assert!(encoded.is_ok());
 }
+#[test]
+fn test_full_encode_decode_paths() {
+    // See https://github.com/librasn/rasn/issues/486
+    use rasn::{Decode, Encode};
+    trait CustomCodec {
+        fn encode(&self) -> Result<Vec<u8>, ()>;
+        fn decode(bytes: &[u8]) -> Result<Self, ()>
+        where
+            Self: Sized;
+    }
+
+    impl CustomCodec for u32 {
+        fn encode(&self) -> Result<Vec<u8>, ()> {
+            Ok(self.to_be_bytes().to_vec())
+        }
+
+        fn decode(bytes: &[u8]) -> Result<Self, ()> {
+            if bytes.len() != 4 {
+                return Err(());
+            }
+            let mut arr = [0u8; 4];
+            arr.copy_from_slice(&bytes[..4]);
+            Ok(Self::from_be_bytes(arr))
+        }
+    }
+    #[derive(AsnType, Encode, Decode)]
+    struct Test {
+        key: u32,
+        value: rasn::types::OctetString,
+    }
+    let inst = Test {
+        key: 0,
+        value: "A test".as_bytes().into(),
+    };
+    let enc1 = <u32 as CustomCodec>::encode(&inst.key).unwrap();
+    let _dec1 = <u32 as CustomCodec>::decode(&enc1).unwrap();
+}

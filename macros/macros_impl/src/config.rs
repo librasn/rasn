@@ -986,7 +986,9 @@ impl<'a> FieldConfig<'a> {
                 (false, true) => {
                     quote!(encoder.encode_default(&#this #field, #default_fn #identifier)?;)
                 }
-                (false, false) => quote!(#this #field.encode(encoder)?;),
+                (false, false) => {
+                    quote!(< #ty as #crate_root::Encode>::encode(&#this #field, encoder)?;)
+                }
             }
         };
 
@@ -1134,7 +1136,7 @@ impl<'a> FieldConfig<'a> {
                     )
                 }
                 (None, None, false) => {
-                    quote!(<_>::decode(decoder) #or_else)
+                    quote!(< #ty as #crate_root::Decode>::decode(decoder) #or_else)
                 }
             }
         };
