@@ -1,7 +1,6 @@
 pub mod de;
 pub mod enc;
 
-use crate::macros::{constraints, value_constraint};
 use crate::types::Constraints;
 
 pub use self::{de::Decoder, enc::Encoder};

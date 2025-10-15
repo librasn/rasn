@@ -23,7 +23,7 @@ pub(crate) mod real;
 
 pub(crate) mod strings;
 
-use crate::macros::{constraints, size_constraint, value_constraint};
+use crate::macros::constraints;
 use alloc::boxed::Box;
 
 pub use {

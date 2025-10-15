@@ -1395,7 +1395,6 @@ impl From<u8> for Input<'_> {
 mod tests {
     use super::*;
 
-    use crate::macros::{constraints, value_constraint};
     use crate::Encoder as _;
 
     #[derive(crate::AsnType, Default, crate::Encode, Clone, Copy)]

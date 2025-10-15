@@ -253,7 +253,7 @@ macro_rules! impl_from_integer_as_big {
         $(
             impl From<$t> for Integer {
                 fn from(value: $t) -> Self {
-                    Self(op_or_promote!(value.to_isize(), Box::new((BigInt::from(value)))))
+                    Self(op_or_promote!(value.to_isize(), Box::new(BigInt::from(value))))
                 }
             }
         )*

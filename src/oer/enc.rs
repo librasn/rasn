@@ -1186,7 +1186,6 @@ mod tests {
     use num_bigint::BigInt;
 
     use super::*;
-    use crate::macros::{constraints, value_constraint};
     use crate::prelude::{AsnType, Decode, Encode};
 
     #[test]
