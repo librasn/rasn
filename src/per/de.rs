@@ -650,7 +650,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
     }
-    fn decode_any(&mut self) -> Result<types::Any> {
+    fn decode_any(&mut self, _tag: Tag) -> Result<types::Any> {
         let mut octet_string = types::BitString::default();
         let codec = self.codec();
 

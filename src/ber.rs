@@ -460,4 +460,26 @@ mod tests {
             &[0x30, 0x05, 0xA5, 0x03, 0x02, 0x01, 0x2A]
         );
     }
+    #[test]
+    fn test_optional_any() {
+        // https://github.com/librasn/rasn/issues/488
+        use crate as rasn;
+        use rasn::prelude::*;
+
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq, Eq)]
+        struct IncomingRequest {
+            #[rasn(tag(Context, 0))]
+            handshake: Option<Any>,
+            #[rasn(tag(Context, 1))]
+            user_data: Option<Any>,
+        }
+        let incoming: IncomingRequest = rasn::Codec::Ber
+            .decode_from_binary(&[0x30, 0x06, 0xA1, 0x04, 0x01, 0x02, 0x03, 0x04])
+            .unwrap();
+        let expected = IncomingRequest {
+            handshake: None,
+            user_data: Some(Any::new(vec![0x01, 0x02, 0x03, 0x04])),
+        };
+        assert_eq!(incoming, expected)
+    }
 }

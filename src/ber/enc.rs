@@ -337,7 +337,7 @@ impl crate::Encoder<'_> for Encoder {
             return Err(BerEncodeErrorKind::AnyInSet.into());
         }
 
-        self.output.extend_from_slice(&value.contents);
+        self.output.extend_from_slice(value.as_bytes());
 
         Ok(())
     }

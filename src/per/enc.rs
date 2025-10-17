@@ -803,7 +803,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         self.encode_octet_string(
             tag,
             Constraints::default(),
-            &value.contents,
+            value.as_bytes(),
             Identifier::EMPTY,
         )
     }

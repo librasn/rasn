@@ -351,7 +351,7 @@ impl crate::Decoder for Decoder {
         crate::Codec::Xer
     }
 
-    fn decode_any(&mut self) -> Result<crate::types::Any, Self::Error> {
+    fn decode_any(&mut self, _tag: Tag) -> Result<crate::types::Any, Self::Error> {
         tag!(StartElement, self)?;
         let mut events = self
             .stack
@@ -406,9 +406,7 @@ impl crate::Decoder for Decoder {
                 }
             }
         }
-        Ok(Any {
-            contents: xml_writer.into_inner().into_bytes(),
-        })
+        Ok(Any::new(xml_writer.into_inner().into_bytes()))
     }
 
     fn decode_bit_string(
@@ -1523,7 +1521,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             "<Actual><Hello>7</Hello><Text>Text</Text></Actual>".as_bytes(),
-            AnyTest::decode(&mut decoder).unwrap().grappa.contents
+            AnyTest::decode(&mut decoder).unwrap().grappa.as_bytes()
         )
     }
 
