@@ -12,7 +12,6 @@ mod tag;
 
 pub mod constraints;
 pub mod fields;
-pub mod variants;
 
 pub(crate) mod constructed;
 pub(crate) mod date;
@@ -91,11 +90,11 @@ pub trait AsnType {
 /// A `CHOICE` value.
 pub trait Choice: Sized {
     /// Variants contained in the "root component list".
-    const VARIANTS: &'static [TagTree];
+    const VARIANTS: &'static [Tag];
     /// Constraint for the choice type, based on the number of root components. Used for PER encoding.
     const VARIANCE_CONSTRAINT: Constraints;
     /// Variants contained in the list of extensions.
-    const EXTENDED_VARIANTS: Option<&'static [TagTree]> = None;
+    const EXTENDED_VARIANTS: Option<&'static [Tag]> = None;
     /// Variant identifiers for text-based encoding rules
     const IDENTIFIERS: &'static [&'static str];
 }
