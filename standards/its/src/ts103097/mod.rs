@@ -426,14 +426,14 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataEncrypted<T> {
                         }
                         Ok(self)
                     }
-                    _ => Err(
-                        rasn::error::InnerSubtypeConstraintError::InvalidComponentVariant {
-                            component_path:
-                                "EtsiTs103097DataEncrypted.content.encryptedData.ciphertext",
-                            component_type: "SymmetricCiphertext",
-                            details: "Only aes128ccm and sm4ccm is allowed".to_string(),
-                        },
-                    ),
+                    // _ => Err(
+                    //     rasn::error::InnerSubtypeConstraintError::InvalidComponentVariant {
+                    //         component_path:
+                    //             "EtsiTs103097DataEncrypted.content.encryptedData.ciphertext",
+                    //         component_type: "SymmetricCiphertext",
+                    //         details: "Only aes128ccm and sm4ccm is allowed".to_string(),
+                    //     },
+                    // ),
                 }
             }
             _ => Err(
