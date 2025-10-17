@@ -404,7 +404,8 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataEncrypted<T> {
         match &self.0.content {
             Ieee1609Dot2Content::EncryptedData(encrypted_data) => {
                 match &encrypted_data.ciphertext {
-                    crate::ieee1609dot2::SymmetricCiphertext::Aes128ccm(ciphertext) => {
+                    crate::ieee1609dot2::SymmetricCiphertext::Aes128ccm(ciphertext)
+                    | crate::ieee1609dot2::SymmetricCiphertext::Sm4Ccm(ciphertext) => {
                         if let Some(codec) = decode_containing_with {
                             if codec
                                 .decode_from_binary::<T>(&ciphertext.ccm_ciphertext)
@@ -430,7 +431,7 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataEncrypted<T> {
                             component_path:
                                 "EtsiTs103097DataEncrypted.content.encryptedData.ciphertext",
                             component_type: "SymmetricCiphertext",
-                            details: "Only aes128ccm is allowed".to_string(),
+                            details: "Only aes128ccm and sm4ccm is allowed".to_string(),
                         },
                     ),
                 }
