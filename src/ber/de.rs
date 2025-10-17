@@ -80,6 +80,10 @@ impl<'input> Decoder<'input> {
         if self.input.is_empty() {
             return Ok(None);
         }
+        // Special case if optional is absent and is the last element in sequence..
+        if self.input.len() == 2 && &self.input[..2] == EOC {
+            return Ok(None);
+        }
         if tag != Tag::EOC {
             let upcoming_tag = self.peek_tag()?;
             if tag != upcoming_tag {
