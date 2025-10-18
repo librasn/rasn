@@ -82,7 +82,7 @@ impl crate::Encoder<'_> for Encoder {
         self.encode_octet_string(
             t,
             Constraints::default(),
-            &value.contents,
+            value.as_bytes(),
             Identifier::EMPTY,
         )
     }

@@ -849,7 +849,7 @@ impl Encoder {
     }
 
     fn write_any(&mut self, value: &Any) -> Result<(), EncodeError> {
-        let mut reader = ParserConfig::default().create_reader(value.contents.iter());
+        let mut reader = ParserConfig::default().create_reader(value.as_bytes().iter());
         while let Ok(evt) = reader.next() {
             match evt {
                 xml_no_std::reader::XmlEvent::StartDocument { .. } => {

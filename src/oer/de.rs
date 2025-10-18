@@ -481,8 +481,11 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.codec()
     }
 
-    fn decode_any(&mut self) -> Result<Any, Self::Error> {
-        panic!("Not every type can be decoded as Any in OER.")
+    /// In OER, an alias for decoding an open type and obtaining the underlying type's encoded bytes.
+    fn decode_any(&mut self, tag: Tag) -> Result<Any, Self::Error> {
+        Ok(Any::new(
+            self.decode_octet_string(tag, Constraints::default())?,
+        ))
     }
 
     fn decode_bit_string(

@@ -176,7 +176,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn codec(&self) -> crate::Codec;
 
     /// Decode an unknown ASN.1 value identified by `tag` from the available input.
-    fn decode_any(&mut self) -> Result<types::Any, Self::Error>;
+    fn decode_any(&mut self, tag: Tag) -> Result<types::Any, Self::Error>;
     /// Decode a `BIT STRING` identified by `tag` from the available input.
     fn decode_bit_string(
         &mut self,
@@ -755,10 +755,10 @@ impl Decode for types::GeneralizedTime {
 impl Decode for types::Any {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
-        _: Tag,
+        tag: Tag,
         _: Constraints,
     ) -> Result<Self, D::Error> {
-        decoder.decode_any()
+        decoder.decode_any(tag)
     }
 }
 
