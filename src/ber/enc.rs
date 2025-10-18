@@ -329,15 +329,29 @@ impl crate::Encoder<'_> for Encoder {
 
     fn encode_any(
         &mut self,
-        _: Tag,
+        tag: Tag,
         value: &types::Any,
-        _: crate::types::Identifier,
+        _identifier: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         if self.is_set_encoding {
             return Err(BerEncodeErrorKind::AnyInSet.into());
         }
 
-        self.output.extend_from_slice(value.as_bytes());
+        let inner = value.as_bytes();
+        if inner.is_empty() {
+            return Ok(());
+        }
+        // If we have Any type or Choice type directly, don't encode the tag
+        if tag != Tag::EOC {
+            let inner_constructed = (inner[0] & 0x20) != 0;
+            let ident = Identifier::from_tag(tag, inner_constructed);
+            let ident_bytes = self.encode_identifier(ident);
+            self.append_byte_or_bytes(ident_bytes);
+            self.encode_length(ident, inner);
+            self.encode_to_set(ident.tag);
+        } else {
+            self.output.extend_from_slice(inner);
+        }
 
         Ok(())
     }
