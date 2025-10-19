@@ -598,5 +598,36 @@ mod tests {
         ];
         assert_eq!(encode(&value6).unwrap(), expected6);
         assert_eq!(decode::<TestSequence>(expected6).unwrap(), value6);
+
+        // Another type where the final field is optional
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq)]
+        #[rasn(automatic_tags)]
+        pub struct AnotherTestSequence {
+            a: Option<TestChoice>,
+            b: Option<Any>,
+        }
+        let value1 = AnotherTestSequence { a: None, b: None };
+        // Sequence tag (0x30), length 0
+        let expected1 = &[0x30, 0x00];
+        assert_eq!(encode(&value1).unwrap(), expected1);
+        assert_eq!(decode::<AnotherTestSequence>(expected1).unwrap(), value1);
+        let value2 = AnotherTestSequence {
+            a: Some(TestChoice::Boolean(true)),
+            b: None,
+        };
+        // Sequence tag (0x30), length 5
+        // 'a' (TestChoice): explicitly tagged with [0] -> A0 03
+        // 'Boolean' (bool, true): implicitly tagged with [1] -> 81 01 FF
+        let expected2 = &[0x30, 0x05, 0xA0, 0x03, 0x81, 0x01, 0xFF];
+        assert_eq!(encode(&value2).unwrap(), expected2);
+        assert_eq!(decode::<AnotherTestSequence>(expected2).unwrap(), value2);
+        let value3 = AnotherTestSequence {
+            a: None,
+            b: Some(Any::new(any_payload.to_vec())),
+        };
+        // Sequence tag (0x30), length 4
+        // 'b' (Any, NULL): implicitly tagged with [1] -> 81 02 05 00
+        let expected3 = &[0x30, 0x04, 0x81, 0x02, 0x05, 0x00];
+        assert_eq!(encode(&value3).unwrap(), expected3);
     }
 }
