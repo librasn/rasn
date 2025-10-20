@@ -57,6 +57,42 @@ impl<'input> Decoder<'input> {
     pub fn decoded_len(&self) -> usize {
         self.initial_len - self.input.len()
     }
+    /// Peek the value of the next tag
+    pub fn peek_tag(&self) -> Result<Tag> {
+        let (_, tag_ident) =
+            self::parser::parse_identifier_octet(self.input).map_err(|e| match e {
+                ParseNumberError::Nom(e) => {
+                    DecodeError::map_nom_err(e, self.config.current_codec())
+                }
+                ParseNumberError::Overflow => {
+                    DecodeError::integer_overflow(32u32, self.config.current_codec())
+                }
+            })?;
+        Ok(tag_ident.tag)
+    }
+    /// Generic helper used by the optional decoders.
+    /// The function will peek the upcoming tag and only invoke `f` when the tags match.
+    /// If tags won't match or input is empty, will return `None`
+    fn decode_optional_with_check<D, F>(&mut self, tag: Tag, f: F) -> Result<Option<D>, DecodeError>
+    where
+        F: FnOnce(&mut Self) -> Result<D, DecodeError>,
+    {
+        if self.input.is_empty() {
+            return Ok(None);
+        }
+        // Special case if optional is absent and idefinite length EOC follows
+        if self.input.len() >= 2 && &self.input[..2] == EOC && !self.config.encoding_rules.is_der()
+        {
+            return Ok(None);
+        }
+        if tag != Tag::EOC {
+            let upcoming_tag = self.peek_tag()?;
+            if tag != upcoming_tag {
+                return Ok(None);
+            }
+        }
+        Ok(Some(f(self)?))
+    }
 
     fn parse_eoc(&mut self) -> Result<()> {
         let (i, _) = nom::bytes::streaming::tag(EOC)(self.input)
@@ -320,26 +356,37 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn codec(&self) -> crate::Codec {
         Self::codec(self)
     }
-    fn decode_any(&mut self) -> Result<types::Any> {
+    fn decode_any(&mut self, tag: Tag) -> Result<types::Any> {
+        // If tag is not EOC, we are likely in sequence/set
+        let tag = if tag == Tag::EOC { None } else { Some(tag) };
+        // `parse_value` consumes the Tag and Length.
+        // `input` is the remaining slice, starting at the beginning of the Value.
+        // `contents` is `Some(value)` for definite-length, and `None` for indefinite-length.
         let (mut input, (identifier, contents)) =
-            self::parser::parse_value(self.config, self.input, None)?;
+            self::parser::parse_value(self.config, self.input, tag)?;
 
-        if contents.is_none() {
-            let (i, _) = self::parser::parse_encoded_value(
+        let contents = if let Some(definitive_contents) = contents {
+            definitive_contents.to_vec()
+        } else {
+            let (i, indefinitive_contents) = self::parser::parse_encoded_value(
                 self.config,
                 self.input,
                 identifier.tag,
                 |input, _| Ok(alloc::vec::Vec::from(input)),
             )?;
             input = i;
-        }
-        let diff = self.input.len() - input.len();
-        let contents = &self.input[..diff];
+            indefinitive_contents
+        };
+        // Only the data format is validated, when not in Sequence/Set - afterwards just pass the original data.
+        let any = if tag.is_none() {
+            let diff = self.input.len() - input.len();
+            types::Any::new(self.input[..diff].to_vec())
+        } else {
+            // Outermost TLV stripped in sequence/set
+            types::Any::new(contents)
+        };
         self.input = input;
-
-        Ok(types::Any {
-            contents: contents.to_vec(),
-        })
+        Ok(any)
     }
 
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {
@@ -734,25 +781,23 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {
-        if D::TAG == Tag::EOC {
-            Ok(D::decode(self).ok())
-        } else {
-            self.decode_optional_with_tag(D::TAG)
-        }
+        self.decode_optional_with_check(D::TAG, |decoder| D::decode(decoder))
     }
 
-    /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`.
+    /// Decode the optional value in a `SEQUENCE` or `SET` with `tag`.
     /// Passing the correct tag is required even when used with codecs where
     /// the tag is not present.
     fn decode_optional_with_tag<D: Decode>(&mut self, tag: Tag) -> Result<Option<D>, Self::Error> {
-        Ok(D::decode_with_tag(self, tag).ok())
+        self.decode_optional_with_check(tag, |decoder| D::decode_with_tag(decoder, tag))
     }
 
     fn decode_optional_with_constraints<D: Decode>(
         &mut self,
         constraints: Constraints,
     ) -> Result<Option<D>, Self::Error> {
-        Ok(D::decode_with_constraints(self, constraints).ok())
+        self.decode_optional_with_check(D::TAG, |decoder| {
+            D::decode_with_constraints(decoder, constraints)
+        })
     }
 
     fn decode_optional_with_tag_and_constraints<D: Decode>(
@@ -760,7 +805,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Option<D>, Self::Error> {
-        Ok(D::decode_with_tag_and_constraints(self, tag, constraints).ok())
+        self.decode_optional_with_check(tag, |decoder| {
+            D::decode_with_tag_and_constraints(decoder, tag, constraints)
+        })
     }
 
     fn decode_choice<D>(&mut self, _: Constraints) -> Result<D, Self::Error>

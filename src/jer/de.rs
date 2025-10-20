@@ -56,7 +56,7 @@ impl crate::Decoder for Decoder {
     type Error = DecodeError;
     type AnyDecoder<const R: usize, const E: usize> = Self;
 
-    fn decode_any(&mut self) -> Result<Any, Self::Error> {
+    fn decode_any(&mut self, _tag: Tag) -> Result<Any, Self::Error> {
         decode_jer_value!(Self::any_from_value, self.stack)
     }
 

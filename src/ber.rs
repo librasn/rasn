@@ -460,4 +460,174 @@ mod tests {
             &[0x30, 0x05, 0xA5, 0x03, 0x02, 0x01, 0x2A]
         );
     }
+    #[test]
+    fn test_optional_any() {
+        // https://github.com/librasn/rasn/issues/488
+        use crate as rasn;
+        use rasn::prelude::*;
+
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq, Eq)]
+        struct IncomingRequest {
+            #[rasn(tag(Context, 0))]
+            handshake: Option<Any>,
+            #[rasn(tag(Context, 1))]
+            user_data: Option<Any>,
+        }
+        let incoming: IncomingRequest = rasn::Codec::Ber
+            .decode_from_binary(&[0x30, 0x06, 0xA1, 0x04, 0x01, 0x02, 0x03, 0x04])
+            .unwrap();
+        let expected = IncomingRequest {
+            handshake: None,
+            user_data: Some(Any::new(vec![0x01, 0x02, 0x03, 0x04])),
+        };
+        assert_eq!(incoming, expected)
+    }
+
+    #[test]
+    fn test_optional_variants() {
+        use crate as rasn;
+        use rasn::prelude::*;
+
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[rasn(choice)]
+        pub enum TestChoice {
+            Integer(i32),
+            Boolean(bool),
+        }
+
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq)]
+        #[rasn(automatic_tags)]
+        pub struct TestSequence {
+            a: Option<u32>,
+            b: Option<TestChoice>,
+            c: Option<Any>,
+            d: bool, // A required field to ensure sequence isn't empty
+        }
+
+        // Case 1: All optional fields are absent.
+        let value1 = TestSequence {
+            a: None,
+            b: None,
+            c: None,
+            d: true,
+        };
+        // Sequence tag (0x30), length 3
+        // Boolean 'd' is implicitly tagged with [3]: tag (0x83), length 1, value TRUE (0xFF)
+        let expected1 = &[0x30, 0x03, 0x83, 0x01, 0xFF];
+        assert_eq!(encode(&value1).unwrap(), expected1);
+        assert_eq!(decode::<TestSequence>(expected1).unwrap(), value1);
+
+        // Case 2: 'a' is present, others absent.
+        let value2 = TestSequence {
+            a: Some(10),
+            b: None,
+            c: None,
+            d: true,
+        };
+        // Sequence tag (0x30), length 6
+        // Integer 'a' is implicitly tagged with [0]: tag (0x80), length 1, value 10
+        // Boolean 'd' is implicitly tagged with [3]: tag (0x83), length 1, value TRUE
+        let expected2 = &[0x30, 0x06, 0x80, 0x01, 0x0A, 0x83, 0x01, 0xFF];
+        assert_eq!(encode(&value2).unwrap(), expected2);
+        assert_eq!(decode::<TestSequence>(expected2).unwrap(), value2);
+
+        // Case 3: 'b' is present (as Integer), others absent.
+        let value3 = TestSequence {
+            a: None,
+            b: Some(TestChoice::Integer(20)),
+            c: None,
+            d: true,
+        };
+        // Sequence tag (0x30), length 8
+        // Choice 'b' is explicitly tagged with [1]: tag (0xA1), constructed, length 3
+        // Integer variant is implicitly tagged with [0]: tag (0x80), length 1, value 20
+        // Boolean 'd' is implicitly tagged with [3]: tag (0x83), length 1, value TRUE
+        let expected3 = &[0x30, 0x08, 0xA1, 0x03, 0x80, 0x01, 0x14, 0x83, 0x01, 0xFF];
+        assert_eq!(encode(&value3).unwrap(), expected3);
+        assert_eq!(decode::<TestSequence>(expected3).unwrap(), value3);
+
+        // Case 4: 'c' is present, others absent.
+        let any_payload = &[0x05, 0x00]; // NULL type
+        let value4 = TestSequence {
+            a: None,
+            b: None,
+            c: Some(Any::new(any_payload.to_vec())),
+            d: true,
+        };
+        // Sequence tag (0x30), length 7
+        // Any 'c' is implicitly tagged with [2]: tag (0x82), length 2, value [0x05, 0x00]
+        // Boolean 'd' is implicitly tagged with [3]: tag (0x83), length 1, value TRUE
+        let expected4 = &[0x30, 0x07, 0x82, 0x02, 0x05, 0x00, 0x83, 0x01, 0xFF];
+        assert_eq!(encode(&value4).unwrap(), expected4);
+        assert_eq!(decode::<TestSequence>(expected4).unwrap(), value4);
+
+        // Case 5: All optional fields present.
+        let value5 = TestSequence {
+            a: Some(255),
+            b: Some(TestChoice::Boolean(false)),
+            c: Some(Any::new(any_payload.to_vec())),
+            d: false,
+        };
+        // Sequence tag (0x30), length 16
+        // 'a' (u32, 255): implicitly tagged with [0] -> 80 02 00 FF
+        // 'b' (TestChoice::Boolean(false)): explicitly tagged with [1] -> A1 03 (content)
+        //   'Boolean' variant implicitly tagged with [1] -> 81 01 00
+        // 'c' (Any): implicitly tagged with [2] -> 82 02 05 00
+        // 'd' (bool, false): implicitly tagged with [3] -> 83 01 00
+        let expected5 = &[
+            0x30, 0x10, 0x80, 0x02, 0x00, 0xFF, 0xA1, 0x03, 0x81, 0x01, 0x00, 0x82, 0x02, 0x05,
+            0x00, 0x83, 0x01, 0x00,
+        ];
+        assert_eq!(encode(&value5).unwrap(), expected5);
+        assert_eq!(decode::<TestSequence>(expected5).unwrap(), value5);
+
+        // Case 6: 'a' and 'c' are present.
+        let value6 = TestSequence {
+            a: Some(1),
+            b: None,
+            c: Some(Any::new(any_payload.to_vec())),
+            d: true,
+        };
+        // Sequence tag (0x30), length 10
+        // 'a' (u32, 1): implicitly tagged with [0] -> 80 01 01
+        // 'c' (Any): implicitly tagged with [2] -> 82 02 05 00
+        // 'd' (bool, true): implicitly tagged with [3] -> 83 01 FF
+        let expected6 = &[
+            0x30, 0x0A, 0x80, 0x01, 0x01, 0x82, 0x02, 0x05, 0x00, 0x83, 0x01, 0xFF,
+        ];
+        assert_eq!(encode(&value6).unwrap(), expected6);
+        assert_eq!(decode::<TestSequence>(expected6).unwrap(), value6);
+
+        // Another type where the final field is optional
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq)]
+        #[rasn(automatic_tags)]
+        pub struct AnotherTestSequence {
+            a: Option<TestChoice>,
+            b: Option<Any>,
+        }
+        let value1 = AnotherTestSequence { a: None, b: None };
+        // Sequence tag (0x30), length 0
+        let expected1 = &[0x30, 0x00];
+        assert_eq!(encode(&value1).unwrap(), expected1);
+        assert_eq!(decode::<AnotherTestSequence>(expected1).unwrap(), value1);
+        let value2 = AnotherTestSequence {
+            a: Some(TestChoice::Boolean(true)),
+            b: None,
+        };
+        // Sequence tag (0x30), length 5
+        // 'a' (TestChoice): explicitly tagged with [0] -> A0 03
+        // 'Boolean' (bool, true): implicitly tagged with [1] -> 81 01 FF
+        let expected2 = &[0x30, 0x05, 0xA0, 0x03, 0x81, 0x01, 0xFF];
+        assert_eq!(encode(&value2).unwrap(), expected2);
+        assert_eq!(decode::<AnotherTestSequence>(expected2).unwrap(), value2);
+        let value3 = AnotherTestSequence {
+            a: None,
+            b: Some(Any::new(any_payload.to_vec())),
+        };
+        // Sequence tag (0x30), length 4
+        // 'b' (Any, NULL): implicitly tagged with [1] -> 81 02 05 00
+        let expected3 = &[0x30, 0x04, 0x81, 0x02, 0x05, 0x00];
+        assert_eq!(encode(&value3).unwrap(), expected3);
+    }
 }
