@@ -11,8 +11,8 @@ license.workspace = true
 default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
 
 [dependencies]
-smi = { path = "../smi", package = "rasn-smi", version = "0.27" }
-rasn = { path = "../..", version = "0.27", default-features = false }
+smi = { path = "../smi", package = "rasn-smi", version = "0.28" }
+rasn = { path = "../..", version = "0.28", default-features = false }
 
 [dev-dependencies]
 hex = "0.4.3"

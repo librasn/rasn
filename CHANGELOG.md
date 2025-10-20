@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0](https://github.com/librasn/rasn/compare/rasn-v0.27.4...rasn-v0.28.0) - 2025-10-20
+
+### Fixed
+
+- *(ber)* [**breaking**] Explicit errors when decoding optional any, proper TLV extraction in sequence ([#504](https://github.com/librasn/rasn/pull/504))
+- use full paths for field encode/decode, remove nightly CI ([#499](https://github.com/librasn/rasn/pull/499))
+
 ## [0.27.4](https://github.com/librasn/rasn/compare/rasn-v0.27.3...rasn-v0.27.4) - 2025-10-15
 
 ### Fixed
