@@ -12,5 +12,5 @@ repository.workspace = true
 default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
 
 [dependencies]
-rasn = { path = "../..", version = "0.27", default-features = false }
+rasn = { path = "../..", version = "0.28", default-features = false }
 chrono.workspace = true

@@ -19,7 +19,7 @@ exclude = ["fuzzing"]
 [workspace.package]
 edition = "2021"
 license = "MIT OR Apache-2.0"
-version = "0.27.4"
+version = "0.28.0"
 repository = "https://github.com/librasn/rasn.git"
 
 [workspace.dependencies]
@@ -99,7 +99,7 @@ once_cell = { version = "1.20.2", default-features = false, features = [
   "alloc",
 ] }
 rasn-compiler = { version = "0.7", optional = true }
-rasn-derive = { version = "0.27", path = "macros" }
+rasn-derive = { version = "0.28", path = "macros" }
 snafu = { version = "0.8.5", default-features = false, features = [
   "rust_1_81",
 ] }
