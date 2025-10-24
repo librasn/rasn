@@ -653,9 +653,16 @@ impl<'config> VariantConfig<'config> {
                 })
             }
         };
+        let (tag_tokens, is_tag_tree) = tag_tree;
+        let if_check = if is_tag_tree {
+            quote!(#crate_root::types::TagTree::tag_contains(&tag, &[#tag_tokens]))
+        } else {
+            quote!(#tag_tokens.eq(&tag))
+        };
 
         Ok(quote! {
-            if #crate_root::types::TagTree::tag_contains(&tag, &[#tag_tree]) {
+
+            if #if_check {
                 #const_constraint
                 return #decode_op
             }
@@ -677,11 +684,14 @@ impl<'config> VariantConfig<'config> {
         })
     }
 
-    pub fn tag_tree(&self) -> syn::Result<proc_macro2::TokenStream> {
+    /// Returns a tuple containing:
+    /// - The TokenStream representing the tag tree or a single tag
+    /// - A boolean indicating whether this is a complex tag tree (true) or a simple tag (false)
+    pub fn tag_tree(&self) -> syn::Result<(proc_macro2::TokenStream, bool)> {
         let crate_root = &self.container_config.crate_root;
         if self.tag.is_some() || self.container_config.automatic_tags {
             let tag = self.tag()?.to_tokens(crate_root);
-            Ok(quote!(#crate_root::types::TagTree::Leaf(#tag)))
+            Ok((quote!(#tag), false))
         } else {
             let field_configs = self
                 .variant
@@ -697,9 +707,7 @@ impl<'config> VariantConfig<'config> {
                 .map(|f| f.tag_tree());
 
             Ok(match self.variant.fields {
-                syn::Fields::Unit => {
-                    quote!(#crate_root::types::TagTree::Leaf(<() as #crate_root::AsnType>::TAG))
-                }
+                syn::Fields::Unit => (quote!(<() as #crate_root::AsnType>::TAG), false),
                 syn::Fields::Named(_) => {
                     let error_message = format!(
                         "{}'s fields is not a valid \
@@ -708,12 +716,15 @@ impl<'config> VariantConfig<'config> {
                         self.variant.ident
                     );
 
-                    quote!({
-                        const FIELD_LIST: &'static [#crate_root::types::TagTree] = &[#(#field_tags),*];
-                        const FIELD_TAG_TREE: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(FIELD_LIST);
-                        const _: () = assert!(FIELD_TAG_TREE.is_unique(), #error_message);
-                        #crate_root::types::TagTree::Leaf(#crate_root::types::Tag::SEQUENCE)
-                    })
+                    (
+                        quote!({
+                            const FIELD_LIST: &'static [#crate_root::types::TagTree] = &[#(#field_tags),*];
+                            const FIELD_TAG_TREE: #crate_root::types::TagTree = #crate_root::types::TagTree::Choice(FIELD_LIST);
+                            const _: () = assert!(FIELD_TAG_TREE.is_unique(), #error_message);
+                            #crate_root::types::Tag::SEQUENCE
+                        }),
+                        false,
+                    )
                 }
                 syn::Fields::Unnamed(_) => {
                     // Assert already checked in FieldConfig
@@ -721,7 +732,7 @@ impl<'config> VariantConfig<'config> {
                     let mut ty = self.variant.fields.iter().next().unwrap().ty.clone();
                     ty.strip_lifetimes();
 
-                    quote!(<#ty as #crate_root::AsnType>::TAG_TREE)
+                    (quote!(<#ty as #crate_root::AsnType>::TAG_TREE), true)
                 }
             })
         }
