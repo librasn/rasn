@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.1](https://github.com/librasn/rasn/compare/rasn-v0.28.0...rasn-v0.28.1) - 2025-11-19
+
+### Fixed
+
+- Sanitize field attributes when expanding Decode and Encode ([#509](https://github.com/librasn/rasn/pull/509))
+
 ## [0.28.0](https://github.com/librasn/rasn/compare/rasn-v0.27.4...rasn-v0.28.0) - 2025-10-20
 
 ### Fixed
