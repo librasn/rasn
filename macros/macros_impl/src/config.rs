@@ -637,7 +637,7 @@ impl<'config> VariantConfig<'config> {
                     tag,
                     name,
                     self.generics,
-                    &self.variant.fields,
+                    crate::decode::UnsanitizedFields::from(&self.variant.fields),
                     Some(<_>::default()),
                     Some(quote!(Self::#ident)),
                     self.container_config,

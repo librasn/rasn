@@ -119,6 +119,7 @@ once_cell = "1.20.2"
 pretty_assertions.workspace = true
 rasn-pkix = { path = "standards/pkix", default-features = false }
 rasn-its = { path = "standards/its", default-features = false }
+serde = {version="1.0.228", features=["derive"]}
 
 # Assume that we need these dependencies only when benching manually on specific targets
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dev-dependencies]

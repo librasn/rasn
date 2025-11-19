@@ -1,6 +1,9 @@
 use syn::LitStr;
 
-use crate::config::{Config, FieldConfig};
+use crate::{
+    config::{Config, FieldConfig},
+    CRATE_NAME,
+};
 
 pub fn derive_struct_impl(
     name: &syn::Ident,
@@ -145,7 +148,10 @@ pub fn map_to_inner_type(
         syn::Fields::Named(_) => {
             let field_defs = fields.iter().map(|field| {
                 let name = field.ident.as_ref().unwrap();
-                let attrs = &field.attrs;
+                let attrs = field
+                    .attrs
+                    .iter()
+                    .filter(|attr| attr.path().is_ident(CRATE_NAME));
                 let ty = &field.ty;
                 quote!(#(#attrs)* #name : &#lifetime #ty)
             });

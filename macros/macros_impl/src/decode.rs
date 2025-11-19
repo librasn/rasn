@@ -1,7 +1,10 @@
 use quote::ToTokens;
 use syn::Fields;
 
-use crate::config::{map_to_inner_type, Config, FieldConfig};
+use crate::{
+    config::{map_to_inner_type, Config, FieldConfig},
+    CRATE_NAME,
+};
 
 #[allow(clippy::too_many_lines)]
 pub fn derive_struct_impl(
@@ -269,7 +272,7 @@ pub fn derive_struct_impl(
                 tag,
                 name,
                 &generics,
-                &container.fields,
+                UnsanitizedFields::from(&container.fields),
                 container.semi_token,
                 None,
                 config,
@@ -293,7 +296,7 @@ pub fn map_from_inner_type(
     tag: proc_macro2::TokenStream,
     name: &syn::Ident,
     generics: &syn::Generics,
-    fields: &Fields,
+    fields: UnsanitizedFields<'_>,
     semi: Option<syn::Token![;]>,
     outer_name: Option<proc_macro2::TokenStream>,
     config: &Config,
@@ -316,13 +319,55 @@ pub fn map_from_inner_type(
     } else {
         quote!(<#inner_name>::decode_with_tag(decoder, #tag)?)
     };
+    let sanitized_fields = fields.sanitize();
 
     quote! {
         #[derive(#crate_root::AsnType, #crate_root::Decode, #crate_root::Encode)]
-        struct #inner_name #generics #fields #semi
+        struct #inner_name #generics #sanitized_fields #semi
 
         let inner = #decode_op;
 
         Ok(#outer_name { #(#map_from_inner),* })
+    }
+}
+
+pub(crate) struct UnsanitizedFields<'a>(&'a syn::Fields);
+
+impl<'a> From<&'a syn::Fields> for UnsanitizedFields<'a> {
+    fn from(value: &'a syn::Fields) -> Self {
+        Self(value)
+    }
+}
+
+impl UnsanitizedFields<'_> {
+    fn iter(&self) -> impl Iterator<Item = &syn::Field> {
+        self.0.iter()
+    }
+
+    fn sanitize(&self) -> proc_macro2::TokenStream {
+        let fields = self.0.iter().map(|field| {
+            let syn::Field {
+                attrs,
+                vis,
+                ident,
+                colon_token,
+                ty,
+                ..
+            } = field;
+            let attrs = attrs.iter().filter(|attr| attr.path().is_ident(CRATE_NAME));
+            quote!(
+                #(#attrs)*
+                #vis #ident #colon_token #ty
+            )
+        });
+        match self.0 {
+            syn::Fields::Named(_) => quote!(
+                {#(#fields),*}
+            ),
+            syn::Fields::Unnamed(_) => quote!(
+                (#(#fields),*)
+            ),
+            unit @ syn::Fields::Unit => quote!(#unit),
+        }
     }
 }
