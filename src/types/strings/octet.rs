@@ -126,6 +126,12 @@ impl<const N: usize> FixedOctetString<N> {
     }
 }
 
+impl<const N: usize> Default for FixedOctetString<N> {
+    fn default() -> Self {
+        Self::from([0u8; N])
+    }
+}
+
 impl<const N: usize> From<[u8; N]> for FixedOctetString<N> {
     fn from(value: [u8; N]) -> Self {
         Self::new(value)
