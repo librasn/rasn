@@ -21,6 +21,22 @@ pub enum CodecEncodeError {
     Coer(CoerEncodeErrorKind),
     Xer(XerEncodeErrorKind),
 }
+
+impl core::fmt::Display for CodecEncodeError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            CodecEncodeError::Ber(kind) => write!(f, "BER encoding error: {kind}"),
+            CodecEncodeError::Cer(kind) => write!(f, "CER encoding error: {kind}"),
+            CodecEncodeError::Der(kind) => write!(f, "DER encoding error: {kind}"),
+            CodecEncodeError::Uper(kind) => write!(f, "UPER encoding error: {kind}"),
+            CodecEncodeError::Aper(kind) => write!(f, "APER encoding error: {kind}"),
+            CodecEncodeError::Jer(kind) => write!(f, "JER encoding error: {kind}"),
+            CodecEncodeError::Coer(kind) => write!(f, "COER encoding error: {kind}"),
+            CodecEncodeError::Xer(kind) => write!(f, "XER encoding error: {kind}"),
+        }
+    }
+}
+
 macro_rules! impl_from {
     ($variant:ident, $error_kind:ty) => {
         impl From<$error_kind> for EncodeError {
@@ -295,7 +311,7 @@ pub enum EncodeErrorKind {
         msg: alloc::string::String,
     },
     /// Wraps codec-specific errors as inner [`CodecEncodeError`].
-    #[snafu(display("Wrapped codec-specific encode error"))]
+    #[snafu(display("{inner}"))]
     CodecSpecific {
         /// Inner codec-specific error
         inner: CodecEncodeError,
