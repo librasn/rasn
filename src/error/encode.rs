@@ -133,10 +133,9 @@ impl core::error::Error for EncodeError {}
 
 impl core::fmt::Display for EncodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "Error Kind: {}", self.kind)?;
-        writeln!(f, "Codec: {}", self.kind)?;
+        write!(f, "{} (Codec: {})", self.kind, self.codec)?;
         #[cfg(feature = "backtraces")]
-        write!(f, "\nBacktrace:\n{}", self.backtrace)?;
+        write!(f, "\n\nBacktrace:\n{}", self.backtrace)?;
 
         Ok(())
     }
@@ -284,7 +283,7 @@ pub enum EncodeErrorKind {
         err: core::num::TryFromIntError,
     },
     /// Error when the length of the data is not in the constraint size range.
-    #[snafu(display("invalid length, expected: {expected}; actual: {length}"))]
+    #[snafu(display("Invalid length, expected: {expected}; actual: {length}"))]
     InvalidLength {
         /// Actual length of the data
         length: usize,
@@ -292,11 +291,11 @@ pub enum EncodeErrorKind {
         expected: Bounded<usize>,
     },
     /// Error when the length of the data is more than we can technically handle.
-    #[snafu(display("invalid length, exceeds platform maximum size usize::MAX"))]
+    #[snafu(display("Invalid length, exceeds platform maximum size usize::MAX"))]
     LengthExceedsPlatformSize,
     /// Encode error when the
     #[snafu(display(
-        "The provided value does not fit to the reserved octets {expected}; actual: {value}"
+        "The provided value does not fit in the reserved octets {expected}; actual: {value}"
     ))]
     MoreBytesThanExpected {
         /// The count of the provided bytes
@@ -305,7 +304,7 @@ pub enum EncodeErrorKind {
         expected: usize,
     },
     /// Error when the custom error is thrown.
-    #[snafu(display("custom error:\n{}", msg))]
+    #[snafu(display("Custom error: {}", msg))]
     Custom {
         /// The custom error message
         msg: alloc::string::String,
@@ -339,19 +338,19 @@ pub enum EncodeErrorKind {
         expected: Bounded<i128>,
     },
     /// Error when the type conversion failed between different integer types.
-    #[snafu(display("Failed to cast integer to another integer type: {msg} "))]
+    #[snafu(display("Failed to cast integer to another integer type: {msg}"))]
     IntegerTypeConversionFailed {
         /// More precise error message
         msg: alloc::string::String,
     },
     /// Error mainly used as part of SMI standard which converts type to BER encoding and handles bytes as `Opaque`.
-    #[snafu(display("Conversion to Opaque type failed: {msg}"))]
+    #[snafu(display("Conversion to opaque type failed: {msg}"))]
     OpaqueConversionFailed {
         /// More precise error message
         msg: alloc::string::String,
     },
     /// Error when the selected variant is not found in the choice.
-    #[snafu(display("Selected Variant not found from Choice"))]
+    #[snafu(display("Selected Variant not found in Choice"))]
     VariantNotInChoice,
 
     /// Error when we try to encode a `REAL` type with an unspported codec.
@@ -408,7 +407,7 @@ pub enum JerEncodeErrorKind {
         upstream: alloc::string::String,
     },
     /// Error to be thrown when the JER encoder contains no encoded root value
-    #[snafu(display("No encoded JSON root value found!"))]
+    #[snafu(display("No encoded JSON root value found"))]
     NoRootValueFound,
     /// Internal JSON encoder error
     #[snafu(display("Error in JSON encoder: {}", msg))]
@@ -417,7 +416,7 @@ pub enum JerEncodeErrorKind {
         msg: alloc::string::String,
     },
     /// Error to be thrown when encoding large integers than the supported range
-    #[snafu(display("Exceeds supported integer range -2^63..2^63 ({:?}).", value))]
+    #[snafu(display("Exceeds supported integer range -2^63..2^63 ({:?})", value))]
     ExceedsSupportedIntSize {
         /// value failed to encode
         value: BigInt,
@@ -455,10 +454,10 @@ pub enum XerEncodeErrorKind {
         /// Stringified error of the underlying XML writer
         upstream: alloc::string::String,
     },
-    #[snafu(display("Failed to encode integer."))]
+    #[snafu(display("Failed to encode integer"))]
     /// An error indicating an integer value outside of the supported bounds
     UnsupportedIntegerValue,
-    #[snafu(display("Missing identifier for ASN.1 type."))]
+    #[snafu(display("Missing identifier for ASN.1 type"))]
     /// An error indicating that the XML writer is missing information about the tag name of the item to encode
     MissingIdentifier,
 }
@@ -469,13 +468,13 @@ pub enum XerEncodeErrorKind {
 #[non_exhaustive]
 pub enum CoerEncodeErrorKind {
     /// Error type for a scenario when the provided data is too long to be encoded with COER.
-    #[snafu(display("Provided data is too long to be encoded with COER."))]
+    #[snafu(display("Provided data is too long to be encoded with COER"))]
     TooLongValue {
         /// The length of the provided data
         length: u128,
     },
     /// Error type for a secenario when the provided integer value exceeds the limits of the constrained word sizes.
-    #[snafu(display("Provided integer exceeds limits of the constrained word sizes."))]
+    #[snafu(display("Provided integer exceeds limits of the constrained word sizes"))]
     InvalidConstrainedIntegerOctetSize,
 }
 

@@ -163,10 +163,9 @@ pub struct DecodeError {
 
 impl core::fmt::Display for DecodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "Error Kind: {}", self.kind)?;
-        writeln!(f, "Codec: {}", self.codec)?;
+        write!(f, "{} (Codec: {})", self.kind, self.codec)?;
         #[cfg(feature = "backtraces")]
-        write!(f, "\nBacktrace:\n{}", self.backtrace)?;
+        write!(f, "\n\nBacktrace:\n{}", self.backtrace)?;
         Ok(())
     }
 }
@@ -509,7 +508,7 @@ pub enum DecodeErrorKind {
 
     /// Enumeration index didn't match any variant.
     #[snafu(display(
-        "Enumeration index '{}' did not match any variant. Extended list: {}",
+        "Enumeration index {} did not match any variant. Extended list checked: {}",
         index,
         extended_list
     ))]
@@ -521,7 +520,7 @@ pub enum DecodeErrorKind {
     },
 
     /// Choice index didn't match any variant.
-    #[snafu(display("choice index '{index}' did not match any variant"))]
+    #[snafu(display("Choice index {index} did not match any variant"))]
     ChoiceIndexNotFound {
         /// The found index of the choice variant.
         index: usize,
@@ -531,7 +530,7 @@ pub enum DecodeErrorKind {
 
     /// Choice index exceeds maximum possible address width.
     #[snafu(display(
-        "integer range larger than possible to address on this platform. needed: {needed} present: {present}"
+        "Choice index exceeds platform index width. Needed {needed} bytes, present: {present}"
     ))]
     ChoiceIndexExceedsPlatformWidth {
         /// Amount of bytes needed.
@@ -541,14 +540,14 @@ pub enum DecodeErrorKind {
     },
 
     /// Uncategorised error.
-    #[snafu(display("Custom: {}", msg))]
+    #[snafu(display("Custom error: {}", msg))]
     Custom {
         /// The error's message.
         msg: alloc::string::String,
     },
 
     /// Discriminant index didn't match any variant.
-    #[snafu(display("Discriminant value '{}' did not match any variant", discriminant))]
+    #[snafu(display("Discriminant value {} did not match any variant", discriminant))]
     DiscriminantValueNotFound {
         /// The found value of the discriminant
         discriminant: isize,
@@ -569,7 +568,7 @@ pub enum DecodeErrorKind {
     },
 
     ///  More than `usize::MAX` number of data requested.
-    #[snafu(display("Length of the incoming data is either exceeds platform address width."))]
+    #[snafu(display("Length of the data exceeds platform address width"))]
     LengthExceedsPlatformWidth {
         /// The specific message of the length error.
         msg: alloc::string::String,
@@ -587,19 +586,19 @@ pub enum DecodeErrorKind {
     /// Input is provided as BIT slice for nom in UPER/APER.
     /// On BER/CER/DER/OER/COER it is a BYTE slice.
     /// Hence, `needed` field can describe either bits or bytes depending on the codec.
-    #[snafu(display("Need more data to continue: ({:?}).", needed))]
+    #[snafu(display("Need more data to continue: {:?}", needed))]
     Incomplete {
         /// Amount of bits/bytes needed.
         needed: nom::Needed,
     },
     /// Encountered EOF when decoding.
     /// BER/CER/DER uses EOF as part of the decoding logic.
-    #[snafu(display("EOF when decoding"))]
+    #[snafu(display("Unexpected EOF when decoding"))]
     Eof,
 
     /// Invalid item number in sequence.
     #[snafu(display(
-        "Invalid item number in Sequence: expected {}, actual {}",
+        "Invalid item number in Sequence: expected: {}; actual: {}",
         expected,
         actual
     ))]
@@ -629,7 +628,7 @@ pub enum DecodeErrorKind {
     InvalidRealEncoding,
 
     /// Decoder doesn't support REAL
-    #[snafu(display("Decoder doesn't support REAL types"))]
+    #[snafu(display("Decoder doesn't support `REAL` type"))]
     RealNotSupported,
 
     /// `BitString` contains an invalid amount of unused bits.
@@ -653,7 +652,7 @@ pub enum DecodeErrorKind {
     #[snafu(display("Length of Length cannot be zero"))]
     ZeroLengthOfLength,
     /// The length does not match what was expected.
-    #[snafu(display("Expected {:?} bytes, actual length: {:?}", expected, actual))]
+    #[snafu(display("Expected {} bytes, actual length was {} bytes", expected, actual))]
     MismatchedLength {
         /// The expected length.
         expected: usize,
@@ -682,7 +681,7 @@ pub enum DecodeErrorKind {
 
     /// The range of the integer exceeds the platform width.
     #[snafu(display(
-        "integer range larger than possible to address on this platform. needed: {needed} present: {present}"
+        "Integer range larger than possible to address on this platform. needed: {needed} present: {present}"
     ))]
     RangeExceedsPlatformWidth {
         /// Amount of bytes needed.
@@ -768,10 +767,10 @@ pub enum DecodeErrorKind {
 #[non_exhaustive]
 pub enum BerDecodeErrorKind {
     /// An error when the length is not definite.
-    #[snafu(display("Indefinite length encountered but not allowed."))]
+    #[snafu(display("Indefinite length encountered but not allowed"))]
     IndefiniteLengthNotAllowed,
     /// An error if the value is not primitive when required.
-    #[snafu(display("Invalid constructed identifier for ASN.1 value: not primitive."))]
+    #[snafu(display("Invalid constructed identifier for ASN.1 value: not primitive"))]
     InvalidConstructedIdentifier,
     /// Invalid date.
     #[snafu(display("Invalid date string: {}", msg))]
@@ -780,7 +779,7 @@ pub enum BerDecodeErrorKind {
         msg: alloc::string::String,
     },
     /// An error when the object identifier is invalid.
-    #[snafu(display("Invalid object identifier with missing or corrupt root nodes."))]
+    #[snafu(display("Invalid object identifier with missing or corrupt root nodes"))]
     InvalidObjectIdentifier,
     /// The tag does not match what was expected.
     #[snafu(display("Expected {:?} tag, actual tag: {:?}", expected, actual))]
@@ -820,7 +819,7 @@ pub enum CerDecodeErrorKind {}
 #[non_exhaustive]
 pub enum DerDecodeErrorKind {
     /// An error when constructed encoding encountered but not allowed.
-    #[snafu(display("Constructed encoding encountered but not allowed."))]
+    #[snafu(display("Constructed encoding encountered but not allowed"))]
     ConstructedEncodingNotAllowed,
 }
 
@@ -830,11 +829,11 @@ pub enum DerDecodeErrorKind {
 #[non_exhaustive]
 pub enum JerDecodeErrorKind {
     /// An error when the end of input is reached, but more data is needed.
-    #[snafu(display("Unexpected end of input while decoding JER JSON."))]
+    #[snafu(display("Unexpected end of input while decoding JER"))]
     EndOfInput {},
     /// An error when the JSON type is not the expected type.
     #[snafu(display(
-        "Found mismatching JSON value. Expected type {}. Found value {}.",
+        "Found mismatching JSON value. Expected type: {}. Found value: {}",
         needed,
         found
     ))]
@@ -845,13 +844,13 @@ pub enum JerDecodeErrorKind {
         found: alloc::string::String,
     },
     /// An error when the JSON value is not a valid bit string.
-    #[snafu(display("Found invalid byte in bit string. {parse_int_err}"))]
+    #[snafu(display("Found invalid byte in bit string: {parse_int_err}"))]
     InvalidJerBitstring {
         /// The error that occurred when parsing the `BitString` byte.
         parse_int_err: ParseIntError,
     },
     /// An error when the JSON value is not a valid octet string.
-    #[snafu(display("Found invalid character in octet string."))]
+    #[snafu(display("Found invalid character in octet string"))]
     InvalidJerOctetString {},
     /// An error when the JSON value is not a valid OID string.
     #[snafu(display("Failed to construct OID from value {value}",))]
@@ -894,11 +893,11 @@ pub enum AperDecodeErrorKind {}
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum XerDecodeErrorKind {
-    #[snafu(display("Unexpected end of input while decoding XER XML."))]
+    #[snafu(display("Unexpected end of input while decoding XER"))]
     /// An error that indicates that the XML input ended unexpectedly
     EndOfXmlInput {},
     #[snafu(display(
-        "Found mismatching XML value. Expected type {}. Found value {}.",
+        "Found mismatching XML value. Expected type: {}. Found value: {}.",
         needed,
         found
     ))]
@@ -909,13 +908,13 @@ pub enum XerDecodeErrorKind {
         /// the encountered tag type or value
         found: alloc::string::String,
     },
-    #[snafu(display("Found invalid character in octet string."))]
+    #[snafu(display("Found invalid character in octet string"))]
     /// An error that indicates a character in an octet string that does not conform to the hex alphabet
     InvalidXerOctetstring {
         /// Inner error thrown by the `parse` method
         parse_int_err: ParseIntError,
     },
-    #[snafu(display("Encountered invalid value. {details}"))]
+    #[snafu(display("Encountered invalid value: {details}"))]
     /// An error that indicates invalid input XML
     InvalidInput {
         /// Error details from the underlying XML parser
@@ -961,7 +960,7 @@ pub enum OerDecodeErrorKind {
         class: u8,
     },
     /// The tag number was incorrect when decoding a Choice type.
-    #[snafu(display("Invalid tag number when decoding Choice. Value: {value}"))]
+    #[snafu(display("Invalid tag number when decoding Choice: {value}"))]
     InvalidTagNumberOnChoice {
         /// Invalid tag bytes at the time of decoding.
         value: u32,
