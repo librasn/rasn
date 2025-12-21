@@ -1,7 +1,6 @@
 # Rasn
 [![crates.io](https://img.shields.io/crates/d/rasn.svg)](https://crates.io/crates/rasn)
 [![Help Wanted](https://img.shields.io/github/issues/XAMPPRocky/rasn/help%20wanted?color=green)](https://github.com/XAMPPRocky/rasn/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
-[![Lines Of Code](https://tokei.rs/b1/github/XAMPPRocky/rasn?category=code)](https://github.com/XAMPPRocky/tokei)
 [![Documentation](https://docs.rs/rasn/badge.svg)](https://docs.rs/rasn/)
 [![Benchmarks](https://img.shields.io/badge/bencher-benchmarks-orange?link=https%3A%2F%2Fbencher.dev%2Fconsole%2Fprojects%2Frasn%2Fperf)](https://bencher.dev/perf/rasn/plots)
 
