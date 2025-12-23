@@ -314,10 +314,11 @@ pub fn map_from_inner_type(
         quote!(#name : inner.#name)
     });
 
+    let (_, ty_generics, _) = generics.split_for_impl();
     let decode_op = if is_explicit {
-        quote!(decoder.decode_explicit_prefix::<#inner_name>(#tag)?)
+        quote!(decoder.decode_explicit_prefix::<#inner_name #ty_generics>(#tag)?)
     } else {
-        quote!(<#inner_name>::decode_with_tag(decoder, #tag)?)
+        quote!(<#inner_name #ty_generics>::decode_with_tag(decoder, #tag)?)
     };
     let sanitized_fields = fields.sanitize();
 
