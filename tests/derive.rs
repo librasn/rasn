@@ -320,3 +320,27 @@ fn test_full_encode_decode_paths() {
     let enc1 = <u32 as CustomCodec>::encode(&inst.key).unwrap();
     let _dec1 = <u32 as CustomCodec>::decode(&enc1).unwrap();
 }
+
+// makes sure generics are properly referenced when deriving Decode
+#[test]
+fn decode_enum_with_generics() {
+    #[derive(AsnType, Encode, Decode)]
+    #[rasn(choice)]
+    #[allow(dead_code)]
+    enum MyContainer<M> {
+        SomeVal {
+            #[rasn(tag(0))]
+            inner: Vec<M>,
+        },
+    }
+
+    #[derive(AsnType, Encode, Decode)]
+    #[rasn(choice)]
+    #[allow(dead_code)]
+    enum MyContainerExplicit<M> {
+        SomeVal {
+            #[rasn(tag(explicit(0)))]
+            inner: Vec<M>,
+        },
+    }
+}
