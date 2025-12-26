@@ -709,11 +709,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     ) -> Result<T> {
         let mut octet_string = Vec::new();
         let codec = self.codec();
-
+        if codec == crate::Codec::Aper {
+            self.input = self.parse_padding(self.input)?;
+        }
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-
             let mut bytes = part.to_bitvec();
             bytes.force_align();
             octet_string.extend_from_slice(bytes.as_raw_slice());
