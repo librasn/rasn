@@ -9,7 +9,7 @@ keywords = ["asn1", "der", "ber", "cer", "per"]
 repository.workspace = true
 
 [dependencies]
-syn = { version = "2.0.79", features = ["extra-traits"] }
+syn = { version = "2.0.79", features = ["extra-traits", "visit"] }
 quote = "1.0.37"
 proc-macro2 = "1.0.88"
 itertools = "0.13"

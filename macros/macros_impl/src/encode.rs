@@ -135,7 +135,7 @@ pub fn map_to_inner_type(
         |id| quote!(#crate_root::types::Identifier(Some(#id))),
     );
 
-    let mut inner_generics = generics.clone();
+    let mut inner_generics = crate::decode::filter_generics_for_fields(generics, fields);
     let lifetime = syn::Lifetime::new(
         &format!("'inner{}", uuid::Uuid::new_v4().as_u128()),
         proc_macro2::Span::call_site(),
