@@ -20,6 +20,7 @@ use crate::{
 };
 
 pub use crate::error::DecodeError;
+use crate::error::DecodeErrorKind;
 type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
@@ -29,19 +30,27 @@ type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 pub struct DecoderOptions {
     #[allow(unused)]
     aligned: bool,
+    // limit decoding to prevent stack overflow from deep or circular references
+    remaining_depth: usize,
 }
 
 impl DecoderOptions {
     /// Returns the default decoding rules options for Aligned Packed Encoding Rules.
     #[must_use]
     pub fn aligned() -> Self {
-        Self { aligned: true }
+        Self {
+            aligned: true,
+            remaining_depth: 128,
+        }
     }
 
     /// Returns the default decoding rules options for unaligned Packed Encoding Rules.
     #[must_use]
     pub fn unaligned() -> Self {
-        Self { aligned: false }
+        Self {
+            aligned: false,
+            remaining_depth: 128,
+        }
     }
 
     #[must_use]
@@ -498,6 +507,16 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         Ok(true)
     }
 
+    fn check_recursion_depth(&self) -> Result<()> {
+        if self.options.remaining_depth == 0 {
+            return Err(DecodeError::from_kind(
+                DecodeErrorKind::ExceedsMaxParseDepth,
+                self.codec(),
+            ));
+        }
+        Ok(())
+    }
+
     #[allow(clippy::too_many_lines)]
     fn parse_fixed_width_string<ALPHABET: StaticPermittedAlphabet>(
         &mut self,
@@ -856,8 +875,10 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         _: Tag,
         constraints: Constraints,
     ) -> Result<Vec<D>, Self::Error> {
+        self.check_recursion_depth()?;
         let mut sequence_of = Vec::new();
-        let options = self.options;
+        let mut options = self.options;
+        options.remaining_depth = options.remaining_depth.saturating_sub(1);
         self.decode_extensible_container(constraints, |mut input, length| {
             sequence_of.append(
                 &mut (0..length)
@@ -896,6 +917,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         DF: FnOnce() -> D,
         F: FnOnce(&mut Self::AnyDecoder<RC, EC>) -> Result<D, Self::Error>,
     {
+        self.check_recursion_depth()?;
+
         let is_extensible = D::IS_EXTENSIBLE
             .then(|| self.parse_one_bit())
             .transpose()?
@@ -904,6 +927,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
         let value = {
             let mut sequence_decoder = Decoder::new(self.input(), self.options);
+            sequence_decoder.options.remaining_depth =
+                sequence_decoder.options.remaining_depth.saturating_sub(1);
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
             sequence_decoder.extensions_present = is_extensible.then_some(None);
             sequence_decoder.fields = D::FIELDS
@@ -946,6 +971,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
+        self.check_recursion_depth()?;
+
         let is_extensible = SET::IS_EXTENSIBLE
             .then(|| self.parse_one_bit())
             .transpose()?
@@ -960,6 +987,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let fields = {
             let mut fields = Vec::new();
             let mut set_decoder = Decoder::new(self.input(), self.options);
+            set_decoder.options.remaining_depth =
+                set_decoder.options.remaining_depth.saturating_sub(1);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
             set_decoder.extensions_present = is_extensible.then_some(None);
             set_decoder.fields = SET::FIELDS
@@ -1047,6 +1076,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     where
         D: crate::types::DecodeChoice,
     {
+        self.check_recursion_depth()?;
         let is_extensible = self.parse_extensible_bit(&constraints)?;
         let variants = crate::types::variants::Variants::from_static(if is_extensible {
             D::EXTENDED_VARIANTS.unwrap_or(&[])
@@ -1086,9 +1116,13 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         if is_extensible {
             let bytes = self.decode_octets()?;
             let mut decoder = Decoder::<0, 0>::new(&bytes, self.options);
+            decoder.options.remaining_depth = decoder.options.remaining_depth.saturating_sub(1);
             D::from_tag(&mut decoder, *tag)
         } else {
-            D::from_tag(self, *tag)
+            self.options.remaining_depth = self.options.remaining_depth.saturating_sub(1);
+            let result = D::from_tag(self, *tag);
+            self.options.remaining_depth = self.options.remaining_depth.saturating_add(1);
+            result
         }
     }
 

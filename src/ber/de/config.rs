@@ -4,6 +4,8 @@ use crate::ber::EncodingRules;
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
     pub(crate) encoding_rules: EncodingRules,
+    // limit decoding to prevent stack overflow from deep or circular references
+    pub(crate) remaining_depth: usize,
 }
 
 impl DecoderOptions {
@@ -12,6 +14,7 @@ impl DecoderOptions {
     pub const fn ber() -> Self {
         Self {
             encoding_rules: EncodingRules::Ber,
+            remaining_depth: 128,
         }
     }
 
@@ -20,6 +23,7 @@ impl DecoderOptions {
     pub const fn cer() -> Self {
         Self {
             encoding_rules: EncodingRules::Cer,
+            remaining_depth: 128,
         }
     }
 
@@ -28,6 +32,7 @@ impl DecoderOptions {
     pub const fn der() -> Self {
         Self {
             encoding_rules: EncodingRules::Der,
+            remaining_depth: 128,
         }
     }
 

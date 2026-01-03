@@ -118,6 +118,16 @@ impl<'input> Decoder<'input> {
         }
     }
 
+    fn check_recursion_depth(&self) -> Result<()> {
+        if self.config.remaining_depth == 0 {
+            return Err(DecodeError::from_kind(
+                DecodeErrorKind::ExceedsMaxParseDepth,
+                self.codec(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Parses a constructed ASN.1 value, checking the `tag`, and optionally
     /// checking if the identifier is marked as encoded. This should be true
     /// in all cases except explicit prefixes.
@@ -130,6 +140,7 @@ impl<'input> Decoder<'input> {
     where
         F: FnOnce(&mut Self) -> Result<D>,
     {
+        self.check_recursion_depth()?;
         let (identifier, contents) = self.parse_value(tag)?;
 
         BerDecodeErrorKind::assert_tag(tag, identifier.tag)?;
@@ -144,6 +155,7 @@ impl<'input> Decoder<'input> {
         };
 
         let mut inner = Self::new(contents, self.config);
+        inner.config.remaining_depth = inner.config.remaining_depth.saturating_sub(1);
 
         let result = (decode_fn)(&mut inner)?;
 
@@ -679,17 +691,29 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Constraints,
     ) -> Result<Vec<D>, Self::Error> {
         self.parse_constructed_contents(tag, true, |decoder| {
+            decoder.config.remaining_depth = decoder.config.remaining_depth.saturating_sub(1);
             let mut items = Vec::new();
 
             if decoder.input.is_empty() {
                 return Ok(items);
             }
 
-            while let Ok(item) = D::decode(decoder) {
-                items.push(item);
-
-                if decoder.input.is_empty() {
-                    return Ok(items);
+            loop {
+                match D::decode(decoder) {
+                    Ok(item) => {
+                        items.push(item);
+                        if decoder.input.is_empty() {
+                            return Ok(items);
+                        }
+                    }
+                    Err(e) => {
+                        if e.matches_root_cause(|kind| {
+                            matches!(kind, DecodeErrorKind::ExceedsMaxParseDepth)
+                        }) {
+                            return Err(e);
+                        }
+                        break;
+                    }
                 }
             }
 
@@ -703,10 +727,23 @@ impl<'input> crate::Decoder for Decoder<'input> {
         _: Constraints,
     ) -> Result<types::SetOf<D>, Self::Error> {
         self.parse_constructed_contents(tag, true, |decoder| {
+            decoder.config.remaining_depth = decoder.config.remaining_depth.saturating_sub(1);
             let mut items = types::SetOf::new();
 
-            while let Ok(item) = D::decode(decoder) {
-                items.insert(item);
+            loop {
+                match D::decode(decoder) {
+                    Ok(item) => {
+                        items.insert(item);
+                    }
+                    Err(e) => {
+                        if e.matches_root_cause(|kind| {
+                            matches!(kind, DecodeErrorKind::ExceedsMaxParseDepth)
+                        }) {
+                            return Err(e);
+                        }
+                        break;
+                    }
+                }
             }
 
             Ok(items)
@@ -772,8 +809,18 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.parse_constructed_contents(tag, true, |decoder| {
             let mut fields = Vec::new();
 
-            while let Ok(value) = FIELDS::decode(decoder) {
-                fields.push(value);
+            loop {
+                match FIELDS::decode(decoder) {
+                    Ok(value) => fields.push(value),
+                    Err(e) => {
+                        if e.matches_root_cause(|kind| {
+                            matches!(kind, DecodeErrorKind::ExceedsMaxParseDepth)
+                        }) {
+                            return Err(e);
+                        }
+                        break;
+                    }
+                }
             }
 
             (field_fn)(fields)

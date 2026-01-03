@@ -35,6 +35,8 @@ use crate::error::{CoerDecodeErrorKind, DecodeError, DecodeErrorKind, OerDecodeE
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
     encoding_rules: EncodingRules, // default COER
+    // limit decoding to prevent stack overflow from deep or circular references
+    remaining_depth: usize,
 }
 
 impl DecoderOptions {
@@ -43,6 +45,7 @@ impl DecoderOptions {
     pub const fn oer() -> Self {
         Self {
             encoding_rules: EncodingRules::Oer,
+            remaining_depth: 128,
         }
     }
 
@@ -51,6 +54,7 @@ impl DecoderOptions {
     pub const fn coer() -> Self {
         Self {
             encoding_rules: EncodingRules::Coer,
+            remaining_depth: 128,
         }
     }
 
@@ -471,6 +475,16 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
         Ok((result, extensible_present))
     }
+
+    fn check_recursion_depth(&self) -> Result<(), DecodeError> {
+        if self.options.remaining_depth == 0 {
+            return Err(DecodeError::from_kind(
+                DecodeErrorKind::ExceedsMaxParseDepth,
+                self.codec(),
+            ));
+        }
+        Ok(())
+    }
 }
 impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'input, RFC, EFC> {
     type Ok = ();
@@ -588,6 +602,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         D: Constructed<RC, EC>,
         F: FnOnce(&mut Self::AnyDecoder<RC, EC>) -> Result<D, Self::Error>,
     {
+        self.check_recursion_depth()?;
+
         // If there are no fields then the sequence is empty
         // Or if all fields are optional and default and there is no data
         if D::FIELDS.is_empty()
@@ -620,6 +636,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
         let value = {
             let mut sequence_decoder = Decoder::new(self.input, self.options);
+            sequence_decoder.options.remaining_depth =
+                sequence_decoder.options.remaining_depth.saturating_sub(1);
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
             sequence_decoder.extensions_present = extensible_present.then_some(None);
             sequence_decoder.fields = fields;
@@ -637,6 +655,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         _: Tag,
         _: Constraints,
     ) -> Result<Vec<D>, Self::Error> {
+        self.check_recursion_depth()?;
+
         let length_of_quantity = self.decode_length()?;
         let coer = self.options.encoding_rules.is_coer();
         let length_bytes = self.extract_data_by_length(length_of_quantity)?;
@@ -649,7 +669,9 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         }
         let length = usize::try_from_unsigned_bytes(length_bytes, self.codec())?;
         let mut sequence_of: Vec<D> = Vec::with_capacity(length);
-        let mut decoder = Self::new(self.input, self.options);
+        let mut options = self.options;
+        options.remaining_depth = options.remaining_depth.saturating_sub(1);
+        let mut decoder = Self::new(self.input, options);
         for _ in 0..length {
             let value = D::decode(&mut decoder)?;
             self.input = decoder.input;
@@ -836,6 +858,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
+        self.check_recursion_depth()?;
+
         let (bitmap, extensible_present) = self.parse_preamble::<RC, EC, SET>()?;
 
         let mut field_map: ([Option<Field>; RC], usize) = ([None; RC], 0);
@@ -856,6 +880,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             let extended_fields_len = SET::EXTENDED_FIELDS.map_or(0, |fields| fields.len());
             let mut fields = Vec::with_capacity(SET::FIELDS.len() + extended_fields_len);
             let mut set_decoder = Decoder::new(self.input, self.options);
+            set_decoder.options.remaining_depth =
+                set_decoder.options.remaining_depth.saturating_sub(1);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
             set_decoder.extensions_present = extensible_present.then_some(None);
             set_decoder.fields = field_map;
@@ -895,18 +921,23 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     where
         D: DecodeChoice,
     {
+        self.check_recursion_depth()?;
+
         let is_extensible = constraints.extensible();
         let tag: Tag = self.parse_tag()?;
         let is_root_extension = crate::types::TagTree::tag_contains(&tag, D::VARIANTS);
         let is_extended_extension =
             crate::types::TagTree::tag_contains(&tag, D::EXTENDED_VARIANTS.unwrap_or(&[]));
         if is_root_extension {
-            D::from_tag(self, tag)
+            self.options.remaining_depth = self.options.remaining_depth.saturating_sub(1);
+            let result = D::from_tag(self, tag);
+            self.options.remaining_depth = self.options.remaining_depth.saturating_add(1);
+            result
         } else if is_extensible && is_extended_extension {
-            let options = self.options;
             let length = self.decode_length()?;
             let bytes = self.extract_data_by_length(length)?;
-            let mut decoder = Decoder::<0, 0>::new(bytes, options);
+            let mut decoder = Decoder::<0, 0>::new(bytes, self.options);
+            decoder.options.remaining_depth = decoder.options.remaining_depth.saturating_sub(1);
             D::from_tag(&mut decoder, tag)
         } else {
             Err(OerDecodeErrorKind::invalid_tag_variant_on_choice(

@@ -12,6 +12,18 @@ fn test_ectl_trust_list() {
     assert_eq!(ectl_data, &buffer[..]);
     buffer.clear();
 }
+// This test verifies that recursive definitions in Ieee1609Dot2Data, which could be
+// exploited to exhaust the parser's stack, are correctly handled by the depth limit.
+#[test]
+fn test_ectl_trust_list_deeply_nested_data() {
+    let ectl_data: &[u8] = include_bytes!("data/CE4CF6C19BFED720_with_recursion_depth150.oer");
+    let result = rasn::coer::decode::<Ieee1609Dot2Data>(ectl_data);
+    let err = result.unwrap_err();
+    assert!(err.matches_root_cause(|kind| matches!(
+        kind,
+        rasn::error::DecodeErrorKind::ExceedsMaxParseDepth
+    )));
+}
 // From https://cpoc.jrc.ec.europa.eu/TLMCertificates.html
 #[test]
 fn test_tlm_certificate() {
