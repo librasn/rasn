@@ -272,11 +272,18 @@ impl Enum<'_> {
                 quote!(#inner_name::#ident #fields => #name::#ident #fields)
             });
 
+            let automatic_tags_attr = if self.config.automatic_tags {
+                quote!(#[rasn(automatic_tags)])
+            } else {
+                quote!()
+            };
+
             quote! {
                 fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
 
                     #[derive(#crate_root::AsnType, #crate_root::Decode)]
                     #[rasn(choice)]
+                    #automatic_tags_attr
                     #inner_type
 
                     let value = decoder.decode_explicit_prefix::<#inner_name>(<Self as #crate_root::AsnType>::TAG)?;
@@ -549,11 +556,17 @@ impl Enum<'_> {
 
                 quote!(Self::#ident { #(#def_fields),* } => #inner_name::#ident { #(#init_fields),* })
             });
+            let automatic_tags_attr = if self.config.automatic_tags {
+                quote!(#[rasn(automatic_tags)])
+            } else {
+                quote!()
+            };
 
             let name = &self.name;
             quote! {
                 #[derive(#crate_root::AsnType, #crate_root::Encode)]
                 #[rasn(choice)]
+                #automatic_tags_attr
                 #inner_enum
 
                 let value = match &self {
