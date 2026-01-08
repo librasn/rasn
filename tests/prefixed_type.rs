@@ -118,3 +118,45 @@ fn test_issue_519_automatic_tagging_for_tagged_choice_round_trip() {
     assert_eq!(tc1, tc1_de);
     assert_eq!(tc2, tc2_de);
 }
+
+#[test]
+fn test_issue_520_implicit_tag_on_tagged_choice_round_trip() {
+    // https://github.com/librasn/rasn/issues/520
+
+    /*
+    TestModuleA DEFINITIONS AUTOMATIC TAGS::= BEGIN
+        --tagged choice
+        TC2  ::= [4] CHOICE { a INTEGER, b BOOLEAN }
+
+        --implicit tag on tagged choice TC2
+        TTC2 ::= [6] TC2
+    END
+    */
+
+    use rasn::prelude::*;
+    #[doc = "tagged choice"]
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+    #[rasn(choice, tag(explicit(context, 4)), automatic_tags)]
+    pub enum TC2 {
+        A(Integer),
+        B(bool),
+    }
+    #[doc = "implicit tag on tagged choice TC2"]
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+    #[rasn(delegate, tag(context, 6))]
+    pub struct TTC2(pub TC2);
+
+    let tc2 = TC2::A(0x55.into());
+    let ttc2 = TTC2(tc2.clone());
+
+    let tc2_enc = rasn::ber::encode(&tc2).unwrap();
+    let ttc2_enc = rasn::ber::encode(&ttc2).unwrap();
+
+    assert_eq!(tc2_enc, vec![0xa4, 0x03, 0x80, 0x01, 0x55]);
+    assert_eq!(ttc2_enc, vec![0xa6, 0x03, 0x80, 0x01, 0x55]);
+
+    let tc2_de = rasn::ber::decode::<TC2>(&tc2_enc).unwrap();
+    let ttc2_de = rasn::ber::decode::<TTC2>(&ttc2_enc).unwrap();
+    assert_eq!(tc2, tc2_de);
+    assert_eq!(ttc2, ttc2_de);
+}
