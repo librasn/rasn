@@ -328,7 +328,7 @@ fn decode_enum_with_generics() {
     #[rasn(choice)]
     #[allow(dead_code)]
     enum MyContainer<M> {
-        StructHasGeneric {
+        Struct {
             #[rasn(tag(0))]
             inner: Vec<M>,
         },
@@ -336,7 +336,7 @@ fn decode_enum_with_generics() {
             #[rasn(tag(0))]
             name: String,
         },
-        NewtypeGeneric(Vec<M>),
+        Newtype(Vec<M>),
         NewtypeNoGeneric(String),
     }
 
@@ -344,7 +344,7 @@ fn decode_enum_with_generics() {
     #[rasn(choice)]
     #[allow(dead_code)]
     enum MyContainerExplicit<M> {
-        StructHasGeneric {
+        Struct {
             #[rasn(tag(explicit(0)))]
             inner: Vec<M>,
         },
@@ -352,7 +352,7 @@ fn decode_enum_with_generics() {
             #[rasn(tag(explicit(0)))]
             name: String,
         },
-        NewtypeGeneric(Vec<M>),
+        Newtype(Vec<M>),
         NewtypeNoGeneric(String),
     }
 }
