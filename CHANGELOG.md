@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.3](https://github.com/librasn/rasn/compare/rasn-v0.28.2...rasn-v0.28.3) - 2026-01-08
+
+### Added
+
+- #[derive(Decode)] changes to make generics more robust ([#515](https://github.com/librasn/rasn/pull/515))
+
 ## [0.28.2](https://github.com/librasn/rasn/compare/rasn-v0.28.1...rasn-v0.28.2) - 2025-12-23
 
 ### Other
