@@ -511,7 +511,10 @@ pub(crate) fn filter_generics_for_fields(
         for param in &generics.params {
             match param {
                 syn::GenericParam::Type(type_param) => {
-                    if !usage.used_type_params.contains(&type_param.ident.to_string()) {
+                    if !usage
+                        .used_type_params
+                        .contains(&type_param.ident.to_string())
+                    {
                         continue;
                     }
                     let mut bound_usage = GenericUsage::from_generics(generics);
@@ -538,7 +541,10 @@ pub(crate) fn filter_generics_for_fields(
                     }
                 }
                 syn::GenericParam::Const(const_param) => {
-                    if !usage.used_const_params.contains(&const_param.ident.to_string()) {
+                    if !usage
+                        .used_const_params
+                        .contains(&const_param.ident.to_string())
+                    {
                         continue;
                     }
                     let mut type_usage = GenericUsage::from_generics(generics);
