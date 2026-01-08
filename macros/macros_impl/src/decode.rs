@@ -1,5 +1,10 @@
+use std::collections::HashSet;
+
 use quote::ToTokens;
-use syn::Fields;
+use syn::{
+    visit::{self, Visit},
+    Fields,
+};
 
 use crate::{
     config::{map_to_inner_type, Config, FieldConfig},
@@ -305,6 +310,7 @@ pub fn map_from_inner_type(
     let inner_name = quote::format_ident!("Inner{}", name);
     let crate_root = &config.crate_root;
     let outer_name = outer_name.unwrap_or(quote!(Self));
+    let inner_generics = filter_generics_for_fields(generics, fields.raw());
 
     let map_from_inner = fields.iter().enumerate().map(|(i, field)| {
         let name = field
@@ -314,7 +320,7 @@ pub fn map_from_inner_type(
         quote!(#name : inner.#name)
     });
 
-    let (_, ty_generics, _) = generics.split_for_impl();
+    let (_, ty_generics, _) = inner_generics.split_for_impl();
     let decode_op = if is_explicit {
         quote!(decoder.decode_explicit_prefix::<#inner_name #ty_generics>(#tag)?)
     } else {
@@ -324,7 +330,7 @@ pub fn map_from_inner_type(
 
     quote! {
         #[derive(#crate_root::AsnType, #crate_root::Decode, #crate_root::Encode)]
-        struct #inner_name #generics #sanitized_fields #semi
+        struct #inner_name #inner_generics #sanitized_fields #semi
 
         let inner = #decode_op;
 
@@ -343,6 +349,10 @@ impl<'a> From<&'a syn::Fields> for UnsanitizedFields<'a> {
 impl UnsanitizedFields<'_> {
     fn iter(&self) -> impl Iterator<Item = &syn::Field> {
         self.0.iter()
+    }
+
+    fn raw(&self) -> &syn::Fields {
+        self.0
     }
 
     fn sanitize(&self) -> proc_macro2::TokenStream {
@@ -371,4 +381,227 @@ impl UnsanitizedFields<'_> {
             unit @ syn::Fields::Unit => quote!(#unit),
         }
     }
+}
+
+#[derive(Default)]
+struct GenericUsage {
+    type_params: HashSet<String>,
+    lifetime_params: HashSet<String>,
+    const_params: HashSet<String>,
+    used_type_params: HashSet<String>,
+    used_lifetime_params: HashSet<String>,
+    used_const_params: HashSet<String>,
+}
+
+impl GenericUsage {
+    fn from_generics(generics: &syn::Generics) -> Self {
+        Self {
+            type_params: generics
+                .type_params()
+                .map(|param| param.ident.to_string())
+                .collect(),
+            lifetime_params: generics
+                .lifetimes()
+                .map(|param| param.lifetime.ident.to_string())
+                .collect(),
+            const_params: generics
+                .const_params()
+                .map(|param| param.ident.to_string())
+                .collect(),
+            ..Self::default()
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.used_type_params.is_empty()
+            && self.used_lifetime_params.is_empty()
+            && self.used_const_params.is_empty()
+    }
+
+    fn intersects(&self, other: &Self) -> bool {
+        self.used_type_params
+            .iter()
+            .any(|name| other.used_type_params.contains(name))
+            || self
+                .used_lifetime_params
+                .iter()
+                .any(|name| other.used_lifetime_params.contains(name))
+            || self
+                .used_const_params
+                .iter()
+                .any(|name| other.used_const_params.contains(name))
+    }
+
+    fn is_subset_of(&self, other: &Self) -> bool {
+        self.used_type_params
+            .iter()
+            .all(|name| other.used_type_params.contains(name))
+            && self
+                .used_lifetime_params
+                .iter()
+                .all(|name| other.used_lifetime_params.contains(name))
+            && self
+                .used_const_params
+                .iter()
+                .all(|name| other.used_const_params.contains(name))
+    }
+
+    fn merge_from(&mut self, other: Self) -> bool {
+        let before = self.used_type_params.len()
+            + self.used_lifetime_params.len()
+            + self.used_const_params.len();
+        self.used_type_params.extend(other.used_type_params);
+        self.used_lifetime_params.extend(other.used_lifetime_params);
+        self.used_const_params.extend(other.used_const_params);
+        let after = self.used_type_params.len()
+            + self.used_lifetime_params.len()
+            + self.used_const_params.len();
+        before != after
+    }
+}
+
+impl<'ast> Visit<'ast> for GenericUsage {
+    fn visit_type_path(&mut self, ty: &'ast syn::TypePath) {
+        if ty.qself.is_none() {
+            if let Some(first) = ty.path.segments.first() {
+                let name = first.ident.to_string();
+                if self.type_params.contains(&name) {
+                    self.used_type_params.insert(name.clone());
+                }
+                if self.const_params.contains(&name) {
+                    self.used_const_params.insert(name);
+                }
+            }
+        }
+        visit::visit_type_path(self, ty);
+    }
+
+    fn visit_expr_path(&mut self, expr: &'ast syn::ExprPath) {
+        if expr.qself.is_none() {
+            if let Some(first) = expr.path.segments.first() {
+                let name = first.ident.to_string();
+                if self.const_params.contains(&name) {
+                    self.used_const_params.insert(name);
+                }
+            }
+        }
+        visit::visit_expr_path(self, expr);
+    }
+
+    fn visit_lifetime(&mut self, lifetime: &'ast syn::Lifetime) {
+        let name = lifetime.ident.to_string();
+        if self.lifetime_params.contains(&name) {
+            self.used_lifetime_params.insert(name);
+        }
+        visit::visit_lifetime(self, lifetime);
+    }
+}
+
+pub(crate) fn filter_generics_for_fields(
+    generics: &syn::Generics,
+    fields: &syn::Fields,
+) -> syn::Generics {
+    let mut usage = GenericUsage::from_generics(generics);
+    usage.visit_fields(fields);
+
+    let mut changed = true;
+    while changed {
+        changed = false;
+
+        for param in &generics.params {
+            match param {
+                syn::GenericParam::Type(type_param) => {
+                    if !usage
+                        .used_type_params
+                        .contains(&type_param.ident.to_string())
+                    {
+                        continue;
+                    }
+                    let mut bound_usage = GenericUsage::from_generics(generics);
+                    for bound in &type_param.bounds {
+                        bound_usage.visit_type_param_bound(bound);
+                    }
+                    if usage.merge_from(bound_usage) {
+                        changed = true;
+                    }
+                }
+                syn::GenericParam::Lifetime(lifetime_param) => {
+                    if !usage
+                        .used_lifetime_params
+                        .contains(&lifetime_param.lifetime.ident.to_string())
+                    {
+                        continue;
+                    }
+                    let mut bound_usage = GenericUsage::from_generics(generics);
+                    for bound in &lifetime_param.bounds {
+                        bound_usage.visit_lifetime(bound);
+                    }
+                    if usage.merge_from(bound_usage) {
+                        changed = true;
+                    }
+                }
+                syn::GenericParam::Const(const_param) => {
+                    if !usage
+                        .used_const_params
+                        .contains(&const_param.ident.to_string())
+                    {
+                        continue;
+                    }
+                    let mut type_usage = GenericUsage::from_generics(generics);
+                    type_usage.visit_type(&const_param.ty);
+                    if usage.merge_from(type_usage) {
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if let Some(where_clause) = &generics.where_clause {
+            for predicate in &where_clause.predicates {
+                let mut predicate_usage = GenericUsage::from_generics(generics);
+                predicate_usage.visit_where_predicate(predicate);
+                if predicate_usage.is_empty() || !predicate_usage.intersects(&usage) {
+                    continue;
+                }
+                if usage.merge_from(predicate_usage) {
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    let mut inner_generics = generics.clone();
+    inner_generics.params = inner_generics
+        .params
+        .into_iter()
+        .filter(|param| match param {
+            syn::GenericParam::Type(type_param) => usage
+                .used_type_params
+                .contains(&type_param.ident.to_string()),
+            syn::GenericParam::Lifetime(lifetime_param) => usage
+                .used_lifetime_params
+                .contains(&lifetime_param.lifetime.ident.to_string()),
+            syn::GenericParam::Const(const_param) => usage
+                .used_const_params
+                .contains(&const_param.ident.to_string()),
+        })
+        .collect();
+
+    if let Some(where_clause) = &mut inner_generics.where_clause {
+        where_clause.predicates = where_clause
+            .predicates
+            .clone()
+            .into_iter()
+            .filter(|predicate| {
+                let mut predicate_usage = GenericUsage::from_generics(generics);
+                predicate_usage.visit_where_predicate(predicate);
+                predicate_usage.is_empty() || predicate_usage.is_subset_of(&usage)
+            })
+            .collect();
+        if where_clause.predicates.is_empty() {
+            inner_generics.where_clause = None;
+        }
+    }
+
+    inner_generics
 }

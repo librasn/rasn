@@ -328,19 +328,31 @@ fn decode_enum_with_generics() {
     #[rasn(choice)]
     #[allow(dead_code)]
     enum MyContainer<M> {
-        SomeVal {
+        Struct {
             #[rasn(tag(0))]
             inner: Vec<M>,
         },
+        StructNoGeneric {
+            #[rasn(tag(0))]
+            name: String,
+        },
+        Newtype(Vec<M>),
+        NewtypeNoGeneric(String),
     }
 
     #[derive(AsnType, Encode, Decode)]
     #[rasn(choice)]
     #[allow(dead_code)]
     enum MyContainerExplicit<M> {
-        SomeVal {
+        Struct {
             #[rasn(tag(explicit(0)))]
             inner: Vec<M>,
         },
+        StructNoGeneric {
+            #[rasn(tag(explicit(0)))]
+            name: String,
+        },
+        Newtype(Vec<M>),
+        NewtypeNoGeneric(String),
     }
 }
