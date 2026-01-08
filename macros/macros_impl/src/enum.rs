@@ -244,20 +244,20 @@ impl Enum<'_> {
     pub fn impl_decode(&self) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.config.crate_root;
 
-        let decode_with_tag = if self.config.enumerated {
-            quote!(decoder.decode_enumerated(tag))
-        } else {
-            quote!(decoder.decode_explicit_prefix(tag))
-        };
-
         let decode_op = if self.config.choice {
-            quote!(decoder.decode_choice(Self::CONSTRAINTS))
+            if self.config.has_explicit_tag() {
+                None
+            } else {
+                Some(quote!(decoder.decode_choice(Self::CONSTRAINTS)))
+            }
         } else {
             let name = &self.name;
-            quote!(Self::decode_with_tag(decoder, <#name as #crate_root::AsnType>::TAG))
+            Some(quote!(Self::decode_with_tag(decoder, <#name as #crate_root::AsnType>::TAG)))
         };
 
-        let decode_impl = if self.config.has_explicit_tag() {
+        let decode_with_tag = if self.config.enumerated {
+            quote!(decoder.decode_enumerated(tag))
+        } else if self.config.has_explicit_tag() {
             let inner_name = quote::format_ident!("Inner{}", self.name);
             let variants = self.variants.clone();
             let inner_type = InnerEnum {
@@ -294,31 +294,30 @@ impl Enum<'_> {
             };
 
             quote! {
-                fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
-
                     #[derive(#crate_root::AsnType, #crate_root::Decode)]
                     #[rasn(choice)]
                     #automatic_tags_attr
                     #inner_type
 
-                    let value = decoder.decode_explicit_prefix::<#inner_name>(<Self as #crate_root::AsnType>::TAG)?;
+                    let value = decoder.decode_explicit_prefix::<#inner_name>(tag)?;
                     Ok(match value {
                         #(#variant_mapping),*
                     })
-                }
             }
         } else {
-            quote! {
-                fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
-                    #decode_op
-                }
-            }
+            quote!(decoder.decode_explicit_prefix(tag))
         };
+
+        let decode_impl = decode_op.map(|decode_op| quote! {
+            fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
+                #decode_op
+            }
+        });
 
         let name = &self.name;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
-        let decode_choice_impl = if self.config.choice {
+        let decode_choice_impl = if self.config.choice && !self.config.has_explicit_tag() {
             let decode_ops: Vec<proc_macro2::TokenStream> = self
                 .variants
                 .iter()
