@@ -1048,11 +1048,11 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         D: crate::types::DecodeChoice,
     {
         let is_extensible = self.parse_extensible_bit(&constraints)?;
-        let variants = crate::types::variants::Variants::from_static(if is_extensible {
+        let variants = if is_extensible {
             D::EXTENDED_VARIANTS.unwrap_or(&[])
         } else {
             D::VARIANTS
-        });
+        };
 
         let index = if variants.len() != 1 || is_extensible {
             if is_extensible {
@@ -1080,7 +1080,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         };
 
         let tag = variants.get(index).ok_or_else(|| {
-            DecodeError::choice_index_not_found(index, variants.clone(), self.codec())
+            DecodeError::choice_index_not_found(index, variants.to_vec(), self.codec())
         })?;
 
         if is_extensible {

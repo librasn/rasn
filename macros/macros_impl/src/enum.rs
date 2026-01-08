@@ -43,7 +43,15 @@ impl Enum<'_> {
         let field_tags = if self.config.choice {
             variant_configs
                 .iter()
-                .map(super::config::VariantConfig::tag_tree)
+                .map(|config| {
+                    config.tag_tree().map(|(tokens, is_tree)| {
+                        if is_tree {
+                            tokens
+                        } else {
+                            quote!(#crate_root::types::TagTree::Leaf(#tokens))
+                        }
+                    })
+                })
                 .collect::<Result<Vec<_>, _>>()?
         } else {
             Vec::new()
@@ -83,25 +91,27 @@ impl Enum<'_> {
 
         let constraints_def = self.config.constraints.const_static_def(crate_root);
 
-        let (base_variants, extended_variants): (Vec<_>, Vec<_>) = variant_configs
-            .iter()
-            .zip(field_tags)
-            .partition_map(|(config, field_tag)| {
+        let extensible = self.config.constraints.extensible;
+
+        let (variant_tags, extended_variant_tags): (Vec<_>, Vec<_>) =
+            variant_configs.iter().partition_map(|config| {
                 if config.extension_addition {
-                    either::Right(field_tag)
+                    either::Right(config.tag().map(|tag| tag.to_tokens(crate_root)).unwrap())
                 } else {
-                    either::Left(field_tag)
+                    either::Left(config.tag().map(|tag| tag.to_tokens(crate_root)).unwrap())
                 }
             });
 
-        let extensible = self.config.constraints.extensible;
-        let extended_const_variants = extensible
-            .then(|| quote!(Some(&[#(#extended_variants),*])))
+        let extended_variant_tags = extensible
+            .then(|| {
+                if extended_variant_tags.is_empty() {
+                    quote!(Some(&[]))
+                } else {
+                    quote!(Some(&[#(#extended_variant_tags),*]))
+                }
+            })
             .unwrap_or(quote!(None));
 
-        // Check count of the root components in the choice
-        // https://github.com/XAMPPRocky/rasn/issues/168
-        // Choice index starts from zero, so we need to reduce variance by one
         let variant_count = if self.variants.is_empty() {
             0
         } else {
@@ -121,11 +131,9 @@ impl Enum<'_> {
 
         let choice_impl = self.config.choice.then(|| quote! {
             impl #impl_generics #crate_root::types::Choice for #name #ty_generics #where_clause {
-                const VARIANTS: &'static [#crate_root::types::TagTree] = &[
-                    #(#base_variants),*
-                ];
+                const VARIANTS: &'static [#crate_root::types::Tag] = &[#(#variant_tags),*];
                 const VARIANCE_CONSTRAINT: #crate_root::types::Constraints = #variance_constraint;
-                const EXTENDED_VARIANTS: Option<&'static [#crate_root::types::TagTree]> = #extended_const_variants;
+                const EXTENDED_VARIANTS: Option<&'static [#crate_root::types::Tag]> = #extended_variant_tags;
                 const IDENTIFIERS: &'static [&'static str] = &[
                     #(#identifiers),*
                 ];
@@ -426,7 +434,6 @@ impl Enum<'_> {
                     quote!(#name::#ident { #(#idents: #idents_prefixed),* } => { #encode_impl.map(|_| #tag_tokens) })
                 }
                 syn::Fields::Unnamed(_) => {
-                    // Assert already checked in FieldConfig
                     assert_eq!(v.fields.len(), 1, "Tuple variants must contain only a single element.");
                     let constraints = variant_config
                         .constraints

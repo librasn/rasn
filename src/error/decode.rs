@@ -10,7 +10,7 @@ use snafu::Snafu;
 use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::de::Error;
-use crate::types::{constraints::Bounded, variants::Variants, Tag};
+use crate::types::{constraints::Bounded, Tag};
 use crate::Codec;
 use num_bigint::BigInt;
 
@@ -340,7 +340,11 @@ impl DecodeError {
 
     /// Creates a wrapper around a missing choice index error from a given codec.
     #[must_use]
-    pub fn choice_index_not_found(index: usize, variants: Variants, codec: Codec) -> Self {
+    pub fn choice_index_not_found(
+        index: usize,
+        variants: alloc::vec::Vec<Tag>,
+        codec: Codec,
+    ) -> Self {
         Self::from_kind(
             DecodeErrorKind::ChoiceIndexNotFound { index, variants },
             codec,
@@ -498,7 +502,7 @@ pub enum DecodeErrorKind {
         /// The found index of the choice variant.
         index: usize,
         /// The variants checked for presence.
-        variants: Variants,
+        variants: alloc::vec::Vec<Tag>,
     },
 
     /// Choice index exceeds maximum possible address width.

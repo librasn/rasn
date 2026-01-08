@@ -897,12 +897,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     {
         let is_extensible = constraints.extensible();
         let tag: Tag = self.parse_tag()?;
-        let is_root_extension = crate::types::TagTree::tag_contains(&tag, D::VARIANTS);
-        let is_extended_extension =
-            crate::types::TagTree::tag_contains(&tag, D::EXTENDED_VARIANTS.unwrap_or(&[]));
+        let is_root_extension = D::VARIANTS.contains(&tag);
         if is_root_extension {
-            D::from_tag(self, tag)
-        } else if is_extensible && is_extended_extension {
+            return D::from_tag(self, tag);
+        }
+        let is_extended_extension = D::EXTENDED_VARIANTS.unwrap_or(&[]).contains(&tag);
+        if is_extensible && is_extended_extension {
             let options = self.options;
             let length = self.decode_length()?;
             let bytes = self.extract_data_by_length(length)?;

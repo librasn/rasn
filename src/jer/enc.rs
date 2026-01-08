@@ -8,7 +8,7 @@ type ValueMap = Map<alloc::string::String, Value>;
 
 use crate::{
     error::{EncodeError, JerEncodeErrorKind},
-    types::{variants, Constraints, Identifier, IntegerType, Tag},
+    types::{Constraints, Identifier, IntegerType, Tag},
 };
 
 use crate::types::RealType;
@@ -487,9 +487,7 @@ impl crate::Encoder<'_> for Encoder {
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let variants = variants::Variants::from_slice(
-            &[E::VARIANTS, E::EXTENDED_VARIANTS.unwrap_or(&[])].concat(),
-        );
+        let variants = &[E::VARIANTS, E::EXTENDED_VARIANTS.unwrap_or(&[])].concat();
 
         let identifier = variants
             .iter()

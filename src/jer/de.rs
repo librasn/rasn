@@ -6,10 +6,10 @@ use crate::{
     de::Error,
     error::{DecodeError, JerDecodeErrorKind},
     types::{
-        variants, Any, BitString, BmpString, Constraints, Constructed, Date, DecodeChoice,
-        Enumerated, GeneralString, GeneralizedTime, GraphicString, Ia5String, NumericString,
-        ObjectIdentifier, Oid, PrintableString, SequenceOf, SetOf, Tag, TeletexString, UtcTime,
-        Utf8String, VisibleString,
+        Any, BitString, BmpString, Constraints, Constructed, Date, DecodeChoice, Enumerated,
+        GeneralString, GeneralizedTime, GraphicString, Ia5String, NumericString, ObjectIdentifier,
+        Oid, PrintableString, SequenceOf, SetOf, Tag, TeletexString, UtcTime, Utf8String,
+        VisibleString,
     },
     Decode,
 };
@@ -660,14 +660,13 @@ impl Decoder {
                     .map(|(i, _)| (i, v))
             })
             .map_or(Tag::EOC, |(i, v)| {
-                match variants::Variants::from_slice(
-                    &[D::VARIANTS, D::EXTENDED_VARIANTS.unwrap_or(&[])].concat(),
-                )
-                .get(i)
+                match &[D::VARIANTS, D::EXTENDED_VARIANTS.unwrap_or(&[])]
+                    .concat()
+                    .get(i)
                 {
                     Some(t) => {
                         self.stack.push(v.clone());
-                        *t
+                        **t
                     }
                     None => Tag::EOC,
                 }

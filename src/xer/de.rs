@@ -817,11 +817,10 @@ impl crate::Decoder for Decoder {
                     .enumerate()
                     .find(|(_, id)| id.eq_ignore_ascii_case(&name.local_name))
                     .and_then(|(i, _)| {
-                        variants::Variants::from_slice(
-                            &[D::VARIANTS, D::EXTENDED_VARIANTS.unwrap_or(&[])].concat(),
-                        )
-                        .get(i)
-                        .cloned()
+                        [D::VARIANTS, D::EXTENDED_VARIANTS.unwrap_or(&[])]
+                            .concat()
+                            .get(i)
+                            .copied()
                     })
                     .unwrap_or(Tag::EOC);
                 let events = self
