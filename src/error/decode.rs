@@ -431,6 +431,20 @@ impl DecodeError {
             backtrace: Backtrace::generate(),
         }
     }
+
+    /// Check if the root cause of this error matches the given predicate.
+    #[must_use]
+    pub fn matches_root_cause<F>(&self, predicate: F) -> bool
+    where
+        F: Fn(&DecodeErrorKind) -> bool,
+    {
+        let mut root = self;
+        while let DecodeErrorKind::FieldError { nested, .. } = &*root.kind {
+            root = &**nested;
+        }
+
+        predicate(&root.kind)
+    }
 }
 
 impl core::error::Error for DecodeError {}
@@ -722,6 +736,10 @@ pub enum DecodeErrorKind {
         "No input was provided where expected in the given SEQUENCE or INTEGER type"
     ))]
     UnexpectedEmptyInput,
+
+    /// An error when the decoder exceeds maximum allowed parse depth.
+    #[snafu(display("Exceeded maximum parse depth"))]
+    ExceedsMaxParseDepth,
 }
 
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for BER.
