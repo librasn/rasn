@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.4](https://github.com/librasn/rasn/compare/rasn-v0.28.3...rasn-v0.28.4) - 2026-01-15
+
+### Fixed
+
+- Add depth limit to decoder to prevent stack overflow ([#514](https://github.com/librasn/rasn/pull/514)) ([#516](https://github.com/librasn/rasn/pull/516))
+
 ## [0.28.3](https://github.com/librasn/rasn/compare/rasn-v0.28.2...rasn-v0.28.3) - 2026-01-08
 
 ### Added
