@@ -86,6 +86,30 @@ impl From<&[u8]> for OctetString {
     }
 }
 
+impl From<BytesImpl> for OctetString {
+    fn from(value: BytesImpl) -> Self {
+        OctetString(value)
+    }
+}
+
+impl From<&BytesImpl> for OctetString {
+    fn from(value: &BytesImpl) -> Self {
+        OctetString(value.clone())
+    }
+}
+
+impl From<OctetString> for BytesImpl {
+    fn from(value: OctetString) -> Self {
+        value.0.clone()
+    }
+}
+
+impl From<&OctetString> for BytesImpl {
+    fn from(value: &OctetString) -> Self {
+        value.0.clone()
+    }
+}
+
 impl core::ops::Deref for OctetString {
     type Target = [u8];
 
