@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.5](https://github.com/librasn/rasn/compare/rasn-v0.28.4...rasn-v0.28.5) - 2026-01-20
+
+### Added
+
+- Added From implementations for OctetString for BytesImpl ([#525](https://github.com/librasn/rasn/pull/525))
+
 ## [0.28.4](https://github.com/librasn/rasn/compare/rasn-v0.28.3...rasn-v0.28.4) - 2026-01-15
 
 ### Fixed
