@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 +
 +## [Unreleased]
 
+## [0.28.7](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.28.6...rasn-derive-impl-v0.28.7) - 2026-01-22
+
+### Fixed
+
+- Actually use number of root variants in CHOICE variance constraints ([#532](https://github.com/librasn/rasn/pull/532))
+
 ## [0.28.3](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.28.2...rasn-derive-impl-v0.28.3) - 2026-01-08
 
 ### Added
