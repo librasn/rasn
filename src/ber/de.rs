@@ -897,6 +897,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: Decode + crate::types::Constructed<RL, EL>,
     >(
         &mut self,
+        _tag: Tag,
     ) -> Result<Option<D>, Self::Error> {
         <Option<D>>::decode(self)
     }

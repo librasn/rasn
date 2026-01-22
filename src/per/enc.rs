@@ -1330,6 +1330,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
 
     fn encode_extension_addition_group<const RL: usize, const EL: usize, E>(
         &mut self,
+        _tag: Tag,
         value: Option<&E>,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error>

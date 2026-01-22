@@ -64,9 +64,7 @@ const SAMPLE_S1: my_module::S1 = my_module::S1 {
 
 #[test]
 fn extension_group_decode_aper() {
-    let encoded = &[
-        0xc0, 0xa0, 0x00, 0x01, 0xc0
-    ];
+    let encoded = &[0xc0, 0xa0, 0x00, 0x01, 0xc0];
 
     let decoded = rasn::aper::decode::<my_module::S1>(encoded).unwrap();
     pretty_assertions::assert_eq!(SAMPLE_S1, decoded);
@@ -81,9 +79,7 @@ fn extension_group_roundtrip_aper() {
 
 #[test]
 fn extension_group_decode_ber() {
-    let encoded = &[
-        0x30, 0x06, 0x80, 0x01, 0xff, 0x82, 0x01, 0xff
-    ];
+    let encoded = &[0x30, 0x06, 0x80, 0x01, 0xff, 0x82, 0x01, 0xff];
     let decoded = rasn::ber::decode::<my_module::S1>(encoded).unwrap();
     pretty_assertions::assert_eq!(SAMPLE_S1, decoded);
 }
@@ -97,9 +93,7 @@ fn extension_group_roundtrip_ber() {
 
 #[test]
 fn extension_group_decode_cer() {
-    let encoded = &[
-        0x30, 0x80, 0x80, 0x01, 0xff, 0x82, 0x01, 0xff, 0x00, 0x00
-    ];
+    let encoded = &[0x30, 0x80, 0x80, 0x01, 0xff, 0x82, 0x01, 0xff, 0x00, 0x00];
     let decoded = rasn::cer::decode::<my_module::S1>(encoded).unwrap();
     pretty_assertions::assert_eq!(SAMPLE_S1, decoded);
 }
@@ -113,9 +107,7 @@ fn extension_group_roundtrip_cer() {
 
 #[test]
 fn extension_group_decode_coer() {
-    let encoded = &[
-        0x80, 0xff, 0x02, 0x06, 0x40, 0x02, 0x80, 0xff
-    ];
+    let encoded = &[0x80, 0xff, 0x02, 0x06, 0x40, 0x02, 0x80, 0xff];
     let decoded = rasn::coer::decode::<my_module::S1>(encoded).unwrap();
     pretty_assertions::assert_eq!(SAMPLE_S1, decoded);
 }
@@ -129,9 +121,7 @@ fn extension_group_roundtrip_coer() {
 
 #[test]
 fn extension_group_decode_der() {
-    let encoded = &[
-        0x30, 0x06, 0x80, 0x01, 0xff, 0x82, 0x01, 0xff
-    ];
+    let encoded = &[0x30, 0x06, 0x80, 0x01, 0xff, 0x82, 0x01, 0xff];
     let decoded = rasn::der::decode::<my_module::S1>(encoded).unwrap();
     pretty_assertions::assert_eq!(SAMPLE_S1, decoded);
 }
@@ -159,9 +149,7 @@ fn extension_group_roundtrip_jer() {
 
 #[test]
 fn extension_group_decode_oer() {
-    let encoded = &[
-        0x80, 0xff, 0x02, 0x06, 0x40, 0x02, 0x80, 0xff
-    ];
+    let encoded = &[0x80, 0xff, 0x02, 0x06, 0x40, 0x02, 0x80, 0xff];
     let decoded = rasn::oer::decode::<my_module::S1>(encoded).unwrap();
     pretty_assertions::assert_eq!(SAMPLE_S1, decoded);
 }
@@ -175,9 +163,7 @@ fn extension_group_roundtrip_oer() {
 
 #[test]
 fn extension_group_decode_uper() {
-    let encoded = &[
-        0xc0, 0xa0, 0x38, 0x00
-    ];
+    let encoded = &[0xc0, 0xa0, 0x38, 0x00];
     let decoded = rasn::uper::decode::<my_module::S1>(encoded).unwrap();
     pretty_assertions::assert_eq!(SAMPLE_S1, decoded);
 }

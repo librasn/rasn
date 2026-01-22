@@ -757,6 +757,7 @@ impl crate::Encoder<'_> for Encoder {
     /// Encode a extension addition group value.
     fn encode_extension_addition_group<const RC: usize, const EC: usize, E>(
         &mut self,
+        _tag: Tag,
         value: Option<&E>,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error>

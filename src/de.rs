@@ -520,6 +520,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         D: Decode + crate::types::Constructed<RC, EC>,
     >(
         &mut self,
+        tag: Tag,
     ) -> Result<Option<D>, Self::Error>;
 }
 

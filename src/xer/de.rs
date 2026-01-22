@@ -885,6 +885,7 @@ impl crate::Decoder for Decoder {
         D: crate::Decode + Constructed<RC, EC>,
     >(
         &mut self,
+        _tag: Tag,
     ) -> Result<Option<D>, Self::Error> {
         self.decode_optional()
     }
