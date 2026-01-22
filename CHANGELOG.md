@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.6](https://github.com/librasn/rasn/compare/rasn-v0.28.5...rasn-v0.28.6) - 2026-01-22
+
+### Added
+
+- Adding AsnType/Encode/Decode implementations for Cow<_, T> ([#530](https://github.com/librasn/rasn/pull/530))
+
 ## [0.28.5](https://github.com/librasn/rasn/compare/rasn-v0.28.4...rasn-v0.28.5) - 2026-01-20
 
 ### Added
