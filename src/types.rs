@@ -24,6 +24,7 @@ pub(crate) mod real;
 pub(crate) mod strings;
 
 use crate::macros::constraints;
+use alloc::borrow::{Cow, ToOwned};
 use alloc::boxed::Box;
 
 pub use {
@@ -306,6 +307,12 @@ impl<T: AsnType> AsnType for &'_ T {
 }
 
 impl<T: AsnType> AsnType for Box<T> {
+    const TAG: Tag = T::TAG;
+    const TAG_TREE: TagTree = T::TAG_TREE;
+    const IDENTIFIER: Identifier = T::IDENTIFIER;
+}
+
+impl<'a, T: 'a + ToOwned + AsnType> AsnType for Cow<'a, T> {
     const TAG: Tag = T::TAG;
     const TAG_TREE: TagTree = T::TAG_TREE;
     const IDENTIFIER: Identifier = T::IDENTIFIER;

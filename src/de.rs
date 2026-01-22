@@ -1,6 +1,10 @@
 //! Generic ASN.1 decoding framework.
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+    vec::Vec,
+};
 use num_bigint::BigInt;
 
 use crate::error::DecodeError;
@@ -693,6 +697,32 @@ impl<T: Decode> Decode for Box<T> {
         constraints: Constraints,
     ) -> Result<Self, DE::Error> {
         T::decode_with_tag_and_constraints(decoder, tag, constraints).map(Box::new)
+    }
+}
+
+impl<'a, T: 'a + ToOwned + Decode> Decode for Cow<'a, T> {
+    fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
+        T::decode(decoder).map(|x| Cow::Owned(x.to_owned()))
+    }
+
+    fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
+        T::decode_with_tag(decoder, tag).map(|x| Cow::Owned(x.to_owned()))
+    }
+
+    fn decode_with_constraints<DE: Decoder>(
+        decoder: &mut DE,
+        constraints: Constraints,
+    ) -> Result<Self, DE::Error> {
+        T::decode_with_constraints(decoder, constraints).map(|x| Cow::Owned(x.to_owned()))
+    }
+
+    fn decode_with_tag_and_constraints<DE: Decoder>(
+        decoder: &mut DE,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Self, DE::Error> {
+        T::decode_with_tag_and_constraints(decoder, tag, constraints)
+            .map(|x| Cow::Owned(x.to_owned()))
     }
 }
 
