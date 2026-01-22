@@ -271,6 +271,50 @@ mod tests {
         round_trip!(uper, Choice, Choice::Normal, &[0]);
         round_trip!(uper, Choice, Choice::Medium, &[0x80, 1, 0]);
         round_trip!(aper, Choice, Choice::Medium, &[0x80, 1, 0]);
+
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum ChoiceWithData {
+            Normal(u8),
+            High(u8),
+        }
+
+        round_trip!(
+            uper,
+            ChoiceWithData,
+            ChoiceWithData::Normal(0xaf),
+            &[0b0010_1011, 0b1100_0000]
+        );
+        round_trip!(
+            uper,
+            ChoiceWithData,
+            ChoiceWithData::High(0xaf),
+            &[0b0110_1011, 0b1100_0000]
+        );
+
+        #[derive(AsnType, Decode, Debug, Encode, PartialEq)]
+        #[rasn(choice, automatic_tags)]
+        #[non_exhaustive]
+        enum ExtendedChoiceWithData {
+            Normal(u8),
+            High(u8),
+            #[rasn(extension_addition)]
+            Medium(u8),
+        }
+
+        round_trip!(
+            uper,
+            ExtendedChoiceWithData,
+            ExtendedChoiceWithData::Normal(0xaf),
+            &[0b0010_1011, 0b1100_0000]
+        );
+        round_trip!(
+            uper,
+            ExtendedChoiceWithData,
+            ExtendedChoiceWithData::Medium(0x42),
+            &[0x80, 1, 0x42]
+        );
     }
 
     #[test]
