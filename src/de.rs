@@ -1,6 +1,10 @@
 //! Generic ASN.1 decoding framework.
 
-use alloc::{borrow::{Cow, ToOwned}, boxed::Box, vec::Vec};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+    vec::Vec,
+};
 use num_bigint::BigInt;
 
 use crate::error::DecodeError;
@@ -717,7 +721,8 @@ impl<'a, T: 'a + ToOwned + Decode> Decode for Cow<'a, T> {
         tag: Tag,
         constraints: Constraints,
     ) -> Result<Self, DE::Error> {
-        T::decode_with_tag_and_constraints(decoder, tag, constraints).map(|x| Cow::Owned(x.to_owned()))
+        T::decode_with_tag_and_constraints(decoder, tag, constraints)
+            .map(|x| Cow::Owned(x.to_owned()))
     }
 }
 

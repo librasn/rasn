@@ -24,8 +24,8 @@ pub(crate) mod real;
 pub(crate) mod strings;
 
 use crate::macros::constraints;
-use alloc::boxed::Box;
 use alloc::borrow::{Cow, ToOwned};
+use alloc::boxed::Box;
 
 pub use {
     self::{
@@ -370,4 +370,3 @@ impl<T> AsnType for core::marker::PhantomData<T> {
     const TAG: Tag = Tag::NULL;
     const TAG_TREE: TagTree = TagTree::Leaf(Tag::NULL);
 }
-
