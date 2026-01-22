@@ -990,6 +990,52 @@ impl<E: Encode> Encode for alloc::boxed::Box<E> {
     }
 }
 
+impl<'a, E: 'a + alloc::borrow::ToOwned + Encode> Encode for alloc::borrow::Cow<'a, E> {
+    fn encode<'b, EN: Encoder<'b>>(&self, encoder: &mut EN) -> Result<(), EN::Error> {
+        E::encode(self, encoder)
+    }
+
+    fn encode_with_tag<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+    ) -> Result<(), EN::Error> {
+        E::encode_with_tag(self, encoder, tag)
+    }
+
+    fn encode_with_constraints<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        constraints: Constraints,
+    ) -> Result<(), EN::Error> {
+        E::encode_with_constraints(self, encoder, constraints)
+    }
+
+    fn encode_with_identifier<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        identifier: Identifier,
+    ) -> Result<(), EN::Error> {
+        E::encode_with_identifier(self, encoder, identifier)
+    }
+
+    fn encode_with_tag_and_constraints<'b, EN: Encoder<'b>>(
+        &self,
+        encoder: &mut EN,
+        tag: Tag,
+        constraints: Constraints,
+        identifier: Identifier,
+    ) -> Result<(), EN::Error> {
+        E::encode_with_tag_and_constraints(
+            self,
+            encoder,
+            tag,
+            constraints,
+            identifier.or(Self::IDENTIFIER),
+        )
+    }
+}
+
 impl<E: Encode> Encode for alloc::vec::Vec<E> {
     fn encode_with_tag_and_constraints<'b, EN: Encoder<'b>>(
         &self,

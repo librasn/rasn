@@ -25,6 +25,7 @@ pub(crate) mod strings;
 
 use crate::macros::constraints;
 use alloc::boxed::Box;
+use alloc::borrow::{Cow, ToOwned};
 
 pub use {
     self::{
@@ -311,6 +312,12 @@ impl<T: AsnType> AsnType for Box<T> {
     const IDENTIFIER: Identifier = T::IDENTIFIER;
 }
 
+impl<'a, T: 'a + ToOwned + AsnType> AsnType for Cow<'a, T> {
+    const TAG: Tag = T::TAG;
+    const TAG_TREE: TagTree = T::TAG_TREE;
+    const IDENTIFIER: Identifier = T::IDENTIFIER;
+}
+
 impl<T: AsnType> AsnType for alloc::vec::Vec<T> {
     const TAG: Tag = Tag::SEQUENCE;
     const IDENTIFIER: Identifier = Identifier::SEQUENCE_OF;
@@ -363,3 +370,4 @@ impl<T> AsnType for core::marker::PhantomData<T> {
     const TAG: Tag = Tag::NULL;
     const TAG_TREE: TagTree = TagTree::Leaf(Tag::NULL);
 }
+

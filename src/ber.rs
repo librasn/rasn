@@ -56,7 +56,7 @@ pub fn encode_scope(
 #[cfg(test)]
 mod tests {
     use crate::error::DecodeErrorKind;
-    use alloc::borrow::ToOwned;
+    use alloc::borrow::{Cow, ToOwned};
     use alloc::vec;
     use alloc::vec::Vec;
     use bitvec::order::Msb0;
@@ -629,5 +629,37 @@ mod tests {
         // 'b' (Any, NULL): implicitly tagged with [1] -> 81 02 05 00
         let expected3 = &[0x30, 0x04, 0x81, 0x02, 0x05, 0x00];
         assert_eq!(encode(&value3).unwrap(), expected3);
+    }
+
+    #[test]
+    fn test_cow_passthrough() {
+        use crate as rasn;
+        use rasn::prelude::*;
+
+        #[derive(AsnType, Debug, Clone, Encode, Decode, PartialEq)]
+        struct MyType {
+            name: Utf8String,
+            data: OctetString,
+        }
+
+        let my_type = MyType {
+            name: "test1".into(),
+            data: OctetString::from(vec![0, 1, 2, 3]),
+        };
+
+        let my_type_plain_ser = encode(&my_type).unwrap();
+        let my_type_cow_ser = encode(&Cow::Borrowed(&my_type)).unwrap();
+
+        assert_eq!(my_type_plain_ser, my_type_cow_ser);
+
+        let my_type_des_plain = decode::<MyType>(&my_type_plain_ser).unwrap();
+        let my_type_des_cow = decode::<Cow<'_, MyType>>(&my_type_cow_ser).unwrap();
+
+        assert_eq!(my_type_des_plain.name, Utf8String::from("test1"));
+        assert_eq!(my_type_des_plain.data, OctetString::from(vec![0, 1, 2, 3]));
+        assert_eq!(my_type_des_plain.name, my_type_des_cow.name);
+        assert_eq!(my_type_des_plain.data, my_type_des_cow.data);
+
+        assert!(matches!(my_type_des_cow, Cow::Owned(_)));
     }
 }
