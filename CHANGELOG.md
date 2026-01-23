@@ -32,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.7](https://github.com/librasn/rasn/releases/tag/rasn-v0.28.7) - 2026-01-22
+
+### Fixed
+
+- Actually use number of root variants in CHOICE variance constraints ([#532](https://github.com/librasn/rasn/pull/532))
+
+### Other
+
+- release v0.28.6 ([#531](https://github.com/librasn/rasn/pull/531))
+
 ## [0.28.7](https://github.com/librasn/rasn/compare/rasn-v0.28.6...rasn-v0.28.7) - 2026-01-22
 
 ### Fixed
