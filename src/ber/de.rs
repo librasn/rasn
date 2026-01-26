@@ -29,6 +29,7 @@ pub struct Decoder<'input> {
     input: &'input [u8],
     config: DecoderOptions,
     initial_len: usize,
+    extension_group_base: Option<Tag>,
 }
 
 impl<'input> Decoder<'input> {
@@ -49,6 +50,16 @@ impl<'input> Decoder<'input> {
             input,
             config,
             initial_len: input.len(),
+            extension_group_base: None,
+        }
+    }
+
+    fn translate_tag(&self, tag: Tag) -> Tag {
+        match self.extension_group_base {
+            Some(base) if base.class == crate::types::Class::Context && tag.class == base.class => {
+                Tag::new(tag.class, base.value.saturating_add(tag.value))
+            }
+            _ => tag,
         }
     }
 
@@ -85,6 +96,9 @@ impl<'input> Decoder<'input> {
         {
             return Ok(None);
         }
+
+        let tag = self.translate_tag(tag);
+
         if tag != Tag::EOC {
             let upcoming_tag = self.peek_tag()?;
             if tag != upcoming_tag {
@@ -102,6 +116,7 @@ impl<'input> Decoder<'input> {
     }
 
     pub(crate) fn parse_value(&mut self, tag: Tag) -> Result<(Identifier, Option<&'input [u8]>)> {
+        let tag = self.translate_tag(tag);
         let (input, (identifier, contents)) =
             self::parser::parse_value(self.config, self.input, Some(tag))?;
         self.input = input;
@@ -109,6 +124,7 @@ impl<'input> Decoder<'input> {
     }
 
     pub(crate) fn parse_primitive_value(&mut self, tag: Tag) -> Result<(Identifier, &'input [u8])> {
+        let tag = self.translate_tag(tag);
         let (input, (identifier, contents)) =
             self::parser::parse_value(self.config, self.input, Some(tag))?;
         self.input = input;
@@ -762,6 +778,37 @@ impl<'input> crate::Decoder for Decoder<'input> {
         default_initializer_fn: Option<DF>,
         decode_fn: F,
     ) -> Result<D> {
+        if tag == Tag::SEQUENCE {
+            if let Some(base) = self.extension_group_base.take() {
+                // We are decoding an extension addition group: the group tag was
+                // already matched by `decode_extension_addition_group`, and the
+                // group's contents are encoded "flattened" (without the SEQUENCE
+                // wrapper). Enable tag translation for the duration of decoding
+                // this SEQUENCE value and restore afterwards.
+                let previous = self.extension_group_base;
+                self.extension_group_base = Some(base);
+
+                let result = if D::FIELDS.is_empty() && D::EXTENDED_FIELDS.is_none()
+                    || (D::FIELDS.len() == D::FIELDS.number_of_optional_and_default_fields()
+                        && self.input.is_empty())
+                {
+                    if let Some(default_initializer_fn) = default_initializer_fn {
+                        Ok((default_initializer_fn)())
+                    } else {
+                        Err(DecodeError::from_kind(
+                            DecodeErrorKind::UnexpectedEmptyInput,
+                            self.codec(),
+                        ))
+                    }
+                } else {
+                    (decode_fn)(self)
+                };
+
+                self.extension_group_base = previous;
+                return result;
+            }
+        }
+
         self.parse_constructed_contents(tag, true, |decoder| {
             // If there are no fields, or the input is empty and we know that
             // all fields are optional or default fields, we call the default
@@ -897,9 +944,26 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: Decode + crate::types::Constructed<RL, EL>,
     >(
         &mut self,
-        _tag: Tag,
+        tag: Tag,
     ) -> Result<Option<D>, Self::Error> {
-        <Option<D>>::decode(self)
+        if self.input.is_empty() {
+            return Ok(None);
+        }
+
+        let (_, identifier) = parser::parse_identifier_octet(self.input).map_err(|e| match e {
+            ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, self.codec()),
+            ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, self.codec()),
+        })?;
+
+        if identifier.tag == tag {
+            let previous = self.extension_group_base;
+            self.extension_group_base = Some(tag);
+            let result = D::decode(self).map(Some);
+            self.extension_group_base = previous;
+            result
+        } else {
+            Ok(None)
+        }
     }
 }
 

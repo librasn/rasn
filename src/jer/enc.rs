@@ -536,9 +536,22 @@ impl crate::Encoder<'_> for Encoder {
     where
         E: crate::Encode + crate::types::Constructed<RL, EL>,
     {
+        self.stack.pop();
         match value {
-            Some(v) => v.encode(self),
-            None => self.encode_none::<E>(Identifier::EMPTY),
+            Some(v) => {
+                let mut inner = Self::new();
+                v.encode(&mut inner)?;
+                if let Value::Object(obj) = inner.to_json()? {
+                    self.constructed_stack
+                        .last_mut()
+                        .ok_or_else(|| JerEncodeErrorKind::JsonEncoder {
+                            msg: "Internal stack mismatch!".into(),
+                        })?
+                        .extend(obj);
+                }
+                Ok(())
+            }
+            None => Ok(()),
         }
     }
 
