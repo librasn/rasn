@@ -5,7 +5,7 @@ mod config;
 use alloc::{borrow::ToOwned, collections::VecDeque, string::ToString, vec::Vec};
 use chrono::Timelike;
 
-use super::Identifier;
+use super::{ExtensionGroupState, Identifier};
 use crate::{
     bits::octet_string_ascending,
     types::{
@@ -28,6 +28,7 @@ pub struct Encoder {
     config: EncoderOptions,
     is_set_encoding: bool,
     set_buffer: alloc::collections::BTreeMap<Tag, Vec<u8>>,
+    extension_group: ExtensionGroupState,
 }
 
 /// A convenience type around results needing to return one or many bytes.
@@ -45,6 +46,7 @@ impl Encoder {
             is_set_encoding: false,
             output: <_>::default(),
             set_buffer: <_>::default(),
+            extension_group: ExtensionGroupState::None,
         }
     }
 
@@ -63,6 +65,7 @@ impl Encoder {
             is_set_encoding: true,
             output: <_>::default(),
             set_buffer: <_>::default(),
+            extension_group: ExtensionGroupState::None,
         }
     }
 
@@ -78,7 +81,12 @@ impl Encoder {
             config,
             is_set_encoding: false,
             set_buffer: <_>::default(),
+            extension_group: ExtensionGroupState::None,
         }
+    }
+
+    fn translate_tag(&self, tag: Tag) -> Tag {
+        tag.with_context_offset(self.extension_group.base_tag())
     }
 
     /// Consumes the encoder and returns the output of the encoding.
@@ -243,6 +251,10 @@ impl Encoder {
 
     /// Encodes a given ASN.1 BER value with the `identifier`.
     fn encode_value(&mut self, identifier: Identifier, value: &[u8]) {
+        let identifier = Identifier::from_tag(
+            self.translate_tag(identifier.tag),
+            identifier.is_constructed,
+        );
         let ident_bytes = self.encode_identifier(identifier);
         self.append_byte_or_bytes(ident_bytes);
         self.encode_length(identifier, value);
@@ -711,6 +723,14 @@ impl crate::Encoder<'_> for Encoder {
         C: crate::types::Constructed<RC, EC>,
         F: FnOnce(&mut Self::AnyEncoder<'b, 0, 0>) -> Result<(), Self::Error>,
     {
+        if tag == Tag::SEQUENCE && matches!(self.extension_group, ExtensionGroupState::Pending(_)) {
+            // Extension addition groups are encoded flattened: skip the SEQUENCE wrapper once.
+            if let ExtensionGroupState::Pending(tag) = self.extension_group {
+                self.extension_group = ExtensionGroupState::Active(tag);
+            }
+            return (encoder_scope)(self);
+        }
+
         let mut encoder = Self::new(self.config);
 
         (encoder_scope)(&mut encoder)?;
@@ -730,6 +750,14 @@ impl crate::Encoder<'_> for Encoder {
         C: crate::types::Constructed<RC, EC>,
         F: FnOnce(&mut Self::AnyEncoder<'b, 0, 0>) -> Result<(), Self::Error>,
     {
+        if tag == Tag::SET && matches!(self.extension_group, ExtensionGroupState::Pending(_)) {
+            // Extension addition groups are encoded flattened: skip the SET wrapper once.
+            if let ExtensionGroupState::Pending(tag) = self.extension_group {
+                self.extension_group = ExtensionGroupState::Active(tag);
+            }
+            return (encoder_scope)(self);
+        }
+
         let mut encoder = Self::new_set(self.config);
 
         (encoder_scope)(&mut encoder)?;
@@ -757,14 +785,23 @@ impl crate::Encoder<'_> for Encoder {
     /// Encode a extension addition group value.
     fn encode_extension_addition_group<const RC: usize, const EC: usize, E>(
         &mut self,
-        _tag: Tag,
+        tag: Tag,
         value: Option<&E>,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error>
     where
         E: Encode + crate::types::Constructed<RC, EC>,
     {
-        value.encode(self)
+        match value {
+            Some(v) => {
+                let previous = self.extension_group;
+                self.extension_group = ExtensionGroupState::Pending(tag);
+                let result = v.encode(self);
+                self.extension_group = previous;
+                result
+            }
+            None => Ok(()),
+        }
     }
 }
 

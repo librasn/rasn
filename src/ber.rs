@@ -8,6 +8,22 @@ mod rules;
 pub use identifier::Identifier;
 pub(crate) use rules::EncodingRules;
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum ExtensionGroupState {
+    None,
+    Pending(crate::types::Tag),
+    Active(crate::types::Tag),
+}
+
+impl ExtensionGroupState {
+    pub(crate) fn base_tag(self) -> Option<crate::types::Tag> {
+        match self {
+            Self::Pending(tag) | Self::Active(tag) => Some(tag),
+            Self::None => None,
+        }
+    }
+}
+
 /// Attempts to decode `T` from `input` using BER.
 /// # Errors
 /// Returns error specific to BER decoder if decoding is not possible.
