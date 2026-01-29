@@ -527,6 +527,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     /// `E` is the type of the extension addition group value being encoded.
     fn encode_extension_addition_group<const RC: usize, const EC: usize, E>(
         &mut self,
+        tag: Tag,
         value: Option<&E>,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>
