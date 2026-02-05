@@ -142,7 +142,7 @@ pub fn derive_struct_impl(
                 let decode_impl = if config.extension_addition {
                     quote!(#field_name(decoder.decode_extension_addition()?))
                 } else if config.extension_addition_group {
-                    quote!(#field_name(decoder.decode_extension_addition_group()?))
+                    quote!(#field_name(decoder.decode_extension_addition_group(#tag)?))
                 } else {
                     quote!(<_>::decode(decoder)?)
                 };

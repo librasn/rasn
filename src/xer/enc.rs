@@ -694,6 +694,7 @@ impl crate::Encoder<'_> for Encoder {
 
     fn encode_extension_addition_group<const RL: usize, const EL: usize, E>(
         &mut self,
+        _tag: Tag,
         value: Option<&E>,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>
