@@ -392,4 +392,336 @@ mod tests {
         let decoded: Value = crate::uper::decode(&encoded).expect("UPER decode failed");
         assert_eq!(value, decoded);
     }
+
+    // ============================================================
+    // Test cases adapted from serde-json-canonicalizer https://github.com/evik42/serde-json-canonicalizer
+    // ============================================================
+
+    // Basic types tests (from basic_types.rs)
+    #[test]
+    fn test_literals() {
+        // null, true, false
+        round_trip_der(&json!(null));
+        round_trip_der(&json!(true));
+        round_trip_der(&json!(false));
+        round_trip_ber(&json!(null));
+        round_trip_ber(&json!(true));
+        round_trip_ber(&json!(false));
+    }
+
+    #[test]
+    fn test_basic_number() {
+        round_trip_der(&json!(42));
+    }
+
+    #[test]
+    fn test_basic_string_number() {
+        round_trip_der(&json!("42"));
+    }
+
+    #[test]
+    fn test_empty_array() {
+        round_trip_der(&json!([]));
+    }
+
+    #[test]
+    fn test_empty_object() {
+        round_trip_der(&json!({}));
+    }
+
+    // Number formatting tests (adapted from number_formatting.rs)
+    // These test integer edge cases that can be represented exactly
+
+    #[test]
+    fn test_zero() {
+        round_trip_der(&json!(0));
+        round_trip_ber(&json!(0));
+    }
+
+    #[test]
+    fn test_max_safe_integer() {
+        // JavaScript's MAX_SAFE_INTEGER: 2^53 - 1 = 9007199254740991
+        round_trip_der(&json!(9007199254740991i64));
+        round_trip_der(&json!(-9007199254740991i64));
+    }
+
+    #[test]
+    fn test_integer_boundaries() {
+        // u8 max
+        round_trip_der(&json!(255));
+        // i8 range
+        round_trip_der(&json!(127));
+        round_trip_der(&json!(-128));
+        // u16 max
+        round_trip_der(&json!(65535));
+        // i16 range
+        round_trip_der(&json!(32767));
+        round_trip_der(&json!(-32768));
+        // u32 max
+        round_trip_der(&json!(4294967295u64));
+        // i32 range
+        round_trip_der(&json!(2147483647));
+        round_trip_der(&json!(-2147483648i64));
+    }
+
+    // Unicode and special character tests (adapted from weird.rs and unicode tests)
+    #[test]
+    fn test_unicode_euro_sign() {
+        round_trip_der(&json!({"€": "Euro Sign"}));
+    }
+
+    #[test]
+    fn test_unicode_carriage_return() {
+        round_trip_der(&json!({"\r": "Carriage Return"}));
+    }
+
+    #[test]
+    fn test_unicode_newline() {
+        round_trip_der(&json!({"\n": "Newline"}));
+    }
+
+    #[test]
+    fn test_unicode_control_char() {
+        round_trip_der(&json!({"\u{0080}": "Control\u{007f}"}));
+    }
+
+    #[test]
+    fn test_unicode_emoji() {
+        round_trip_der(&json!({"😂": "Smiley"}));
+    }
+
+    #[test]
+    fn test_unicode_diaeresis() {
+        round_trip_der(&json!({"ö": "Latin Small Letter O With Diaeresis"}));
+    }
+
+    #[test]
+    fn test_unicode_hebrew() {
+        round_trip_der(&json!({"\u{fb33}": "Hebrew Letter Dalet With Dagesh"}));
+    }
+
+    #[test]
+    fn test_script_tag() {
+        round_trip_der(&json!({"</script>": "Browser Challenge"}));
+    }
+
+    #[test]
+    fn test_unnormalized_unicode() {
+        // A with combining ring above (unnormalized form of Å)
+        round_trip_der(&json!({"Unnormalized Unicode": "A\u{030a}"}));
+    }
+
+    // Array tests (from arrays.json)
+    #[test]
+    fn test_mixed_array() {
+        let value = json!([
+            56,
+            {
+                "d": true,
+                "10": null,
+                "1": []
+            }
+        ]);
+        round_trip_der(&value);
+        round_trip_ber(&value);
+    }
+
+    // Structure tests (from structures.json)
+    #[test]
+    fn test_nested_structures() {
+        let value = json!({
+            "1": {"f": {"f": "hi", "F": 5}, "\n": 56},
+            "10": {},
+            "": "empty",
+            "a": {},
+            "111": [{"e": "yes", "E": "no"}],
+            "A": {}
+        });
+        round_trip_der(&value);
+        round_trip_ber(&value);
+    }
+
+    #[test]
+    fn test_empty_key() {
+        round_trip_der(&json!({"": "empty"}));
+    }
+
+    #[test]
+    fn test_numeric_string_keys() {
+        round_trip_der(&json!({"1": "One", "10": "Ten", "2": "Two"}));
+    }
+
+    // RFC 8785 example tests (adapted from tests_from_rfc_text.rs)
+    #[test]
+    fn test_rfc_example_literals() {
+        let value = json!({
+            "literals": [null, true, false]
+        });
+        round_trip_der(&value);
+        round_trip_ber(&value);
+    }
+
+    #[test]
+    fn test_rfc_example_string_escapes() {
+        // String with various escape sequences
+        let value = json!({
+            "string": "€$\u{000f}\nA'B\"\\\\\"/",
+        });
+        round_trip_der(&value);
+        round_trip_ber(&value);
+    }
+
+    #[test]
+    fn test_rfc_sorting_example() {
+        // Keys that need proper Unicode sorting
+        let value = json!({
+            "€": "Euro Sign",
+            "\r": "Carriage Return",
+            "\u{fb33}": "Hebrew Letter Dalet With Dagesh",
+            "1": "One",
+            "😀": "Emoji: Grinning Face",
+            "\u{0080}": "Control",
+            "ö": "Latin Small Letter O With Diaeresis"
+        });
+        round_trip_der(&value);
+        round_trip_ber(&value);
+    }
+
+    // Deep nesting tests
+    #[test]
+    fn test_deeply_nested_arrays() {
+        let value = json!([[[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]]]);
+        round_trip_der(&value);
+    }
+
+    #[test]
+    fn test_deeply_nested_objects() {
+        let value = json!({
+            "a": {
+                "b": {
+                    "c": {
+                        "d": {
+                            "e": "deep"
+                        }
+                    }
+                }
+            }
+        });
+        round_trip_der(&value);
+    }
+
+    // Mixed content tests
+    #[test]
+    fn test_all_types_combined() {
+        let value = json!({
+            "null_val": null,
+            "bool_true": true,
+            "bool_false": false,
+            "int_pos": 42,
+            "int_neg": -17,
+            "int_zero": 0,
+            "string": "hello world",
+            "string_empty": "",
+            "string_unicode": "こんにちは",
+            "array_empty": [],
+            "array_mixed": [1, "two", true, null],
+            "object_empty": {},
+            "object_nested": {"inner": {"value": 123}}
+        });
+        round_trip_der(&value);
+        round_trip_ber(&value);
+    }
+
+    // Edge cases from values.json
+    #[test]
+    fn test_values_example() {
+        let value = json!({
+            "string": "€$\u{000f}\nA'B\"\\\\\"/",
+            "literals": [null, true, false]
+        });
+        round_trip_der(&value);
+        round_trip_ber(&value);
+    }
+
+    // Large array test
+    #[test]
+    fn test_large_array() {
+        let arr: Vec<i32> = (0..100).collect();
+        let value = json!(arr);
+        round_trip_der(&value);
+    }
+
+    // Object with many keys
+    #[test]
+    fn test_object_many_keys() {
+        let value = json!({
+            "a": 1, "b": 2, "c": 3, "d": 4, "e": 5,
+            "f": 6, "g": 7, "h": 8, "i": 9, "j": 10,
+            "k": 11, "l": 12, "m": 13, "n": 14, "o": 15,
+            "p": 16, "q": 17, "r": 18, "s": 19, "t": 20
+        });
+        round_trip_der(&value);
+        round_trip_ber(&value);
+    }
+
+    // Special string content
+    #[test]
+    fn test_string_with_quotes() {
+        round_trip_der(&json!("He said \"hello\""));
+    }
+
+    #[test]
+    fn test_string_with_backslash() {
+        round_trip_der(&json!("path\\to\\file"));
+    }
+
+    #[test]
+    fn test_string_with_tab() {
+        round_trip_der(&json!("column1\tcolumn2"));
+    }
+
+    #[test]
+    fn test_string_with_null_escape() {
+        round_trip_der(&json!("before\u{0000}after"));
+    }
+
+    // Multiple codecs comprehensive test
+    #[test]
+    fn test_all_codecs() {
+        let value = json!({
+            "test": "value",
+            "number": 42,
+            "nested": {"array": [1, 2, 3]}
+        });
+
+        // DER
+        let der_enc = crate::der::encode(&value).expect("DER encode failed");
+        let der_dec: Value = crate::der::decode(&der_enc).expect("DER decode failed");
+        assert_eq!(value, der_dec);
+
+        // BER
+        let ber_enc = crate::ber::encode(&value).expect("BER encode failed");
+        let ber_dec: Value = crate::ber::decode(&ber_enc).expect("BER decode failed");
+        assert_eq!(value, ber_dec);
+
+        // OER
+        let oer_enc = crate::oer::encode(&value).expect("OER encode failed");
+        let oer_dec: Value = crate::oer::decode(&oer_enc).expect("OER decode failed");
+        assert_eq!(value, oer_dec);
+
+        // COER
+        let coer_enc = crate::coer::encode(&value).expect("COER encode failed");
+        let coer_dec: Value = crate::coer::decode(&coer_enc).expect("COER decode failed");
+        assert_eq!(value, coer_dec);
+
+        // UPER
+        let uper_enc = crate::uper::encode(&value).expect("UPER encode failed");
+        let uper_dec: Value = crate::uper::decode(&uper_enc).expect("UPER decode failed");
+        assert_eq!(value, uper_dec);
+
+        // APER
+        let aper_enc = crate::aper::encode(&value).expect("APER encode failed");
+        let aper_dec: Value = crate::aper::decode(&aper_enc).expect("APER decode failed");
+        assert_eq!(value, aper_dec);
+    }
 }
