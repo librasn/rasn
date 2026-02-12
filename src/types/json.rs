@@ -14,6 +14,7 @@
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 
+use crate::jer::enc::ValueMap;
 use crate::{
     de::{Decoder, Error as DecodeError},
     enc::Encoder,
@@ -79,10 +80,9 @@ impl crate::types::DecodeChoice for Value {
             t if t == TAG_DECIMAL => {
                 // Decimal numbers are encoded as UTF8String with context tag
                 let s = decoder.decode_utf8_string(TAG_DECIMAL, Constraints::default())?;
-                if let Ok(n) = s.parse::<f64>() {
-                    if let Some(num) = Number::from_f64(n) {
-                        return Ok(Value::Number(num));
-                    }
+
+                if let Some(num) = s.parse::<f64>().ok().and_then(Number::from_f64) {
+                    return Ok(Value::Number(num));
                 }
                 // Fallback: return as-is if parsing fails (shouldn't happen)
                 Err(DecodeError::custom(
@@ -92,7 +92,7 @@ impl crate::types::DecodeChoice for Value {
             }
             Tag::UTF8_STRING => {
                 let s = decoder.decode_utf8_string(Tag::UTF8_STRING, Constraints::default())?;
-                Ok(Value::String(s.into()))
+                Ok(Value::String(s))
             }
             t if t == TAG_ARRAY => {
                 let arr: Vec<Value> =
@@ -100,10 +100,11 @@ impl crate::types::DecodeChoice for Value {
                 Ok(Value::Array(arr))
             }
             t if t == TAG_OBJECT => {
-                let pairs: Vec<JsonKeyValue> =
-                    decoder.decode_sequence_of(TAG_OBJECT, Constraints::default())?;
-                let map: Map<String, Value> =
-                    pairs.into_iter().map(|kv| (kv.key, kv.value)).collect();
+                let map: ValueMap = ValueMap::decode_with_tag_and_constraints(
+                    decoder,
+                    TAG_OBJECT,
+                    Constraints::default(),
+                )?;
                 Ok(Value::Object(map))
             }
             _ => Err(DecodeError::no_valid_choice(
@@ -166,16 +167,9 @@ impl Encode for Value {
                         )?;
                     }
                     Value::Object(map) => {
-                        let pairs: Vec<JsonKeyValue> = map
-                            .iter()
-                            .map(|(k, v)| JsonKeyValue {
-                                key: k.clone(),
-                                value: v.clone(),
-                            })
-                            .collect();
-                        enc.encode_sequence_of(
+                        map.encode_with_tag_and_constraints(
+                            enc,
                             TAG_OBJECT,
-                            &pairs,
                             Constraints::default(),
                             Identifier::EMPTY,
                         )?;
@@ -233,25 +227,43 @@ fn value_to_tag(value: &Value) -> Tag {
     }
 }
 
-/// Helper type for encoding JSON object key-value pairs
+// ASN.1 trait implementations for ValueMap (Map<String, Value>)
+
+impl AsnType for ValueMap {
+    const TAG: Tag = TAG_OBJECT;
+}
+
+/// Helper type for encoding a single JSON object key-value entry.
+/// Used internally by `ValueMap` encoding.
 #[derive(Clone, Debug, PartialEq)]
-struct JsonKeyValue {
+struct ValueEntry<'a> {
+    key: &'a str,
+    value: &'a Value,
+}
+
+impl AsnType for ValueEntry<'_> {
+    const TAG: Tag = Tag::SEQUENCE;
+}
+
+/// Owned version of ValueEntry for decoding.
+#[derive(Clone, Debug, PartialEq)]
+struct OwnedValueEntry {
     key: String,
     value: Value,
 }
 
-impl AsnType for JsonKeyValue {
+impl AsnType for OwnedValueEntry {
     const TAG: Tag = Tag::SEQUENCE;
 }
 
-impl crate::types::Constructed<2, 0> for JsonKeyValue {
+impl crate::types::Constructed<2, 0> for OwnedValueEntry {
     const FIELDS: Fields<2> = Fields::from_static([
         Field::new_required(0, Tag::UTF8_STRING, TagTree::Leaf(Tag::UTF8_STRING), "key"),
         Field::new_required(1, Tag::EOC, Value::TAG_TREE, "value"),
     ]);
 }
 
-impl Encode for JsonKeyValue {
+impl Encode for ValueEntry<'_> {
     fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
@@ -259,13 +271,13 @@ impl Encode for JsonKeyValue {
         _constraints: Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
-        encoder.encode_sequence::<2, 0, Self, _>(
+        encoder.encode_sequence::<2, 0, OwnedValueEntry, _>(
             tag,
             |enc| {
                 enc.encode_utf8_string(
                     Tag::UTF8_STRING,
                     Constraints::default(),
-                    &self.key,
+                    self.key,
                     Identifier::EMPTY,
                 )?;
                 self.value.encode(enc)?;
@@ -277,7 +289,7 @@ impl Encode for JsonKeyValue {
     }
 }
 
-impl Decode for JsonKeyValue {
+impl Decode for OwnedValueEntry {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
@@ -286,11 +298,36 @@ impl Decode for JsonKeyValue {
         decoder.decode_sequence::<2, 0, Self, _, _>(tag, None::<fn() -> Self>, |dec| {
             let key = dec.decode_utf8_string(Tag::UTF8_STRING, Constraints::default())?;
             let value = Value::decode(dec)?;
-            Ok(JsonKeyValue {
-                key: key.into(),
-                value,
-            })
+            Ok(OwnedValueEntry { key, value })
         })
+    }
+}
+
+impl Encode for ValueMap {
+    fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(
+        &self,
+        encoder: &mut E,
+        tag: Tag,
+        constraints: Constraints,
+        identifier: Identifier,
+    ) -> Result<(), E::Error> {
+        let entries: Vec<ValueEntry<'_>> = self
+            .iter()
+            .map(|(k, v)| ValueEntry { key: k, value: v })
+            .collect();
+        encoder.encode_sequence_of(tag, &entries, constraints, identifier)?;
+        Ok(())
+    }
+}
+
+impl Decode for ValueMap {
+    fn decode_with_tag_and_constraints<D: Decoder>(
+        decoder: &mut D,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<Self, D::Error> {
+        let entries: Vec<OwnedValueEntry> = decoder.decode_sequence_of(tag, constraints)?;
+        Ok(entries.into_iter().map(|e| (e.key, e.value)).collect())
     }
 }
 
