@@ -25,7 +25,7 @@ use crate::{
     },
     AsnType, Decode, Encode,
 };
-use serde_json::{Map, Number, Value};
+use serde_json::{Number, Value};
 
 // Context tags for distinguishing variants that would otherwise share tags
 const TAG_OBJECT: Tag = Tag::new(crate::types::Class::Context, 0);
