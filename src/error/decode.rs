@@ -76,52 +76,50 @@ impl From<CodecDecodeError> for DecodeError {
 /// #[rasn(delegate)]
 /// struct MyString(pub VisibleString);
 ///
-/// fn main() {
-///     // Hello, World! in decimal bytes with trailing zeros
-///     // Below sample requires that `backtraces` feature is enabled
-///     let hello_data = vec![
-///         13, 145, 151, 102, 205, 235, 16, 119, 223, 203, 102, 68, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-///         0,
-///     ];
-///     // Initially parse the first 2 bytes for Error demonstration purposes
-///     let mut total = 2;
+/// // Hello, World! in decimal bytes with trailing zeros
+/// // Below sample requires that `backtraces` feature is enabled
+/// let hello_data = vec![
+///     13, 145, 151, 102, 205, 235, 16, 119, 223, 203, 102, 68, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+///     0,
+/// ];
+/// // Initially parse the first 2 bytes for Error demonstration purposes
+/// let mut total = 2;
 ///
-///     loop {
-///         let decoded = Codec::Uper.decode_from_binary::<MyString>(&hello_data[0..hello_data.len().min(total)]);
-///         match decoded {
-///             Ok(succ) => {
-///                 println!("Successful decoding!");
-///                 println!("Decoded string: {}", succ.0);
-///                 break;
-///             }
-///             Err(e) => {
-///                 // e is DecodeError, kind is boxed
-///                 match *e.kind {
-///                     DecodeErrorKind::Incomplete { needed } => {
-///                         println!("Codec error source: {}", e.codec);
-///                         println!("Error kind: {}", e.kind);
-///                         // Here you need to know, that VisibleString has width of 7 bits and UPER parses input
-///                         // as bits, if you want to build logic around it, and feed exactly the correct amount of data.
-///                         // Usually you might need to just provide one byte at time instead when something is missing, since
-///                         // inner logic might not be known to you, and data structures can get complex.
-///                         total += match needed {
-///                             Needed::Size(n) => {
-///                                 let missing_bytes = n.get() / 7;
-///                                 missing_bytes
+/// loop {
+///     let decoded = Codec::Uper.decode_from_binary::<MyString>(&hello_data[0..hello_data.len().min(total)]);
+///     match decoded {
+///         Ok(succ) => {
+///             println!("Successful decoding!");
+///             println!("Decoded string: {}", succ.0);
+///             break;
+///         }
+///         Err(e) => {
+///             // e is DecodeError, kind is boxed
+///             match *e.kind {
+///                 DecodeErrorKind::Incomplete { needed } => {
+///                     println!("Codec error source: {}", e.codec);
+///                     println!("Error kind: {}", e.kind);
+///                     // Here you need to know, that VisibleString has width of 7 bits and UPER parses input
+///                     // as bits, if you want to build logic around it, and feed exactly the correct amount of data.
+///                     // Usually you might need to just provide one byte at time instead when something is missing, since
+///                     // inner logic might not be known to you, and data structures can get complex.
+///                     total += match needed {
+///                         Needed::Size(n) => {
+///                             let missing_bytes = n.get() / 7;
+///                             missing_bytes
 ///
-///                             }
-///                             _ => {
-///                                 #[cfg(feature = "backtraces")]
-///                                 println!("Backtrace:\n{:?}", e.backtrace);
-///                                 panic!("Unexpected error! {e:?}");
-///                             }
+///                         }
+///                         _ => {
+///                             #[cfg(feature = "backtraces")]
+///                             println!("Backtrace:\n{:?}", e.backtrace);
+///                             panic!("Unexpected error! {e:?}");
 ///                         }
 ///                     }
-///                     k => {
-///                         #[cfg(feature = "backtraces")]
-///                         println!("Backtrace:\n{:?}", e.backtrace);
-///                         panic!("Unexpected error! {k:?}");
-///                     }
+///                 }
+///                 k => {
+///                     #[cfg(feature = "backtraces")]
+///                     println!("Backtrace:\n{:?}", e.backtrace);
+///                     panic!("Unexpected error! {k:?}");
 ///                 }
 ///             }
 ///         }
