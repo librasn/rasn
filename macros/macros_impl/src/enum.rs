@@ -544,7 +544,7 @@ impl Enum<'_> {
                     let ident = field.ident.as_ref().map_or_else(|| format_ident!("i{}", index).into_token_stream(), |ident| quote!(#ident));
                     let name = field.ident.as_ref().map_or_else(|| index.into_token_stream(), |ident| quote!(#ident));
 
-                    (quote!(#name : ref #ident), quote!(#name : #ident))
+                    (quote!(#name : #ident), quote!(#name : #ident))
                 }).unzip::<_, _, Vec<proc_macro2::TokenStream>, Vec<proc_macro2::TokenStream>>();
 
                 quote!(Self::#ident { #(#def_fields),* } => #inner_name::#ident { #(#init_fields),* })
