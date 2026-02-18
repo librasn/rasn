@@ -865,7 +865,7 @@ impl<'a> FieldConfig<'a> {
         ty.strip_lifetimes();
         let default_fn = self.default_fn().map(|d| quote!(#d,));
         let has_generics = !type_params.is_empty() && {
-            if let Type::Path(ty) = &ty {
+            if let Type::Path(ref ty) = ty {
                 ty.path.segments.iter().any(|seg| {
                     let type_string = seg.into_token_stream().to_string();
                     let type_parts: Vec<&str> = type_string.split(" ").collect();
