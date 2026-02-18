@@ -150,21 +150,18 @@ impl Constraints {
         if self.extensible {
             return true;
         }
-        if let Some(value) = &self.value {
-            if value.extensible.is_some() {
+        if let Some(value) = &self.value
+            && value.extensible.is_some() {
                 return true;
             }
-        }
-        if let Some(size) = &self.size {
-            if size.extensible.is_some() {
+        if let Some(size) = &self.size
+            && size.extensible.is_some() {
                 return true;
             }
-        }
-        if let Some(permitted_alphabet) = &self.permitted_alphabet {
-            if permitted_alphabet.extensible.is_some() {
+        if let Some(permitted_alphabet) = &self.permitted_alphabet
+            && permitted_alphabet.extensible.is_some() {
                 return true;
             }
-        }
         false
     }
 
