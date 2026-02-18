@@ -540,7 +540,6 @@ impl Enum<'_> {
             let init_variants = self.variants.iter().map(|variant| {
                 let ident = &variant.ident;
                 let (def_fields, init_fields) = variant.fields.iter().enumerate().map(|(i, field)| {
-                     // Use shorthand syntax for named fields; unnamed fields use full form
                     // Use shorthand syntax for named fields; unnamed fields use full form
                     if let Some(field_ident) = field.ident.as_ref() {
                         (quote!(#field_ident), quote!(#field_ident))
