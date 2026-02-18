@@ -1,5 +1,5 @@
 //! Benchmarking the decoding of constrained octet strings
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rasn::prelude::*;
 use rasn::{ber, oer, uper};
 

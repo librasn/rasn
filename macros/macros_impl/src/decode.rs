@@ -2,13 +2,13 @@ use std::collections::HashSet;
 
 use quote::ToTokens;
 use syn::{
-    visit::{self, Visit},
     Fields,
+    visit::{self, Visit},
 };
 
 use crate::{
-    config::{map_to_inner_type, Config, FieldConfig},
     CRATE_NAME,
+    config::{Config, FieldConfig, map_to_inner_type},
 };
 
 #[allow(clippy::too_many_lines)]
@@ -463,26 +463,28 @@ impl GenericUsage {
 impl<'ast> Visit<'ast> for GenericUsage {
     fn visit_type_path(&mut self, ty: &'ast syn::TypePath) {
         if ty.qself.is_none()
-            && let Some(first) = ty.path.segments.first() {
-                let name = first.ident.to_string();
-                if self.type_params.contains(&name) {
-                    self.used_type_params.insert(name.clone());
-                }
-                if self.const_params.contains(&name) {
-                    self.used_const_params.insert(name);
-                }
+            && let Some(first) = ty.path.segments.first()
+        {
+            let name = first.ident.to_string();
+            if self.type_params.contains(&name) {
+                self.used_type_params.insert(name.clone());
             }
+            if self.const_params.contains(&name) {
+                self.used_const_params.insert(name);
+            }
+        }
         visit::visit_type_path(self, ty);
     }
 
     fn visit_expr_path(&mut self, expr: &'ast syn::ExprPath) {
         if expr.qself.is_none()
-            && let Some(first) = expr.path.segments.first() {
-                let name = first.ident.to_string();
-                if self.const_params.contains(&name) {
-                    self.used_const_params.insert(name);
-                }
+            && let Some(first) = expr.path.segments.first()
+        {
+            let name = first.ident.to_string();
+            if self.const_params.contains(&name) {
+                self.used_const_params.insert(name);
             }
+        }
         visit::visit_expr_path(self, expr);
     }
 

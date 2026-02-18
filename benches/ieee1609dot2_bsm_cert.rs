@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rasn::prelude::*;
 use rasn_its::ieee1609dot2::base_types::*;
 use rasn_its::ieee1609dot2::*;

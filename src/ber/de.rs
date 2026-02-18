@@ -5,12 +5,11 @@ pub(super) mod parser;
 
 use super::identifier::Identifier;
 use crate::{
-    types::{
-        self,
-        oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Constraints, Enumerated, Tag,
-    },
     Decode,
+    types::{
+        self, Constraints, Enumerated, Tag,
+        oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
+    },
 };
 use alloc::{borrow::Cow, borrow::ToOwned, string::ToString, vec::Vec};
 use chrono::{DateTime, NaiveDate, NaiveDateTime};
@@ -412,7 +411,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 return Err(DecodeError::from_kind(
                     DecodeErrorKind::InvalidBool { value: contents[0] },
                     self.codec(),
-                ))
+                ));
             }
         })
     }

@@ -90,7 +90,7 @@ pub fn encode_derive_inner(input: DeriveInput) -> syn::Result<proc_macro2::Token
             return Err(syn::Error::new(
                 name.span(),
                 "Union types are not supported.",
-            ))
+            ));
         }
     })
 }
@@ -121,7 +121,7 @@ pub fn asn_type_derive_inner(input: DeriveInput) -> syn::Result<proc_macro2::Tok
             return Err(syn::Error::new(
                 name.span(),
                 "Union types are not supported.",
-            ))
+            ));
         }
     })
 }

@@ -1,4 +1,4 @@
-use crate::{types::Tag, AsnType};
+use crate::{AsnType, types::Tag};
 
 /// A newtype wrapper that will explicitly tag its value with `T`'s tag.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

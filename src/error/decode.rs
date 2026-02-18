@@ -9,9 +9,9 @@ use snafu::Snafu;
 #[cfg(feature = "backtraces")]
 use snafu::{Backtrace, GenerateImplicitData};
 
-use crate::de::Error;
-use crate::types::{constraints::Bounded, variants::Variants, Tag};
 use crate::Codec;
+use crate::de::Error;
+use crate::types::{Tag, constraints::Bounded, variants::Variants};
 use num_bigint::BigInt;
 
 /// Variants for every codec-specific `DecodeError` kind.
@@ -516,7 +516,9 @@ pub enum DecodeErrorKind {
     },
 
     /// Choice index exceeds maximum possible address width.
-    #[snafu(display("integer range larger than possible to address on this platform. needed: {needed} present: {present}"))]
+    #[snafu(display(
+        "integer range larger than possible to address on this platform. needed: {needed} present: {present}"
+    ))]
     ChoiceIndexExceedsPlatformWidth {
         /// Amount of bytes needed.
         needed: u32,
@@ -652,7 +654,11 @@ pub enum DecodeErrorKind {
         name: &'static str,
     },
     /// When there is a mismatch between the expected and actual tag class or `value`.
-    #[snafu(display("Expected class: {}, value: {} in sequence or set Missing tag class or value in sequence or set", class, value))]
+    #[snafu(display(
+        "Expected class: {}, value: {} in sequence or set Missing tag class or value in sequence or set",
+        class,
+        value
+    ))]
     MissingTagClassOrValueInSequenceOrSet {
         /// The tag's class.
         class: crate::types::Class,
@@ -661,7 +667,9 @@ pub enum DecodeErrorKind {
     },
 
     /// The range of the integer exceeds the platform width.
-    #[snafu(display("integer range larger than possible to address on this platform. needed: {needed} present: {present}"))]
+    #[snafu(display(
+        "integer range larger than possible to address on this platform. needed: {needed} present: {present}"
+    ))]
     RangeExceedsPlatformWidth {
         /// Amount of bytes needed.
         needed: u32,
@@ -694,10 +702,10 @@ pub enum DecodeErrorKind {
     },
     /// General error for failed ASN.1 fixed-sized string conversion from bytes.
     #[snafu(display(
-    "Failed to convert byte array into valid fixed-sized ASN.1 string. String type as tag: {}, actual: {}, expected: {}",
-    tag,
-    actual,
-    expected
+        "Failed to convert byte array into valid fixed-sized ASN.1 string. String type as tag: {}, actual: {}, expected: {}",
+        tag,
+        actual,
+        expected
     ))]
     FixedStringConversionFailed {
         /// Tag of the string type.
@@ -732,9 +740,7 @@ pub enum DecodeErrorKind {
         tag: Tag,
     },
     /// An error when there should be more data but it is not present.
-    #[snafu(display(
-        "No input was provided where expected in the given SEQUENCE or INTEGER type"
-    ))]
+    #[snafu(display("No input was provided where expected in the given SEQUENCE or INTEGER type"))]
     UnexpectedEmptyInput,
 
     /// An error when the decoder exceeds maximum allowed parse depth.
@@ -1015,7 +1021,9 @@ impl OerDecodeErrorKind {
 #[non_exhaustive]
 pub enum CoerDecodeErrorKind {
     /// An error of a result where the stricter Canonical Octet Encoding is not reached.
-    #[snafu(display("Invalid Canonical Octet Encoding, not encoded as the smallest possible number of octets: {msg}"))]
+    #[snafu(display(
+        "Invalid Canonical Octet Encoding, not encoded as the smallest possible number of octets: {msg}"
+    ))]
     NotValidCanonicalEncoding {
         /// Reason for the error.
         msg: alloc::string::String,
@@ -1098,8 +1106,8 @@ mod tests {
     #[test]
     fn test_uper_missing_choice_index() {
         use crate as rasn;
-        use crate::error::{DecodeError, DecodeErrorKind};
         use crate::Codec;
+        use crate::error::{DecodeError, DecodeErrorKind};
         #[derive(AsnType, Decode, Debug, PartialEq)]
         #[rasn(choice, automatic_tags)]
         enum MyChoice {

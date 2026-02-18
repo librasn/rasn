@@ -137,7 +137,9 @@ impl Codec {
             Self::Jer => crate::jer::encode(value),
             codec => Err(crate::error::EncodeError::from_kind(
                 crate::error::EncodeErrorKind::Custom {
-                    msg: alloc::format!("{codec} is a binary-based encoding. Call `Codec::encode_to_binary` instead."),
+                    msg: alloc::format!(
+                        "{codec} is a binary-based encoding. Call `Codec::encode_to_binary` instead."
+                    ),
                 },
                 codec,
             )),
@@ -155,7 +157,9 @@ impl Codec {
             Self::Jer => crate::jer::decode(input),
             codec => Err(crate::error::DecodeError::from_kind(
                 crate::error::DecodeErrorKind::Custom {
-                    msg: alloc::format!("{codec} is a text-based encoding. Call `Codec::decode_from_binary` instead."),
+                    msg: alloc::format!(
+                        "{codec} is a text-based encoding. Call `Codec::decode_from_binary` instead."
+                    ),
                 },
                 *codec,
             )),

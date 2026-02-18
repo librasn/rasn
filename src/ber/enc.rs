@@ -7,13 +7,12 @@ use chrono::Timelike;
 
 use super::Identifier;
 use crate::{
+    Codec, Encode,
     bits::octet_string_ascending,
     types::{
-        self,
+        self, Constraints, Enumerated, IntegerType, Tag,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
-        Constraints, Enumerated, IntegerType, Tag,
     },
-    Codec, Encode,
 };
 
 pub use crate::error::{BerEncodeErrorKind, EncodeError, EncodeErrorKind};
@@ -770,7 +769,7 @@ impl crate::Encoder<'_> for Encoder {
 #[cfg(test)]
 mod tests {
     use crate::ber::enc::{Encoder, EncoderOptions};
-    use crate::{types::*, Encode};
+    use crate::{Encode, types::*};
     use alloc::borrow::ToOwned;
     use alloc::vec;
 
@@ -832,7 +831,9 @@ mod tests {
 
         // example from https://docs.microsoft.com/en-us/windows/win32/seccertenroll/about-object-identifier
         assert_eq!(
-            &vec![0x06, 0x09, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x15, 0x14],
+            &vec![
+                0x06, 0x09, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x82, 0x37, 0x15, 0x14
+            ],
             &oid_to_bytes(&[1, 3, 6, 1, 4, 1, 311, 21, 20])
         );
 
@@ -889,8 +890,8 @@ mod tests {
     #[test]
     fn set() {
         use crate::{
-            types::{AsnType, Implicit},
             Encoder as _,
+            types::{AsnType, Implicit},
         };
 
         struct C0;

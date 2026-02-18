@@ -36,7 +36,7 @@ pub struct Attribute {
 
 #[cfg(test)]
 mod tests {
-    use base64::prelude::{Engine as _, BASE64_STANDARD};
+    use base64::prelude::{BASE64_STANDARD, Engine as _};
     use pretty_assertions::assert_eq;
 
     use alloc::{borrow::Cow, string::ToString, vec};

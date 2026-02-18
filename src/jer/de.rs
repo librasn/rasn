@@ -3,15 +3,15 @@
 use serde_json::Value;
 
 use crate::{
+    Decode,
     de::Error,
     error::{DecodeError, JerDecodeErrorKind},
     types::{
-        variants, Any, BitString, BmpString, Constraints, Constructed, Date, DecodeChoice,
-        Enumerated, GeneralString, GeneralizedTime, GraphicString, Ia5String, NumericString,
-        ObjectIdentifier, Oid, PrintableString, SequenceOf, SetOf, Tag, TeletexString, UtcTime,
-        Utf8String, VisibleString,
+        Any, BitString, BmpString, Constraints, Constructed, Date, DecodeChoice, Enumerated,
+        GeneralString, GeneralizedTime, GraphicString, Ia5String, NumericString, ObjectIdentifier,
+        Oid, PrintableString, SequenceOf, SetOf, Tag, TeletexString, UtcTime, Utf8String,
+        VisibleString, variants,
     },
-    Decode,
 };
 
 macro_rules! decode_jer_value {
@@ -130,7 +130,11 @@ impl crate::Decoder for Decoder {
             Ok(padded)
         } else {
             Err(DecodeError::custom(
-                alloc::format!("Failed to create BitString from bytes: invalid value length (was: {}, expected: {})", padded.len(), bitstring_length),
+                alloc::format!(
+                    "Failed to create BitString from bytes: invalid value length (was: {}, expected: {})",
+                    padded.len(),
+                    bitstring_length
+                ),
                 self.codec(),
             ))
         }

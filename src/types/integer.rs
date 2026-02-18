@@ -1,9 +1,9 @@
-use crate::types::{constraints, AsnType, Constraints, Extensible, Tag};
+use crate::types::{AsnType, Constraints, Extensible, Tag, constraints};
 use alloc::boxed::Box;
 use core::hash::Hash;
 use num_bigint::{BigInt, BigUint, ToBigInt};
-use num_traits::{identities::Zero, Signed, ToBytes, ToPrimitive};
 use num_traits::{CheckedAdd, CheckedSub};
+use num_traits::{Signed, ToBytes, ToPrimitive, identities::Zero};
 
 /// A dynamically sized integer type. This type is similar to [`num_bigint::BigInt`]
 /// in that it allows for integers of arbitary size making it ideal for handling
@@ -329,7 +329,9 @@ macro_rules! impl_try_from_integer {
         )*
     };
 }
-impl_try_from_integer!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
+impl_try_from_integer!(
+    u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize
+);
 
 /// An integer which has encoded constraint range between `START` and `END`.
 #[derive(Debug, Clone, Eq, Hash, PartialEq, PartialOrd, Ord)]
@@ -417,7 +419,7 @@ pub trait IntegerType:
     /// # Errors
     /// If the data doesn't represent a valid integer in the given codec.
     fn try_from_bytes(input: &[u8], codec: crate::Codec)
-        -> Result<Self, crate::error::DecodeError>;
+    -> Result<Self, crate::error::DecodeError>;
 
     /// Attempts to convert the input data (assuming signed bytes) matching the given codec into [Self].
     ///

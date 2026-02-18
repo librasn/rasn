@@ -2,7 +2,7 @@ use pretty_assertions::assert_eq;
 use rasn::der::{decode, encode};
 
 use rasn_cms::authenticode::{
-    SpcIndirectDataContent, SpcLink, SpcPeImageData, SPC_CLASS_UUID, SPC_INDIRECT_DATA_OBJID,
+    SPC_CLASS_UUID, SPC_INDIRECT_DATA_OBJID, SpcIndirectDataContent, SpcLink, SpcPeImageData,
 };
 use rasn_cms::*;
 

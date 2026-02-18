@@ -84,11 +84,7 @@ impl Identifier {
     /// Returns a reference of `self` if the identifier is not empty, or `other` if it is.
     #[must_use]
     pub fn or(&self, other: Self) -> Self {
-        if self.0.is_none() {
-            other
-        } else {
-            *self
-        }
+        if self.0.is_none() { other } else { *self }
     }
 
     /// Returns the undelying string or panics if identifier is empty.

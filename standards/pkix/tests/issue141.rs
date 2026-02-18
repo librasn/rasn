@@ -1,6 +1,6 @@
 #[test]
 fn issue_141() {
-    use rasn::{prelude::*, AsnType, Decode};
+    use rasn::{AsnType, Decode, prelude::*};
 
     /// A general time type.
     #[derive(AsnType, Clone, Copy, Debug, Decode, Encode, PartialEq, Eq, PartialOrd, Ord, Hash)]

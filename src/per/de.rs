@@ -8,15 +8,14 @@ use super::{
     THIRTY_TWO_K,
 };
 use crate::{
+    Decode,
     de::Error as _,
     types::{
-        self,
+        self, Constraints, Enumerated, IntegerType, SetOf, Tag,
         constraints::{self, Extensible},
         fields::{Field, Fields},
-        strings::{should_be_indexed, StaticPermittedAlphabet},
-        Constraints, Enumerated, IntegerType, SetOf, Tag,
+        strings::{StaticPermittedAlphabet, should_be_indexed},
     },
-    Decode,
 };
 
 pub use crate::error::DecodeError;

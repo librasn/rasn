@@ -48,7 +48,10 @@ pub struct InvalidTeletexString {
 /// A character which does not match the allowed character set for Visible.
 #[derive(snafu::Snafu, Debug)]
 #[snafu(visibility(pub))]
-#[snafu(display("Invalid visible string: only space (0x20) and all graphically visible characters (0x21-0x7E) allowed, character decimal value: {}", character))]
+#[snafu(display(
+    "Invalid visible string: only space (0x20) and all graphically visible characters (0x21-0x7E) allowed, character decimal value: {}",
+    character
+))]
 pub struct InvalidVisibleString {
     /// The invalid character.
     pub character: u32,

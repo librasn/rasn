@@ -2,23 +2,23 @@
 use core::{fmt::Write, ops::Deref};
 
 use crate::{
+    AsnType,
     alloc::{
         string::{String, ToString},
         vec::Vec,
     },
     types::{
-        fields::Fields, Any, BitStr, BmpString, Constraints, Date, Enumerated, GeneralString,
-        GeneralizedTime, GraphicString, Ia5String, Identifier, IntegerType, NumericString,
-        OctetString, Oid, PrintableString, RealType, SetOf, Tag, TeletexString, UtcTime,
-        VisibleString,
+        Any, BitStr, BmpString, Constraints, Date, Enumerated, GeneralString, GeneralizedTime,
+        GraphicString, Ia5String, Identifier, IntegerType, NumericString, OctetString, Oid,
+        PrintableString, RealType, SetOf, Tag, TeletexString, UtcTime, VisibleString,
+        fields::Fields,
     },
-    AsnType,
 };
 use alloc::borrow::Cow;
 use num_bigint::BigInt;
 use xml_no_std::{
-    attribute::Attribute, name::Name, namespace::Namespace, writer::XmlEvent, EventWriter,
-    ParserConfig,
+    EventWriter, ParserConfig, attribute::Attribute, name::Name, namespace::Namespace,
+    writer::XmlEvent,
 };
 
 use crate::error::{EncodeError, XerEncodeErrorKind};
@@ -856,7 +856,7 @@ impl Encoder {
                     return Err(XerEncodeErrorKind::XmlEncodingError {
                         upstream: "Any-type values must not contain XML prolog!".to_string(),
                     }
-                    .into())
+                    .into());
                 }
                 xml_no_std::reader::XmlEvent::EndDocument => break,
                 xml_no_std::reader::XmlEvent::ProcessingInstruction { name, data } => {
