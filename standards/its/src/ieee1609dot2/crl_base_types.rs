@@ -1,7 +1,7 @@
 extern crate alloc;
 use super::base_types::{
-    CrlSeries, HashedId10, HashedId8, IValue, LaId, LinkageSeed, SequenceOfLinkageSeed, Time32,
-    Uint16, Uint32, Uint8,
+    CrlSeries, HashedId8, HashedId10, IValue, LaId, LinkageSeed, SequenceOfLinkageSeed, Time32,
+    Uint8, Uint16, Uint32,
 };
 use crate::delegate;
 use bon::Builder;

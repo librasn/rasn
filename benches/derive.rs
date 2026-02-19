@@ -4,7 +4,7 @@ fn main() {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use criterion::{BatchSize, Criterion, black_box, criterion_group, criterion_main};
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 use quote::ToTokens;
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]

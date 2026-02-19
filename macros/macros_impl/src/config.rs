@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use std::ops::Deref;
 use syn::spanned::Spanned;
-use syn::{parenthesized, Ident, LitStr, Path, Token, Type, UnOp};
+use syn::{Ident, LitStr, Path, Token, Type, UnOp, parenthesized};
 
 #[derive(Clone, Debug, Default)]
 pub struct Constraints {
@@ -322,33 +322,31 @@ impl Config {
 
         if is_enum && delegate {
             invalid_delegate = true;
-        } else if delegate {
-            if let syn::Data::Struct(data) = &input.data {
-                // Delegate works also for tuple structs with multiple fields if fields beyond the first are phantom data type
-                let fields = &data.fields;
-                let first_is_phantom = fields.iter().next().is_some_and(|field| {
-                    if let syn::Type::Path(type_path) = &field.ty {
-                        if let Some(last_segment) = type_path.path.segments.last() {
-                            return last_segment.ident == "PhantomData";
-                        }
+        } else if delegate && let syn::Data::Struct(data) = &input.data {
+            // Delegate works also for tuple structs with multiple fields if fields beyond the first are phantom data type
+            let fields = &data.fields;
+            let first_is_phantom = fields.iter().next().is_some_and(|field| {
+                if let syn::Type::Path(type_path) = &field.ty
+                    && let Some(last_segment) = type_path.path.segments.last()
+                {
+                    return last_segment.ident == "PhantomData";
+                }
+                false
+            });
+
+            let non_phantom_fields_count = fields
+                .iter()
+                .filter(|field| {
+                    if let syn::Type::Path(type_path) = &field.ty
+                        && let Some(last_segment) = type_path.path.segments.last()
+                    {
+                        return last_segment.ident != "PhantomData";
                     }
-                    false
-                });
+                    true // The count of non-phantom fields should be 1
+                })
+                .count();
 
-                let non_phantom_fields_count = fields
-                    .iter()
-                    .filter(|field| {
-                        if let syn::Type::Path(type_path) = &field.ty {
-                            if let Some(last_segment) = type_path.path.segments.last() {
-                                return last_segment.ident != "PhantomData";
-                            }
-                        }
-                        true // The count of non-phantom fields should be 1
-                    })
-                    .count();
-
-                invalid_delegate = first_is_phantom || non_phantom_fields_count != 1;
-            }
+            invalid_delegate = first_is_phantom || non_phantom_fields_count != 1;
         }
 
         if invalid_delegate {
@@ -813,7 +811,10 @@ impl<'a> FieldConfig<'a> {
         }
 
         if extension_addition && extension_addition_group {
-            return Err(syn::Error::new(field.span(), "field cannot be both `extension_addition` and `extension_addition_group`, choose one"));
+            return Err(syn::Error::new(
+                field.span(),
+                "field cannot be both `extension_addition` and `extension_addition_group`, choose one",
+            ));
         }
 
         Ok(Self {
@@ -1408,7 +1409,12 @@ impl StringValue {
             }
 
             let Some((start, mut end)) = string.split_once("..") else {
-                return Err(syn::Error::new(span, format!("unknown format: {string}, must be a single character or range of characters (`..`, `..=`)")));
+                return Err(syn::Error::new(
+                    span,
+                    format!(
+                        "unknown format: {string}, must be a single character or range of characters (`..`, `..=`)"
+                    ),
+                ));
             };
 
             let Some(start) = parse_character(start) else {
@@ -1515,7 +1521,12 @@ impl Value {
                 Value::Single(number)
             } else {
                 let Some((start, mut end)) = string.split_once("..") else {
-                    return Err(syn::Error::new(span, format!("unknown format: {string}, must be a single value or range of values (`..`, `..=`)")));
+                    return Err(syn::Error::new(
+                        span,
+                        format!(
+                            "unknown format: {string}, must be a single value or range of values (`..`, `..=`)"
+                        ),
+                    ));
                 };
 
                 let start_parsed = parse_character(start);

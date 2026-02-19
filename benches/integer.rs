@@ -6,7 +6,7 @@
 // Use macros to generate the tests
 // Wrap with black_box to prevent the compiler from optimizing out the code
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use rasn::{ber, oer, uper, xer};
 
 #[allow(non_camel_case_types, non_snake_case, non_upper_case_globals, unused)]

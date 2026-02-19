@@ -1777,8 +1777,8 @@ pub mod crl {
 }
 /// --           IEEE Std 1609.2: Peer-to-Peer Distribution Data Types           --
 pub mod peer2peer {
-    use super::base_types::Uint8;
     use super::Certificate;
+    use super::base_types::Uint8;
     use crate::delegate;
     use bon::Builder;
     use rasn::prelude::*;
@@ -1869,7 +1869,9 @@ mod tests {
             SignedDataPayload,
             payload_data,
             // 0x40, 0x03, 0x80, 0x0F, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x61, 0x20, 0x42, 0x53, 0x4D, 0x0D, 0x0A
-            &[64, 3, 128, 15, 84, 104, 105, 115, 32, 105, 115, 32, 97, 32, 66, 83, 77, 13, 10]
+            &[
+                64, 3, 128, 15, 84, 104, 105, 115, 32, 105, 115, 32, 97, 32, 66, 83, 77, 13, 10
+            ]
         );
     }
     #[test]

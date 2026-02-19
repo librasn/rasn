@@ -100,8 +100,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                 if header_info.generation_time.is_none() {
                     return Err(
                         rasn::error::InnerSubtypeConstraintError::MissingRequiredComponent {
-                            component_path:
-                                "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
+                            component_path: "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
                             components: &["generationTime"],
                         },
                     );
@@ -109,8 +108,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                 if header_info.p2pcd_learning_request.is_some() {
                     return Err(
                         rasn::error::InnerSubtypeConstraintError::UnexpectedComponentPresent {
-                            component_path:
-                                "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
+                            component_path: "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
                             component_name: "p2pcdLearningRequest",
                         },
                     );
@@ -118,8 +116,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                 if header_info.missing_crl_identifier.is_some() {
                     return Err(
                         rasn::error::InnerSubtypeConstraintError::UnexpectedComponentPresent {
-                            component_path:
-                                "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
+                            component_path: "EtsiTs103097Data.content.signedData.tbsData.headerInfo",
                             component_name: "missingCrlIdentifier",
                         },
                     );
@@ -144,7 +141,7 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                                 component_name: "signer",
                                 details: "Only Certificate variant is allowed".to_string(),
                             },
-                        )
+                        );
                     }
                 }
             }
@@ -161,8 +158,9 @@ impl InnerSubtypeConstraint for EtsiTs103097Data {
                             rasn::error::InnerSubtypeConstraintError::InvalidComponentValue {
                                 component_path: "EtsiTs103097Data.content.encryptedData.recipients",
                                 component_name: "RecipientInfo",
-                                details:
-                                    alloc::format!("PskRecipInfo, SymmRecipInfo or RekRecipInfo is not allowed, occured in index {index}"),
+                                details: alloc::format!(
+                                    "PskRecipInfo, SymmRecipInfo or RekRecipInfo is not allowed, occured in index {index}"
+                                ),
                             },
                         );
                     }
@@ -265,12 +263,11 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSigned<T> {
             Ieee1609Dot2Content::SignedData(signed_data) => {
                 let tbs_payload = &signed_data.tbs_data.payload.data;
                 match tbs_payload {
-                        Some(data) => {
-                            match &data.content {
-                                Ieee1609Dot2Content::UnsecuredData(unsecured) => {
-                                    if let Some(codec) = decode_containing_with {
-                                        let decoded = codec.decode_from_binary::<T>(unsecured);
-                                        match decoded {
+                    Some(data) => match &data.content {
+                        Ieee1609Dot2Content::UnsecuredData(unsecured) => {
+                            if let Some(codec) = decode_containing_with {
+                                let decoded = codec.decode_from_binary::<T>(unsecured);
+                                match decoded {
                                             Ok(_) => Ok(self),
                                             Err(err) => Err(
                                                 rasn::error::InnerSubtypeConstraintError::InvalidInnerContaining  {
@@ -280,26 +277,25 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSigned<T> {
                                                 }
                                             ),
                                         }
-                                    } else {
-                                        Ok(self)
-                                    }
-                                }
-                                _ => Err(
-                                    rasn::error::InnerSubtypeConstraintError::InvalidComponentVariant {
-                                        component_path: "EtsiTs103097Data.content.signedData.tbsData.payload.data.content",
-                                        component_type: "Ieee1609Dot2Content",
-                                        details: "Only UnsecuredData is allowed".to_string(),
-                                    }
-                                ),
+                            } else {
+                                Ok(self)
                             }
                         }
                         _ => Err(
-                            rasn::error::InnerSubtypeConstraintError::MissingRequiredComponent {
-                                component_path: "EtsiTs103097DataSigned.content.signedData.tbsData.payload",
-                                components: &["Data payload field must be present."],
-                            }
+                            rasn::error::InnerSubtypeConstraintError::InvalidComponentVariant {
+                                component_path: "EtsiTs103097Data.content.signedData.tbsData.payload.data.content",
+                                component_type: "Ieee1609Dot2Content",
+                                details: "Only UnsecuredData is allowed".to_string(),
+                            },
                         ),
-                    }
+                    },
+                    _ => Err(
+                        rasn::error::InnerSubtypeConstraintError::MissingRequiredComponent {
+                            component_path: "EtsiTs103097DataSigned.content.signedData.tbsData.payload",
+                            components: &["Data payload field must be present."],
+                        },
+                    ),
+                }
             }
             _ => Err(
                 rasn::error::InnerSubtypeConstraintError::InvalidComponentVariant {
@@ -350,16 +346,16 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSignedExternalP
                                     component_path: "EtsiTs103097DataSignedExternalPayload.content.signedData.tbsData.payload.extDataHash",
                                     component_type: "HashedData",
                                     details: "Only SHA-256 hashed data is allowed".to_string(),
-                                }
+                                },
                             );
                         }
                         Ok(self)
-                    },
+                    }
                     None => Err(
                         rasn::error::InnerSubtypeConstraintError::MissingRequiredComponent {
                             component_path: "EtsiTs103097DataSignedExternalPayload.content.signedData.tbsData.payload",
                             components: &["extDataHash"],
-                        }
+                        },
                     ),
                 }
             }
@@ -427,8 +423,7 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataEncrypted<T> {
                     }
                     _ => Err(
                         rasn::error::InnerSubtypeConstraintError::InvalidComponentVariant {
-                            component_path:
-                                "EtsiTs103097DataEncrypted.content.encryptedData.ciphertext",
+                            component_path: "EtsiTs103097DataEncrypted.content.encryptedData.ciphertext",
                             component_type: "SymmetricCiphertext",
                             details: "Only aes128ccm is allowed".to_string(),
                         },
@@ -518,8 +513,7 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataEncryptedUnicas
                 if encrypted_data.recipients.len() != 1 {
                     return Err(
                         rasn::error::InnerSubtypeConstraintError::InvalidComponentSize {
-                            component_path:
-                                "EtsiTs103097DataEncryptedUnicast.content.encryptedData",
+                            component_path: "EtsiTs103097DataEncryptedUnicast.content.encryptedData",
                             component_name: "recipients",
                             details: "Exactly one recipient is required".to_string(),
                         },
@@ -575,8 +569,7 @@ impl<T: rasn::Decode> InnerSubtypeConstraint for EtsiTs103097DataSignedAndEncryp
                 if encrypted_data.recipients.len() != 1 {
                     return Err(
                         rasn::error::InnerSubtypeConstraintError::InvalidComponentSize {
-                            component_path:
-                                "EtsiTs103097DataSignedAndEncryptedUnicast.content.encryptedData",
+                            component_path: "EtsiTs103097DataSignedAndEncryptedUnicast.content.encryptedData",
                             component_name: "recipients",
                             details: "Exactly one recipient is required".to_string(),
                         },

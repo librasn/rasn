@@ -1,7 +1,6 @@
 use rasn::{
-    ber,
+    Decoder, Encoder, ber,
     types::{Class, Constraints, Identifier, Tag},
-    Decoder, Encoder,
 };
 
 use rasn_kerberos::KerberosFlags;

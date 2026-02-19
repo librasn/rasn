@@ -332,21 +332,39 @@ mod tests {
     round_trip!(
         choice_recursion,
         RecursiveChoice,
-        RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(RecursiveChoice::Fruit(true))))))))),
+        RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(
+            RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(
+                RecursiveChoice::Fruit(true)
+            ))))
+        )))),
         "RecursiveChoice",
         "<Recursion><Recursion><Recursion><Recursion><Fruit><true /></Fruit></Recursion></Recursion></Recursion></Recursion>"
     );
     round_trip!(
         recursive_choice_eventually_empty,
         RecursiveChoice,
-        RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(RecursiveChoice::Leaf)))))))),
+        RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(
+            RecursiveChoice::Recursion(Box::new(RecursiveChoice::Recursion(Box::new(
+                RecursiveChoice::Leaf
+            ))))
+        )))),
         "RecursiveChoice",
         "<Recursion><Recursion><Recursion><Recursion><Leaf /></Recursion></Recursion></Recursion></Recursion>"
     );
     round_trip!(
         deep_sequence,
         DeepSequence,
-        DeepSequence { nested: NestedTestA { wine: true, grappa: vec![0, 1, 2, 3].into(), inner: InnerTestA { hidden: Some(false) }, oid: None }, recursion: RecursiveChoice::Leaf },
+        DeepSequence {
+            nested: NestedTestA {
+                wine: true,
+                grappa: vec![0, 1, 2, 3].into(),
+                inner: InnerTestA {
+                    hidden: Some(false)
+                },
+                oid: None
+            },
+            recursion: RecursiveChoice::Leaf
+        },
         "Deep-Sequence",
         "<nested><wine><true /></wine><grappa>00010203</grappa><inner><hidden><false /></hidden></inner></nested><recursion><Leaf /></recursion>"
     );
@@ -367,7 +385,13 @@ mod tests {
     round_trip!(
         sequence_with_defaults,
         DefaultSequence,
-        DefaultSequence { bool_with_default: false, recursion: vec![DefaultSequence { bool_with_default: true, recursion: vec![] }] },
+        DefaultSequence {
+            bool_with_default: false,
+            recursion: vec![DefaultSequence {
+                bool_with_default: true,
+                recursion: vec![]
+            }]
+        },
         "DefaultSequence",
         "<recursion><DefaultSequence><bool-df><true /></bool-df><recursion /></DefaultSequence></recursion>"
     );
@@ -446,7 +470,16 @@ mod tests {
     round_trip!(
         sequence_of_sequence_of_sequences,
         SequenceOfSequenceOfSequences,
-        vec![vec![InnerTestA { hidden: Some(true) }, InnerTestA { hidden: Some(false) }], vec![InnerTestA { hidden: None }], vec![]],
+        vec![
+            vec![
+                InnerTestA { hidden: Some(true) },
+                InnerTestA {
+                    hidden: Some(false)
+                }
+            ],
+            vec![InnerTestA { hidden: None }],
+            vec![]
+        ],
         "SEQUENCE_OF",
         "<SEQUENCE_OF><InnerTestA><hidden><true /></hidden></InnerTestA><InnerTestA><hidden><false /></hidden></InnerTestA></SEQUENCE_OF><SEQUENCE_OF><InnerTestA /></SEQUENCE_OF><SEQUENCE_OF />"
     );
@@ -555,12 +588,16 @@ mod tests {
         let encoded = crate::xer::encode(&value).unwrap();
         let decoded: SetOf<EnumSequence> = crate::xer::decode(&encoded).unwrap();
 
-        assert!(String::from_utf8(encoded.clone())
-            .unwrap()
-            .contains("<Enum-Sequence><enum-field><zwei /></enum-field></Enum-Sequence>"));
-        assert!(String::from_utf8(encoded)
-            .unwrap()
-            .contains("<Enum-Sequence><enum-field><eins /></enum-field></Enum-Sequence>"));
+        assert!(
+            String::from_utf8(encoded.clone())
+                .unwrap()
+                .contains("<Enum-Sequence><enum-field><zwei /></enum-field></Enum-Sequence>")
+        );
+        assert!(
+            String::from_utf8(encoded)
+                .unwrap()
+                .contains("<Enum-Sequence><enum-field><eins /></enum-field></Enum-Sequence>")
+        );
         assert!(decoded.contains(&first));
         assert!(decoded.contains(&second));
     }

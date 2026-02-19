@@ -17,7 +17,7 @@ members = [".", "macros", "macros/macros_impl", "standards/*"]
 exclude = ["fuzzing"]
 
 [workspace.package]
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 version = "0.28.7"
 repository = "https://github.com/librasn/rasn.git"

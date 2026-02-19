@@ -540,11 +540,15 @@ impl Enum<'_> {
             let init_variants = self.variants.iter().map(|variant| {
                 let ident = &variant.ident;
                 let (def_fields, init_fields) = variant.fields.iter().enumerate().map(|(i, field)| {
-                    let index = syn::Index::from(i);
-                    let ident = field.ident.as_ref().map_or_else(|| format_ident!("i{}", index).into_token_stream(), |ident| quote!(#ident));
-                    let name = field.ident.as_ref().map_or_else(|| index.into_token_stream(), |ident| quote!(#ident));
+                    // Use shorthand syntax for named fields; unnamed fields use full form
+                    if let Some(field_ident) = field.ident.as_ref() {
+                        (quote!(#field_ident), quote!(#field_ident))
+                    } else {
+                        let index = syn::Index::from(i);
+                        let ident = format_ident!("i{}", index);
+                        (quote!(#index: #ident), quote!(#index: #ident))
+                    }
 
-                    (quote!(#name : ref #ident), quote!(#name : #ident))
                 }).unzip::<_, _, Vec<proc_macro2::TokenStream>, Vec<proc_macro2::TokenStream>>();
 
                 quote!(Self::#ident { #(#def_fields),* } => #inner_name::#ident { #(#init_fields),* })

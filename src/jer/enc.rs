@@ -8,7 +8,7 @@ pub(crate) type ValueMap = Map<alloc::string::String, Value>;
 
 use crate::{
     error::{EncodeError, JerEncodeErrorKind},
-    types::{variants, Constraints, Identifier, IntegerType, Tag},
+    types::{Constraints, Identifier, IntegerType, Tag, variants},
 };
 
 use crate::types::RealType;
@@ -168,7 +168,7 @@ impl crate::Encoder<'_> for Encoder {
         value: &R,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        use num_traits::{float::FloatCore, ToPrimitive, Zero};
+        use num_traits::{ToPrimitive, Zero, float::FloatCore};
 
         let as_float = value
             .try_to_float()

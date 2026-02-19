@@ -1,6 +1,6 @@
 use crate::prelude::Constraints;
 use crate::types::Date;
-use crate::{types::Tag, AsnType, Decode, Decoder, Encode, Encoder};
+use crate::{AsnType, Decode, Decoder, Encode, Encoder, types::Tag};
 
 use super::Identifier;
 

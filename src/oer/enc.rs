@@ -5,13 +5,13 @@ use bitvec::prelude::*;
 use num_traits::ToPrimitive;
 
 use crate::{
+    Codec, Encode,
     oer::EncodingRules,
     types::{
         Any, BitStr, BmpString, Choice, Constraints, Constructed, Date, Enumerated, GeneralString,
         GeneralizedTime, GraphicString, Ia5String, Identifier, IntegerType, NumericString,
         PrintableString, RealType, SetOf, Tag, TeletexString, UtcTime, VisibleString,
     },
-    Codec, Encode,
 };
 
 /// ITU-T X.696 (02/2021) version of (C)OER encoding

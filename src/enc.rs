@@ -118,13 +118,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     /// The associated error type returned on failure.
     type Error: Error + Into<crate::error::EncodeError> + From<crate::error::EncodeError>;
     /// Helper type for encoding recursive `Encoder` instances with different `RCL` or  `ECL` values.
-    type AnyEncoder<'other_encoder, const R: usize, const E: usize>: Encoder<
-        'other_encoder,
-        RCL,
-        ECL,
-        Ok = Self::Ok,
-        Error = Self::Error,
-    >;
+    type AnyEncoder<'other_encoder, const R: usize, const E: usize>: Encoder<'other_encoder, RCL, ECL, Ok = Self::Ok, Error = Self::Error>;
 
     /// Returns codec variant of `Codec` that current encoder is encoding.
     fn codec(&self) -> crate::Codec;

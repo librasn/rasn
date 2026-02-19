@@ -2,7 +2,7 @@
 //! constraints.
 
 pub use crate::{
-    constraints, permitted_alphabet_constraint, size_constraint, value_constraint, Decode, Encode,
+    Decode, Encode, constraints, permitted_alphabet_constraint, size_constraint, value_constraint,
 };
 
 #[macro_use]
@@ -207,7 +207,10 @@ macro_rules! oid {
 
                 core::assert!(!bytes.is_empty(), "OID string literals cannot be empty");
                 core::assert!(bytes.is_ascii(), "OID string literals must be ASCII");
-                core::assert!(bytes[bytes.len() - 1] != b'.', "OID string literals cannot end with a period");
+                core::assert!(
+                    bytes[bytes.len() - 1] != b'.',
+                    "OID string literals cannot end with a period"
+                );
 
                 match bytes {
                     [b'.', rest @ ..] => rest,
@@ -221,11 +224,17 @@ macro_rules! oid {
                 while index < BYTE_STRING.len() {
                     let byte = BYTE_STRING[index];
 
-                    core::assert!(core::matches!(byte, b'0'..=b'9' | b'.'), "OID string literals can only contain ASCII digits and periods");
+                    core::assert!(
+                        core::matches!(byte, b'0'..=b'9' | b'.'),
+                        "OID string literals can only contain ASCII digits and periods"
+                    );
 
                     if byte == b'.' {
                         if index + 1 < BYTE_STRING.len() {
-                            core::assert!(BYTE_STRING[index + 1] != b'.', "OID string literals cannot contain two or more consecutive periods");
+                            core::assert!(
+                                BYTE_STRING[index + 1] != b'.',
+                                "OID string literals cannot contain two or more consecutive periods"
+                            );
                         }
                         component_count += 1;
                     }
@@ -244,7 +253,9 @@ macro_rules! oid {
                 while bytes_index < BYTE_STRING.len() {
                     let byte = BYTE_STRING[bytes_index];
                     match byte {
-                        b'0'..=b'9' => components[index] = components[index] * 10 + ((byte - b'0') as u32),
+                        b'0'..=b'9' => {
+                            components[index] = components[index] * 10 + ((byte - b'0') as u32)
+                        }
                         b'.' => index += 1,
                         _ => core::unreachable!(),
                     }
@@ -261,5 +272,5 @@ macro_rules! oid {
         };
 
         OID
-    }}
+    }};
 }
