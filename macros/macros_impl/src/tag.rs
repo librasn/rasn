@@ -1,5 +1,5 @@
 use syn::spanned::Spanned;
-use syn::{parenthesized, Token};
+use syn::{Token, parenthesized};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub enum Class {
@@ -20,9 +20,9 @@ impl Class {
                 return Err(syn::Error::new(
                     ident.span(),
                     format!(
-                    "Class MUST BE `universal`, `application`, `context`, or `private`. Found: {s}",
-                ),
-                ))
+                        "Class MUST BE `universal`, `application`, `context`, or `private`. Found: {s}",
+                    ),
+                ));
             }
         })
     }
@@ -75,7 +75,10 @@ impl Tag {
             let ident: syn::Ident = content.parse()?;
             if content.peek(syn::token::Paren) {
                 if ident != syn::Ident::new("explicit", proc_macro2::Span::call_site()) {
-                    return Err(syn::Error::new(ident.span(), "Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`."));
+                    return Err(syn::Error::new(
+                        ident.span(),
+                        "Invalid attribute literal provided to `rasn`, expected `rasn(tag(explicit(...)))`.",
+                    ));
                 }
                 let explicit_content;
                 parenthesized!(explicit_content in &content);

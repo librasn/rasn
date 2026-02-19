@@ -631,7 +631,9 @@ mod tests {
             coer,
             PrintableString,
             " '()+,-./:=?".try_into().unwrap(),
-            &[0x0c, 0x20, 0x27, 0x28, 0x29, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x3a, 0x3d, 0x3f]
+            &[
+                0x0c, 0x20, 0x27, 0x28, 0x29, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x3a, 0x3d, 0x3f
+            ]
         );
         const CONSTRAINT_1: Constraints = constraints!(size_constraint!(3));
         round_trip_with_constraints!(
@@ -802,7 +804,9 @@ mod tests {
                     .unwrap()
                     .and_utc()
             ),
-            &[0x0d, 0x31, 0x39, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30, 0x30, 0x35, 0x5a]
+            &[
+                0x0d, 0x31, 0x39, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30, 0x30, 0x35, 0x5a
+            ]
         );
     }
     #[test]
@@ -1150,7 +1154,9 @@ mod tests {
                 integer8: None,
                 integer9: None
             },
-            &[136, 128, 1, 1, 8, 17, 18, 19, 20, 21, 22, 23, 24, 1, 1, 1, 1]
+            &[
+                136, 128, 1, 1, 8, 17, 18, 19, 20, 21, 22, 23, 24, 1, 1, 1, 1
+            ]
         );
     }
     #[test]

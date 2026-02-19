@@ -1,11 +1,11 @@
 //! Version 1 (RFC 1155)
 
 use rasn::{
+    AsnType, Decode, Encode,
     error::EncodeError,
     types::{
         Constraints, FixedOctetString, Identifier, Integer, ObjectIdentifier, OctetString, Oid, Tag,
     },
-    AsnType, Decode, Encode,
 };
 
 pub const INTERNET: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET;

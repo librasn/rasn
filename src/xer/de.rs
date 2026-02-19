@@ -5,11 +5,11 @@ use crate::alloc::string::ToString;
 use core::{borrow::Borrow, f64};
 
 use xml_no_std::{
-    attribute::Attribute, common::XmlVersion, name::OwnedName, namespace::Namespace,
-    reader::XmlEvent, ParserConfig,
+    ParserConfig, attribute::Attribute, common::XmlVersion, name::OwnedName, namespace::Namespace,
+    reader::XmlEvent,
 };
 
-use crate::{error::*, types::*, xer::BOOLEAN_TRUE_TAG, Decode};
+use crate::{Decode, error::*, types::*, xer::BOOLEAN_TRUE_TAG};
 
 use self::fields::Field;
 
@@ -110,7 +110,7 @@ macro_rules! value_or_empty {
                 return Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
                     needed: $expected,
                     found: alloc::format!("{elem:?}"),
-                }))
+                }));
             }
             _ => return Err(DecodeError::from(XerDecodeErrorKind::EndOfXmlInput {})),
         };
@@ -440,7 +440,7 @@ impl crate::Decoder for Decoder {
                             return Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
                                 needed: "`<true/>` or `<false/>`",
                                 found: alloc::format!("{name:?}"),
-                            }))
+                            }));
                         }
                     };
                     tag!(EndElement, self)?;
@@ -613,7 +613,7 @@ impl crate::Decoder for Decoder {
                 return Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
                     needed: "hexadecimal characters",
                     found: alloc::format!("{elem:?}"),
-                }))
+                }));
             }
             _ => return Err(DecodeError::from(XerDecodeErrorKind::EndOfXmlInput {})),
         };
@@ -907,7 +907,7 @@ impl crate::Decoder for Decoder {
                     return Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
                         needed: "integer value",
                         found: value,
-                    }))
+                    }));
                 }
             },
             Some(XmlEvent::StartElement { name, .. }) => {
@@ -1074,7 +1074,7 @@ fn decode_sequence_or_set_items<D: Decode>(
                 items.push(D::decode(&mut inner_decoder)?)
             }
             Some(XmlEvent::EndElement { name }) if name == &identifier && level_of_nesting == 0 => {
-                break
+                break;
             }
             Some(XmlEvent::EndElement { name }) if name == &identifier => {
                 level_of_nesting -= 1;
@@ -1092,7 +1092,7 @@ fn decode_sequence_or_set_items<D: Decode>(
 #[cfg(test)]
 mod tests {
     use super::Decoder;
-    use crate::{types::*, AsnType, Decode, Decoder as _};
+    use crate::{AsnType, Decode, Decoder as _, types::*};
     use bitvec::order::Msb0;
 
     macro_rules! decode_test_1 {

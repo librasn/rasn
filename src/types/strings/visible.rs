@@ -1,6 +1,6 @@
 use super::{
-    constrained, AsnType, Constraints, Decode, Decoder, Encode, Encoder, Identifier,
-    StaticPermittedAlphabet, Tag,
+    AsnType, Constraints, Decode, Decoder, Encode, Encoder, Identifier, StaticPermittedAlphabet,
+    Tag, constrained,
 };
 
 use crate::error::strings::PermittedAlphabetError;

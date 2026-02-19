@@ -15,16 +15,15 @@ use core::num::NonZeroUsize;
 use nom::Needed;
 
 use crate::{
+    Codec,
     de::{Decode, Error as _},
     oer::EncodingRules,
     types::{
-        self,
-        fields::{Field, Fields},
-        Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated,
+        self, Any, BitString, BmpString, Constraints, Constructed, DecodeChoice, Enumerated,
         GeneralString, GeneralizedTime, GraphicString, Ia5String, IntegerType, NumericString,
         ObjectIdentifier, PrintableString, SetOf, Tag, TeletexString, UtcTime, VisibleString,
+        fields::{Field, Fields},
     },
-    Codec,
 };
 
 use bitvec::{order::Msb0, view::BitView};
@@ -522,7 +521,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                 return Err(DecodeError::from_kind(
                     DecodeErrorKind::InvalidBool { value: byte },
                     self.codec(),
-                ))
+                ));
             }
         })
     }

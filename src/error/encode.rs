@@ -352,7 +352,8 @@ pub enum BerEncodeErrorKind {
     AnyInSet,
     /// `OBJECT IDENTIFIER` must have at least two components.
     #[snafu(display(
-    "Invalid Object Identifier: must have at least two components and first octet must be 0, 1 or 2. Provided: {:?}", oid
+        "Invalid Object Identifier: must have at least two components and first octet must be 0, 1 or 2. Provided: {:?}",
+        oid
     ))]
     InvalidObjectIdentifier {
         /// Bytes of the invalid object identifier
@@ -530,7 +531,7 @@ mod tests {
     fn test_uper_constrained_string_error() {
         use crate as rasn;
         use rasn::codec::Codec;
-        use rasn::error::{strings::PermittedAlphabetError, EncodeErrorKind};
+        use rasn::error::{EncodeErrorKind, strings::PermittedAlphabetError};
         #[derive(AsnType, Clone, Debug, Decode, Encode, PartialEq)]
         #[rasn(delegate, from("a..z"))]
         struct MyConstrainedString(VisibleString);

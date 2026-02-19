@@ -1,8 +1,8 @@
 use syn::LitStr;
 
 use crate::{
-    config::{Config, FieldConfig},
     CRATE_NAME,
+    config::{Config, FieldConfig},
 };
 
 pub fn derive_struct_impl(

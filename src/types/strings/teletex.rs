@@ -1,6 +1,6 @@
 use super::{
-    constrained, AsnType, Constraints, Decode, Decoder, Encode, Encoder, Identifier,
-    PermittedAlphabetError, StaticPermittedAlphabet, Tag,
+    AsnType, Constraints, Decode, Decoder, Encode, Encoder, Identifier, PermittedAlphabetError,
+    StaticPermittedAlphabet, Tag, constrained,
 };
 
 use alloc::vec::Vec;

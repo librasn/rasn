@@ -1,8 +1,8 @@
 //! # Symmetric Key Distribution
 use rasn::prelude::*;
-use rasn_cms::{algorithms::AES128_WRAP, CertificateSet, KekIdentifier, RecipientInfos};
+use rasn_cms::{CertificateSet, KekIdentifier, RecipientInfos, algorithms::AES128_WRAP};
 use rasn_pkix::{
-    attribute_certificate::AttributeCertificate, AlgorithmIdentifier, Certificate, GeneralName,
+    AlgorithmIdentifier, Certificate, GeneralName, attribute_certificate::AttributeCertificate,
 };
 
 pub type GlkCompromise = GeneralName;

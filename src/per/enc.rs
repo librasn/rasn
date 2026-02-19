@@ -9,15 +9,14 @@ use super::{
     THIRTY_TWO_K,
 };
 use crate::{
+    Encode,
     types::{
-        self,
+        self, BitString, Constraints, Enumerated, Identifier, IntegerType, Tag,
         constraints::{self, Extensible, Size},
         strings::{
-            should_be_indexed, BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet,
+            BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet, should_be_indexed,
         },
-        BitString, Constraints, Enumerated, Identifier, IntegerType, Tag,
     },
-    Encode,
 };
 
 pub use crate::error::EncodeError as Error;
@@ -1560,7 +1559,7 @@ mod tests {
 
     #[test]
     fn constrained_visible_string() {
-        use crate::{types::VisibleString, AsnType};
+        use crate::{AsnType, types::VisibleString};
 
         #[derive(AsnType, Encode, Clone, PartialEq)]
         #[rasn(delegate, size("1..=3", extensible))]
@@ -1654,7 +1653,7 @@ mod tests {
 
     #[test]
     fn constrained_octet_string() {
-        use crate::{types::OctetString, AsnType};
+        use crate::{AsnType, types::OctetString};
 
         #[derive(AsnType, Encode, Clone, PartialEq)]
         #[rasn(delegate, size("1..=3", extensible))]
@@ -1699,7 +1698,9 @@ mod tests {
         assert_eq!(99000 + 4, buffer.len());
         assert!(buffer.starts_with(&[0b11000100]));
         assert!(buffer[1 + SIXTY_FOUR_K as usize..].starts_with(&[0b11000010]));
-        assert!(buffer[SIXTY_FOUR_K as usize + THIRTY_TWO_K as usize + 2..]
-            .starts_with(&[0b10000010, 0b10111000]));
+        assert!(
+            buffer[SIXTY_FOUR_K as usize + THIRTY_TWO_K as usize + 2..]
+                .starts_with(&[0b10000010, 0b10111000])
+        );
     }
 }
