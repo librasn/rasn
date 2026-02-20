@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.8](https://github.com/librasn/rasn/compare/rasn-its-v0.28.7...rasn-its-v0.28.8) - 2026-02-20
+
+### Other
+
+- *(rustc)* bump workspace to rust 2024 edition ([#539](https://github.com/librasn/rasn/pull/539))
+
 ## [0.28.4](https://github.com/librasn/rasn/compare/rasn-its-v0.28.3...rasn-its-v0.28.4) - 2026-01-15
 
 ### Fixed
