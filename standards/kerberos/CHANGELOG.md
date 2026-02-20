@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
+- release v0.28.8 ([#535](https://github.com/librasn/rasn/pull/535))
+- *(rustc)* bump workspace to rust 2024 edition ([#539](https://github.com/librasn/rasn/pull/539))
+
+## [0.28.8](https://github.com/librasn/rasn/compare/rasn-kerberos-v0.28.7...rasn-kerberos-v0.28.8) - 2026-02-20
+
+### Other
+
 - *(rustc)* bump workspace to rust 2024 edition ([#539](https://github.com/librasn/rasn/pull/539))
 
 ## [0.27.0](https://github.com/librasn/rasn/compare/rasn-kerberos-v0.26.6...rasn-kerberos-v0.27.0) - 2025-06-19
