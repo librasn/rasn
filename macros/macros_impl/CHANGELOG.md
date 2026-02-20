@@ -24,6 +24,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
+- release v0.28.8 ([#535](https://github.com/librasn/rasn/pull/535))
+- *(rustc)* bump workspace to rust 2024 edition ([#539](https://github.com/librasn/rasn/pull/539))
+- release v0.28.7 ([#534](https://github.com/librasn/rasn/pull/534))
+
+## [0.28.8](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.28.7...rasn-derive-impl-v0.28.8) - 2026-02-20
+
+### Other
+
 - *(rustc)* bump workspace to rust 2024 edition ([#539](https://github.com/librasn/rasn/pull/539))
 - release v0.28.7 ([#534](https://github.com/librasn/rasn/pull/534))
 
