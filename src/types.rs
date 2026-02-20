@@ -6,6 +6,7 @@
 mod any;
 mod identifier;
 mod instance;
+mod json;
 mod open;
 mod prefix;
 mod tag;
