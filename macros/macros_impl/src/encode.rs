@@ -49,10 +49,11 @@ pub fn derive_struct_impl(
     let encode_impl = if config.delegate {
         let ty = &container.fields.iter().next().unwrap().ty;
 
-        if let Some(tag) = config.tag.as_ref().filter(|tag| tag.is_explicit()) {
-            let tag = tag.to_tokens(crate_root);
+        if config.tag.as_ref().is_some_and(|tag| tag.is_explicit()) {
             // Note: encoder must be aware if the field is optional and present, so we should not do the presence check on this level
-            quote!(encoder.encode_explicit_prefix(#tag, &self.0, identifier.or(Self::IDENTIFIER)).map(drop))
+            quote!(encoder
+                .encode_explicit_prefix(tag, &self.0, identifier.or(Self::IDENTIFIER))
+                .map(drop))
         } else {
             // NOTE: AsnType trait already implements correct delegate constraints, and those are passed here
             // We don't need to do double intersection here!

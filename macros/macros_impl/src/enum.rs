@@ -209,19 +209,34 @@ impl Enum<'_> {
         let crate_root = &self.config.crate_root;
 
         let name = &self.name;
-        let encode = if self.config.choice {
-            Some(self.encode_choice()?)
+        let encode_impl = if self.config.choice {
+            if self
+                .config
+                .tag
+                .as_ref()
+                .is_some_and(|tag| !tag.is_explicit())
+            {
+                return Err(syn::Error::new(
+                    Span::call_site(),
+                    "CHOICE with implicit tagging is not valid. see ITU-T X.680 section 31.2.7 and 31.2.9.",
+                ));
+            }
+
+            self.encode_choice()?
         } else {
-            None
+            quote! {
+                fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), EN::Error> {
+                    encoder.encode_enumerated(tag, self, identifier).map(drop)
+                }
+            }
         };
-        let encode_with_tag = self.encode_with_tag();
+
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
         Ok(quote! {
             #[automatically_derived]
             impl #impl_generics #crate_root::Encode for #name #ty_generics #where_clause {
-                #encode
-                #encode_with_tag
+                #encode_impl
             }
         })
     }
@@ -229,20 +244,20 @@ impl Enum<'_> {
     pub fn impl_decode(&self) -> syn::Result<proc_macro2::TokenStream> {
         let crate_root = &self.config.crate_root;
 
-        let decode_with_tag = if self.config.enumerated {
-            quote!(decoder.decode_enumerated(tag))
-        } else {
-            quote!(decoder.decode_explicit_prefix(tag))
-        };
-
         let decode_op = if self.config.choice {
-            quote!(decoder.decode_choice(Self::CONSTRAINTS))
+            if self.config.has_explicit_tag() {
+                None
+            } else {
+                Some(quote!(decoder.decode_choice(Self::CONSTRAINTS)))
+            }
         } else {
             let name = &self.name;
-            quote!(Self::decode_with_tag(decoder, <#name as #crate_root::AsnType>::TAG))
+            Some(quote!(Self::decode_with_tag(decoder, <#name as #crate_root::AsnType>::TAG)))
         };
 
-        let decode_impl = if self.config.has_explicit_tag() {
+        let decode_with_tag = if self.config.enumerated {
+            quote!(decoder.decode_enumerated(tag))
+        } else if self.config.has_explicit_tag() {
             let inner_name = quote::format_ident!("Inner{}", self.name);
             let variants = self.variants.clone();
             let inner_type = InnerEnum {
@@ -272,31 +287,37 @@ impl Enum<'_> {
                 quote!(#inner_name::#ident #fields => #name::#ident #fields)
             });
 
-            quote! {
-                fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
+            let automatic_tags_attr = if self.config.automatic_tags {
+                quote!(#[rasn(automatic_tags)])
+            } else {
+                quote!()
+            };
 
+            quote! {
                     #[derive(#crate_root::AsnType, #crate_root::Decode)]
                     #[rasn(choice)]
+                    #automatic_tags_attr
                     #inner_type
 
-                    let value = decoder.decode_explicit_prefix::<#inner_name>(<Self as #crate_root::AsnType>::TAG)?;
+                    let value = decoder.decode_explicit_prefix::<#inner_name>(tag)?;
                     Ok(match value {
                         #(#variant_mapping),*
                     })
-                }
             }
         } else {
-            quote! {
-                fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
-                    #decode_op
-                }
-            }
+            quote!(decoder.decode_explicit_prefix(tag))
         };
+
+        let decode_impl = decode_op.map(|decode_op| quote! {
+            fn decode<D: #crate_root::Decoder>(decoder: &mut D) -> core::result::Result<Self, D::Error> {
+                #decode_op
+            }
+        });
 
         let name = &self.name;
         let (impl_generics, ty_generics, where_clause) = self.generics.split_for_impl();
 
-        let decode_choice_impl = if self.config.choice {
+        let decode_choice_impl = if self.config.choice && !self.config.has_explicit_tag() {
             let decode_ops: Vec<proc_macro2::TokenStream> = self
                 .variants
                 .iter()
@@ -338,25 +359,6 @@ impl Enum<'_> {
                 #decode_impl
             }
         })
-    }
-
-    fn encode_with_tag(&self) -> proc_macro2::TokenStream {
-        let crate_root = &self.config.crate_root;
-        let operation = if self.config.enumerated {
-            quote! {
-                encoder.encode_enumerated(tag, self, identifier).map(drop)
-            }
-        } else {
-            quote! {
-                encoder.encode_explicit_prefix(tag, self, identifier).map(drop)
-            }
-        };
-
-        quote! {
-            fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), EN::Error> {
-                #operation
-            }
-        }
     }
 
     #[allow(clippy::too_many_lines)]
@@ -553,32 +555,71 @@ impl Enum<'_> {
 
                 quote!(Self::#ident { #(#def_fields),* } => #inner_name::#ident { #(#init_fields),* })
             });
+            let automatic_tags_attr = if self.config.automatic_tags {
+                quote!(#[rasn(automatic_tags)])
+            } else {
+                quote!()
+            };
 
             let name = &self.name;
+            let encoder = if self.config.has_explicit_tag() {
+                quote! {
+                    encoder.encode_explicit_prefix::<#inner_name>(tag, &value, identifier)
+                }
+            } else {
+                quote! {
+                    encoder.encode_explicit_prefix::<#inner_name>(<#name as #crate_root::AsnType>::TAG, &value, #crate_root::types::Identifier(Some(#inner_identifier)))
+                }
+            };
             quote! {
                 #[derive(#crate_root::AsnType, #crate_root::Encode)]
                 #[rasn(choice)]
+                #automatic_tags_attr
                 #inner_enum
 
                 let value = match &self {
                     #(#init_variants),*
                 };
 
-                encoder.encode_explicit_prefix::<#inner_name>(<#name as #crate_root::AsnType>::TAG, &value, #crate_root::types::Identifier(Some(#inner_identifier)))
+                #encoder
             }
         } else {
             encode_variants
         };
 
+        let (encode, encode_with_tag) = if self.config.has_explicit_tag() {
+            (
+                None,
+                quote! {
+                    fn encode_with_tag_and_constraints<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), E::Error> {
+                        #(#variant_constraints)*
+                        #encode_impl.map(drop)
+                    }
+                },
+            )
+        } else {
+            (
+                Some(quote! {
+                    fn encode<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E) -> core::result::Result<(), E::Error> {
+                        #(#variant_constraints)*
+                        #encode_impl.map(drop)
+                    }
+                }),
+                quote! {
+                    fn encode_with_tag_and_constraints<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), E::Error> {
+                        encoder.encode_explicit_prefix(tag, self, identifier).map(drop)
+                    }
+                },
+            )
+        };
+
         Ok(quote! {
-            fn encode<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E) -> core::result::Result<(), E::Error> {
-                #(#variant_constraints)*
-                #encode_impl.map(drop)
-            }
+            #encode
             fn encode_with_identifier<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E, identifier: #crate_root::types::Identifier) -> core::result::Result<(), E::Error> {
                 #(#variant_constraints)*
                 #encode_variants_with_identifier.map(drop)
             }
+            #encode_with_tag
         })
     }
 }
