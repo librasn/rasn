@@ -1131,6 +1131,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         D: Decode + crate::types::Constructed<RC, EC>,
     >(
         &mut self,
+        _tag: Tag,
     ) -> Result<Option<D>, Self::Error> {
         if !self.parse_extension_header()? {
             return Ok(None);

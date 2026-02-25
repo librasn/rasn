@@ -183,7 +183,7 @@ impl crate::Decoder for Decoder {
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
         let mut last = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
-        let value_map = last
+        let _ = last
             .as_object_mut()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
                 needed: "object",
@@ -197,12 +197,24 @@ impl crate::Decoder for Decoder {
             field_names.extend(extended_fields.iter().map(|f| f.name));
         }
         field_names.reverse();
+        // Push the (now partially consumed) object onto the stack so extension-addition-group
+        // decoding can pull group fields from the same flattened object.
+        self.stack.push(last);
+        let scope_index = self.stack.len() - 1;
         for name in field_names {
-            self.stack
-                .push(value_map.remove(name).unwrap_or(Value::Null));
+            let value = self
+                .stack
+                .get_mut(scope_index)
+                .and_then(|v| v.as_object_mut())
+                .and_then(|obj| obj.remove(name))
+                .unwrap_or(Value::Null);
+            self.stack.push(value);
         }
 
-        (decode_fn)(self)
+        let result = (decode_fn)(self);
+        // Pop the scope object frame.
+        let _ = self.stack.pop();
+        result
     }
 
     fn decode_sequence_of<D: crate::Decode>(
@@ -480,8 +492,53 @@ impl crate::Decoder for Decoder {
         D: crate::Decode + Constructed<RC, EC>,
     >(
         &mut self,
+        _tag: Tag,
     ) -> Result<Option<D>, Self::Error> {
-        self.decode_optional()
+        // The SEQUENCE decoder pushes a placeholder for the extension group field (which is not
+        // explicitly present in JER because extension groups are flattened).
+        //
+        // We decode a group by extracting only the group's fields from the current object and
+        // decoding the group from that scoped object.
+        let _ = self.stack.pop().ok_or_else(JerDecodeErrorKind::eoi)?;
+
+        let index = self
+            .stack
+            .iter()
+            .rposition(|v| v.is_object())
+            .ok_or_else(JerDecodeErrorKind::eoi)?;
+        let obj = self
+            .stack
+            .get_mut(index)
+            .and_then(|v| v.as_object_mut())
+            .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
+                needed: "object",
+                found: "unknown".into(),
+            })?;
+
+        let mut group_obj = serde_json::Map::with_capacity(
+            D::FIELDS.len() + D::EXTENDED_FIELDS.as_ref().map_or(0, |fields| fields.len()),
+        );
+        let mut is_present = false;
+        for field in D::FIELDS.iter() {
+            if let Some(value) = obj.remove(field.name) {
+                is_present |= !value.is_null();
+                group_obj.insert(alloc::string::String::from(field.name), value);
+            }
+        }
+        if let Some(extended_fields) = D::EXTENDED_FIELDS {
+            for field in extended_fields.iter() {
+                if let Some(value) = obj.remove(field.name) {
+                    is_present |= !value.is_null();
+                    group_obj.insert(alloc::string::String::from(field.name), value);
+                }
+            }
+        }
+        if is_present {
+            self.stack.push(Value::Object(group_obj));
+            D::decode(self).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     fn codec(&self) -> crate::Codec {

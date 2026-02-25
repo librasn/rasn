@@ -192,6 +192,17 @@ impl Tag {
         self
     }
 
+    /// Applies a context-specific base tag offset when both tags are context class.
+    #[must_use]
+    pub fn with_context_offset(self, base: Option<Tag>) -> Self {
+        match base {
+            Some(base) if base.class == Class::Context && self.class == Class::Context => {
+                Tag::new(self.class, base.value.saturating_add(self.value))
+            }
+            _ => self,
+        }
+    }
+
     #[doc(hidden)]
     #[must_use]
     pub const fn const_eq(self, rhs: &Self) -> bool {
