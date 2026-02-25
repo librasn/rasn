@@ -142,6 +142,12 @@ impl PartialEq<Vec<u8>> for OctetString {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FixedOctetString<const N: usize>([u8; N]);
 
+impl<const N: usize> Default for FixedOctetString<N> {
+    fn default() -> Self {
+        Self([0u8; N])
+    }
+}
+
 impl<const N: usize> FixedOctetString<N> {
     /// Creates a new octet string from a given array.
     #[must_use]
