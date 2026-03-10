@@ -376,6 +376,20 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             self.parse_integer::<I>(SMALL_UNSIGNED_CONSTRAINT)
         }
     }
+    fn parse_normally_small_length(&mut self) -> Result<usize> {
+        let is_large = self.parse_one_bit()?;
+        if !is_large {
+            self.parse_integer::<usize>(SMALL_UNSIGNED_CONSTRAINT)
+        } else {
+            let mut length_out = 0usize;
+            let input = self.decode_unknown_length(self.input, &mut |input, length| {
+                length_out = length;
+                Ok(input)
+            })?;
+            self.input = input;
+            Ok(length_out)
+        }
+    }
 
     fn parse_non_negative_binary_integer<I: types::IntegerType>(
         &mut self,
@@ -479,7 +493,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         }
 
         // The length bitfield has a lower bound of `1..`
-        let extensions_length = self.parse_normally_small_integer::<usize>()? + 1;
+        let extensions_length = self.parse_normally_small_length()? + 1;
         let (input, bitfield) = nom::bytes::streaming::take(extensions_length)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
