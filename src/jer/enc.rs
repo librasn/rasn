@@ -4,7 +4,7 @@ use alloc::string::ToString;
 
 use serde_json::{Map, Value};
 
-type ValueMap = Map<alloc::string::String, Value>;
+pub(crate) type ValueMap = Map<alloc::string::String, Value>;
 
 use crate::{
     error::{EncodeError, JerEncodeErrorKind},
