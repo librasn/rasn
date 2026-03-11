@@ -29,7 +29,6 @@ fn uper_issue505_empty_extension_group_encoded_as_absent() {
         ext_group_b2: Some(S1ExtGroupB2 { b2: None }),
         ext_group_b3: Some(S1ExtGroupB3 { b3: Some(true) }),
     };
-
     let value_with_none = S1 {
         b1: true,
         ext_group_b2: None,
@@ -48,7 +47,7 @@ fn uper_issue505_empty_extension_group_encoded_as_absent() {
     );
 
     let decoded: S1 = rasn::uper::decode(&enc_none).expect("decode failed");
-    assert_eq!(decoded.b1, true);
+    assert!(decoded.b1);
     assert_eq!(decoded.ext_group_b3, Some(S1ExtGroupB3 { b3: Some(true) }));
 }
 
@@ -59,7 +58,6 @@ fn uper_issue505_some_all_none_equals_none() {
         ext_group_b2: Some(S1ExtGroupB2 { b2: None }),
         ext_group_b3: None,
     };
-
     let with_none = S1 {
         b1: true,
         ext_group_b2: None,
