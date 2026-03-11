@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 +
 +## [Unreleased]
 
+## [0.28.9](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.28.8...rasn-derive-impl-v0.28.9) - 2026-03-10
+
+### Fixed
+
+- BER encoding of tagged CHOICE ([#521](https://github.com/librasn/rasn/pull/521))
+
 ## [0.28.8](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.28.7...rasn-derive-impl-v0.28.8) - 2026-02-20
 
 ### Other
