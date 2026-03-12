@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.10](https://github.com/librasn/rasn/compare/rasn-v0.28.9...rasn-v0.28.10) - 2026-03-12
+
+### Fixed
+
+- *(per)* encode empty extension addition group as absent per X.691 §… ([#543](https://github.com/librasn/rasn/pull/543))
+
 ## [0.28.9](https://github.com/librasn/rasn/compare/rasn-v0.28.8...rasn-v0.28.9) - 2026-03-10
 
 ### Added
