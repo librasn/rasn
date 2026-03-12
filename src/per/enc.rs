@@ -1344,10 +1344,25 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         encoder.is_extension_sequence = true;
         encoder.number_optional_default_fields = E::FIELDS.number_of_optional_and_default_fields();
         value.encode(&mut encoder)?;
-        let output = encoder.output();
+        let out = encoder.output();
 
-        self.extension_fields[self.extension_bitfield.0] = Some(output);
-        self.set_extension_presence(true);
+        let all_absent = if E::FIELDS.has_required_field() {
+            false
+        } else if encoder.root_bitfield.0 > 0 {
+            encoder.root_bitfield.1[..encoder.root_bitfield.0]
+                .iter()
+                .all(|(present, _)| !present)
+        } else {
+            out.iter().all(|&b| b == 0)
+        };
+
+        if all_absent {
+            self.extension_fields[self.extension_bitfield.0] = None;
+            self.set_extension_presence(false);
+        } else {
+            self.extension_fields[self.extension_bitfield.0] = Some(out);
+            self.set_extension_presence(true);
+        }
         Ok(())
     }
 }
