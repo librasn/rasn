@@ -373,14 +373,20 @@ mod tests {
         // Present-null: field appears in JSON as null → Some(())
         round_trip_jer!(
             WithNullOpt,
-            WithNullOpt { name: "test".into(), flag: Some(()) },
+            WithNullOpt {
+                name: "test".into(),
+                flag: Some(())
+            },
             r#"{"flag":null,"name":"test"}"#
         );
 
         // Absent: field omitted from JSON → None
         round_trip_jer!(
             WithNullOpt,
-            WithNullOpt { name: "test".into(), flag: None },
+            WithNullOpt {
+                name: "test".into(),
+                flag: None
+            },
             r#"{"name":"test"}"#
         );
     }

@@ -85,7 +85,11 @@ impl crate::Decoder for Decoder {
             })?;
             (value, *size)
         } else {
-            let last = self.stack.pop().flatten().ok_or_else(JerDecodeErrorKind::eoi)?;
+            let last = self
+                .stack
+                .pop()
+                .flatten()
+                .ok_or_else(JerDecodeErrorKind::eoi)?;
             let value_map = last
                 .as_object()
                 .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -185,7 +189,11 @@ impl crate::Decoder for Decoder {
         D: Constructed<RC, EC>,
         F: FnOnce(&mut Self) -> Result<D, Self::Error>,
     {
-        let mut last = self.stack.pop().flatten().ok_or_else(JerDecodeErrorKind::eoi)?;
+        let mut last = self
+            .stack
+            .pop()
+            .flatten()
+            .ok_or_else(JerDecodeErrorKind::eoi)?;
         let value_map = last
             .as_object_mut()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
@@ -381,7 +389,11 @@ impl crate::Decoder for Decoder {
         D: Fn(&mut Self::AnyDecoder<RC, EC>, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(alloc::vec::Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        let mut last = self.stack.pop().flatten().ok_or_else(JerDecodeErrorKind::eoi)?;
+        let mut last = self
+            .stack
+            .pop()
+            .flatten()
+            .ok_or_else(JerDecodeErrorKind::eoi)?;
         let value_map = last
             .as_object_mut()
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
