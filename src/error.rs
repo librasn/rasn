@@ -20,13 +20,14 @@ pub mod strings {
 
 pub use decode::DecodeErrorKind;
 pub use decode::{
-    BerDecodeErrorKind, CodecDecodeError, CoerDecodeErrorKind, DecodeError, DerDecodeErrorKind,
-    JerDecodeErrorKind, OerDecodeErrorKind, XerDecodeErrorKind,
+    AvnDecodeErrorKind, BerDecodeErrorKind, CodecDecodeError, CoerDecodeErrorKind, DecodeError,
+    DerDecodeErrorKind, JerDecodeErrorKind, OerDecodeErrorKind, XerDecodeErrorKind,
 };
 pub use encode::EncodeErrorKind;
 pub use encode::JerEncodeErrorKind;
 pub use encode::{
-    BerEncodeErrorKind, CodecEncodeError, CoerEncodeErrorKind, EncodeError, XerEncodeErrorKind,
+    AvnEncodeErrorKind, BerEncodeErrorKind, CodecEncodeError, CoerEncodeErrorKind, EncodeError,
+    XerEncodeErrorKind,
 };
 
 pub use components::InnerSubtypeConstraintError;

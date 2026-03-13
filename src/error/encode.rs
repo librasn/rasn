@@ -20,6 +20,7 @@ pub enum CodecEncodeError {
     Jer(JerEncodeErrorKind),
     Coer(CoerEncodeErrorKind),
     Xer(XerEncodeErrorKind),
+    Avn(AvnEncodeErrorKind),
 }
 
 impl core::fmt::Display for CodecEncodeError {
@@ -33,6 +34,7 @@ impl core::fmt::Display for CodecEncodeError {
             CodecEncodeError::Jer(kind) => write!(f, "JER encoding error: {kind}"),
             CodecEncodeError::Coer(kind) => write!(f, "COER encoding error: {kind}"),
             CodecEncodeError::Xer(kind) => write!(f, "XER encoding error: {kind}"),
+            CodecEncodeError::Avn(kind) => write!(f, "AVN encoding error: {kind}"),
         }
     }
 }
@@ -56,6 +58,7 @@ impl_from!(Aper, AperEncodeErrorKind);
 impl_from!(Jer, JerEncodeErrorKind);
 impl_from!(Coer, CoerEncodeErrorKind);
 impl_from!(Xer, XerEncodeErrorKind);
+impl_from!(Avn, AvnEncodeErrorKind);
 
 impl From<CodecEncodeError> for EncodeError {
     fn from(error: CodecEncodeError) -> Self {
@@ -261,6 +264,7 @@ impl EncodeError {
             CodecEncodeError::Jer(_) => crate::Codec::Jer,
             CodecEncodeError::Coer(_) => crate::Codec::Coer,
             CodecEncodeError::Xer(_) => crate::Codec::Xer,
+            CodecEncodeError::Avn(_) => crate::Codec::Avn,
         };
         Self {
             kind: Box::new(EncodeErrorKind::CodecSpecific { inner }),
@@ -476,6 +480,25 @@ pub enum CoerEncodeErrorKind {
     /// Error type for a secenario when the provided integer value exceeds the limits of the constrained word sizes.
     #[snafu(display("Provided integer exceeds limits of the constrained word sizes"))]
     InvalidConstrainedIntegerOctetSize,
+}
+
+/// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for AVN.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum AvnEncodeErrorKind {
+    /// Error to be thrown when the AVN encoder contains no encoded root value
+    #[snafu(display("No encoded AVN root value found"))]
+    AvnNoRootValueFound,
+    /// Internal AVN encoder error
+    #[snafu(display("Error in AVN encoder: {}", msg))]
+    AvnEncoder {
+        /// The error's message.
+        msg: alloc::string::String,
+    },
+    /// Error to be thrown when encoding real values that exceed the supported range
+    #[snafu(display("Exceeds supported real value range for AVN encoding"))]
+    AvnExceedsSupportedRealRange,
 }
 
 impl crate::enc::Error for EncodeError {

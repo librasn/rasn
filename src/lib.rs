@@ -25,6 +25,7 @@ pub mod types;
 // Data Formats
 
 pub mod aper;
+pub mod avn;
 pub mod ber;
 pub mod cer;
 pub mod coer;
