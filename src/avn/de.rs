@@ -399,7 +399,7 @@ impl Parser {
                     .into_iter()
                     .map(|item| {
                         if let BraceItem::Named(name, val) = item {
-                            (name, val)
+                            (name, Some(val))
                         } else {
                             unreachable!()
                         }
@@ -487,13 +487,14 @@ macro_rules! decode_avn_value {
         $stack
             .pop()
             .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))
+            .and_then(|v| v.ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi())))
             .and_then($decoder_fn)
     };
 }
 
 /// Decodes ASN.1 Value Notation text into Rust structures.
 pub struct Decoder {
-    stack: alloc::vec::Vec<AvnValue>,
+    stack: alloc::vec::Vec<Option<AvnValue>>,
 }
 
 impl Decoder {
@@ -503,7 +504,7 @@ impl Decoder {
         let mut parser = Parser::new(tokens);
         let root = parser.parse_value(0)?;
         Ok(Self {
-            stack: alloc::vec![root],
+            stack: alloc::vec![Some(root)],
         })
     }
 }
@@ -511,7 +512,7 @@ impl Decoder {
 impl From<AvnValue> for Decoder {
     fn from(value: AvnValue) -> Self {
         Self {
-            stack: alloc::vec![value],
+            stack: alloc::vec![Some(value)],
         }
     }
 }
@@ -529,6 +530,7 @@ impl crate::Decoder for Decoder {
         let value = self
             .stack
             .pop()
+            .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))?
             .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))?;
         Ok(Any::new(alloc::format!("{value}").into_bytes()))
     }
@@ -733,10 +735,14 @@ impl crate::Decoder for Decoder {
         let last = self
             .stack
             .pop()
+            .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))?
             .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))?;
 
         let mut field_map: BTreeMap<alloc::string::String, AvnValue> = match last {
-            AvnValue::Sequence(fields) => fields.into_iter().collect(),
+            AvnValue::Sequence(fields) => fields
+                .into_iter()
+                .filter_map(|(k, v)| v.map(|v| (k, v)))
+                .collect(),
             AvnValue::SequenceOf(items) if items.is_empty() => BTreeMap::new(),
             other => {
                 return Err(DecodeError::from(AvnDecodeErrorKind::AvnTypeMismatch {
@@ -753,8 +759,7 @@ impl crate::Decoder for Decoder {
         }
         field_names.reverse();
         for name in field_names {
-            self.stack
-                .push(field_map.remove(name).unwrap_or(AvnValue::Absent));
+            self.stack.push(field_map.remove(name));
         }
         (decode_fn)(self)
     }
@@ -790,10 +795,14 @@ impl crate::Decoder for Decoder {
         let last = self
             .stack
             .pop()
+            .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))?
             .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))?;
 
         let mut field_map: BTreeMap<alloc::string::String, AvnValue> = match last {
-            AvnValue::Sequence(fields) => fields.into_iter().collect(),
+            AvnValue::Sequence(fields) => fields
+                .into_iter()
+                .filter_map(|(k, v)| v.map(|v| (k, v)))
+                .collect(),
             AvnValue::SequenceOf(items) if items.is_empty() => BTreeMap::new(),
             other => {
                 return Err(DecodeError::from(AvnDecodeErrorKind::AvnTypeMismatch {
@@ -810,8 +819,7 @@ impl crate::Decoder for Decoder {
         field_indices
             .sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
         for (index, field) in field_indices {
-            self.stack
-                .push(field_map.remove(field.name).unwrap_or(AvnValue::Absent));
+            self.stack.push(field_map.remove(field.name));
             fields_out.push((decode_fn)(self, index, field.tag)?);
         }
         for (index, field) in SET::EXTENDED_FIELDS
@@ -819,8 +827,7 @@ impl crate::Decoder for Decoder {
             .flat_map(|fields| fields.iter())
             .enumerate()
         {
-            self.stack
-                .push(field_map.remove(field.name).unwrap_or(AvnValue::Absent));
+            self.stack.push(field_map.remove(field.name));
             fields_out.push((decode_fn)(self, index + SET::FIELDS.len(), field.tag)?);
         }
         (field_fn)(fields_out)
@@ -834,14 +841,14 @@ impl crate::Decoder for Decoder {
     }
 
     fn decode_optional<D: Decode>(&mut self) -> Result<Option<D>, Self::Error> {
-        let last = self
+        match self
             .stack
             .pop()
-            .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))?;
-        match last {
-            AvnValue::Absent => Ok(None),
-            v => {
-                self.stack.push(v);
+            .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::eoi()))?
+        {
+            None => Ok(None),
+            Some(v) => {
+                self.stack.push(Some(v));
                 Some(D::decode(self)).transpose()
             }
         }
@@ -1092,7 +1099,7 @@ impl Decoder {
         items
             .into_iter()
             .map(|v| {
-                self.stack.push(v);
+                self.stack.push(Some(v));
                 D::decode(self)
             })
             .collect()
@@ -1113,7 +1120,7 @@ impl Decoder {
             }
         };
         items.into_iter().try_fold(SetOf::new(), |mut acc, v| {
-            self.stack.push(v);
+            self.stack.push(Some(v));
             acc.insert(D::decode(self)?);
             Ok(acc)
         })
@@ -1145,7 +1152,7 @@ impl Decoder {
             .unwrap_or(Tag::EOC);
 
         if tag != Tag::EOC {
-            self.stack.push(*inner_value);
+            self.stack.push(Some(*inner_value));
         }
         D::from_tag(self, tag)
     }

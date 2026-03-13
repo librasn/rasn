@@ -14,7 +14,7 @@ pub struct Encoder {
     /// Stack of field names waiting to be consumed by the next `update_root_or_constructed` call.
     stack: alloc::vec::Vec<&'static str>,
     /// Stack of in-progress SEQUENCE / SET / CHOICE constructed values.
-    constructed_stack: alloc::vec::Vec<alloc::vec::Vec<(alloc::string::String, AvnValue)>>,
+    constructed_stack: alloc::vec::Vec<alloc::vec::Vec<(alloc::string::String, Option<AvnValue>)>>,
     /// The completed root value (set once encoding is done).
     root_value: Option<AvnValue>,
 }
@@ -61,7 +61,7 @@ impl Encoder {
                     .ok_or_else(|| AvnEncodeErrorKind::AvnEncoder {
                         msg: "Internal stack mismatch!".into(),
                     })?
-                    .push((id.to_string(), value));
+                    .push((id.to_string(), Some(value)));
             }
             None => {
                 self.root_value = Some(value);
@@ -472,17 +472,15 @@ impl crate::Encoder<'_> for Encoder {
     }
 
     fn encode_none<E: crate::Encode>(&mut self, _: Identifier) -> Result<Self::Ok, Self::Error> {
-        // Pop the field name from the stack and push an Absent sentinel so the
-        // SEQUENCE encoder can filter it out.
         if let (Some(id), Some(top)) = (self.stack.pop(), self.constructed_stack.last_mut()) {
-            top.push((id.to_string(), AvnValue::Absent));
+            top.push((id.to_string(), None));
         }
         Ok(())
     }
 
     fn encode_none_with_tag(&mut self, _t: Tag, _: Identifier) -> Result<Self::Ok, Self::Error> {
         if let (Some(id), Some(top)) = (self.stack.pop(), self.constructed_stack.last_mut()) {
-            top.push((id.to_string(), AvnValue::Absent));
+            top.push((id.to_string(), None));
         }
         Ok(())
     }
@@ -526,7 +524,7 @@ impl crate::Encoder<'_> for Encoder {
             let inner_value = fields
                 .into_iter()
                 .next()
-                .map(|(_, v)| v)
+                .and_then(|(_, v)| v)
                 .unwrap_or(AvnValue::Null);
             self.update_root_or_constructed(AvnValue::Choice {
                 identifier: identifier.to_string(),

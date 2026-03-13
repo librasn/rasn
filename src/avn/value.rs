@@ -26,8 +26,9 @@ pub enum AvnValue {
     Real(alloc::string::String),
     /// ENUMERATED value as an identifier string
     Enumerated(alloc::string::String),
-    /// SEQUENCE / SET as an ordered list of (field-name, value) pairs
-    Sequence(alloc::vec::Vec<(alloc::string::String, AvnValue)>),
+    /// SEQUENCE / SET as an ordered list of (field-name, value) pairs.
+    /// `None` entries represent absent OPTIONAL fields and are omitted from output.
+    Sequence(alloc::vec::Vec<(alloc::string::String, Option<AvnValue>)>),
     /// SEQUENCE OF / SET OF as an ordered list of values
     SequenceOf(alloc::vec::Vec<AvnValue>),
     /// CHOICE value: `identifier : value`
@@ -39,8 +40,6 @@ pub enum AvnValue {
     },
     /// Any character-string type: `"quoted string"` (X.680 double-quote escaping)
     CharString(alloc::string::String),
-    /// Sentinel for absent OPTIONAL fields — must not appear in output
-    Absent,
 }
 
 // ---------------------------------------------------------------------------
@@ -130,10 +129,9 @@ impl fmt::Display for AvnFmt<'_> {
             AvnValue::Enumerated(id) => f.write_str(id),
 
             AvnValue::Sequence(fields) => {
-                // Filter out Absent sentinels
                 let present: alloc::vec::Vec<_> = fields
                     .iter()
-                    .filter(|(_, v)| !matches!(v, AvnValue::Absent))
+                    .filter_map(|(name, v)| v.as_ref().map(|v| (name, v)))
                     .collect();
 
                 if present.is_empty() {
@@ -184,8 +182,6 @@ impl fmt::Display for AvnFmt<'_> {
                 }
                 f.write_str("\"")
             }
-
-            AvnValue::Absent => Ok(()),
         }
     }
 }
@@ -284,10 +280,30 @@ mod tests {
     #[test]
     fn sequence_display() {
         let v = AvnValue::Sequence(alloc::vec![
-            ("field1".into(), AvnValue::Boolean(true)),
-            ("field2".into(), AvnValue::Integer("42".into())),
+            ("field1".into(), Some(AvnValue::Boolean(true))),
+            ("field2".into(), Some(AvnValue::Integer("42".into()))),
         ]);
         let expected = "{\n  field1 TRUE,\n  field2 42\n}";
+        assert_eq!(v.to_string(), expected);
+    }
+
+    #[test]
+    fn sequence_display_skips_absent() {
+        let v = AvnValue::Sequence(alloc::vec![
+            ("field1".into(), Some(AvnValue::Boolean(true))),
+            ("field2".into(), None),
+        ]);
+        let expected = "{\n  field1 TRUE\n}";
+        assert_eq!(v.to_string(), expected);
+    }
+
+    #[test]
+    fn sequence_display_with_null_field() {
+        let v = AvnValue::Sequence(alloc::vec![
+            ("field1".into(), Some(AvnValue::Boolean(true))),
+            ("flag".into(), Some(AvnValue::Null)),
+        ]);
+        let expected = "{\n  field1 TRUE,\n  flag NULL\n}";
         assert_eq!(v.to_string(), expected);
     }
 
@@ -299,10 +315,5 @@ mod tests {
         ]);
         let expected = "{\n  1,\n  2\n}";
         assert_eq!(v.to_string(), expected);
-    }
-
-    #[test]
-    fn absent_display() {
-        assert_eq!(AvnValue::Absent.to_string(), "");
     }
 }
