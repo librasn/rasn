@@ -1,0 +1,49 @@
+--! @options: no-fields-header
+
+RTCMEM-PDU-Descriptions {
+    itu-t (0) identified-organization (4) etsi (0) itsDomain (5) wg1 (1) ts103301 (103301) rtcmem (5) version1 (1)
+}
+
+DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+IMPORTS
+
+/**
+* Includes from ETSI-ITS-DSRC
+*/
+RTCMcorrections
+FROM ETSI-ITS-DSRC {
+  itu-t (0) identified-organization (4) etsi (0) itsDomain (5) wg1 (1) ts103301 (103301) dsrc (6) major-version-2 (2) minor-version-1 (1)
+}
+WITH SUCCESSORS
+
+/**
+* Include ETSI TS 102 894-2 (ETSI-ITS-CDD)
+*/
+ItsPduHeader
+FROM ETSI-ITS-CDD {
+  itu-t (0) identified-organization (4) etsi (0) itsDomain (5) wg1 (1) 102894 cdd (2) major-version-4 (4) minor-version-1 (1)
+}
+WITH SUCCESSORS;
+
+/**
+* RTCM corrections extended extended Message
+* This DF includes DEs for the RTCMEM: protocolVersion, the RTCMEM message type identifier `messageID`,
+* the station identifier `stationID` of the originating ITS-S and the RTCM corrections as of ETSI-ITS-DSRC.
+*
+* @field header: The DE `protocolVersion` is used to select the appropriate protocol decoder at the receiving ITS-S. 
+*                It shall be set to 1.
+*                The DE `messageID` shall be rtcmem(13).
+* @field rtcmc:  contains the RTCM corrections data as defined in ETSI-ITS-DSRC.
+* 
+* @category: Basic Information
+* @revision: V1.3.1
+*/
+RTCMEM ::= SEQUENCE {
+    header  ItsPduHeader,
+    rtcmc   RTCMcorrections
+}
+
+END

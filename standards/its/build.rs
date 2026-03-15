@@ -19,8 +19,37 @@ fn compile_ts102894_2() -> Result<()> {
     Ok(())
 }
 
+fn compile_ts103301() -> Result<()> {
+    Compiler::<RasnBackend, _>::new_with_config(RasnConfig {
+        opaque_open_types: false,
+        default_wildcard_imports: false,
+        no_std_compliant_bindings: true,
+        ..Default::default()
+    })
+    .add_asn_sources_by_path(
+        [
+            PathBuf::from("src/ts103301/asn1/DSRC.asn"),
+            PathBuf::from("src/ts103301/asn1/DSRC-addgrp-C.asn"),
+            PathBuf::from("src/ts103301/asn1/DSRC-region.asn"),
+            PathBuf::from("src/ts103301/asn1/MAPEM-PDU-Descriptions.asn"),
+            PathBuf::from("src/ts103301/asn1/RTCMEM-PDU-Descriptions.asn"),
+            PathBuf::from("src/ts103301/asn1/SPATEM-PDU-Descriptions.asn"),
+            PathBuf::from("src/ts103301/asn1/SREM-PDU-Descriptions.asn"),
+            PathBuf::from("src/ts103301/asn1/SSEM-PDU-Descriptions.asn"),
+        ]
+        .iter(),
+    )
+    .set_output_mode(SingleFile(PathBuf::from("./src/ts103301/ts103301.rs")))
+    .compile()
+    .map_err(|e| anyhow::anyhow!("{e:?}"))
+    .context("Failed to compile ts103301 source")?;
+
+    Ok(())
+}
+
 fn main() -> Result<()> {
     compile_ts102894_2()?;
+    compile_ts103301()?;
 
     Ok(())
 }
