@@ -3,7 +3,7 @@
 mod config;
 pub(super) mod parser;
 
-use super::identifier::Identifier;
+use super::{identifier::Identifier, ExtensionGroupState};
 use crate::{
     Decode,
     types::{
@@ -28,6 +28,7 @@ pub struct Decoder<'input> {
     input: &'input [u8],
     config: DecoderOptions,
     initial_len: usize,
+    extension_group: ExtensionGroupState,
 }
 
 impl<'input> Decoder<'input> {
@@ -48,7 +49,12 @@ impl<'input> Decoder<'input> {
             input,
             config,
             initial_len: input.len(),
+            extension_group: ExtensionGroupState::None,
         }
+    }
+
+    fn translate_tag(&self, tag: Tag) -> Tag {
+        tag.with_context_offset(self.extension_group.base_tag())
     }
 
     /// Return a number of the decoded bytes by this decoder
@@ -84,6 +90,9 @@ impl<'input> Decoder<'input> {
         {
             return Ok(None);
         }
+
+        let tag = self.translate_tag(tag);
+
         if tag != Tag::EOC {
             let upcoming_tag = self.peek_tag()?;
             if tag != upcoming_tag {
@@ -101,6 +110,7 @@ impl<'input> Decoder<'input> {
     }
 
     pub(crate) fn parse_value(&mut self, tag: Tag) -> Result<(Identifier, Option<&'input [u8]>)> {
+        let tag = self.translate_tag(tag);
         let (input, (identifier, contents)) =
             self::parser::parse_value(self.config, self.input, Some(tag))?;
         self.input = input;
@@ -108,6 +118,7 @@ impl<'input> Decoder<'input> {
     }
 
     pub(crate) fn parse_primitive_value(&mut self, tag: Tag) -> Result<(Identifier, &'input [u8])> {
+        let tag = self.translate_tag(tag);
         let (input, (identifier, contents)) =
             self::parser::parse_value(self.config, self.input, Some(tag))?;
         self.input = input;
@@ -761,6 +772,28 @@ impl<'input> crate::Decoder for Decoder<'input> {
         default_initializer_fn: Option<DF>,
         decode_fn: F,
     ) -> Result<D> {
+        if tag == Tag::SEQUENCE && matches!(self.extension_group, ExtensionGroupState::Pending(_)) {
+            // Extension addition groups are encoded flattened: skip the SEQUENCE wrapper once.
+            if let ExtensionGroupState::Pending(tag) = self.extension_group {
+                self.extension_group = ExtensionGroupState::Active(tag);
+            }
+            return if D::FIELDS.is_empty() && D::EXTENDED_FIELDS.is_none()
+                || (D::FIELDS.len() == D::FIELDS.number_of_optional_and_default_fields()
+                    && self.input.is_empty())
+            {
+                if let Some(default_initializer_fn) = default_initializer_fn {
+                    Ok((default_initializer_fn)())
+                } else {
+                    Err(DecodeError::from_kind(
+                        DecodeErrorKind::UnexpectedEmptyInput,
+                        self.codec(),
+                    ))
+                }
+            } else {
+                (decode_fn)(self)
+            };
+        }
+
         self.parse_constructed_contents(tag, true, |decoder| {
             // If there are no fields, or the input is empty and we know that
             // all fields are optional or default fields, we call the default
@@ -805,7 +838,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: Fn(&mut Self, usize, Tag) -> Result<FIELDS, Self::Error>,
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>,
     {
-        self.parse_constructed_contents(tag, true, |decoder| {
+        let collect_fields = |decoder: &mut Self| -> Result<Vec<FIELDS>, Self::Error> {
             let mut fields = Vec::new();
 
             loop {
@@ -822,6 +855,20 @@ impl<'input> crate::Decoder for Decoder<'input> {
                 }
             }
 
+            Ok(fields)
+        };
+
+        if tag == Tag::SET && matches!(self.extension_group, ExtensionGroupState::Pending(_)) {
+            // Extension addition groups are encoded flattened: skip the SET wrapper once.
+            if let ExtensionGroupState::Pending(tag) = self.extension_group {
+                self.extension_group = ExtensionGroupState::Active(tag);
+            }
+            let fields = collect_fields(self)?;
+            return (field_fn)(fields);
+        }
+
+        self.parse_constructed_contents(tag, true, |decoder| {
+            let fields = collect_fields(decoder)?;
             (field_fn)(fields)
         })
     }
@@ -896,8 +943,26 @@ impl<'input> crate::Decoder for Decoder<'input> {
         D: Decode + crate::types::Constructed<RL, EL>,
     >(
         &mut self,
+        tag: Tag,
     ) -> Result<Option<D>, Self::Error> {
-        <Option<D>>::decode(self)
+        if self.input.is_empty() {
+            return Ok(None);
+        }
+
+        let (_, identifier) = parser::parse_identifier_octet(self.input).map_err(|e| match e {
+            ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, self.codec()),
+            ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, self.codec()),
+        })?;
+
+        if identifier.tag == tag {
+            let previous = self.extension_group;
+            self.extension_group = ExtensionGroupState::Pending(tag);
+            let result = D::decode(self).map(Some);
+            self.extension_group = previous;
+            result
+        } else {
+            Ok(None)
+        }
     }
 }
 

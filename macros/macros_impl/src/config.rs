@@ -914,7 +914,7 @@ impl<'a> FieldConfig<'a> {
                     )?;
                 )
             } else if self.extension_addition_group {
-                quote!(encoder.encode_extension_addition_group(#this #field.as_ref(), #identifier)?;)
+                quote!(encoder.encode_extension_addition_group(#tag, #this #field.as_ref(), #identifier)?;)
             } else {
                 match (self.constraints.has_constraints(), self.default.is_some()) {
                     (true, true) => {
@@ -960,7 +960,7 @@ impl<'a> FieldConfig<'a> {
                 )?;
             )
         } else if self.extension_addition_group {
-            quote!(encoder.encode_extension_addition_group(#this #field.as_ref(), #identifier)?;)
+            quote!(encoder.encode_extension_addition_group(#tag, #this #field.as_ref(), #identifier)?;)
         } else {
             match (self.constraints.has_constraints(), self.default.is_some()) {
                 (true, true) => {
@@ -1064,7 +1064,7 @@ impl<'a> FieldConfig<'a> {
         };
 
         let decode = if self.extension_addition_group {
-            quote!(decoder.decode_extension_addition_group() #or_else)
+            quote!(decoder.decode_extension_addition_group(#tag) #or_else)
         } else {
             match (
                 (self.tag.is_some() || self.container_config.automatic_tags)
