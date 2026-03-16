@@ -9,6 +9,9 @@ extern crate alloc;
 /// corresponding message standards.
 ///
 /// [ETSI TS 102 894-2]: https://www.etsi.org/deliver/etsi_ts/102800_102899/10289402/02.01.01_60/ts_10289402v020101p.pdf
+#[allow(rustdoc::broken_intra_doc_links)]
+#[allow(rustdoc::invalid_rust_codeblocks)]
+#[allow(rustdoc::bare_urls)]
 pub mod ts102894_2;
 
 /// ASN.1 definitions for ETSI TS 103 097
