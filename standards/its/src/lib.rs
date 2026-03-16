@@ -1,7 +1,14 @@
 #![cfg_attr(not(test), no_std)]
 extern crate alloc;
 
-/// ASN.1 definitions for ETSI TS 102 894-2
+/// ASN.1 definitions for [ETSI TS 102 894-2].
+///
+/// The standard defines the ITS Common Data Dictionary (CDD), a set of
+/// reusable data objects used across ITS application- and facilities-layer
+/// messages. The exact interpretation of these elements is defined in the
+/// corresponding message standards.
+///
+/// [ETSI TS 102 894-2]: https://www.etsi.org/deliver/etsi_ts/102800_102899/10289402/02.01.01_60/ts_10289402v020101p.pdf
 pub mod ts102894_2;
 
 /// ASN.1 definitions for ETSI TS 103 097
