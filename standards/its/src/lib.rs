@@ -12,6 +12,7 @@ extern crate alloc;
 #[allow(rustdoc::broken_intra_doc_links)]
 #[allow(rustdoc::invalid_rust_codeblocks)]
 #[allow(rustdoc::bare_urls)]
+#[allow(clippy::doc_overindented_list_items)]
 pub mod ts102894_2;
 
 /// ASN.1 definitions for ETSI TS 103 097
