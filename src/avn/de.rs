@@ -1,8 +1,9 @@
 //! Decoding ASN.1 Value Notation (AVN) text into Rust structures.
 //!
-//! Uses a two-phase approach:
-//! 1. **Lex + parse** the entire input string into an [`AvnValue`] tree.
+//! 1. **Parse** the entire input string into an [`AvnValue`] tree using nom combinators.
 //! 2. **Type-directed decode** pops values from a stack and dispatches.
+
+#![deny(clippy::all)]
 
 use alloc::collections::BTreeMap;
 use core::str::FromStr;
@@ -135,8 +136,7 @@ fn parse_value_depth(input: &str, depth: usize) -> IResult<&str, AvnValue> {
 fn parse_identifier_or_choice(input: &str, depth: usize) -> IResult<&str, AvnValue> {
     let (after_id, id) = parse_identifier_str(input)?;
     let (after_ws, _) = multispace0(after_id)?;
-    if after_ws.starts_with(':') {
-        let rest = &after_ws[1..];
+    if let Some(rest) = after_ws.strip_prefix(':') {
         let (rest, inner) = parse_value_depth(rest, depth + 1)?;
         return Ok((
             rest,
@@ -178,9 +178,9 @@ fn parse_brace(input: &str, depth: usize) -> IResult<&str, AvnValue> {
 
         if let Ok((after_id, id)) = parse_identifier_str(current) {
             let (after_ws2, _) = multispace0(after_id)?;
-            if after_ws2.starts_with(':') {
+            if let Some(after_colon) = after_ws2.strip_prefix(':') {
                 // CHOICE element inside braces: id : value
-                let (rest, val) = parse_value_depth(&after_ws2[1..], depth)?;
+                let (rest, val) = parse_value_depth(after_colon, depth)?;
                 items.push(BraceItem::Bare(AvnValue::Choice {
                     identifier: id.into(),
                     value: alloc::boxed::Box::new(val),
@@ -220,7 +220,7 @@ fn parse_brace(input: &str, depth: usize) -> IResult<&str, AvnValue> {
         } else if current
             .chars()
             .next()
-            .map_or(false, |c| c.is_ascii_digit() || c == '-')
+            .is_some_and(|c| c.is_ascii_digit() || c == '-')
             && items
                 .iter()
                 .all(|i| matches!(i, BraceItem::Bare(AvnValue::Integer(_))))
