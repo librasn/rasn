@@ -19,5 +19,4 @@ pretty_assertions = "1.4.1"
 
 [build-dependencies]
 anyhow = "1"
-encoding_rs = "0.8.35"
 rasn-compiler = "0.16.0"
