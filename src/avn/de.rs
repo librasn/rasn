@@ -6,6 +6,14 @@
 
 use alloc::collections::BTreeMap;
 use core::str::FromStr;
+use nom::{
+    IResult,
+    branch::alt,
+    bytes::complete::{take_while, take_while1},
+    character::complete::{char, digit1, multispace0},
+    combinator::{map, opt, recognize},
+    sequence::{pair, preceded},
+};
 use num_bigint::BigInt;
 
 use crate::{
@@ -23,378 +31,223 @@ use crate::{
 use super::value::AvnValue;
 
 // ---------------------------------------------------------------------------
-// Lexer
+// nom-based parser
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
-enum Token {
-    LBrace,
-    RBrace,
-    Colon,
-    Comma,
-    Identifier(alloc::string::String),
-    Number(alloc::string::String),
-    /// Content of `'...'H` (between the quotes, before the `H`)
-    HexString(alloc::string::String),
-    /// Content of `'...'B` (between the quotes, before the `B`)
-    BinString(alloc::string::String),
-    /// Already-unescaped content of `"..."` string
-    QuotedString(alloc::string::String),
-    True,
-    False,
-    Null,
+fn parse_identifier_str(input: &str) -> IResult<&str, &str> {
+    recognize(pair(
+        take_while1(|c: char| c.is_ascii_alphabetic()),
+        take_while(|c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
+    ))(input)
 }
 
-fn lex(input: &str) -> Result<alloc::vec::Vec<Token>, DecodeError> {
-    let bytes = input.as_bytes();
-    let len = bytes.len();
-    let mut i = 0;
-    let mut tokens = alloc::vec::Vec::new();
-
-    while i < len {
-        match bytes[i] {
-            // skip whitespace
-            b' ' | b'\t' | b'\n' | b'\r' => i += 1,
-
-            b'{' => {
-                tokens.push(Token::LBrace);
-                i += 1;
-            }
-            b'}' => {
-                tokens.push(Token::RBrace);
-                i += 1;
-            }
-            b':' => {
-                tokens.push(Token::Colon);
-                i += 1;
-            }
-            b',' => {
-                tokens.push(Token::Comma);
-                i += 1;
-            }
-
-            // Quoted string "..." with "" → " escaping
-            b'"' => {
-                i += 1; // skip opening "
-                let mut s = alloc::string::String::new();
-                loop {
-                    if i >= len {
-                        return Err(DecodeError::from(AvnDecodeErrorKind::UnterminatedString));
-                    }
-                    if bytes[i] == b'"' {
-                        i += 1;
-                        if i < len && bytes[i] == b'"' {
-                            s.push('"');
-                            i += 1;
-                        } else {
-                            break; // end of string
-                        }
-                    } else {
-                        // For simplicity, treat each byte as a char (ASCII-safe for AVN identifiers)
-                        s.push(bytes[i] as char);
-                        i += 1;
-                    }
-                }
-                tokens.push(Token::QuotedString(s));
-            }
-
-            // Hex or binary string: '...'H or '...'B
-            b'\'' => {
-                i += 1; // skip opening '
-                let start = i;
-                while i < len && bytes[i] != b'\'' {
-                    i += 1;
-                }
-                if i >= len {
-                    return Err(DecodeError::from(AvnDecodeErrorKind::UnterminatedString));
-                }
-                // Collect content (strip internal whitespace allowed in AVN hex strings)
-                let raw = &input[start..i];
-                let content: alloc::string::String =
-                    raw.chars().filter(|c| !c.is_whitespace()).collect();
-                i += 1; // skip closing '
-                // Check for H or B suffix
-                if i < len && bytes[i] == b'H' {
-                    tokens.push(Token::HexString(content));
-                    i += 1;
-                } else if i < len && bytes[i] == b'B' {
-                    tokens.push(Token::BinString(content));
-                    i += 1;
-                } else {
-                    return Err(DecodeError::from(AvnDecodeErrorKind::InvalidHexString));
-                }
-            }
-
-            // Number (possibly negative)
-            b'-' | b'0'..=b'9' => {
-                let start = i;
-                if bytes[i] == b'-' {
-                    i += 1;
-                }
-                while i < len && bytes[i].is_ascii_digit() {
-                    i += 1;
-                }
-                if i < len && bytes[i] == b'.' {
-                    i += 1;
-                    while i < len && bytes[i].is_ascii_digit() {
-                        i += 1;
-                    }
-                }
-                let s =
-                    alloc::string::String::from_utf8(bytes[start..i].to_vec()).unwrap_or_default();
-                tokens.push(Token::Number(s));
-            }
-
-            // Identifier or keyword: [a-zA-Z][a-zA-Z0-9-_]*
-            b if b.is_ascii_alphabetic() => {
-                let start = i;
-                while i < len
-                    && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'-' || bytes[i] == b'_')
-                {
-                    i += 1;
-                }
-                let s =
-                    alloc::string::String::from_utf8(bytes[start..i].to_vec()).unwrap_or_default();
-                match s.as_str() {
-                    "TRUE" => tokens.push(Token::True),
-                    "FALSE" => tokens.push(Token::False),
-                    "NULL" => tokens.push(Token::Null),
-                    _ => tokens.push(Token::Identifier(s)),
-                }
-            }
-
-            b => {
-                return Err(DecodeError::from(AvnDecodeErrorKind::UnexpectedToken {
-                    found: alloc::format!("byte 0x{b:02X} at position {i}"),
-                }));
-            }
-        }
+fn parse_hex_or_bin_string(input: &str) -> IResult<&str, AvnValue> {
+    let (input, _) = char('\'')(input)?;
+    let (input, raw) = take_while(|c: char| c != '\'')(input)?;
+    let (input, _) = char('\'')(input)?;
+    let content: alloc::string::String = raw.chars().filter(|c| !c.is_whitespace()).collect();
+    let (input, suffix) = alt((char('H'), char('B')))(input)?;
+    if suffix == 'H' {
+        parse_hex_bytes(&content)
+            .map(|bytes| (input, AvnValue::OctetString(bytes)))
+            .ok_or_else(|| {
+                nom::Err::Error(nom::error::Error::new(
+                    input,
+                    nom::error::ErrorKind::HexDigit,
+                ))
+            })
+    } else {
+        parse_bin_bits(&content)
+            .map(|(bytes, bit_length)| (input, AvnValue::BitString { bytes, bit_length }))
+            .ok_or_else(|| {
+                nom::Err::Error(nom::error::Error::new(input, nom::error::ErrorKind::Digit))
+            })
     }
-    Ok(tokens)
 }
 
-// ---------------------------------------------------------------------------
-// Parser
-// ---------------------------------------------------------------------------
-
-struct Parser {
-    tokens: alloc::vec::Vec<Token>,
-    pos: usize,
-}
-
-impl Parser {
-    fn new(tokens: alloc::vec::Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
-    }
-
-    fn peek(&self) -> Option<&Token> {
-        self.tokens.get(self.pos)
-    }
-
-    fn consume(&mut self) -> Option<Token> {
-        if self.pos < self.tokens.len() {
-            let t = self.tokens[self.pos].clone();
-            self.pos += 1;
-            Some(t)
-        } else {
-            None
-        }
-    }
-
-    fn parse_value(&mut self, depth: usize) -> Result<AvnValue, DecodeError> {
-        if depth > 64 {
-            return Err(DecodeError::from_kind(
-                crate::error::DecodeErrorKind::ExceedsMaxParseDepth,
-                crate::Codec::Avn,
-            ));
-        }
-        match self.peek() {
-            None => Err(DecodeError::from(AvnDecodeErrorKind::AvnEndOfInput {})),
-
-            Some(Token::True) => {
-                self.consume();
-                Ok(AvnValue::Boolean(true))
+fn parse_quoted_string(input: &str) -> IResult<&str, AvnValue> {
+    let (input, _) = char('"')(input)?;
+    let mut s = alloc::string::String::new();
+    let mut rest = input;
+    loop {
+        match rest.chars().next() {
+            None => {
+                return Err(nom::Err::Error(nom::error::Error::new(
+                    rest,
+                    nom::error::ErrorKind::Eof,
+                )));
             }
-            Some(Token::False) => {
-                self.consume();
-                Ok(AvnValue::Boolean(false))
-            }
-            Some(Token::Null) => {
-                self.consume();
-                Ok(AvnValue::Null)
-            }
-
-            Some(Token::Number(_)) => {
-                if let Some(Token::Number(s)) = self.consume() {
-                    if s.contains('.') {
-                        Ok(AvnValue::Real(s))
-                    } else {
-                        Ok(AvnValue::Integer(s))
-                    }
+            Some('"') => {
+                rest = &rest[1..];
+                if rest.starts_with('"') {
+                    s.push('"');
+                    rest = &rest[1..];
                 } else {
-                    unreachable!()
-                }
-            }
-
-            Some(Token::HexString(_)) => {
-                if let Some(Token::HexString(hex)) = self.consume() {
-                    parse_hex_bytes(&hex)
-                        .map(AvnValue::OctetString)
-                        .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::InvalidHexString))
-                } else {
-                    unreachable!()
-                }
-            }
-
-            Some(Token::BinString(_)) => {
-                if let Some(Token::BinString(bin)) = self.consume() {
-                    parse_bin_bits(&bin)
-                        .map(|(bytes, bit_length)| AvnValue::BitString { bytes, bit_length })
-                        .ok_or_else(|| DecodeError::from(AvnDecodeErrorKind::InvalidBinString))
-                } else {
-                    unreachable!()
-                }
-            }
-
-            Some(Token::QuotedString(_)) => {
-                if let Some(Token::QuotedString(s)) = self.consume() {
-                    Ok(AvnValue::CharString(s))
-                } else {
-                    unreachable!()
-                }
-            }
-
-            Some(Token::LBrace) => {
-                self.consume(); // consume '{'
-                self.parse_brace_contents(depth + 1)
-            }
-
-            Some(Token::Identifier(_)) => {
-                if let Some(Token::Identifier(id)) = self.consume() {
-                    // Special real keywords encoded as identifiers by the encoder
-                    match id.as_str() {
-                        "PLUS-INFINITY" | "MINUS-INFINITY" | "NOT-A-NUMBER" => {
-                            return Ok(AvnValue::Real(id));
-                        }
-                        _ => {}
-                    }
-                    // Check for CHOICE: identifier : value
-                    if matches!(self.peek(), Some(Token::Colon)) {
-                        self.consume(); // consume ':'
-                        let inner = self.parse_value(depth + 1)?;
-                        Ok(AvnValue::Choice {
-                            identifier: id,
-                            value: alloc::boxed::Box::new(inner),
-                        })
-                    } else {
-                        Ok(AvnValue::Enumerated(id))
-                    }
-                } else {
-                    unreachable!()
-                }
-            }
-
-            Some(t) => Err(DecodeError::from(AvnDecodeErrorKind::UnexpectedToken {
-                found: alloc::format!("{t:?}"),
-            })),
-        }
-    }
-
-    /// Parse contents after `{` has been consumed.
-    /// Returns `AvnValue::Sequence`, `AvnValue::SequenceOf`, or empty `SequenceOf([])`.
-    fn parse_brace_contents(&mut self, depth: usize) -> Result<AvnValue, DecodeError> {
-        // Empty braces
-        if matches!(self.peek(), Some(Token::RBrace)) {
-            self.consume();
-            return Ok(AvnValue::SequenceOf(alloc::vec![]));
-        }
-
-        enum BraceItem {
-            Named(alloc::string::String, AvnValue),
-            Bare(AvnValue),
-        }
-
-        let mut items: alloc::vec::Vec<BraceItem> = alloc::vec![];
-
-        loop {
-            match self.peek() {
-                None => return Err(DecodeError::from(AvnDecodeErrorKind::AvnEndOfInput {})),
-                Some(Token::RBrace) => {
-                    self.consume();
                     break;
                 }
-                Some(Token::Identifier(_)) => {
-                    let id = if let Some(Token::Identifier(s)) = self.consume() {
-                        s
-                    } else {
-                        unreachable!()
-                    };
+            }
+            Some(c) => {
+                s.push(c);
+                rest = &rest[c.len_utf8()..];
+            }
+        }
+    }
+    Ok((rest, AvnValue::CharString(s)))
+}
 
-                    match self.peek() {
-                        // id : value → CHOICE element (bare)
-                        Some(Token::Colon) => {
-                            self.consume();
-                            let val = self.parse_value(depth)?;
-                            items.push(BraceItem::Bare(AvnValue::Choice {
-                                identifier: id,
-                                value: alloc::boxed::Box::new(val),
-                            }));
-                        }
-                        // id alone (comma or closing brace) → bare enumerated or real keyword
-                        Some(Token::Comma) | Some(Token::RBrace) => match id.as_str() {
-                            "PLUS-INFINITY" | "MINUS-INFINITY" | "NOT-A-NUMBER" => {
-                                items.push(BraceItem::Bare(AvnValue::Real(id)));
-                            }
-                            _ => items.push(BraceItem::Bare(AvnValue::Enumerated(id))),
-                        },
-                        // id value → named SEQUENCE field
-                        _ => {
-                            let val = self.parse_value(depth)?;
-                            items.push(BraceItem::Named(id, val));
-                        }
+fn parse_number(input: &str) -> IResult<&str, AvnValue> {
+    map(
+        recognize(pair(
+            opt(char('-')),
+            pair(digit1, opt(preceded(char('.'), digit1))),
+        )),
+        |s: &str| {
+            if s.contains('.') {
+                AvnValue::Real(s.into())
+            } else {
+                AvnValue::Integer(s.into())
+            }
+        },
+    )(input)
+}
+
+fn parse_value(input: &str) -> IResult<&str, AvnValue> {
+    parse_value_depth(input, 0)
+}
+
+fn parse_value_depth(input: &str, depth: usize) -> IResult<&str, AvnValue> {
+    if depth > 64 {
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::TooLarge,
+        )));
+    }
+    let (input, _) = multispace0(input)?;
+    alt((
+        parse_hex_or_bin_string,
+        parse_quoted_string,
+        parse_number,
+        move |i| parse_brace(i, depth + 1),
+        move |i| parse_identifier_or_choice(i, depth),
+    ))(input)
+}
+
+fn parse_identifier_or_choice(input: &str, depth: usize) -> IResult<&str, AvnValue> {
+    let (after_id, id) = parse_identifier_str(input)?;
+    let (after_ws, _) = multispace0(after_id)?;
+    if after_ws.starts_with(':') {
+        let rest = &after_ws[1..];
+        let (rest, inner) = parse_value_depth(rest, depth + 1)?;
+        return Ok((
+            rest,
+            AvnValue::Choice {
+                identifier: id.into(),
+                value: alloc::boxed::Box::new(inner),
+            },
+        ));
+    }
+    let val = match id {
+        "TRUE" => AvnValue::Boolean(true),
+        "FALSE" => AvnValue::Boolean(false),
+        "NULL" => AvnValue::Null,
+        "PLUS-INFINITY" | "MINUS-INFINITY" | "NOT-A-NUMBER" => AvnValue::Real(id.into()),
+        _ => AvnValue::Enumerated(id.into()),
+    };
+    Ok((after_id, val))
+}
+
+fn parse_brace(input: &str, depth: usize) -> IResult<&str, AvnValue> {
+    let (input, _) = char('{')(input)?;
+    let (input, _) = multispace0(input)?;
+
+    if let Ok((rest, _)) = char::<_, nom::error::Error<&str>>('}')(input) {
+        return Ok((rest, AvnValue::SequenceOf(alloc::vec![])));
+    }
+
+    enum BraceItem {
+        Named(alloc::string::String, AvnValue),
+        Bare(AvnValue),
+    }
+
+    let mut items: alloc::vec::Vec<BraceItem> = alloc::vec![];
+    let mut current = input;
+
+    loop {
+        let (after_ws, _) = multispace0(current)?;
+        current = after_ws;
+
+        if let Ok((after_id, id)) = parse_identifier_str(current) {
+            let (after_ws2, _) = multispace0(after_id)?;
+            if after_ws2.starts_with(':') {
+                // CHOICE element inside braces: id : value
+                let (rest, val) = parse_value_depth(&after_ws2[1..], depth)?;
+                items.push(BraceItem::Bare(AvnValue::Choice {
+                    identifier: id.into(),
+                    value: alloc::boxed::Box::new(val),
+                }));
+                current = rest;
+            } else if after_ws2.starts_with(',') || after_ws2.starts_with('}') {
+                // Bare identifier: enumerated or real keyword
+                let val = match id {
+                    "PLUS-INFINITY" | "MINUS-INFINITY" | "NOT-A-NUMBER" => {
+                        AvnValue::Real(id.into())
                     }
-                }
-                _ => {
-                    // Non-identifier: bare SEQUENCE OF element
-                    let val = self.parse_value(depth)?;
-                    items.push(BraceItem::Bare(val));
-                }
+                    _ => AvnValue::Enumerated(id.into()),
+                };
+                items.push(BraceItem::Bare(val));
+                current = after_id;
+            } else {
+                // Named SEQUENCE field: id value
+                let (rest, val) = parse_value_depth(after_ws2, depth)?;
+                items.push(BraceItem::Named(id.into(), val));
+                current = rest;
             }
-
-            // Consume separator: comma, or allow space-separated integers (OID notation).
-            match self.peek() {
-                Some(Token::Comma) => {
-                    self.consume();
-                }
-                Some(Token::RBrace) => {}
-                None => return Err(DecodeError::from(AvnDecodeErrorKind::AvnEndOfInput {})),
-                // OID-style space-separated arcs: all items so far must be bare integers
-                Some(Token::Number(_))
-                    if items
-                        .iter()
-                        .all(|i| matches!(i, BraceItem::Bare(AvnValue::Integer(_)))) =>
-                {
-                    // No comma needed — continue to parse next arc in next loop iteration
-                }
-                Some(t) => {
-                    return Err(DecodeError::from(AvnDecodeErrorKind::UnexpectedToken {
-                        found: alloc::format!("{t:?}"),
-                    }));
-                }
-            }
+        } else {
+            // Non-identifier bare value (number, hex/bin string, nested brace, …)
+            let (rest, val) = parse_value_depth(current, depth)?;
+            items.push(BraceItem::Bare(val));
+            current = rest;
         }
 
-        let has_named = items.iter().any(|i| matches!(i, BraceItem::Named(..)));
-        let has_bare = items.iter().any(|i| matches!(i, BraceItem::Bare(..)));
+        let (after_sep, _) = multispace0(current)?;
+        current = after_sep;
 
-        if has_named && has_bare {
-            return Err(DecodeError::from(AvnDecodeErrorKind::UnexpectedToken {
-                found: "mixed named and bare items inside braces".into(),
-            }));
+        if current.starts_with('}') {
+            current = &current[1..];
+            break;
+        } else if current.starts_with(',') {
+            current = &current[1..];
+        } else if current
+            .chars()
+            .next()
+            .map_or(false, |c| c.is_ascii_digit() || c == '-')
+            && items
+                .iter()
+                .all(|i| matches!(i, BraceItem::Bare(AvnValue::Integer(_))))
+        {
+            // OID-style space-separated arcs — no comma needed, continue
+        } else {
+            return Err(nom::Err::Error(nom::error::Error::new(
+                current,
+                nom::error::ErrorKind::Char,
+            )));
         }
+    }
 
-        if has_named {
-            Ok(AvnValue::Sequence(
+    let has_named = items.iter().any(|i| matches!(i, BraceItem::Named(..)));
+    let has_bare = items.iter().any(|i| matches!(i, BraceItem::Bare(..)));
+
+    if has_named && has_bare {
+        return Err(nom::Err::Error(nom::error::Error::new(
+            current,
+            nom::error::ErrorKind::Verify,
+        )));
+    }
+
+    if has_named {
+        Ok((
+            current,
+            AvnValue::Sequence(
                 items
                     .into_iter()
                     .map(|item| {
@@ -405,9 +258,12 @@ impl Parser {
                         }
                     })
                     .collect(),
-            ))
-        } else {
-            Ok(AvnValue::SequenceOf(
+            ),
+        ))
+    } else {
+        Ok((
+            current,
+            AvnValue::SequenceOf(
                 items
                     .into_iter()
                     .map(|item| {
@@ -418,8 +274,8 @@ impl Parser {
                         }
                     })
                     .collect(),
-            ))
-        }
+            ),
+        ))
     }
 }
 
@@ -500,9 +356,26 @@ pub struct Decoder {
 impl Decoder {
     /// Create a new decoder by parsing the entire input string.
     pub fn new(input: &str) -> Result<Self, DecodeError> {
-        let tokens = lex(input)?;
-        let mut parser = Parser::new(tokens);
-        let root = parser.parse_value(0)?;
+        let (rest, root) = parse_value(input).map_err(|e| match e {
+            nom::Err::Incomplete(_) => DecodeError::from(AvnDecodeErrorKind::AvnEndOfInput {}),
+            nom::Err::Error(e) | nom::Err::Failure(e) => {
+                if e.code == nom::error::ErrorKind::TooLarge {
+                    DecodeError::from_kind(
+                        crate::error::DecodeErrorKind::ExceedsMaxParseDepth,
+                        crate::Codec::Avn,
+                    )
+                } else {
+                    DecodeError::from(AvnDecodeErrorKind::UnexpectedToken {
+                        found: e.input.chars().take(20).collect(),
+                    })
+                }
+            }
+        })?;
+        if !rest.trim().is_empty() {
+            return Err(DecodeError::from(AvnDecodeErrorKind::UnexpectedToken {
+                found: rest.into(),
+            }));
+        }
         Ok(Self {
             stack: alloc::vec![Some(root)],
         })
