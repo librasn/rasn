@@ -359,6 +359,39 @@ mod tests {
     }
 
     #[test]
+    fn null_optional_present_vs_absent() {
+        // A NULL OPTIONAL field that is present (`"flag": null`) must decode as Some(()),
+        // not be confused with the field being absent from the JSON object.
+        #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+        #[rasn(automatic_tags)]
+        #[rasn(crate_root = "crate")]
+        struct WithNullOpt {
+            name: Utf8String,
+            flag: Option<()>,
+        }
+
+        // Present-null: field appears in JSON as null → Some(())
+        round_trip_jer!(
+            WithNullOpt,
+            WithNullOpt {
+                name: "test".into(),
+                flag: Some(())
+            },
+            r#"{"flag":null,"name":"test"}"#
+        );
+
+        // Absent: field omitted from JSON → None
+        round_trip_jer!(
+            WithNullOpt,
+            WithNullOpt {
+                name: "test".into(),
+                flag: None
+            },
+            r#"{"name":"test"}"#
+        );
+    }
+
+    #[test]
     fn with_identifier_annotation() {
         round_trip_jer!(
             Renamed,
