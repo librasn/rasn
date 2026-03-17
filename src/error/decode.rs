@@ -28,6 +28,7 @@ pub enum CodecDecodeError {
     Oer(OerDecodeErrorKind),
     Coer(CoerDecodeErrorKind),
     Xer(XerDecodeErrorKind),
+    Avn(AvnDecodeErrorKind),
 }
 
 impl core::fmt::Display for CodecDecodeError {
@@ -42,6 +43,7 @@ impl core::fmt::Display for CodecDecodeError {
             CodecDecodeError::Oer(kind) => write!(f, "OER decoding error: {kind}"),
             CodecDecodeError::Coer(kind) => write!(f, "COER decoding error: {kind}"),
             CodecDecodeError::Xer(kind) => write!(f, "XER decoding error: {kind}"),
+            CodecDecodeError::Avn(kind) => write!(f, "AVN decoding error: {kind}"),
         }
     }
 }
@@ -66,6 +68,7 @@ impl_from!(Jer, JerDecodeErrorKind);
 impl_from!(Oer, OerDecodeErrorKind);
 impl_from!(Coer, CoerDecodeErrorKind);
 impl_from!(Xer, XerDecodeErrorKind);
+impl_from!(Avn, AvnDecodeErrorKind);
 
 impl From<CodecDecodeError> for DecodeError {
     fn from(error: CodecDecodeError) -> Self {
@@ -436,6 +439,7 @@ impl DecodeError {
             CodecDecodeError::Oer(_) => crate::Codec::Oer,
             CodecDecodeError::Coer(_) => crate::Codec::Coer,
             CodecDecodeError::Xer(_) => crate::Codec::Xer,
+            CodecDecodeError::Avn(_) => crate::Codec::Avn,
         };
         Self {
             kind: Box::new(DecodeErrorKind::CodecSpecific { inner }),
@@ -1025,6 +1029,65 @@ impl OerDecodeErrorKind {
     #[must_use]
     pub fn invalid_preamble(msg: alloc::string::String) -> DecodeError {
         CodecDecodeError::Oer(Self::InvalidPreamble { msg }).into()
+    }
+}
+
+/// An error that occurred when decoding AVN.
+#[derive(Snafu, Debug)]
+#[snafu(visibility(pub))]
+#[non_exhaustive]
+pub enum AvnDecodeErrorKind {
+    /// Unexpected end of AVN input.
+    #[snafu(display("Unexpected end of AVN input"))]
+    AvnEndOfInput {},
+    /// Mismatched AVN value type.
+    #[snafu(display("AVN type mismatch: expected {needed}, found {found}"))]
+    AvnTypeMismatch {
+        /// Expected type name.
+        needed: &'static str,
+        /// Found value description.
+        found: alloc::string::String,
+    },
+    /// Invalid hex string in AVN.
+    #[snafu(display("Invalid hex string in AVN"))]
+    InvalidHexString,
+    /// Invalid binary string in AVN.
+    #[snafu(display("Invalid binary string in AVN"))]
+    InvalidBinString,
+    /// Invalid OID value.
+    #[snafu(display("Invalid OID in AVN: {value}"))]
+    InvalidOid {
+        /// The invalid value string.
+        value: alloc::string::String,
+    },
+    /// Invalid enumerated discriminant.
+    #[snafu(display("Invalid enumerated discriminant in AVN: {discriminant}"))]
+    AvnInvalidEnumDiscriminant {
+        /// The invalid discriminant string.
+        discriminant: alloc::string::String,
+    },
+    /// Unexpected token found in AVN input.
+    #[snafu(display("Unexpected token in AVN: {found}"))]
+    UnexpectedToken {
+        /// Description of the unexpected token.
+        found: alloc::string::String,
+    },
+    /// Unterminated string literal.
+    #[snafu(display("Unterminated string literal in AVN"))]
+    UnterminatedString,
+    /// Integer parse error.
+    #[snafu(display("Integer parse error in AVN: {msg}"))]
+    IntegerParseError {
+        /// The error message.
+        msg: alloc::string::String,
+    },
+}
+
+impl AvnDecodeErrorKind {
+    /// Helper to create an end-of-input [`CodecDecodeError`].
+    #[must_use]
+    pub fn eoi() -> CodecDecodeError {
+        CodecDecodeError::Avn(AvnDecodeErrorKind::AvnEndOfInput {})
     }
 }
 

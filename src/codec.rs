@@ -23,6 +23,8 @@ pub enum Codec {
     Coer,
     /// X.693 — XML Encoding Rules
     Xer,
+    /// ASN.1 Value Notation (X.680 text format)
+    Avn,
 }
 
 impl core::fmt::Display for Codec {
@@ -37,6 +39,7 @@ impl core::fmt::Display for Codec {
             Self::Oer => write!(f, "OER"),
             Self::Coer => write!(f, "COER"),
             Self::Xer => write!(f, "XER"),
+            Self::Avn => write!(f, "AVN"),
         }
     }
 }
@@ -61,6 +64,7 @@ impl Codec {
             Self::Oer => crate::oer::encode(value),
             Self::Coer => crate::coer::encode(value),
             Self::Xer => crate::xer::encode(value),
+            Self::Avn => crate::avn::encode(value).map(alloc::string::String::into_bytes),
         }
     }
 
@@ -93,6 +97,17 @@ impl Codec {
                 },
                 |s| crate::jer::decode(&s),
             ),
+            Self::Avn => alloc::string::String::from_utf8(input.to_vec()).map_or_else(
+                |e| {
+                    Err(crate::error::DecodeError::from_kind(
+                        crate::error::DecodeErrorKind::Custom {
+                            msg: alloc::format!("Failed to decode AVN from UTF8 bytes: {e:?}"),
+                        },
+                        *self,
+                    ))
+                },
+                |s| crate::avn::decode(&s),
+            ),
         }
     }
     /// Decodes `input` to `D` based on the encoded defined by `Codec`, returning the decoded value and the remaining input.
@@ -120,6 +135,12 @@ impl Codec {
                 },
                 *self,
             )),
+            Self::Avn => Err(crate::error::DecodeError::from_kind(
+                crate::error::DecodeErrorKind::Custom {
+                    msg: "AVN does not support decoding with remainder. ".into(),
+                },
+                *self,
+            )),
         }
     }
 
@@ -135,6 +156,7 @@ impl Codec {
     ) -> Result<alloc::string::String, crate::error::EncodeError> {
         match self {
             Self::Jer => crate::jer::encode(value),
+            Self::Avn => crate::avn::encode(value),
             codec => Err(crate::error::EncodeError::from_kind(
                 crate::error::EncodeErrorKind::Custom {
                     msg: alloc::format!(
@@ -155,10 +177,11 @@ impl Codec {
     pub fn decode_from_str<D: Decode>(&self, input: &str) -> Result<D, crate::error::DecodeError> {
         match self {
             Self::Jer => crate::jer::decode(input),
+            Self::Avn => crate::avn::decode(input),
             codec => Err(crate::error::DecodeError::from_kind(
                 crate::error::DecodeErrorKind::Custom {
                     msg: alloc::format!(
-                        "{codec} is a text-based encoding. Call `Codec::decode_from_binary` instead."
+                        "{codec} is a binary-based encoding. Call `Codec::decode_from_binary` instead."
                     ),
                 },
                 *codec,
