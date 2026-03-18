@@ -243,29 +243,10 @@ mod tests {
     }
 
     // Named-number INTEGER round-trip test
-    #[derive(Debug, Clone, PartialEq, Decode, Encode)]
-    #[rasn(delegate)]
-    #[rasn(crate_root = "crate")]
+    #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
+    #[rasn(delegate, crate_root = "crate")]
+    #[rasn(value("0..=255"), named_values("pukAppl1" = 1, "pukAppl2" = 2, "secondPUKAppl1" = 129, "secondPUKAppl2" = 130))]
     struct PUKKeyRef(pub u8);
-
-    impl crate::AsnType for PUKKeyRef {
-        const TAG: Tag = Tag::INTEGER;
-        const CONSTRAINTS: Constraints =
-            Constraints::new(&[crate::types::constraints::Constraint::Value(
-                crate::types::constraints::Extensible::new(crate::types::constraints::Value::new(
-                    crate::types::constraints::Bounded::Range {
-                        start: Some(0),
-                        end: Some(255),
-                    },
-                )),
-            )])
-            .with_named_values(&[
-                (1, "pukAppl1"),
-                (2, "pukAppl2"),
-                (129, "secondPUKAppl1"),
-                (130, "secondPUKAppl2"),
-            ]);
-    }
 
     #[test]
     fn named_integer_round_trip() {
