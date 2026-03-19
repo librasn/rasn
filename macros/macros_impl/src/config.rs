@@ -41,9 +41,10 @@ impl Constraints {
             return None;
         }
         // Emit: named_values("pukAppl1" = 1, "pukAppl2" = 2, ...)
-        let pairs = self.named_values.iter().map(|(val, name)| {
-            quote!(#name = #val)
-        });
+        let pairs = self
+            .named_values
+            .iter()
+            .map(|(val, name)| quote!(#name = #val));
         Some(quote!(named_values(#(#pairs),*)))
     }
 
@@ -72,9 +73,10 @@ impl Constraints {
         if self.named_values.is_empty() {
             return None;
         }
-        let pairs = self.named_values.iter().map(|(val, name)| {
-            quote!((#val as i128, #name))
-        });
+        let pairs = self
+            .named_values
+            .iter()
+            .map(|(val, name)| quote!((#val as i128, #name)));
         Some(quote!(.with_named_values(&[#(#pairs),*])))
     }
 
@@ -1620,9 +1622,7 @@ fn skip_comma(content: &syn::parse::ParseBuffer) {
 
 /// Parse `named_values("name1" = integer1, "name2" = integer2, ...)` from a
 /// `#[rasn(named_values(...))]` attribute and return the list of `(i128, String)` pairs.
-fn parse_named_values_meta(
-    item: &syn::meta::ParseNestedMeta,
-) -> syn::Result<Vec<(i128, String)>> {
+fn parse_named_values_meta(item: &syn::meta::ParseNestedMeta) -> syn::Result<Vec<(i128, String)>> {
     let mut pairs = Vec::new();
     let content;
     parenthesized!(content in item.input);
