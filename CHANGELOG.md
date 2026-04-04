@@ -32,6 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.11](https://github.com/librasn/rasn/compare/rasn-v0.28.10...rasn-v0.28.11) - 2026-03-17
+
+### Added
+
+- *(avn)* implement ASN.1 Value Notation codec ([#544](https://github.com/librasn/rasn/pull/544))
+
+### Fixed
+
+- *(jer)* distinguish absent OPTIONAL fields from present-NULL values ([#545](https://github.com/librasn/rasn/pull/545))
+
 ## [0.28.10](https://github.com/librasn/rasn/compare/rasn-v0.28.9...rasn-v0.28.10) - 2026-03-12
 
 ### Fixed
