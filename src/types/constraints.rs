@@ -571,14 +571,25 @@ pub enum Bounded<T> {
 }
 
 impl<T> Bounded<T> {
-    /// Calculates the the amount of bytes that are required to represent integer `value`.
+    /// Calculates the the amount of bytes that are required to represent unsigned integer `value`.
     /// Particularly useful for OER codec
-    const fn octet_size_by_range(value: i128) -> Option<u8> {
-        match value.unsigned_abs() {
+    const fn unsigned_octet_size_by_range(value: u128) -> Option<u8> {
+        match value {
             x if x <= u8::MAX as u128 => Some(1),
             x if x <= u16::MAX as u128 => Some(2),
             x if x <= u32::MAX as u128 => Some(4),
             x if x <= u64::MAX as u128 => Some(8),
+            _ => None,
+        }
+    }
+    /// Calculates the the amount of bytes that are required to represent signed integer `value`.
+    /// Particularly useful for OER codec
+    const fn signed_octet_size_by_range(value: i128) -> Option<u8> {
+        match value {
+            x if x >= i8::MIN as i128 && x <= i8::MAX as i128 => Some(1),
+            x if x >= i16::MIN as i128 && x <= i16::MAX as i128 => Some(2),
+            x if x >= i32::MIN as i128 && x <= i32::MAX as i128 => Some(4),
+            x if x >= i64::MIN as i128 && x <= i64::MAX as i128 => Some(8),
             _ => None,
         }
     }
@@ -821,16 +832,39 @@ impl Bounded<i128> {
     #[must_use]
     pub const fn range_in_bytes(&self) -> (bool, Option<u8>) {
         match self {
-            Self::Single(value) => (*value < 0, Self::octet_size_by_range(*value)),
+            Self::Single(value) => {
+                let is_signed = *value < 0;
+                let octet_size = if is_signed {
+                    Self::signed_octet_size_by_range(*value)
+                } else {
+                    Self::unsigned_octet_size_by_range(*value as u128)
+                };
+                (is_signed, octet_size)
+            }
             Self::Range {
                 start: Some(start),
                 end: Some(end),
             } => {
                 let is_signed = *start < 0;
-                let end_abs = end.unsigned_abs();
-                let start_abs = start.unsigned_abs();
-                let bound_max = max_unsigned(start_abs, end_abs);
-                let octets = Self::octet_size_by_range(bound_max as i128);
+                let (octets_start, octets_end) = if is_signed {
+                    (
+                        Self::signed_octet_size_by_range(*start),
+                        Self::signed_octet_size_by_range(*end),
+                    )
+                } else {
+                    (
+                        Self::unsigned_octet_size_by_range(*start as u128),
+                        Self::unsigned_octet_size_by_range(*end as u128),
+                    )
+                };
+
+                let octets = match (octets_start, octets_end) {
+                    (Some(start), Some(end)) => {
+                        Some(max_unsigned(start as u128, end as u128) as u8)
+                    }
+                    (_, None) | (None, _) => None,
+                };
+
                 (is_signed, octets)
             }
             Self::Range {
@@ -1292,5 +1326,185 @@ mod tests {
         );
 
         assert_eq!(u_range.intersect(u_single), Some(u_single));
+    }
+    #[test]
+    fn range_in_bytes_none() {
+        let bounded = Bounded::<i128>::None;
+        assert_eq!(bounded.range_in_bytes(), (true, None));
+    }
+    #[test]
+    fn range_in_bytes_range() {
+        let bounded = Bounded::<i128>::Range {
+            start: Some(0i128),
+            end: Some(0i128),
+        };
+        assert_eq!(bounded.range_in_bytes(), (false, Some(1u8)));
+
+        let bounded = Bounded::<i128>::Range {
+            start: Some(-1i128),
+            end: Some(-1i128),
+        };
+        assert_eq!(bounded.range_in_bytes(), (true, Some(1u8)));
+
+        let boundary_test_values = [
+            (
+                i8::MIN as i128,
+                i8::MAX as i128,
+                (true, Some(1u8)),
+                (true, Some(2u8)),
+                (true, Some(2u8)),
+                "i8 range",
+            ),
+            (
+                i16::MIN as i128,
+                i16::MAX as i128,
+                (true, Some(2u8)),
+                (true, Some(4u8)),
+                (true, Some(4u8)),
+                "i16 range",
+            ),
+            (
+                i32::MIN as i128,
+                i32::MAX as i128,
+                (true, Some(4u8)),
+                (true, Some(8u8)),
+                (true, Some(8u8)),
+                "i32 range",
+            ),
+            (
+                i64::MIN as i128,
+                i64::MAX as i128,
+                (true, Some(8u8)),
+                (true, None),
+                (true, None),
+                "i64 range",
+            ),
+            (
+                u8::MIN as i128,
+                u8::MAX as i128,
+                (false, Some(1u8)),
+                (true, Some(2u8)),
+                (false, Some(2u8)),
+                "u8 range",
+            ),
+            (
+                u16::MIN as i128,
+                u16::MAX as i128,
+                (false, Some(2u8)),
+                (true, Some(4u8)),
+                (false, Some(4u8)),
+                "u16 range",
+            ),
+            (
+                u32::MIN as i128,
+                u32::MAX as i128,
+                (false, Some(4u8)),
+                (true, Some(8u8)),
+                (false, Some(8u8)),
+                "u32 range",
+            ),
+            (
+                u64::MIN as i128,
+                u64::MAX as i128,
+                (false, Some(8u8)),
+                (true, None),
+                (false, None),
+                "u64 range",
+            ),
+        ];
+
+        for (lower, upper, expected, expected_one_down, expected_one_up, name) in
+            boundary_test_values.into_iter()
+        {
+            // test regular case
+            let bounded = Bounded::<i128>::Range {
+                start: Some(lower),
+                end: Some(upper),
+            };
+            assert_eq!(bounded.range_in_bytes(), expected, "testing {}", name);
+
+            // test with lower bound decreased by 1 ("one down")
+            let bounded = Bounded::<i128>::Range {
+                start: Some(lower - 1),
+                end: Some(upper),
+            };
+            assert_eq!(
+                bounded.range_in_bytes(),
+                expected_one_down,
+                "testing {}, one down",
+                name
+            );
+
+            // test with upper bound increased by 1 ("one up")
+            let bounded = Bounded::<i128>::Range {
+                start: Some(lower),
+                end: Some(upper + 1),
+            };
+            assert_eq!(
+                bounded.range_in_bytes(),
+                expected_one_up,
+                "testing {}, one up",
+                name
+            );
+        }
+    }
+    #[test]
+    fn range_in_bytes_range_with_none() {
+        let test_values = [
+            (None, None, true),
+            (Some(-1i128), None, true),
+            (Some(0i128), None, false),
+            (Some(1i128), None, false),
+            (None, Some(-1i128), true),
+            (None, Some(0i128), true),
+            (None, Some(1i128), true),
+        ];
+
+        for (lower, upper, expected_signedness) in test_values.into_iter() {
+            let bounded = Bounded::<i128>::Range {
+                start: lower,
+                end: upper,
+            };
+            assert_eq!(
+                bounded.range_in_bytes(),
+                (expected_signedness, None),
+                "testing lower={:?} upper={:?}",
+                lower,
+                upper
+            );
+        }
+    }
+    #[test]
+    fn range_in_bytes_single() {
+        let test_values = [
+            (-1i128, (true, Some(1u8))),
+            (0i128, (false, Some(1u8))),
+            (1i128, (false, Some(1u8))),
+            (i8::MIN as i128, (true, Some(1u8))),
+            (i8::MAX as i128, (false, Some(1u8))),
+            (u8::MAX as i128, (false, Some(1u8))),
+            ((i8::MIN as i128) - 1, (true, Some(2u8))),
+            ((u8::MAX as i128) + 1, (false, Some(2u8))),
+            (i16::MIN as i128, (true, Some(2u8))),
+            (i16::MAX as i128, (false, Some(2u8))),
+            (u16::MAX as i128, (false, Some(2u8))),
+            ((i16::MIN as i128) - 1, (true, Some(4u8))),
+            ((u16::MAX as i128) + 1, (false, Some(4u8))),
+            (i32::MIN as i128, (true, Some(4u8))),
+            (i32::MAX as i128, (false, Some(4u8))),
+            (u32::MAX as i128, (false, Some(4u8))),
+            ((i32::MIN as i128) - 1, (true, Some(8u8))),
+            ((u32::MAX as i128) + 1, (false, Some(8u8))),
+            (i64::MIN as i128, (true, Some(8u8))),
+            (i64::MAX as i128, (false, Some(8u8))),
+            (u64::MAX as i128, (false, Some(8u8))),
+            ((i64::MIN as i128) - 1, (true, None)),
+            ((u64::MAX as i128) + 1, (false, None)),
+        ];
+
+        for (value, expected) in test_values.into_iter() {
+            let bounded = Bounded::<i128>::Single(value);
+            assert_eq!(bounded.range_in_bytes(), expected, "testing {}", value);
+        }
     }
 }
