@@ -231,6 +231,7 @@ mod tests {
             (i128::from(u64::MAX) + 1).try_into().unwrap(),
             &[0x09, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
         );
+        round_trip!(coer, E, E::new(0), &[0x01, 0x00]);
         round_trip!(coer, F, F::new(2), &[0x00, 0x02]);
         // Error expected, outside of range constraints
         encode_error!(coer, A, A::new(-1));
@@ -325,6 +326,31 @@ mod tests {
     fn test_integer_single_constraint() {
         const CONSTRAINTS: Constraints = constraints!(value_constraint!(5));
         round_trip_with_constraints!(coer, Integer, CONSTRAINTS, 5.into(), &[0x05]);
+    }
+    #[test]
+    fn invalid_integer() {
+        type A = ConstrainedInteger<0, { (u64::MAX as i128) + 1 }>;
+        type B = ConstrainedInteger<{ (i64::MIN as i128) - 1 }, { (i64::MAX as i128) + 1 }>;
+
+        // Unconstrained (signed) integer, leading 0x00
+        let data: [u8; _] = [0x02, 0x00, 0x00];
+        decode_error!(coer, Integer, &data);
+
+        // Unconstrained (signed) integer, leading 0xff
+        let data: [u8; _] = [0x02, 0xff, 0xff];
+        decode_error!(coer, Integer, &data);
+
+        // Integer with unsigned constraints, leading 0x00
+        let data: [u8; _] = [0x02, 0x00, 0xff];
+        decode_error!(coer, A, &data);
+
+        // Integer with signed constraints, leading 0x00
+        let data: [u8; _] = [0x02, 0x00, 0x7f];
+        decode_error!(coer, B, &data);
+
+        // Integer with signed constraints, leading 0xff
+        let data: [u8; _] = [0x02, 0xff, 0xff];
+        decode_error!(coer, B, &data);
     }
     #[test]
     fn test_enumerated() {

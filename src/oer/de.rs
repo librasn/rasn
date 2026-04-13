@@ -225,12 +225,21 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let codec = self.codec();
         let coer = self.options.encoding_rules.is_coer();
         let data = self.extract_data_by_length(final_length)?;
-        // // Constrained data can correctly include leading zeros, unconstrained not
-        if coer && !signed && data.first() == Some(&0) && length.is_none() {
-            return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
-                msg: "Leading zeros are not allowed on unsigned Integer value in COER.".to_string(),
+        // Constrained data can correctly include leading zeros/sign bits, unconstrained not
+        if coer && length.is_none() && data.len() >= 2 {
+            if !signed && data.first() == Some(&0) {
+                return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                    msg: "Leading zeros are not allowed on unsigned Integer value in COER."
+                        .to_string(),
+                }
+                .into());
+            } else if signed && data[0] == (((data[1] & 0x80) as i8 >> 7) as u8) {
+                return Err(CoerDecodeErrorKind::NotValidCanonicalEncoding {
+                    msg: "Leading sign bits are not allowed on signed Integer value in COER."
+                        .to_string(),
+                }
+                .into());
             }
-            .into());
         }
         if signed {
             Ok(I::try_from_signed_bytes(data, codec)?)
