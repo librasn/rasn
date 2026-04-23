@@ -388,6 +388,7 @@ pub struct TbsCertList {
     /// sooner than `next_update`, but it will not be issued later.
     pub next_update: Option<Time>,
     /// The list of revoked certificates.
+    #[rasn(default)]
     pub revoked_certificates: SequenceOf<RevokedCertificate>,
     /// Extensions to the list.
     #[rasn(tag(explicit(0)))]
