@@ -936,9 +936,9 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         oid: &[u32],
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut encoder = crate::der::enc::Encoder::new(crate::der::enc::EncoderOptions::der());
-        let der = encoder.object_identifier_as_bytes(oid)?;
-        self.encode_octet_string(tag, Constraints::default(), &der, Identifier::EMPTY)
+        let mut buf = Vec::new();
+        crate::ber::enc::object_identifier_as_bytes(oid, &mut buf)?;
+        self.encode_octet_string(tag, Constraints::default(), &buf, Identifier::EMPTY)
     }
 
     fn encode_octet_string(

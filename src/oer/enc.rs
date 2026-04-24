@@ -754,8 +754,8 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         value: &[u32],
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut enc = crate::ber::enc::Encoder::new(crate::ber::enc::EncoderOptions::ber());
-        let mut octets = enc.object_identifier_as_bytes(value)?;
+        let mut octets = Vec::new();
+        crate::ber::enc::object_identifier_as_bytes(value, &mut octets)?;
         Self::encode_length(self.output, octets.len())?;
         self.output.append(&mut octets);
         self.extend(tag);

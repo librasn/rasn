@@ -21,6 +21,48 @@ pub use config::EncoderOptions;
 const START_OF_CONTENTS: u8 = 0x80;
 const END_OF_CONTENTS: &[u8] = &[0, 0];
 
+/// Encodes an object identifier into `buffer` in BER format.
+/// Reusable by other codecs without constructing an [`Encoder`].
+pub fn object_identifier_as_bytes(oid: &[u32], buffer: &mut Vec<u8>) -> Result<(), EncodeError> {
+    if oid.len() < 2 {
+        return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
+    }
+
+    let first = oid[0];
+    let second = oid[1];
+
+    if first > MAX_OID_FIRST_OCTET {
+        return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
+    }
+    encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, buffer);
+    for component in oid.iter().skip(2) {
+        encode_as_base128(*component, buffer);
+    }
+    Ok(())
+}
+
+pub(super) fn encode_as_base128(number: u32, buffer: &mut Vec<u8>) {
+    const WIDTH: u8 = 7;
+    const SEVEN_BITS: u8 = 0x7F;
+    const EIGHTH_BIT: u8 = 0x80;
+
+    if number < EIGHTH_BIT as u32 {
+        buffer.push(number as u8);
+    } else {
+        let mut n: u8;
+        let mut bits_left = 35;
+        let mut cont = false;
+        while bits_left > 0 {
+            bits_left -= WIDTH;
+            n = ((number >> bits_left) as u8) & SEVEN_BITS;
+            if n > 0 || cont {
+                buffer.push(if bits_left > 0 { EIGHTH_BIT } else { 0 } | (n & SEVEN_BITS));
+                cont = true;
+            }
+        }
+    }
+}
+
 /// Encodes Rust structures into Basic Encoding Rules data.
 pub struct Encoder {
     output: Vec<u8>,
@@ -102,28 +144,6 @@ impl Encoder {
         }
     }
 
-    pub(super) fn encode_as_base128(&self, number: u32, buffer: &mut Vec<u8>) {
-        const WIDTH: u8 = 7;
-        const SEVEN_BITS: u8 = 0x7F;
-        const EIGHTH_BIT: u8 = 0x80;
-
-        if number < EIGHTH_BIT as u32 {
-            buffer.push(number as u8);
-        } else {
-            let mut n: u8;
-            let mut bits_left = 35;
-            let mut cont = false;
-            while bits_left > 0 {
-                bits_left -= WIDTH;
-                n = ((number >> bits_left) as u8) & SEVEN_BITS;
-                if n > 0 || cont {
-                    buffer.push(if bits_left > 0 { EIGHTH_BIT } else { 0 } | (n & SEVEN_BITS));
-                    cont = true;
-                }
-            }
-        }
-    }
-
     /// Encodes the identifier of a type in BER/CER/DER. An identifier consists
     /// of a "class", encoding bit, and tag number. If our tag number is
     /// greater than 30 we to encode the number as stream of a 7 bit integers
@@ -159,7 +179,7 @@ impl Encoder {
 
         if tag_number >= FIVE_BITS {
             let mut buffer = alloc::vec![tag_byte | FIVE_BITS as u8];
-            self.encode_as_base128(tag_number, &mut buffer);
+            encode_as_base128(tag_number, &mut buffer);
             ByteOrBytes::Many(buffer)
         } else {
             tag_byte |= tag_number as u8;
@@ -256,26 +276,7 @@ impl Encoder {
                 .insert(tag, core::mem::take(&mut self.output));
         }
     }
-    /// Converts an object identifier into a byte vector in BER format.
-    /// Reusable function by other codecs.
-    pub fn object_identifier_as_bytes(&mut self, oid: &[u32]) -> Result<Vec<u8>, EncodeError> {
-        if oid.len() < 2 {
-            return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
-        }
-        let mut bytes = Vec::new();
 
-        let first = oid[0];
-        let second = oid[1];
-
-        if first > MAX_OID_FIRST_OCTET {
-            return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
-        }
-        self.encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, &mut bytes);
-        for component in oid.iter().skip(2) {
-            self.encode_as_base128(*component, &mut bytes);
-        }
-        Ok(bytes)
-    }
     #[must_use]
     /// Canonical byte presentation for CER/DER as defined in X.690 section 11.7.
     /// Also used for BER on this crate.
@@ -450,8 +451,9 @@ impl crate::Encoder<'_> for Encoder {
         oid: &[u32],
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let bytes = self.object_identifier_as_bytes(oid)?;
-        self.encode_primitive(tag, &bytes);
+        let mut buffer = Vec::new();
+        object_identifier_as_bytes(oid, &mut buffer)?;
+        self.encode_primitive(tag, &buffer);
         Ok(())
     }
 
@@ -853,9 +855,8 @@ mod tests {
     #[test]
     fn base128_test() {
         fn encode(n: u32) -> Vec<u8> {
-            let enc = self::Encoder::new(EncoderOptions::ber());
             let mut buffer: Vec<u8> = vec![];
-            enc.encode_as_base128(n, &mut buffer);
+            super::encode_as_base128(n, &mut buffer);
             buffer
         }
 
