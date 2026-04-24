@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.13](https://github.com/librasn/rasn/compare/rasn-pkix-v0.28.12...rasn-pkix-v0.28.13) - 2026-04-24
+
+### Fixed
+
+- *(pkix)* omit revoked_certificates in empty CRLs
+
 ## [0.28.8](https://github.com/librasn/rasn/compare/rasn-pkix-v0.28.7...rasn-pkix-v0.28.8) - 2026-02-20
 
 ### Other

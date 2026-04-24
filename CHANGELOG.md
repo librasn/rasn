@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.13](https://github.com/librasn/rasn/compare/rasn-v0.28.12...rasn-v0.28.13) - 2026-04-24
+
+### Other
+
+- update Cargo.toml dependencies
+
 ## [0.28.12](https://github.com/librasn/rasn/compare/rasn-v0.28.11...rasn-v0.28.12) - 2026-04-15
 
 ### Fixed
