@@ -514,7 +514,7 @@ impl crate::Decoder for Decoder {
             Some(XmlEvent::Characters(value)) => {
                 if let Ok(int) = value.parse::<i128>() {
                     int.try_into()
-                        .map_err(|_| DecodeError::integer_overflow(I::WIDTH, crate::Codec::Jer))
+                        .map_err(|_| DecodeError::integer_overflow(I::WIDTH, crate::Codec::Xer))
                 } else {
                     Err(DecodeError::from(XerDecodeErrorKind::XmlTypeMismatch {
                         needed: "integer value",
