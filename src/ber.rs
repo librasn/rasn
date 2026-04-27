@@ -40,6 +40,21 @@ pub fn encode<T: crate::Encode>(
     Ok(enc.output())
 }
 
+/// Encodes `value` to BER into an existing `buffer`, reusing its allocation.
+/// The buffer is cleared before encoding.
+/// # Errors
+/// Returns error specific to BER encoder if encoding is not possible.
+pub fn encode_buf<T: crate::Encode>(
+    value: &T,
+    buffer: &mut alloc::vec::Vec<u8>,
+) -> Result<(), crate::error::EncodeError> {
+    let mut enc =
+        enc::Encoder::new_with_buffer(enc::EncoderOptions::ber(), core::mem::take(buffer));
+    value.encode(&mut enc)?;
+    *buffer = enc.output();
+    Ok(())
+}
+
 /// Creates a new BER encoder that can be used to encode any value.
 /// # Errors
 /// Returns error specific to BER encoder if encoding is not possible.
