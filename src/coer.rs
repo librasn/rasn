@@ -1499,6 +1499,7 @@ mod tests {
             ]
         );
     }
+
     #[test]
     fn test_decode_with_remainder() {
         let bytes = vec![0x04, 0x01, 0x02, 0x03, 0x04, 0x05];

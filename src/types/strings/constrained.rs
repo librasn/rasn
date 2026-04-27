@@ -42,12 +42,14 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         + AsPrimitive<u16>
         + AsPrimitive<u32>;
     const CHARACTER_SET: &'static [u32];
+    #[cfg(feature = "codec_per")]
     /// Bits needed to represent a character in the character set so that every character can be represented
     /// Encoding specific requirement
     const CHARACTER_SET_WIDTH: usize = crate::num::log2(Self::CHARACTER_SET.len() as i128) as usize;
     const CHARACTER_SET_NAME: CharacterSetName;
 
     fn push_char(&mut self, ch: u32);
+    #[cfg(feature = "codec_per")]
     fn chars(&self) -> impl Iterator<Item = u32> + '_;
     fn contains_char(ch: u32) -> bool {
         Self::CHARACTER_SET.contains(&ch)
@@ -121,8 +123,10 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         }
         Ok(vec)
     }
+    #[cfg(feature = "codec_per")]
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
+    #[cfg(feature = "codec_per")]
     fn char_range_to_bit_range(mut range: core::ops::Range<usize>) -> core::ops::Range<usize> {
         let width = Self::CHARACTER_SET_WIDTH;
         range.start *= width;
@@ -130,6 +134,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         range
     }
 
+    #[cfg(feature = "codec_per")]
     fn to_index_or_value_bitstring(&self) -> types::BitString {
         if should_be_indexed(Self::CHARACTER_SET_WIDTH as u32, Self::CHARACTER_SET) {
             self.to_index_string()
@@ -138,6 +143,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         }
     }
 
+    #[cfg(feature = "codec_per")]
     fn to_index_string(&self) -> types::BitString {
         let index_map = Self::index_map();
         let mut index_string = types::BitString::new();
@@ -150,6 +156,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         index_string
     }
 
+    #[cfg(feature = "codec_per")]
     fn to_octet_aligned_index_string(&self) -> Vec<u8> {
         let index_map = Self::index_map();
         let mut index_string = types::BitString::new();
@@ -168,6 +175,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         index_string.as_raw_slice().to_vec()
     }
 
+    #[cfg(feature = "codec_per")]
     fn octet_aligned_char_width(&self) -> usize {
         if Self::CHARACTER_SET_WIDTH.is_power_of_two() {
             Self::CHARACTER_SET_WIDTH
@@ -176,6 +184,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         }
     }
 
+    #[cfg(feature = "codec_per")]
     fn to_bit_string(&self) -> types::BitString {
         let mut octet_string = types::BitString::new();
         let width = Self::CHARACTER_SET_WIDTH;
@@ -187,6 +196,7 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         octet_string
     }
 
+    #[cfg(feature = "codec_per")]
     fn to_octet_aligned_string(&self) -> Vec<u8> {
         let mut octet_string = types::BitString::new();
         let width = self.octet_aligned_char_width();
@@ -198,14 +208,17 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         octet_string.as_raw_slice().to_vec()
     }
 
+    #[cfg(feature = "codec_per")]
     fn character_width() -> u32 {
         crate::num::log2(Self::CHARACTER_SET.len() as i128)
     }
 
+    #[cfg(feature = "codec_per")]
     fn len(&self) -> usize {
         self.chars().count()
     }
 
+    #[cfg(feature = "codec_per")]
     #[allow(clippy::box_collection)]
     fn build_index_map() -> Box<alloc::collections::BTreeMap<u32, u32>> {
         Box::new(
@@ -298,6 +311,7 @@ pub struct DynConstrainedCharacterString {
 }
 
 impl DynConstrainedCharacterString {
+    #[cfg(feature = "codec_per")]
     pub fn from_bits(
         data: impl Iterator<Item = u32>,
         character_set: &[u32],

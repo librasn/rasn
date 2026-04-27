@@ -10,6 +10,7 @@ use once_cell::race::OnceBox;
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ia5String(pub(super) Vec<u8>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
+#[cfg(feature = "codec_per")]
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl Ia5String {
@@ -49,6 +50,7 @@ impl super::StaticPermittedAlphabet for Ia5String {
     ];
     const CHARACTER_SET_NAME: constrained::CharacterSetName = constrained::CharacterSetName::IA5;
 
+    #[cfg(feature = "codec_per")]
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
         self.0.iter().map(|&byte| byte as u32)
     }
@@ -57,6 +59,7 @@ impl super::StaticPermittedAlphabet for Ia5String {
         self.0.push(ch as u8);
     }
 
+    #[cfg(feature = "codec_per")]
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         INDEX_MAP.get_or_init(Self::build_index_map)
     }

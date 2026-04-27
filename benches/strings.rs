@@ -1,7 +1,12 @@
 //! Benchmarking the decoding of constrained octet strings
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, black_box, criterion_main};
+#[cfg(feature = "codec_ber")]
+use rasn::ber;
+#[cfg(feature = "codec_oer")]
+use rasn::oer;
 use rasn::prelude::*;
-use rasn::{ber, oer, uper};
+#[cfg(feature = "codec_per")]
+use rasn::uper;
 
 #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
 #[rasn(automatic_tags)]
@@ -115,21 +120,37 @@ macro_rules! rasn_dec_fixed_octet_fn {
     };
 }
 
+#[cfg(feature = "codec_per")]
 rasn_dec_octet_fn!(uper_octet, uper);
+#[cfg(feature = "codec_oer")]
 rasn_dec_octet_fn!(oer_octet, oer);
+#[cfg(feature = "codec_ber")]
 rasn_dec_octet_fn!(ber_octet, ber);
 
+#[cfg(feature = "codec_per")]
 rasn_dec_fixed_octet_fn!(uper_fixed_octet, uper);
+#[cfg(feature = "codec_oer")]
 rasn_dec_fixed_octet_fn!(oer_fixed_octet, oer);
+#[cfg(feature = "codec_ber")]
 rasn_dec_fixed_octet_fn!(ber_fixed_octet, ber);
 
-criterion_group!(
-    benches,
-    uper_octet,
-    uper_fixed_octet,
-    oer_octet,
-    oer_fixed_octet,
-    ber_octet,
-    ber_fixed_octet
-);
+pub fn benches() {
+    let mut criterion: Criterion<_> = Criterion::default().configure_from_args();
+
+    #[cfg(feature = "codec_per")]
+    uper_octet(&mut criterion);
+    #[cfg(feature = "codec_per")]
+    uper_fixed_octet(&mut criterion);
+
+    #[cfg(feature = "codec_oer")]
+    oer_octet(&mut criterion);
+    #[cfg(feature = "codec_oer")]
+    oer_fixed_octet(&mut criterion);
+
+    #[cfg(feature = "codec_ber")]
+    ber_octet(&mut criterion);
+    #[cfg(feature = "codec_ber")]
+    ber_fixed_octet(&mut criterion);
+}
+
 criterion_main!(benches);

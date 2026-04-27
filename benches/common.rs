@@ -1,6 +1,9 @@
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 use chrono::{FixedOffset, TimeZone, Utc};
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 use rasn::prelude::*;
 
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 #[derive(AsnType, Decode, Encode)]
 pub struct Bench {
     a: bool,
@@ -31,9 +34,11 @@ pub struct Bench {
     z: isize,
 }
 
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 #[derive(AsnType, Decode, Encode)]
 pub struct EmptySequence {}
 
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 #[derive(AsnType, Clone, Copy, Decode, Debug, Encode, PartialEq)]
 #[rasn(enumerated)]
 pub enum BenchEnum {
@@ -41,12 +46,14 @@ pub enum BenchEnum {
     B,
 }
 
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 #[derive(AsnType, Decode, Encode)]
 #[rasn(choice)]
 pub enum BenchChoice {
     A,
 }
 
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 pub fn bench_default() -> Bench {
     Bench {
         a: true,

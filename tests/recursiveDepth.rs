@@ -6,7 +6,15 @@
 
 use crate::recursive_module::RecursiveChoice;
 use rasn::error::DecodeErrorKind;
-use rasn::{aper, ber, cer, coer, der, jer, oer, uper};
+
+#[cfg(feature = "codec_jer")]
+use rasn::jer;
+#[cfg(feature = "codec_per")]
+use rasn::{aper, uper};
+#[cfg(feature = "codec_ber")]
+use rasn::{ber, cer, der};
+#[cfg(feature = "codec_oer")]
+use rasn::{coer, oer};
 
 #[allow(
     non_camel_case_types,
@@ -72,6 +80,7 @@ fn nested_exceeds_max_parse_depth_level(mut kind: &DecodeErrorKind) -> Option<us
     }
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn recursive_depth_150_aper() {
     let bytes = &*include_bytes!("data/recursive_depth_150.aper");
@@ -81,6 +90,7 @@ fn recursive_depth_150_aper() {
     assert_eq!(level, 16);
 }
 
+#[cfg(feature = "codec_ber")]
 #[test]
 fn recursive_depth_150_ber() {
     let bytes = &*include_bytes!("data/recursive_depth_150.ber");
@@ -90,6 +100,7 @@ fn recursive_depth_150_ber() {
     assert_eq!(level, 16);
 }
 
+#[cfg(feature = "codec_ber")]
 #[test]
 fn recursive_depth_150_cer() {
     let bytes = &*include_bytes!("data/recursive_depth_150.cer");
@@ -99,6 +110,7 @@ fn recursive_depth_150_cer() {
     assert_eq!(level, 16);
 }
 
+#[cfg(feature = "codec_oer")]
 #[test]
 fn recursive_depth_150_coer() {
     let bytes = &*include_bytes!("data/recursive_depth_150.coer");
@@ -108,6 +120,7 @@ fn recursive_depth_150_coer() {
     assert_eq!(level, 16);
 }
 
+#[cfg(feature = "codec_ber")]
 #[test]
 fn recursive_depth_150_der() {
     let bytes = &*include_bytes!("data/recursive_depth_150.der");
@@ -117,6 +130,7 @@ fn recursive_depth_150_der() {
     assert_eq!(level, 16);
 }
 
+#[cfg(feature = "codec_jer")]
 #[test]
 fn recursive_depth_150_jer() {
     // serde_json has a limit of 128
@@ -128,6 +142,7 @@ fn recursive_depth_150_jer() {
     );
 }
 
+#[cfg(feature = "codec_oer")]
 #[test]
 fn recursive_depth_150_oer() {
     let bytes = &*include_bytes!("data/recursive_depth_150.oer");
@@ -137,6 +152,7 @@ fn recursive_depth_150_oer() {
     assert_eq!(level, 16);
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn recursive_depth_150_uper() {
     let bytes = &*include_bytes!("data/recursive_depth_150.uper");

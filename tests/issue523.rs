@@ -1,5 +1,7 @@
+#[cfg(feature = "codec_per")]
 use rasn::prelude::*;
 
+#[cfg(feature = "codec_per")]
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq)]
 #[rasn(automatic_tags)]
 struct Seq64 {
@@ -134,6 +136,7 @@ struct Seq64 {
     pub e63: Option<Integer>,
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn uper_issue523_normally_small_length_64_extensions() {
     let original = Seq64 {
