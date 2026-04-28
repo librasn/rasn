@@ -781,7 +781,7 @@ impl crate::Decoder for Decoder {
             .collect::<alloc::vec::Vec<_>>();
         let mut fields = alloc::vec![];
         field_indices
-            .sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+            .sort_by_key(|(_, a)| a.tag_tree.smallest_tag());
         let mut sequence_decoder = Decoder::try_from(events)?;
         sequence_decoder.sort_by_field_tag_order(&field_indices)?;
         for (index, field) in field_indices {

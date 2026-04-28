@@ -406,7 +406,7 @@ impl crate::Decoder for Decoder {
             .collect::<alloc::vec::Vec<_>>();
         let mut fields = alloc::vec![];
         field_indices
-            .sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+            .sort_by_key(|(_, a)| a.tag_tree.smallest_tag());
         for (index, field) in field_indices.into_iter() {
             self.stack.push(value_map.remove(field.name));
             fields.push((decode_fn)(self, index, field.tag)?);

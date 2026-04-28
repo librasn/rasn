@@ -250,15 +250,15 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 Bounded::Range {
                     start: Some(_),
                     end: Some(_),
-                } if size.constraint.range().unwrap() * width as usize > 16 => true,
-                Bounded::Single(max) if max * width as usize > 16 => {
+                } if size.constraint.range().unwrap() * width > 16 => true,
+                Bounded::Single(max) if max * width > 16 => {
                     self.pad_to_alignment(&mut buffer);
                     true
                 }
                 Bounded::Range {
                     start: None,
                     end: Some(max),
-                } if max * width as usize > 16 => {
+                } if max * width > 16 => {
                     self.pad_to_alignment(&mut buffer);
                     true
                 }
@@ -378,7 +378,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             encoder
                 .root_bitfield
                 .1
-                .sort_by(|(_, tag1), (_, tag2)| tag1.cmp(tag2));
+                .sort_by_key(|(_, tag1)| *tag1);
             encoder.root_bitfield
         } else {
             encoder.root_bitfield

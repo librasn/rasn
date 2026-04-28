@@ -363,8 +363,8 @@ impl<'input> Decoder<'input> {
         constraints: &Constraints,
         codec: crate::Codec,
     ) -> Result<()> {
-        if let Some(size) = constraints.size() {
-            if size.extensible.is_none() {
+        if let Some(size) = constraints.size()
+            && size.extensible.is_none() {
                 size.constraint.contains_or_else(&len, || {
                     DecodeError::size_constraint_not_satisfied(
                         Some(len),
@@ -373,7 +373,6 @@ impl<'input> Decoder<'input> {
                     )
                 })?;
             }
-        }
         Ok(())
     }
 }

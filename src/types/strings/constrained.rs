@@ -273,7 +273,7 @@ pub(crate) fn try_from_permitted_alphabet<S: StaticPermittedAlphabet>(
     // Alphabet should be always indexed key-alphabetvalue pairs at this point
     let values_only = alphabet.values().copied().collect::<Vec<u32>>();
     if should_be_indexed(permitted_alphabet_char_width as u32, &values_only) {
-        for ch in input.chunks_exact(permitted_alphabet_char_width as usize) {
+        for ch in input.chunks_exact(permitted_alphabet_char_width) {
             let index = ch.load_be::<u32>();
             string.push_char(*alphabet.get(&index).ok_or(
                 PermittedAlphabetError::IndexNotFound {

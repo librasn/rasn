@@ -690,7 +690,7 @@ impl crate::Decoder for Decoder {
         let mut field_indices: alloc::vec::Vec<(usize, _)> =
             SET::FIELDS.iter().enumerate().collect();
         field_indices
-            .sort_by(|(_, a), (_, b)| a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag()));
+            .sort_by_key(|(_, a)| a.tag_tree.smallest_tag());
         for (index, field) in field_indices {
             self.stack.push(field_map.remove(field.name));
             fields_out.push((decode_fn)(self, index, field.tag)?);
