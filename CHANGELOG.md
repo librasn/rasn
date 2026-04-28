@@ -32,6 +32,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.14](https://github.com/librasn/rasn/compare/rasn-v0.28.13...rasn-v0.28.14) - 2026-04-28
+
+### Added
+
+- add constraint checking when encoding
+- check integer and bit string constraints in BER
+- check octet string constraints when decoding ber
+- add {ber, cer, der}::encode_buf
+
+### Fixed
+
+- *(xer)* Return XER error on integer overflow
+
+### Other
+
+- reuse buffer for allocating constructed types
+- clippy lints
+- use object_identifier_as_bytes directly
+
 ## [0.28.13](https://github.com/librasn/rasn/compare/rasn-v0.28.12...rasn-v0.28.13) - 2026-04-24
 
 ### Other
