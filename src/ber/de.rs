@@ -357,6 +357,25 @@ impl<'input> Decoder<'input> {
 
         Ok(date)
     }
+
+    fn check_octet_string_constraints(
+        len: usize,
+        constraints: &Constraints,
+        codec: crate::Codec,
+    ) -> Result<()> {
+        if let Some(size) = constraints.size() {
+            if size.extensible.is_none() {
+                size.constraint.contains_or_else(&len, || {
+                    DecodeError::size_constraint_not_satisfied(
+                        Some(len),
+                        size.constraint.to_string(),
+                        codec,
+                    )
+                })?;
+            }
+        }
+        Ok(())
+    }
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
@@ -460,13 +479,16 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
         &'b mut self,
         tag: Tag,
-        _: Constraints,
+        constraints: Constraints,
     ) -> Result<T> {
         let (identifier, contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
             match contents {
-                Some(c) => Ok(T::from(c)),
+                Some(c) => {
+                    Self::check_octet_string_constraints(c.len(), &constraints, self.codec())?;
+                    Ok(T::from(c))
+                }
                 None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
             }
         } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
@@ -501,6 +523,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
                 self.parse_eoc()?;
             }
+            Self::check_octet_string_constraints(buffer.len(), &constraints, self.codec())?;
             Ok(T::from(buffer))
         }
     }
@@ -1254,5 +1277,27 @@ mod tests {
         assert!(oid.is_ok());
         let oid = oid.unwrap();
         assert_eq!(ObjectIdentifier::new([2, 999, 1].to_vec()).unwrap(), oid);
+    }
+
+    #[test]
+    fn octet_string_size_constraint() {
+        // OCTET STRING (SIZE (3)) — tag 0x04, length, data
+        let exact = &[0x04, 0x03, 0xAA, 0xBB, 0xCC];
+        assert_eq!(
+            *decode::<FixedOctetString<3>>(exact).unwrap(),
+            [0xAA, 0xBB, 0xCC]
+        );
+
+        let too_short = &[0x04, 0x02, 0xAA, 0xBB];
+        assert!(matches!(
+            *decode::<FixedOctetString<3>>(too_short).unwrap_err().kind,
+            DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(2), .. }
+        ));
+
+        let too_long = &[0x04, 0x04, 0xAA, 0xBB, 0xCC, 0xDD];
+        assert!(matches!(
+            *decode::<FixedOctetString<3>>(too_long).unwrap_err().kind,
+            DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(4), .. }
+        ));
     }
 }
