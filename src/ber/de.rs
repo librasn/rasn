@@ -358,7 +358,7 @@ impl<'input> Decoder<'input> {
         Ok(date)
     }
 
-    fn check_octet_string_constraints(
+    fn check_size_constraint(
         len: usize,
         constraints: &Constraints,
         codec: crate::Codec,
@@ -441,10 +441,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
             .ok_or_else(|| DecodeError::discriminant_value_not_found(discriminant, self.codec()))
     }
 
-    fn decode_integer<I: types::IntegerType>(&mut self, tag: Tag, _: Constraints) -> Result<I> {
+    fn decode_integer<I: types::IntegerType>(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<I> {
         let primitive_bytes = self.parse_primitive_value(tag)?.1;
         let integer_width = I::WIDTH as usize / 8;
-        if primitive_bytes.len() > integer_width {
+        let result = if primitive_bytes.len() > integer_width {
             // in the case of superfluous leading bytes (especially zeroes),
             // we may still want to try to decode the integer even though
             // the length is > integer width ...
@@ -461,10 +465,23 @@ impl<'input> crate::Decoder for Decoder<'input> {
             I::try_from_bytes(
                 &primitive_bytes[primitive_bytes.len() - data_length..primitive_bytes.len()],
                 self.codec(),
-            )
+            )?
         } else {
-            I::try_from_bytes(primitive_bytes, self.codec())
+            I::try_from_bytes(primitive_bytes, self.codec())?
+        };
+
+        if let Some(value) = constraints.value()
+            && value.extensible.is_none()
+            && !value.constraint.in_bound(&result)
+        {
+            return Err(DecodeError::value_constraint_not_satisfied(
+                result.to_bigint().unwrap_or_default(),
+                value.constraint.value,
+                self.codec(),
+            ));
         }
+
+        Ok(result)
     }
 
     fn decode_real<R: types::RealType>(
@@ -485,7 +502,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         if identifier.is_primitive() {
             match contents {
                 Some(c) => {
-                    Self::check_octet_string_constraints(c.len(), &constraints, self.codec())?;
+                    Self::check_size_constraint(c.len(), &constraints, self.codec())?;
                     Ok(T::from(c))
                 }
                 None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
@@ -522,7 +539,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
                 self.parse_eoc()?;
             }
-            Self::check_octet_string_constraints(buffer.len(), &constraints, self.codec())?;
+            Self::check_size_constraint(buffer.len(), &constraints, self.codec())?;
             Ok(T::from(buffer))
         }
     }
@@ -538,7 +555,11 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.decode_object_identifier_from_bytes(contents)
     }
 
-    fn decode_bit_string(&mut self, tag: Tag, _: Constraints) -> Result<types::BitString> {
+    fn decode_bit_string(
+        &mut self,
+        tag: Tag,
+        constraints: Constraints,
+    ) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(self.config, self.input, tag, |input, codec| {
                 let unused_bits = input
@@ -568,6 +589,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
             })?;
 
         self.input = input;
+        Self::check_size_constraint(bs.len(), &constraints, self.codec())?;
         Ok(bs)
     }
 
