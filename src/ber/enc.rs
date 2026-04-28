@@ -8,7 +8,6 @@ use chrono::Timelike;
 use super::Identifier;
 use crate::{
     Codec, Encode,
-    bits::octet_string_ascending,
     types::{
         self, Constraints, Enumerated, IntegerType, Tag,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
@@ -69,6 +68,10 @@ pub struct Encoder {
     config: EncoderOptions,
     is_set_encoding: bool,
     set_buffer: alloc::collections::BTreeMap<Tag, Vec<u8>>,
+    /// Spare allocation recycled from the most-recently-completed child encoder,
+    /// so that sibling fields at the same nesting level reuse one heap allocation
+    /// rather than allocating a fresh `Vec<u8>` per field.
+    worker: Vec<u8>,
 }
 
 /// A convenience type around results needing to return one or many bytes.
@@ -86,6 +89,7 @@ impl Encoder {
             is_set_encoding: false,
             output: <_>::default(),
             set_buffer: <_>::default(),
+            worker: <_>::default(),
         }
     }
 
@@ -104,6 +108,7 @@ impl Encoder {
             is_set_encoding: true,
             output: <_>::default(),
             set_buffer: <_>::default(),
+            worker: <_>::default(),
         }
     }
 
@@ -119,6 +124,7 @@ impl Encoder {
             config,
             is_set_encoding: false,
             set_buffer: <_>::default(),
+            worker: <_>::default(),
         }
     }
 
@@ -315,6 +321,24 @@ impl Encoder {
     /// Also used for BER on this crate.
     pub fn naivedate_to_date_bytes(value: &chrono::NaiveDate) -> Vec<u8> {
         value.format("%Y%m%d").to_string().into_bytes()
+    }
+
+    /// Creates a child encoder that uses the parent's spare `worker` allocation
+    /// as its output buffer, avoiding a fresh heap allocation for sibling fields.
+    fn take_child_encoder(&mut self) -> Self {
+        Self::new_with_buffer(self.config, core::mem::take(&mut self.worker))
+    }
+
+    /// Extracts the child's output buffer and stores it back as the parent's
+    /// `worker`, so the next sibling field reuses the same heap allocation.
+    /// Returns the encoded bytes for the caller to write to the parent output.
+    fn reclaim_worker(&mut self, mut child: Encoder) -> Vec<u8> {
+        let output = core::mem::take(&mut child.output);
+        // Keep the larger capacity as the next worker; drop the smaller one.
+        if child.worker.capacity() > self.worker.capacity() {
+            self.worker = core::mem::take(&mut child.worker);
+        }
+        output
     }
 }
 
@@ -650,13 +674,19 @@ impl crate::Encoder<'_> for Encoder {
         _constraints: Constraints,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut sequence_encoder = Self::new(self.config);
+        let mut sequence_encoder = self.take_child_encoder();
 
         for value in values {
             value.encode(&mut sequence_encoder)?;
         }
 
-        self.encode_constructed(tag, &sequence_encoder.output);
+        let child_output = self.reclaim_worker(sequence_encoder);
+        self.encode_constructed(tag, &child_output);
+        self.worker = {
+            let mut w = child_output;
+            w.clear();
+            w
+        };
 
         Ok(())
     }
@@ -668,22 +698,40 @@ impl crate::Encoder<'_> for Encoder {
         _constraints: Constraints,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut encoded_values = values
-            .to_vec()
-            .iter()
-            .map(|val| {
-                let mut sequence_encoder = Self::new(self.config);
-                val.encode(&mut sequence_encoder)
-                    .map(|()| sequence_encoder.output)
-            })
-            .collect::<Result<Vec<Vec<u8>>, _>>()?;
+        // Encode every element sequentially into one buffer, recording each
+        // element's byte range so we can sort without extra allocations.
+        let mut combined = core::mem::take(&mut self.worker);
+        combined.clear();
+        let mut elem_enc = Self::new(self.config);
+        let mut ranges: Vec<(usize, usize)> = Vec::with_capacity(values.len());
 
-        // The encodings of the component values of a set-of value shall appear in ascending order,
-        // the encodings being compared as octet strings [...]
-        encoded_values.sort_by(octet_string_ascending);
-        let sorted_elements: Vec<u8> = encoded_values.into_iter().flatten().collect();
+        for val in values.to_vec() {
+            elem_enc.output.clear();
+            val.encode(&mut elem_enc)?;
+            let start = combined.len();
+            combined.extend_from_slice(&elem_enc.output);
+            ranges.push((start, combined.len()));
+        }
 
-        self.encode_constructed(tag, &sorted_elements);
+        // The encodings of the component values of a set-of value shall appear
+        // in ascending order, the encodings being compared as octet strings.
+        ranges.sort_by(|(as_, ae), (bs, be)| combined[*as_..*ae].cmp(&combined[*bs..*be]));
+
+        // Total content length is invariant under sorting, so write the outer
+        // tag + definite length before streaming the sorted elements directly
+        // into self.output — no intermediate sorted-concatenation buffer needed.
+        let ident = Identifier::from_tag(tag, true);
+        let ident_bytes = self.encode_identifier(ident);
+        self.append_byte_or_bytes(ident_bytes);
+        let len_bytes = self.encode_definite_length(combined.len());
+        self.append_byte_or_bytes(len_bytes);
+        for (start, end) in ranges {
+            self.output.extend_from_slice(&combined[start..end]);
+        }
+        self.encode_to_set(tag);
+
+        combined.clear();
+        self.worker = combined;
 
         Ok(())
     }
@@ -695,9 +743,15 @@ impl crate::Encoder<'_> for Encoder {
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         if value.is_present() {
-            let mut encoder = Self::new(self.config);
+            let mut encoder = self.take_child_encoder();
             value.encode(&mut encoder)?;
-            self.encode_constructed(tag, &encoder.output);
+            let child_output = self.reclaim_worker(encoder);
+            self.encode_constructed(tag, &child_output);
+            self.worker = {
+                let mut w = child_output;
+                w.clear();
+                w
+            };
         }
         Ok(())
     }
@@ -712,11 +766,17 @@ impl crate::Encoder<'_> for Encoder {
         C: crate::types::Constructed<RC, EC>,
         F: FnOnce(&mut Self::AnyEncoder<'b, 0, 0>) -> Result<(), Self::Error>,
     {
-        let mut encoder = Self::new(self.config);
+        let mut encoder = self.take_child_encoder();
 
         (encoder_scope)(&mut encoder)?;
 
-        self.encode_constructed(tag, &encoder.output);
+        let child_output = self.reclaim_worker(encoder);
+        self.encode_constructed(tag, &child_output);
+        self.worker = {
+            let mut w = child_output;
+            w.clear();
+            w
+        };
 
         Ok(())
     }
@@ -732,10 +792,19 @@ impl crate::Encoder<'_> for Encoder {
         F: FnOnce(&mut Self::AnyEncoder<'b, 0, 0>) -> Result<(), Self::Error>,
     {
         let mut encoder = Self::new_set(self.config);
+        encoder.worker = core::mem::take(&mut self.worker);
 
         (encoder_scope)(&mut encoder)?;
 
-        self.encode_constructed(tag, &encoder.output());
+        // output() merges the set_buffer entries in tag order into a fresh Vec.
+        // We recycle that Vec as the new worker after copying into self.output.
+        let merged = encoder.output();
+        self.encode_constructed(tag, &merged);
+        self.worker = {
+            let mut w = merged;
+            w.clear();
+            w
+        };
 
         Ok(())
     }
