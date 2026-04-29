@@ -35,6 +35,21 @@ pub fn encode<T: crate::Encode>(
     }
 }
 
+/// Encodes `value` to UPER-CANONICAL into an existing `buffer`, reusing its allocation.
+/// The buffer is cleared before encoding.
+/// # Errors
+/// Returns error specific to UPER encoder if encoding is not possible.
+pub fn encode_buf<T: crate::Encode>(
+    value: &T,
+    buffer: &mut alloc::vec::Vec<u8>,
+) -> Result<(), crate::error::EncodeError> {
+    crate::per::encode_buf(enc::EncoderOptions::unaligned(), value, buffer)?;
+    if buffer.is_empty() {
+        buffer.push(0x00);
+    }
+    Ok(())
+}
+
 /// Attempts to decode `T` from `input` using UPER-BASIC.
 pub fn decode_with_constraints<T: crate::Decode>(
     constraints: Constraints,

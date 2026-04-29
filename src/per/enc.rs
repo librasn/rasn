@@ -95,6 +95,23 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             parent_output_length: <_>::default(),
         }
     }
+
+    /// Constructs a new encoder from the provided options, reusing the given
+    /// bit buffer's allocation. The buffer is cleared before encoding begins.
+    pub fn new_with_output(options: EncoderOptions, mut output: BitString) -> Self {
+        output.clear();
+        Self {
+            options,
+            output,
+            set_output: <_>::default(),
+            number_optional_default_fields: 0,
+            root_bitfield: (0, [(false, Tag::new_private(0)); RCL]),
+            extension_bitfield: (0, [false; ECL]),
+            is_extension_sequence: <_>::default(),
+            extension_fields: [(); ECL].map(|_| None),
+            parent_output_length: <_>::default(),
+        }
+    }
     fn codec(&self) -> crate::Codec {
         self.options.current_codec()
     }
@@ -129,6 +146,14 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         let mut output = self.bitstring_output();
         Self::force_pad_to_alignment(&mut output);
         output.as_raw_slice().to_vec()
+    }
+
+    /// Consumes the encoder and returns the octet-aligned output, reusing the
+    /// internal buffer's allocation instead of copying it.
+    pub fn output_into_vec(mut self) -> Vec<u8> {
+        let mut output = self.bitstring_output();
+        Self::force_pad_to_alignment(&mut output);
+        output.into_vec()
     }
 
     /// Returns the bit level output for the encoder.

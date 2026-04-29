@@ -51,6 +51,21 @@ pub(crate) fn encode<T: crate::Encode>(
     Ok(enc.output())
 }
 
+/// Encodes `value` to PER into an existing `buffer`, reusing its allocation.
+/// The buffer is cleared before encoding.
+pub(crate) fn encode_buf<T: crate::Encode>(
+    options: enc::EncoderOptions,
+    value: &T,
+    buffer: &mut alloc::vec::Vec<u8>,
+) -> Result<(), crate::error::EncodeError> {
+    let raw = core::mem::take(buffer);
+    let output = crate::types::BitString::from_vec(raw);
+    let mut enc = crate::per::enc::Encoder::<0, 0>::new_with_output(options, output);
+    value.encode(&mut enc)?;
+    *buffer = enc.output_into_vec();
+    Ok(())
+}
+
 /// Attempts to decode `T` from `input` using PER.
 pub(crate) fn decode_with_constraints<T: crate::Decode>(
     options: de::DecoderOptions,

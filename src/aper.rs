@@ -28,6 +28,17 @@ pub fn encode<T: crate::Encode>(
     crate::per::encode(enc::EncoderOptions::aligned(), value)
 }
 
+/// Encodes `value` to APER-CANONICAL into an existing `buffer`, reusing its allocation.
+/// The buffer is cleared before encoding.
+/// # Errors
+/// Returns error specific to APER encoder if encoding is not possible.
+pub fn encode_buf<T: crate::Encode>(
+    value: &T,
+    buffer: &mut alloc::vec::Vec<u8>,
+) -> Result<(), crate::error::EncodeError> {
+    crate::per::encode_buf(enc::EncoderOptions::aligned(), value, buffer)
+}
+
 /// Attempts to decode `T` from `input` using APER-BASIC.
 pub fn decode_with_constraints<T: crate::Decode>(
     constraints: Constraints,
