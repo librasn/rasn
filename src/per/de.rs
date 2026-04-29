@@ -1,6 +1,6 @@
 //! Decoding Packed Encoding Rules data into Rust structures.
 
-use alloc::{borrow::Cow, collections::VecDeque, string::ToString, vec::Vec};
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use bitvec::field::BitField;
 
 use super::{
@@ -66,11 +66,14 @@ impl DecoderOptions {
 pub struct Decoder<'input, const RFC: usize = 0, const EFC: usize = 0> {
     input: InputSlice<'input>,
     options: DecoderOptions,
-    /// When the decoder contains fields, we check against optional or default
-    /// fields to know the presence of those fields.
-    fields: VecDeque<(Field, bool)>,
+    /// Presence bitmap for optional/default root fields. The cursor advances as each
+    /// field is consumed; `None` entries mark slots past the filled count.
+    fields: (usize, [Option<(Field, bool)>; RFC]),
     extension_fields: Option<Fields<EFC>>,
-    extensions_present: Option<Option<VecDeque<(Field, bool)>>>,
+    /// Presence bitmap for extension fields. `None` outer = not extensible;
+    /// `Some(None)` = extensible but header not yet parsed;
+    /// `Some(Some((cursor, data)))` = header parsed.
+    extensions_present: Option<Option<(usize, [Option<(Field, bool)>; EFC])>>,
 }
 
 impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
@@ -86,9 +89,9 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         Self {
             input: input.into(),
             options,
-            fields: <_>::default(),
-            extension_fields: <_>::default(),
-            extensions_present: <_>::default(),
+            fields: (0, [None; RFC]),
+            extension_fields: None,
+            extensions_present: None,
         }
     }
 
@@ -100,18 +103,17 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
     #[track_caller]
     fn require_field(&mut self, tag: Tag) -> Result<bool> {
-        if self
-            .fields
-            .front()
-            .is_some_and(|field| field.0.tag_tree.smallest_tag() == tag)
-        {
-            Ok(self.fields.pop_front().unwrap().1)
-        } else {
-            Err(DecodeError::missing_tag_class_or_value_in_sequence_or_set(
+        let cursor = self.fields.0;
+        match self.fields.1.get(cursor).copied().flatten() {
+            Some((field, bit)) if field.tag_tree.smallest_tag() == tag => {
+                self.fields.0 += 1;
+                Ok(bit)
+            }
+            _ => Err(DecodeError::missing_tag_class_or_value_in_sequence_or_set(
                 tag.class,
                 tag.value,
                 self.codec(),
-            ))
+            )),
         }
     }
 
@@ -125,13 +127,18 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
     fn extension_is_present(&mut self) -> Result<Option<(Field, bool)>> {
         let codec = self.codec();
-        Ok(self
+        let inner = self
             .extensions_present
             .as_mut()
             .ok_or_else(|| DecodeError::type_not_extensible(codec))?
             .as_mut()
-            .ok_or_else(|| DecodeError::type_not_extensible(codec))?
-            .pop_front())
+            .ok_or_else(|| DecodeError::type_not_extensible(codec))?;
+        let cursor = inner.0;
+        let result = inner.1.get(cursor).copied().flatten();
+        if result.is_some() {
+            inner.0 += 1;
+        }
+        Ok(result)
     }
 
     fn parse_padding(&self, input: InputSlice<'input>) -> Result<InputSlice<'input>> {
@@ -498,24 +505,30 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
 
-        let extensions_present: VecDeque<_> = self
+        let mut data = [None; EFC];
+        for (i, (field, bit)) in self
             .extension_fields
             .as_ref()
             .unwrap()
             .iter()
             .zip(bitfield.iter().map(|b| *b))
-            .collect();
+            .enumerate()
+        {
+            data[i] = Some((field, bit));
+        }
 
-        for (field, is_present) in &extensions_present {
-            if field.is_not_optional_or_default() && !is_present {
-                return Err(DecodeError::required_extension_not_present(
-                    field.tag,
-                    self.codec(),
-                ));
+        for entry in &data {
+            if let Some((field, is_present)) = entry {
+                if field.is_not_optional_or_default() && !is_present {
+                    return Err(DecodeError::required_extension_not_present(
+                        field.tag,
+                        self.codec(),
+                    ));
+                }
             }
         }
 
-        self.extensions_present = Some(Some(extensions_present));
+        self.extensions_present = Some(Some((0, data)));
 
         Ok(true)
     }
@@ -944,10 +957,15 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                 sequence_decoder.options.remaining_depth.saturating_sub(1);
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
             sequence_decoder.extensions_present = is_extensible.then_some(None);
-            sequence_decoder.fields = D::FIELDS
+            let mut fields_data = [None; RC];
+            for (i, (field, bit)) in D::FIELDS
                 .optional_and_default_fields()
                 .zip(bitmap.into_iter().map(|b| *b))
-                .collect();
+                .enumerate()
+            {
+                fields_data[i] = Some((field, bit));
+            }
+            sequence_decoder.fields = (0, fields_data);
             let value = (decode_fn)(&mut sequence_decoder)?;
 
             self.input = sequence_decoder.input;
@@ -1004,10 +1022,15 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                 set_decoder.options.remaining_depth.saturating_sub(1);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
             set_decoder.extensions_present = is_extensible.then_some(None);
-            set_decoder.fields = SET::FIELDS
+            let mut fields_data = [None; RC];
+            for (i, (field, bit)) in SET::FIELDS
                 .optional_and_default_fields()
                 .zip(bitmap.into_iter().map(|b| *b))
-                .collect();
+                .enumerate()
+            {
+                fields_data[i] = Some((field, bit));
+            }
+            set_decoder.fields = (0, fields_data);
 
             let mut field_indices = SET::FIELDS.iter().enumerate().collect::<Vec<_>>();
             field_indices.sort_by(|(_, a), (_, b)| {
