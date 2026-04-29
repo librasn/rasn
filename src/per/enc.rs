@@ -391,21 +391,45 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         tag: Tag,
         mut encoder: Encoder<RL, EL>,
     ) -> Result<()> {
-        let mut buffer = BitString::with_capacity(core::mem::size_of::<C>());
-        let mut extensions_present = false;
-        if C::IS_EXTENSIBLE {
-            extensions_present = encoder.extension_fields.iter().any(Option::is_some);
-            buffer.push(extensions_present);
-        }
-        let required_present = C::FIELDS.has_required_field();
+        let extensions_present =
+            C::IS_EXTENSIBLE && encoder.extension_fields.iter().any(Option::is_some);
         let (needed, option_bitfield) = if encoder.options.set_encoding {
-            // In set encoding, tags must be unique so we just sort them to be in canonical order for preamble
+            // In set encoding, tags must be unique so we sort them to canonical order for preamble
             encoder.root_bitfield.1.sort_by_key(|(_, tag1)| *tag1);
             encoder.root_bitfield
         } else {
             encoder.root_bitfield
         };
         debug_assert!(C::FIELDS.number_of_optional_and_default_fields() == needed);
+
+        // Fast path: non-SET parent, no extensions present.
+        // Pre-reserve preamble bits directly in self.output, avoiding the
+        // intermediate BitString buffer and reducing two copies to one.
+        if !self.options.set_encoding && !extensions_present {
+            let preamble_bits = (C::IS_EXTENSIBLE as usize) + needed;
+            let preamble_start = self.output.len();
+            if preamble_bits > 0 {
+                // All bits initialise to false; only set the true presence bits.
+                self.output.resize(preamble_start + preamble_bits, false);
+                // extensibility bit (index 0 when IS_EXTENSIBLE) stays false (not present).
+                let presence_start = preamble_start + (C::IS_EXTENSIBLE as usize);
+                for (i, (bit, _)) in option_bitfield[..needed].iter().enumerate() {
+                    if *bit {
+                        self.output.set(presence_start + i, true);
+                    }
+                }
+            }
+            let mut out = encoder.bitstring_output();
+            self.output.append(&mut out);
+            return Ok(());
+        }
+
+        // Slow path: SET encoding or extensions present — use an intermediate buffer.
+        let required_present = C::FIELDS.has_required_field();
+        let mut buffer = BitString::with_capacity(core::mem::size_of::<C>());
+        if C::IS_EXTENSIBLE {
+            buffer.push(extensions_present);
+        }
         if needed > 0 || C::IS_EXTENSIBLE {
             for (bit, _tag) in &option_bitfield[..needed] {
                 buffer.push(*bit);
