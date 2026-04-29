@@ -1,7 +1,7 @@
 //! Decoding Packed Encoding Rules data into Rust structures.
 
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
-use bitvec::field::BitField;
+use bitvec::{field::BitField, view::BitView};
 
 use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
@@ -402,30 +402,26 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         &mut self,
         range: i128,
     ) -> Result<I> {
-        let bits = crate::num::log2(range);
+        let bits = crate::num::log2(range) as usize;
         let (input, data) = nom::bytes::streaming::take(bits)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
-        let data = if data.len() < 8 {
-            let mut buffer = types::BitString::repeat(false, 8 - data.len());
-            buffer.extend_from_bitslice(&data);
-            buffer
-        } else {
-            let remainder = data.len() % 8;
-            if remainder != 0 {
-                let mut buffer = types::BitString::repeat(false, 8 - remainder);
-                buffer.extend_from_bitslice(&data);
-                buffer
-            } else {
-                let mut vec_bytes = data.to_bitvec();
-                // See https://github.com/ferrilab/bitvec/issues/228
-                // At this point the data might be a result of indexing a slice (as a result of streaming::take), which might not be aligned in memory
-                // To fix this we force align the data
-                vec_bytes.force_align();
-                vec_bytes
-            }
-        };
-        I::try_from_unsigned_bytes(data.as_raw_slice(), self.codec())
+        // Range of exactly 1 value: 0 bits in the stream, only offset 0 is valid.
+        if bits == 0 {
+            return Ok(I::ZERO);
+        }
+        // Right-align `bits` into a 16-byte stack buffer (zero-padded on the left).
+        // Since log2(i128::MAX) ≤ 127 bits = 16 bytes, this covers every possible range.
+        // copy_from_bitslice handles unaligned source slices, replacing force_align()
+        // (see https://github.com/ferrilab/bitvec/issues/228) with no heap allocation.
+        let needed_bytes = bits.div_ceil(8);
+        let pad_bits = needed_bytes * 8 - bits;
+        let mut buf = [0u8; 16];
+        {
+            let buf_bits = buf[16 - needed_bytes..].view_bits_mut::<bitvec::order::Msb0>();
+            buf_bits[pad_bits..].copy_from_bitslice(&data);
+        }
+        I::try_from_unsigned_bytes(&buf[16 - needed_bytes..], self.codec())
     }
 
     fn parse_integer<I: types::IntegerType>(&mut self, constraints: Constraints) -> Result<I> {
