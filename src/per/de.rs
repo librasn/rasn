@@ -1010,10 +1010,18 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             .unwrap_or_default();
 
         let bitmap = self.parse_optional_and_default_field_bitmap::<RC>(&SET::FIELDS)?;
-        let field_map = SET::FIELDS
-            .optional_and_default_fields()
-            .zip(bitmap.into_iter().map(|b| *b))
-            .collect::<alloc::collections::BTreeMap<_, _>>();
+
+        // Build a presence map indexed by each field's definition-order index.
+        // Required fields are always present, so only optional/default fields are tracked.
+        let mut presence = [false; RC];
+        {
+            let mut bitmap_iter = bitmap.into_iter().map(|b| *b);
+            for field in SET::FIELDS.iter() {
+                if field.is_optional_or_default() {
+                    presence[field.index] = bitmap_iter.next().unwrap_or(false);
+                }
+            }
+        }
 
         let fields = {
             let mut fields = Vec::new();
@@ -1032,16 +1040,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             }
             set_decoder.fields = (0, fields_data);
 
-            let mut field_indices = SET::FIELDS.iter().enumerate().collect::<Vec<_>>();
-            field_indices.sort_by(|(_, a), (_, b)| {
-                a.tag_tree.smallest_tag().cmp(&b.tag_tree.smallest_tag())
-            });
-            for (indice, field) in field_indices.into_iter() {
-                match field_map.get(&field).copied() {
-                    Some(true) | None => {
-                        fields.push((decode_fn)(&mut set_decoder, indice, field.tag)?)
-                    }
-                    Some(false) => {}
+            // Decode root fields in canonical tag order (no heap allocation).
+            // field.index is the definition-order position, used to look up presence
+            // and to pass the correct index to decode_fn.
+            for field in SET::FIELDS.canonised().iter() {
+                if !field.is_optional_or_default() || presence[field.index] {
+                    fields.push((decode_fn)(&mut set_decoder, field.index, field.tag)?);
                 }
             }
 
