@@ -400,10 +400,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         let required_present = C::FIELDS.has_required_field();
         let (needed, option_bitfield) = if encoder.options.set_encoding {
             // In set encoding, tags must be unique so we just sort them to be in canonical order for preamble
-            encoder
-                .root_bitfield
-                .1
-                .sort_by_key(|(_, tag1)| *tag1);
+            encoder.root_bitfield.1.sort_by_key(|(_, tag1)| *tag1);
             encoder.root_bitfield
         } else {
             encoder.root_bitfield

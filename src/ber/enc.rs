@@ -1091,15 +1091,41 @@ mod tests {
         let constraints = constraints!(size_constraint!(3));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        enc.encode_octet_string(Tag::OCTET_STRING, constraints, &[0x01, 0x02, 0x03], Identifier::EMPTY).unwrap();
+        enc.encode_octet_string(
+            Tag::OCTET_STRING,
+            constraints,
+            &[0x01, 0x02, 0x03],
+            Identifier::EMPTY,
+        )
+        .unwrap();
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_octet_string(Tag::OCTET_STRING, constraints, &[0x01, 0x02], Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::SizeConstraintNotSatisfied { size: 2, .. }));
+        let err = enc
+            .encode_octet_string(
+                Tag::OCTET_STRING,
+                constraints,
+                &[0x01, 0x02],
+                Identifier::EMPTY,
+            )
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::SizeConstraintNotSatisfied { size: 2, .. }
+        ));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_octet_string(Tag::OCTET_STRING, constraints, &[0x01, 0x02, 0x03, 0x04], Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::SizeConstraintNotSatisfied { size: 4, .. }));
+        let err = enc
+            .encode_octet_string(
+                Tag::OCTET_STRING,
+                constraints,
+                &[0x01, 0x02, 0x03, 0x04],
+                Identifier::EMPTY,
+            )
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::SizeConstraintNotSatisfied { size: 4, .. }
+        ));
     }
 
     #[test]
@@ -1113,11 +1139,22 @@ mod tests {
         let sixteen_bits = BitString::from_vec(alloc::vec![0xAA, 0xBB]);
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        enc.encode_bit_string(Tag::BIT_STRING, constraints, &eight_bits, Identifier::EMPTY).unwrap();
+        enc.encode_bit_string(Tag::BIT_STRING, constraints, &eight_bits, Identifier::EMPTY)
+            .unwrap();
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_bit_string(Tag::BIT_STRING, constraints, &sixteen_bits, Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::SizeConstraintNotSatisfied { size: 16, .. }));
+        let err = enc
+            .encode_bit_string(
+                Tag::BIT_STRING,
+                constraints,
+                &sixteen_bits,
+                Identifier::EMPTY,
+            )
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::SizeConstraintNotSatisfied { size: 16, .. }
+        ));
     }
 
     #[test]
@@ -1129,15 +1166,26 @@ mod tests {
         let constraints = constraints!(value_constraint!(0, 100));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        enc.encode_integer(Tag::INTEGER, constraints, &50i32, Identifier::EMPTY).unwrap();
+        enc.encode_integer(Tag::INTEGER, constraints, &50i32, Identifier::EMPTY)
+            .unwrap();
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_integer(Tag::INTEGER, constraints, &200i32, Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::ValueConstraintNotSatisfied { .. }));
+        let err = enc
+            .encode_integer(Tag::INTEGER, constraints, &200i32, Identifier::EMPTY)
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::ValueConstraintNotSatisfied { .. }
+        ));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_integer(Tag::INTEGER, constraints, &-1i32, Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::ValueConstraintNotSatisfied { .. }));
+        let err = enc
+            .encode_integer(Tag::INTEGER, constraints, &-1i32, Identifier::EMPTY)
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::ValueConstraintNotSatisfied { .. }
+        ));
     }
 
     #[test]
@@ -1149,15 +1197,31 @@ mod tests {
         let constraints = constraints!(size_constraint!(1, 3));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        enc.encode_sequence_of(Tag::SEQUENCE, &[1i32, 2], constraints, Identifier::EMPTY).unwrap();
+        enc.encode_sequence_of(Tag::SEQUENCE, &[1i32, 2], constraints, Identifier::EMPTY)
+            .unwrap();
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_sequence_of(Tag::SEQUENCE, &[] as &[i32], constraints, Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::SizeConstraintNotSatisfied { size: 0, .. }));
+        let err = enc
+            .encode_sequence_of(Tag::SEQUENCE, &[] as &[i32], constraints, Identifier::EMPTY)
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::SizeConstraintNotSatisfied { size: 0, .. }
+        ));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_sequence_of(Tag::SEQUENCE, &[1i32, 2, 3, 4], constraints, Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::SizeConstraintNotSatisfied { size: 4, .. }));
+        let err = enc
+            .encode_sequence_of(
+                Tag::SEQUENCE,
+                &[1i32, 2, 3, 4],
+                constraints,
+                Identifier::EMPTY,
+            )
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::SizeConstraintNotSatisfied { size: 4, .. }
+        ));
     }
 
     #[test]
@@ -1172,14 +1236,25 @@ mod tests {
         let four: SetOf<i32> = SetOf::from_vec(vec![1, 2, 3, 4]);
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        enc.encode_set_of(Tag::SET, &two, constraints, Identifier::EMPTY).unwrap();
+        enc.encode_set_of(Tag::SET, &two, constraints, Identifier::EMPTY)
+            .unwrap();
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_set_of(Tag::SET, &empty, constraints, Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::SizeConstraintNotSatisfied { size: 0, .. }));
+        let err = enc
+            .encode_set_of(Tag::SET, &empty, constraints, Identifier::EMPTY)
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::SizeConstraintNotSatisfied { size: 0, .. }
+        ));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
-        let err = enc.encode_set_of(Tag::SET, &four, constraints, Identifier::EMPTY).unwrap_err();
-        assert!(matches!(*err.kind, EncodeErrorKind::SizeConstraintNotSatisfied { size: 4, .. }));
+        let err = enc
+            .encode_set_of(Tag::SET, &four, constraints, Identifier::EMPTY)
+            .unwrap_err();
+        assert!(matches!(
+            *err.kind,
+            EncodeErrorKind::SizeConstraintNotSatisfied { size: 4, .. }
+        ));
     }
 }

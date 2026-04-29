@@ -364,15 +364,16 @@ impl<'input> Decoder<'input> {
         codec: crate::Codec,
     ) -> Result<()> {
         if let Some(size) = constraints.size()
-            && size.extensible.is_none() {
-                size.constraint.contains_or_else(&len, || {
-                    DecodeError::size_constraint_not_satisfied(
-                        Some(len),
-                        size.constraint.to_string(),
-                        codec,
-                    )
-                })?;
-            }
+            && size.extensible.is_none()
+        {
+            size.constraint.contains_or_else(&len, || {
+                DecodeError::size_constraint_not_satisfied(
+                    Some(len),
+                    size.constraint.to_string(),
+                    codec,
+                )
+            })?;
+        }
         Ok(())
     }
 }
@@ -1342,7 +1343,9 @@ mod tests {
         let too_short = &[0x03, 0x01, 0x00];
         let mut dec = Decoder::new(too_short, DecoderOptions::ber());
         assert!(matches!(
-            *dec.decode_bit_string(Tag::BIT_STRING, constraints).unwrap_err().kind,
+            *dec.decode_bit_string(Tag::BIT_STRING, constraints)
+                .unwrap_err()
+                .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(0), .. }
         ));
 
@@ -1350,7 +1353,9 @@ mod tests {
         let too_long = &[0x03, 0x03, 0x00, 0xAA, 0xBB];
         let mut dec = Decoder::new(too_long, DecoderOptions::ber());
         assert!(matches!(
-            *dec.decode_bit_string(Tag::BIT_STRING, constraints).unwrap_err().kind,
+            *dec.decode_bit_string(Tag::BIT_STRING, constraints)
+                .unwrap_err()
+                .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(16), .. }
         ));
     }
@@ -1365,13 +1370,18 @@ mod tests {
         // 50 is in range: tag 0x02, len 1, value 0x32
         let in_range = &[0x02, 0x01, 0x32u8];
         let mut dec = Decoder::new(in_range, DecoderOptions::ber());
-        assert!(dec.decode_integer::<Integer>(Tag::INTEGER, constraints).is_ok());
+        assert!(
+            dec.decode_integer::<Integer>(Tag::INTEGER, constraints)
+                .is_ok()
+        );
 
         // 200 is out of range (above 100): tag 0x02, len 2, value 0x00 0xC8
         let too_large = &[0x02, 0x02, 0x00, 0xC8u8];
         let mut dec = Decoder::new(too_large, DecoderOptions::ber());
         assert!(matches!(
-            *dec.decode_integer::<Integer>(Tag::INTEGER, constraints).unwrap_err().kind,
+            *dec.decode_integer::<Integer>(Tag::INTEGER, constraints)
+                .unwrap_err()
+                .kind,
             DecodeErrorKind::ValueConstraintNotSatisfied { .. }
         ));
 
@@ -1379,7 +1389,9 @@ mod tests {
         let negative = &[0x02, 0x01, 0xFFu8];
         let mut dec = Decoder::new(negative, DecoderOptions::ber());
         assert!(matches!(
-            *dec.decode_integer::<Integer>(Tag::INTEGER, constraints).unwrap_err().kind,
+            *dec.decode_integer::<Integer>(Tag::INTEGER, constraints)
+                .unwrap_err()
+                .kind,
             DecodeErrorKind::ValueConstraintNotSatisfied { .. }
         ));
     }
@@ -1402,21 +1414,21 @@ mod tests {
         let zero = &[0x30u8, 0x00];
         let mut dec = Decoder::new(zero, DecoderOptions::ber());
         assert!(matches!(
-            *dec.decode_sequence_of::<i32>(Tag::SEQUENCE, constraints).unwrap_err().kind,
+            *dec.decode_sequence_of::<i32>(Tag::SEQUENCE, constraints)
+                .unwrap_err()
+                .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(0), .. }
         ));
 
         // 4 elements (too many): SEQUENCE tag 0x30, len 12, [1, 2, 3, 4]
         let four = &[
-            0x30u8, 0x0C,
-            0x02, 0x01, 0x01,
-            0x02, 0x01, 0x02,
-            0x02, 0x01, 0x03,
-            0x02, 0x01, 0x04,
+            0x30u8, 0x0C, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x01, 0x03, 0x02, 0x01, 0x04,
         ];
         let mut dec = Decoder::new(four, DecoderOptions::ber());
         assert!(matches!(
-            *dec.decode_sequence_of::<i32>(Tag::SEQUENCE, constraints).unwrap_err().kind,
+            *dec.decode_sequence_of::<i32>(Tag::SEQUENCE, constraints)
+                .unwrap_err()
+                .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(4), .. }
         ));
     }
@@ -1437,7 +1449,9 @@ mod tests {
         let zero = &[0x31u8, 0x00];
         let mut dec = Decoder::new(zero, DecoderOptions::ber());
         assert!(matches!(
-            *dec.decode_set_of::<i32>(Tag::SET, constraints).unwrap_err().kind,
+            *dec.decode_set_of::<i32>(Tag::SET, constraints)
+                .unwrap_err()
+                .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(0), .. }
         ));
     }
