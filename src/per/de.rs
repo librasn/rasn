@@ -73,6 +73,7 @@ pub struct Decoder<'input, const RFC: usize = 0, const EFC: usize = 0> {
     /// Presence bitmap for extension fields. `None` outer = not extensible;
     /// `Some(None)` = extensible but header not yet parsed;
     /// `Some(Some((cursor, data)))` = header parsed.
+    #[allow(clippy::type_complexity)]
     extensions_present: Option<Option<(usize, [Option<(Field, bool)>; EFC])>>,
 }
 
@@ -402,18 +403,19 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         &mut self,
         range: i128,
     ) -> Result<I> {
-        let bits = crate::num::log2(range) as usize;
+        self.parse_non_negative_binary_integer_bits(crate::num::log2(range) as usize)
+    }
+
+    fn parse_non_negative_binary_integer_bits<I: types::IntegerType>(
+        &mut self,
+        bits: usize,
+    ) -> Result<I> {
         let (input, data) = nom::bytes::streaming::take(bits)(self.input)
             .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
         self.input = input;
-        // Range of exactly 1 value: 0 bits in the stream, only offset 0 is valid.
         if bits == 0 {
             return Ok(I::ZERO);
         }
-        // Right-align `bits` into a 16-byte stack buffer (zero-padded on the left).
-        // Since log2(i128::MAX) ≤ 127 bits = 16 bytes, this covers every possible range.
-        // copy_from_bitslice handles unaligned source slices, replacing force_align()
-        // (see https://github.com/ferrilab/bitvec/issues/228) with no heap allocation.
         let needed_bytes = bits.div_ceil(8);
         let pad_bits = needed_bytes * 8 - bits;
         let mut buf = [0u8; 16];
@@ -472,7 +474,14 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                         crate::bits::range_from_len(range),
                     )?
                 }
-                (_, _) => self.parse_non_negative_binary_integer::<I::UnsignedPair>(range)?,
+                (_, _) => {
+                    let bits = if I::WIDTH <= 16 && range == (1i128 << I::WIDTH) {
+                        I::WIDTH as usize
+                    } else {
+                        crate::num::log2(range) as usize
+                    };
+                    self.parse_non_negative_binary_integer_bits::<I::UnsignedPair>(bits)?
+                }
             }
         } else {
             let bytes = &self.decode_octets()?;
@@ -514,13 +523,14 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         }
 
         for entry in &data {
-            if let Some((field, is_present)) = entry {
-                if field.is_not_optional_or_default() && !is_present {
-                    return Err(DecodeError::required_extension_not_present(
-                        field.tag,
-                        self.codec(),
-                    ));
-                }
+            if let Some((field, is_present)) = entry
+                && field.is_not_optional_or_default()
+                && !is_present
+            {
+                return Err(DecodeError::required_extension_not_present(
+                    field.tag,
+                    self.codec(),
+                ));
             }
         }
 

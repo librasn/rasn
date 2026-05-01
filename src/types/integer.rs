@@ -586,9 +586,6 @@ macro_rules! integer_type_impl {
         integer_type_impl!($($ts)*);
     };
     ((unsigned $t1:ty, $t2:ty), $($ts:tt)*) => {
-
-
-
         impl IntegerType for $t1 {
             const WIDTH: u32 = <$t1>::BITS;
             const ZERO: $t1 = 0 as $t1;

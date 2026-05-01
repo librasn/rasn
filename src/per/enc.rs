@@ -1,6 +1,6 @@
 //! Encoding Rust structures into Packed Encoding Rules data.
 
-use alloc::{borrow::ToOwned, string::ToString, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 
 use bitvec::prelude::*;
 
@@ -792,7 +792,14 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                         );
                     }
                 }
-                (_, _) => self.encode_non_negative_binary_integer(buffer, range, &bytes[..needed]),
+                (_, _) => {
+                    let bits = if I::WIDTH <= 16 && range == (1i128 << I::WIDTH) {
+                        I::WIDTH as usize
+                    } else {
+                        crate::num::log2(range) as usize
+                    };
+                    self.encode_non_negative_binary_integer_bits(buffer, bits, &bytes[..needed]);
+                }
             }
         } else {
             self.encode_length(buffer, needed, <_>::default(), |range| {
@@ -809,24 +816,23 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         range: i128,
         bytes: &[u8],
     ) {
-        use core::cmp::Ordering;
-        let total_bits = crate::num::log2(range) as usize;
-        let bits = BitVec::<u8, Msb0>::from_slice(bytes);
-        let bits = match total_bits.cmp(&bits.len()) {
-            Ordering::Greater => {
-                let mut padding = types::BitString::repeat(false, total_bits - bits.len());
-                padding.extend(bits);
-                padding
-            }
-            Ordering::Less => bits[bits.len() - total_bits..].to_owned(),
-            Ordering::Equal => bits,
-        };
+        self.encode_non_negative_binary_integer_bits(
+            buffer,
+            crate::num::log2(range) as usize,
+            bytes,
+        );
+    }
 
-        // if !self.options.aligned && range >= super::TWO_FIFTY_SIX.into() {
-        //     self.pad_to_alignment(buffer);
-        // }
-
-        buffer.extend(bits);
+    fn encode_non_negative_binary_integer_bits(
+        &self,
+        buffer: &mut BitString,
+        bits: usize,
+        bytes: &[u8],
+    ) {
+        let mut buf = [0u8; 16];
+        let nbytes = bytes.len().min(16);
+        buf[16 - nbytes..].copy_from_slice(&bytes[bytes.len() - nbytes..]);
+        buffer.extend_from_bitslice(&buf.view_bits::<Msb0>()[128 - bits..]);
     }
 }
 
