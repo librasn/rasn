@@ -208,8 +208,9 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         output_length += usize::from(self.is_extension_sequence);
         // When the parent's buffer was moved into this encoder, preamble bits are already
         // present in self.output. Subtract to avoid double-counting with number_optional_default_fields.
-        output_length +=
-            self.number_optional_default_fields.saturating_sub(self.preamble_pre_reserved);
+        output_length += self
+            .number_optional_default_fields
+            .saturating_sub(self.preamble_pre_reserved);
         output_length += self.parent_output_length.unwrap_or_default();
 
         if self.options.set_encoding {
@@ -912,13 +913,9 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             if size.and_then(|size| size.constraint.range()) == Some(1) {
                 self.pad_to_alignment(&mut work);
             }
-            self.encode_string_length(
-                &mut work,
-                true,
-                value.len(),
-                constraints.size(),
-                |range| Ok(BitString::from(&value[range])),
-            )?;
+            self.encode_string_length(&mut work, true, value.len(), constraints.size(), |range| {
+                Ok(BitString::from(&value[range]))
+            })?;
         }
 
         self.extend(tag, &work);
