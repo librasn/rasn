@@ -71,6 +71,10 @@ impl EncoderOptions {
 pub struct Encoder<const RCL: usize = 0, const ECL: usize = 0> {
     options: EncoderOptions,
     output: BitString,
+    /// Preamble bits already present in `output` before this encoder's own field data begins.
+    /// Set when a parent encoder moves its buffer into this child to avoid a separate allocation.
+    /// Subtracted from `number_optional_default_fields` in `output_length` to avoid double-counting.
+    preamble_pre_reserved: usize,
     set_output: alloc::collections::BTreeMap<Tag, BitString>,
     number_optional_default_fields: usize,
     root_bitfield: (usize, [(bool, Tag); RCL]),
@@ -86,6 +90,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         Self {
             options,
             output: <_>::default(),
+            preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
             root_bitfield: (0, [(false, Tag::new_private(0)); RCL]),
@@ -103,6 +108,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         Self {
             options,
             output,
+            preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
             root_bitfield: (0, [(false, Tag::new_private(0)); RCL]),
@@ -112,9 +118,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             parent_output_length: <_>::default(),
         }
     }
+
     fn codec(&self) -> crate::Codec {
         self.options.current_codec()
     }
+
     fn new_set_encoder<const RL: usize, const EL: usize, C: crate::types::Constructed<RL, EL>>(
         &self,
     ) -> Encoder<RL, EL> {
@@ -161,7 +169,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         if self.options.set_encoding {
             self.set_output.values().flatten().collect::<BitString>()
         } else {
-            core::mem::take(&mut *self.output.as_mut())
+            core::mem::take(&mut self.output)
         }
     }
 
@@ -193,7 +201,10 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     fn output_length(&self) -> usize {
         let mut output_length = self.output.len();
         output_length += usize::from(self.is_extension_sequence);
-        output_length += self.number_optional_default_fields;
+        // When the parent's buffer was moved into this encoder, preamble bits are already
+        // present in self.output. Subtract to avoid double-counting with number_optional_default_fields.
+        output_length +=
+            self.number_optional_default_fields.saturating_sub(self.preamble_pre_reserved);
         output_length += self.parent_output_length.unwrap_or_default();
 
         if self.options.set_encoding {
@@ -403,8 +414,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         debug_assert!(C::FIELDS.number_of_optional_and_default_fields() == needed);
 
         // Fast path: non-SET parent, no extensions present.
-        // Pre-reserve preamble bits directly in self.output, avoiding the
-        // intermediate BitString buffer and reducing two copies to one.
+        // Pre-reserve preamble bits directly in self.output, then append child output.
         if !self.options.set_encoding && !extensions_present {
             let preamble_bits = (C::IS_EXTENSIBLE as usize) + needed;
             let preamble_start = self.output.len();
@@ -1254,6 +1264,38 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
+        // Fast path: non-extensible, non-SET sequences.
+        // Move self.output into the child encoder so its fields are written directly into the
+        // parent's buffer, avoiding a separate allocation and the subsequent bit-copy.
+        if !self.options.set_encoding && !C::IS_EXTENSIBLE {
+            let needed = C::FIELDS.number_of_optional_and_default_fields();
+            let preamble_start = self.output.len();
+            if needed > 0 {
+                self.output.resize(preamble_start + needed, false);
+            }
+            let mut child = Encoder::<RL, EL> {
+                options: self.options,
+                output: core::mem::take(&mut self.output),
+                preamble_pre_reserved: needed,
+                set_output: <_>::default(),
+                number_optional_default_fields: needed,
+                root_bitfield: (0, [(false, Tag::new_private(0)); RL]),
+                extension_bitfield: (0, [false; EL]),
+                is_extension_sequence: false,
+                extension_fields: [(); EL].map(|_| None),
+                parent_output_length: None,
+            };
+            (encoder_scope)(&mut child)?;
+            // Move the buffer back and fill in presence bits at the pre-reserved positions.
+            self.output = core::mem::take(&mut child.output);
+            for (i, (bit, _)) in child.root_bitfield.1[..needed].iter().enumerate() {
+                if *bit {
+                    self.output.set(preamble_start + i, true);
+                }
+            }
+            return Ok(());
+        }
+
         let mut encoder = self.new_sequence_encoder::<RL, EL, C>();
         (encoder_scope)(&mut encoder)?;
         self.encode_constructed::<RL, EL, C>(tag, encoder)
@@ -1392,9 +1434,12 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             self.set_extension_presence(false);
             return Ok(());
         };
-        let mut encoder = self.new_sequence_encoder::<RL, EL, E>();
+        // Must use an owned-buffer encoder here — we need to capture the output as
+        // Vec<u8> for storage in extension_fields. Never use the ext fast path.
+        let mut encoder = Encoder::<RL, EL>::new(self.options.without_set_encoding());
         encoder.is_extension_sequence = true;
         encoder.number_optional_default_fields = E::FIELDS.number_of_optional_and_default_fields();
+        encoder.parent_output_length = Some(self.output_length());
         value.encode(&mut encoder)?;
         let out = encoder.output();
 
