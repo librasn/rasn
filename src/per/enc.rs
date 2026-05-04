@@ -1169,21 +1169,29 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                     && size_constraint.constraint.contains(&values.len())
             })
         });
-        let extension_bits = buffer.clone();
+        let extension_bits_len = buffer.len();
 
         self.encode_length(&mut buffer, values.len(), constraints.size(), |range| {
-            let mut buffer = BitString::default();
+            let mut acc = BitString::default();
+            // Start with an empty buffer; after each element, recycle its allocation so
+            // the next element reuses it instead of performing a fresh heap allocation.
+            let mut reusable_buf = BitString::default();
             let mut first_round = true;
             for value in &values[range] {
-                let mut encoder = Self::new(options);
+                // new_with_output clears the buffer but keeps its heap allocation.
+                let mut encoder = Self::new_with_output(options, reusable_buf);
                 if first_round {
-                    encoder.parent_output_length = Some(extension_bits.len());
+                    encoder.parent_output_length = Some(extension_bits_len);
                     first_round = false;
                 }
                 E::encode(value, &mut encoder)?;
-                buffer.extend(encoder.bitstring_output());
+                // Take the encoded bits and accumulate them; hand the now-empty allocation
+                // back so the next iteration can reuse it without re-allocating.
+                let mut bits = encoder.bitstring_output();
+                acc.append(&mut bits);
+                reusable_buf = bits;
             }
-            Ok(buffer)
+            Ok(acc)
         })?;
 
         self.extend(tag, &buffer);
