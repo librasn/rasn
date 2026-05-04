@@ -9,6 +9,7 @@ use once_cell::race::OnceBox;
 pub struct GraphicString(pub(super) Vec<u8>);
 
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
+#[cfg(feature = "codec_per")]
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl GraphicString {
@@ -49,12 +50,14 @@ impl StaticPermittedAlphabet for GraphicString {
     ];
     const CHARACTER_SET_NAME: constrained::CharacterSetName =
         constrained::CharacterSetName::Graphic;
+    #[cfg(feature = "codec_per")]
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
         self.0.iter().map(|&byte| byte as u32)
     }
     fn push_char(&mut self, ch: u32) {
         self.0.push(ch as u8);
     }
+    #[cfg(feature = "codec_per")]
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         INDEX_MAP.get_or_init(Self::build_index_map)
     }

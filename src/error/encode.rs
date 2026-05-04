@@ -12,28 +12,46 @@ use alloc::{boxed::Box, string::ToString};
 #[non_exhaustive]
 #[allow(missing_docs)]
 pub enum CodecEncodeError {
+    #[cfg(feature = "codec_ber")]
     Ber(BerEncodeErrorKind),
+    #[cfg(feature = "codec_ber")]
     Cer(CerEncodeErrorKind),
+    #[cfg(feature = "codec_ber")]
     Der(DerEncodeErrorKind),
+    #[cfg(feature = "codec_per")]
     Uper(UperEncodeErrorKind),
+    #[cfg(feature = "codec_per")]
     Aper(AperEncodeErrorKind),
+    #[cfg(feature = "codec_jer")]
     Jer(JerEncodeErrorKind),
+    #[cfg(feature = "codec_oer")]
     Coer(CoerEncodeErrorKind),
+    #[cfg(feature = "codec_xer")]
     Xer(XerEncodeErrorKind),
+    #[cfg(feature = "codec_avn")]
     Avn(AvnEncodeErrorKind),
 }
 
 impl core::fmt::Display for CodecEncodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            #[cfg(feature = "codec_ber")]
             CodecEncodeError::Ber(kind) => write!(f, "BER encoding error: {kind}"),
+            #[cfg(feature = "codec_ber")]
             CodecEncodeError::Cer(kind) => write!(f, "CER encoding error: {kind}"),
+            #[cfg(feature = "codec_ber")]
             CodecEncodeError::Der(kind) => write!(f, "DER encoding error: {kind}"),
+            #[cfg(feature = "codec_per")]
             CodecEncodeError::Uper(kind) => write!(f, "UPER encoding error: {kind}"),
+            #[cfg(feature = "codec_per")]
             CodecEncodeError::Aper(kind) => write!(f, "APER encoding error: {kind}"),
+            #[cfg(feature = "codec_jer")]
             CodecEncodeError::Jer(kind) => write!(f, "JER encoding error: {kind}"),
+            #[cfg(feature = "codec_oer")]
             CodecEncodeError::Coer(kind) => write!(f, "COER encoding error: {kind}"),
+            #[cfg(feature = "codec_xer")]
             CodecEncodeError::Xer(kind) => write!(f, "XER encoding error: {kind}"),
+            #[cfg(feature = "codec_avn")]
             CodecEncodeError::Avn(kind) => write!(f, "AVN encoding error: {kind}"),
         }
     }
@@ -50,14 +68,23 @@ macro_rules! impl_from {
 }
 
 // implement From for each variant of CodecEncodeError into EncodeError
+#[cfg(feature = "codec_ber")]
 impl_from!(Ber, BerEncodeErrorKind);
+#[cfg(feature = "codec_ber")]
 impl_from!(Cer, CerEncodeErrorKind);
+#[cfg(feature = "codec_ber")]
 impl_from!(Der, DerEncodeErrorKind);
+#[cfg(feature = "codec_per")]
 impl_from!(Uper, UperEncodeErrorKind);
+#[cfg(feature = "codec_per")]
 impl_from!(Aper, AperEncodeErrorKind);
+#[cfg(feature = "codec_jer")]
 impl_from!(Jer, JerEncodeErrorKind);
+#[cfg(feature = "codec_oer")]
 impl_from!(Coer, CoerEncodeErrorKind);
+#[cfg(feature = "codec_xer")]
 impl_from!(Xer, XerEncodeErrorKind);
+#[cfg(feature = "codec_avn")]
 impl_from!(Avn, AvnEncodeErrorKind);
 
 impl From<CodecEncodeError> for EncodeError {
@@ -252,18 +279,27 @@ impl EncodeError {
     #[must_use]
     fn from_codec_kind(inner: CodecEncodeError) -> Self {
         let codec = match inner {
+            #[cfg(feature = "codec_ber")]
             CodecEncodeError::Ber(_) => crate::Codec::Ber,
+            #[cfg(feature = "codec_ber")]
             #[allow(unreachable_patterns)]
             CodecEncodeError::Cer(_) => crate::Codec::Cer,
+            #[cfg(feature = "codec_ber")]
             #[allow(unreachable_patterns)]
             CodecEncodeError::Der(_) => crate::Codec::Der,
+            #[cfg(feature = "codec_per")]
             #[allow(unreachable_patterns)]
             CodecEncodeError::Uper(_) => crate::Codec::Uper,
+            #[cfg(feature = "codec_per")]
             #[allow(unreachable_patterns)]
             CodecEncodeError::Aper(_) => crate::Codec::Aper,
+            #[cfg(feature = "codec_jer")]
             CodecEncodeError::Jer(_) => crate::Codec::Jer,
+            #[cfg(feature = "codec_oer")]
             CodecEncodeError::Coer(_) => crate::Codec::Coer,
+            #[cfg(feature = "codec_xer")]
             CodecEncodeError::Xer(_) => crate::Codec::Xer,
+            #[cfg(feature = "codec_avn")]
             CodecEncodeError::Avn(_) => crate::Codec::Avn,
         };
         Self {
@@ -361,6 +397,8 @@ pub enum EncodeErrorKind {
     #[snafu(display("Encoder doesn't support `REAL` type"))]
     RealNotSuppored,
 }
+
+#[cfg(feature = "codec_ber")]
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for BER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -379,6 +417,7 @@ pub enum BerEncodeErrorKind {
         oid: alloc::vec::Vec<u32>,
     },
 }
+#[cfg(feature = "codec_ber")]
 impl BerEncodeErrorKind {
     /// Create an error [`BerEncodeErrorKind::InvalidObjectIdentifier`}.
     #[must_use]
@@ -387,6 +426,7 @@ impl BerEncodeErrorKind {
     }
 }
 
+#[cfg(feature = "codec_ber")]
 // TODO are there CER/DER/APER/UPER specific errors?
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for CER.
 #[derive(Snafu, Debug)]
@@ -394,12 +434,14 @@ impl BerEncodeErrorKind {
 #[non_exhaustive]
 pub enum CerEncodeErrorKind {}
 
+#[cfg(feature = "codec_ber")]
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for DER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum DerEncodeErrorKind {}
 
+#[cfg(feature = "codec_jer")]
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for UPER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -436,18 +478,21 @@ pub enum JerEncodeErrorKind {
     },
 }
 
+#[cfg(feature = "codec_per")]
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for UPER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum UperEncodeErrorKind {}
 
+#[cfg(feature = "codec_per")]
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for APER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
 #[non_exhaustive]
 pub enum AperEncodeErrorKind {}
 
+#[cfg(feature = "codec_xer")]
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for XER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -466,6 +511,7 @@ pub enum XerEncodeErrorKind {
     MissingIdentifier,
 }
 
+#[cfg(feature = "codec_oer")]
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for COER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -482,6 +528,7 @@ pub enum CoerEncodeErrorKind {
     InvalidConstrainedIntegerOctetSize,
 }
 
+#[cfg(feature = "codec_avn")]
 /// `EncodeError` kinds of `Kind::CodecSpecific` which are specific for AVN.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -519,6 +566,7 @@ mod tests {
     use super::*;
     use crate::prelude::*;
 
+    #[cfg(feature = "codec_ber")]
     #[test]
     fn test_ber_error() {
         use crate::ber::enc;
@@ -565,6 +613,8 @@ mod tests {
         //     backtrace: Backtrace( .... ),
         // },
     }
+
+    #[cfg(feature = "codec_per")]
     #[test]
     fn test_uper_constrained_string_error() {
         use crate as rasn;

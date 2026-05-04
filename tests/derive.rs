@@ -159,6 +159,7 @@ pub struct BasicConstraints {
     pub path_len_constraint: Option<Integer>,
 }
 
+#[cfg(feature = "codec_ber")]
 // This test makes sure that Newtype3(Newtype2(Newtype1(T))) results in serializing
 // as T when using the #[rasn(delegate)] attribute when T is a non-universal type.
 #[test]
@@ -258,6 +259,8 @@ fn explicit_identifiers() {
     );
     assert_eq!(MyDelegate::IDENTIFIER, Identifier(Some("my-delegate")));
 }
+
+#[cfg(all(feature = "codec_oer", feature = "codec_per"))]
 #[test]
 fn test_constraint_values() {
     #[derive(AsnType, Encode, Decode)]

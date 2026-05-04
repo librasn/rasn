@@ -1,17 +1,22 @@
+#[cfg(feature = "codec_per")]
 use rasn::prelude::*;
 
+#[cfg(feature = "codec_per")]
 #[derive(Debug, AsnType, rasn::Encode, rasn::Decode, PartialEq)]
 #[rasn(delegate, size("1..=255"))]
 struct SimpleNumericString(pub NumericString);
 
+#[cfg(feature = "codec_per")]
 #[derive(Debug, AsnType, rasn::Encode, rasn::Decode, PartialEq)]
 #[rasn(delegate, from("0..=9"), size("1..=255"))]
 struct SimpleConstrainedNumericString(pub NumericString);
 
+#[cfg(feature = "codec_per")]
 #[derive(Debug, AsnType, rasn::Encode, rasn::Decode, PartialEq)]
 #[rasn(delegate, from("0..=2"), size("1..=255"))]
 struct Simple123NumericString(pub NumericString);
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn round_trip_numeric_string_aper() {
     let string = SimpleNumericString(
@@ -24,6 +29,7 @@ fn round_trip_numeric_string_aper() {
     assert_eq!(decoded, string);
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn round_trip_numeric_string_uper() {
     let string = SimpleNumericString(
@@ -36,6 +42,7 @@ fn round_trip_numeric_string_uper() {
     assert_eq!(decoded, string);
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn round_trip_constrained_numeric_string_aper() {
     let string = SimpleConstrainedNumericString(
@@ -48,6 +55,7 @@ fn round_trip_constrained_numeric_string_aper() {
     assert_eq!(decoded, string);
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn round_trip_constrained_numeric_string_uper() {
     let string = SimpleConstrainedNumericString(
@@ -60,6 +68,7 @@ fn round_trip_constrained_numeric_string_uper() {
     assert_eq!(decoded, string);
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn round_trip_limited_charset_numeric_string_aper() {
     let string = Simple123NumericString(
@@ -71,6 +80,7 @@ fn round_trip_limited_charset_numeric_string_aper() {
     assert_eq!(decoded, string);
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn round_trip_limited_charset_numeric_string_uper() {
     let string = Simple123NumericString(

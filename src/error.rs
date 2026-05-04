@@ -18,16 +18,40 @@ pub mod strings {
     };
 }
 
+pub use decode::CodecDecodeError;
+pub use decode::DecodeError;
 pub use decode::DecodeErrorKind;
-pub use decode::{
-    AvnDecodeErrorKind, BerDecodeErrorKind, CodecDecodeError, CoerDecodeErrorKind, DecodeError,
-    DerDecodeErrorKind, JerDecodeErrorKind, OerDecodeErrorKind, XerDecodeErrorKind,
-};
+
+#[cfg(feature = "codec_avn")]
+pub use decode::AvnDecodeErrorKind;
+#[cfg(feature = "codec_ber")]
+pub use decode::BerDecodeErrorKind;
+#[cfg(feature = "codec_oer")]
+pub use decode::CoerDecodeErrorKind;
+#[cfg(feature = "codec_ber")]
+pub use decode::DerDecodeErrorKind;
+#[cfg(feature = "codec_jer")]
+pub use decode::JerDecodeErrorKind;
+#[cfg(feature = "codec_oer")]
+pub use decode::OerDecodeErrorKind;
+#[cfg(feature = "codec_xer")]
+pub use decode::XerDecodeErrorKind;
+
+pub use encode::CodecEncodeError;
+pub use encode::EncodeError;
 pub use encode::EncodeErrorKind;
+
+#[cfg(feature = "codec_avn")]
+pub use encode::AvnEncodeErrorKind;
+#[cfg(feature = "codec_ber")]
+pub use encode::BerEncodeErrorKind;
+#[cfg(feature = "codec_oer")]
+pub use encode::CoerEncodeErrorKind;
+#[cfg(feature = "codec_ber")]
+pub use encode::DerEncodeErrorKind;
+#[cfg(feature = "codec_jer")]
 pub use encode::JerEncodeErrorKind;
-pub use encode::{
-    AvnEncodeErrorKind, BerEncodeErrorKind, CodecEncodeError, CoerEncodeErrorKind, EncodeError,
-    XerEncodeErrorKind,
-};
+#[cfg(feature = "codec_xer")]
+pub use encode::XerEncodeErrorKind;
 
 pub use components::InnerSubtypeConstraintError;

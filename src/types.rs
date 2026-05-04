@@ -6,6 +6,7 @@
 mod any;
 mod identifier;
 mod instance;
+#[cfg(feature = "codec_jer")]
 mod json;
 mod open;
 mod prefix;

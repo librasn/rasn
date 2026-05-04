@@ -19,20 +19,31 @@ pub mod de;
 pub mod enc;
 pub mod error;
 mod num;
+#[cfg(feature = "codec_per")]
 mod per;
 pub mod types;
 
 // Data Formats
 
+#[cfg(feature = "codec_per")]
 pub mod aper;
+#[cfg(feature = "codec_avn")]
 pub mod avn;
+#[cfg(feature = "codec_ber")]
 pub mod ber;
+#[cfg(feature = "codec_ber")]
 pub mod cer;
+#[cfg(feature = "codec_oer")]
 pub mod coer;
+#[cfg(feature = "codec_ber")]
 pub mod der;
+#[cfg(feature = "codec_jer")]
 pub mod jer;
+#[cfg(feature = "codec_oer")]
 pub mod oer;
+#[cfg(feature = "codec_per")]
 pub mod uper;
+#[cfg(feature = "codec_xer")]
 pub mod xer;
 
 #[doc(inline)]
@@ -85,7 +96,12 @@ mod tests {
             }
         }
 
-        codecs!(uper, aper, oer, coer, ber);
+        #[cfg(feature = "codec_per")]
+        codecs!(uper, aper);
+        #[cfg(feature = "codec_oer")]
+        codecs!(oer, coer);
+        #[cfg(feature = "codec_ber")]
+        codecs!(ber);
     }
 
     #[test]
@@ -260,12 +276,19 @@ mod tests {
             };
         }
 
+        #[cfg(feature = "codec_oer")]
         test_codec_iter!(oer, crate::Codec::Oer);
+        #[cfg(feature = "codec_oer")]
         test_codec_iter!(coer, crate::Codec::Coer);
+        #[cfg(feature = "codec_per")]
         test_codec_iter!(uper, crate::Codec::Uper);
+        #[cfg(feature = "codec_per")]
         test_codec_iter!(aper, crate::Codec::Aper);
+        #[cfg(feature = "codec_ber")]
         test_codec_iter!(ber, crate::Codec::Ber);
+        #[cfg(feature = "codec_ber")]
         test_codec_iter!(cer, crate::Codec::Cer);
+        #[cfg(feature = "codec_ber")]
         test_codec_iter!(der, crate::Codec::Der);
     }
 }
