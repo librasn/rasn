@@ -71,6 +71,9 @@ impl EncoderOptions {
 pub struct Encoder<const RCL: usize = 0, const ECL: usize = 0> {
     options: EncoderOptions,
     output: BitString,
+    /// Scratch buffer reused across encode_* calls to avoid repeated heap allocations.
+    /// Each method takes ownership via `mem::take`, clears it, uses it, then puts it back.
+    work: BitString,
     /// Preamble bits already present in `output` before this encoder's own field data begins.
     /// Set when a parent encoder moves its buffer into this child to avoid a separate allocation.
     /// Subtracted from `number_optional_default_fields` in `output_length` to avoid double-counting.
@@ -90,6 +93,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         Self {
             options,
             output: <_>::default(),
+            work: BitString::new(),
             preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
@@ -108,6 +112,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         Self {
             options,
             output,
+            work: BitString::new(),
             preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
@@ -265,10 +270,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         value: &S,
     ) -> Result<()> {
         use crate::types::constraints::Bounded;
-        let mut buffer = BitString::default();
+        let mut work = core::mem::take(&mut self.work);
+        work.clear();
         let string_length = value.len();
 
-        let is_extended_value = self.encode_extensible_bit(constraints, &mut buffer, || {
+        let is_extended_value = self.encode_extensible_bit(constraints, &mut work, || {
             constraints.size().is_some_and(|size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&string_length)
@@ -288,14 +294,14 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     end: Some(_),
                 } if size.constraint.range().unwrap() * width > 16 => true,
                 Bounded::Single(max) if max * width > 16 => {
-                    self.pad_to_alignment(&mut buffer);
+                    self.pad_to_alignment(&mut work);
                     true
                 }
                 Bounded::Range {
                     start: None,
                     end: Some(max),
                 } if max * width > 16 => {
-                    self.pad_to_alignment(&mut buffer);
+                    self.pad_to_alignment(&mut work);
                     true
                 }
                 _ => false,
@@ -320,7 +326,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
 
                 self.encode_length(
-                    &mut buffer,
+                    &mut work,
                     value.len(),
                     is_extended_value
                         .then(|| -> Extensible<Size> { <_>::default() })
@@ -335,7 +341,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                         .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
 
                 self.encode_length(
-                    &mut buffer,
+                    &mut work,
                     value.len(),
                     is_extended_value
                         .then(|| -> Extensible<Size> { <_>::default() })
@@ -358,7 +364,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
                 let octet_aligned_value = &octet_aligned_value;
                 self.encode_string_length(
-                    &mut buffer,
+                    &mut work,
                     is_large_string,
                     char_length,
                     is_extended_value
@@ -375,7 +381,8 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             }
         };
 
-        self.extend(tag, &buffer);
+        self.extend(tag, &work);
+        self.work = work;
         Ok(())
     }
 
@@ -876,9 +883,10 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &BitStr,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut buffer = BitString::default();
+        let mut work = core::mem::take(&mut self.work);
+        work.clear();
         let bit_string_length = value.len();
-        let extensible_is_present = self.encode_extensible_bit(&constraints, &mut buffer, || {
+        let extensible_is_present = self.encode_extensible_bit(&constraints, &mut work, || {
             constraints.size().is_some_and(|size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&bit_string_length)
@@ -887,7 +895,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         let size = constraints.size();
 
         if extensible_is_present || size.is_none() {
-            self.encode_length(&mut buffer, value.len(), <_>::default(), |range| {
+            self.encode_length(&mut work, value.len(), <_>::default(), |range| {
                 Ok(BitString::from(&value[range]))
             })?;
         } else if size.and_then(|size| size.constraint.range()) == Some(0) {
@@ -897,15 +905,15 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         }) {
             // ITU-T X.691 (02/2021) §16: Bitstrings constrained to a fixed length less than or equal to 16 bits
             // do not cause octet alignment. Larger bitstrings are octet-aligned in the ALIGNED variant.
-            self.encode_length(&mut buffer, value.len(), constraints.size(), |range| {
+            self.encode_length(&mut work, value.len(), constraints.size(), |range| {
                 Ok(BitString::from(&value[range]))
             })?;
         } else {
             if size.and_then(|size| size.constraint.range()) == Some(1) {
-                self.pad_to_alignment(&mut buffer);
+                self.pad_to_alignment(&mut work);
             }
             self.encode_string_length(
-                &mut buffer,
+                &mut work,
                 true,
                 value.len(),
                 constraints.size(),
@@ -913,7 +921,8 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             )?;
         }
 
-        self.extend(tag, &buffer);
+        self.extend(tag, &work);
+        self.work = work;
         Ok(())
     }
 
@@ -933,35 +942,37 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &E,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut buffer = BitString::default();
+        let mut work = core::mem::take(&mut self.work);
+        work.clear();
         let index = value.enumeration_index();
         if E::EXTENDED_VARIANTS.is_some() {
-            buffer.push(value.is_extended_variant());
+            work.push(value.is_extended_variant());
         }
 
         if value.is_extended_variant() {
-            self.encode_normally_small_integer(index, &mut buffer)?;
+            self.encode_normally_small_integer(index, &mut work)?;
         } else if core::mem::size_of::<usize>() == 4 {
             self.encode_non_negative_binary_integer(
-                &mut buffer,
+                &mut work,
                 E::variance() as i128,
                 &u32::try_from(index).unwrap().to_be_bytes(),
             );
         } else if core::mem::size_of::<usize>() == 2 {
             self.encode_non_negative_binary_integer(
-                &mut buffer,
+                &mut work,
                 E::variance() as i128,
                 &u16::try_from(index).unwrap().to_be_bytes(),
             );
         } else {
             self.encode_non_negative_binary_integer(
-                &mut buffer,
+                &mut work,
                 E::variance() as i128,
                 &usize::to_be_bytes(index)[..],
             );
         }
 
-        self.extend(tag, &buffer);
+        self.extend(tag, &work);
+        self.work = work;
         Ok(())
     }
 
@@ -972,9 +983,11 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &I,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut buffer = BitString::new();
-        self.encode_integer_into_buffer(constraints, value, &mut buffer)?;
-        self.extend(tag, &buffer);
+        let mut work = core::mem::take(&mut self.work);
+        work.clear();
+        self.encode_integer_into_buffer(constraints, value, &mut work)?;
+        self.extend(tag, &work);
+        self.work = work;
         Ok(())
     }
 
@@ -1010,9 +1023,11 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &[u8],
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut buffer = BitString::default();
-        self.encode_octet_string_into_buffer(constraints, value, &mut buffer)?;
-        self.extend(tag, &buffer);
+        let mut work = core::mem::take(&mut self.work);
+        work.clear();
+        self.encode_octet_string_into_buffer(constraints, value, &mut work)?;
+        self.extend(tag, &work);
+        self.work = work;
         Ok(())
     }
 
@@ -1160,33 +1175,34 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         constraints: Constraints,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut buffer = BitString::default();
+        let mut work = core::mem::take(&mut self.work);
+        work.clear();
         let options = self.options;
 
-        self.encode_extensible_bit(&constraints, &mut buffer, || {
+        self.encode_extensible_bit(&constraints, &mut work, || {
             constraints.size().is_some_and(|size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&values.len())
             })
         });
-        let extension_bits_len = buffer.len();
+        let extension_bits_len = work.len();
 
-        self.encode_length(&mut buffer, values.len(), constraints.size(), |range| {
+        self.encode_length(&mut work, values.len(), constraints.size(), |range| {
             let mut acc = BitString::default();
-            // Start with an empty buffer; after each element, recycle its allocation so
-            // the next element reuses it instead of performing a fresh heap allocation.
+            // Recycle both the output buffer and the work buffer across element encoders
+            // to avoid repeated heap allocations.
             let mut reusable_buf = BitString::default();
+            let mut reusable_work = BitString::new();
             let mut first_round = true;
             for value in &values[range] {
-                // new_with_output clears the buffer but keeps its heap allocation.
                 let mut encoder = Self::new_with_output(options, reusable_buf);
+                encoder.work = reusable_work;
                 if first_round {
                     encoder.parent_output_length = Some(extension_bits_len);
                     first_round = false;
                 }
                 E::encode(value, &mut encoder)?;
-                // Take the encoded bits and accumulate them; hand the now-empty allocation
-                // back so the next iteration can reuse it without re-allocating.
+                reusable_work = core::mem::take(&mut encoder.work);
                 let mut bits = encoder.bitstring_output();
                 acc.append(&mut bits);
                 reusable_buf = bits;
@@ -1194,8 +1210,8 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             Ok(acc)
         })?;
 
-        self.extend(tag, &buffer);
-
+        self.extend(tag, &work);
+        self.work = work;
         Ok(())
     }
 
@@ -1284,6 +1300,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             let mut child = Encoder::<RL, EL> {
                 options: self.options,
                 output: core::mem::take(&mut self.output),
+                work: core::mem::take(&mut self.work),
                 preamble_pre_reserved: needed,
                 set_output: <_>::default(),
                 number_optional_default_fields: needed,
@@ -1294,7 +1311,8 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 parent_output_length: None,
             };
             (encoder_scope)(&mut child)?;
-            // Move the buffer back and fill in presence bits at the pre-reserved positions.
+            // Move the buffers back; reclaim any grown work allocation from the child.
+            self.work = core::mem::take(&mut child.work);
             self.output = core::mem::take(&mut child.output);
             for (i, (bit, _)) in child.root_bitfield.1[..needed].iter().enumerate() {
                 if *bit {
@@ -1333,10 +1351,11 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let mut buffer = BitString::new();
+        let mut work = core::mem::take(&mut self.work);
+        work.clear();
 
         let is_root_extension = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
-        self.encode_extensible_bit(&constraints, &mut buffer, || is_root_extension);
+        self.encode_extensible_bit(&constraints, &mut work, || is_root_extension);
         let variants = crate::types::variants::Variants::from_static(if is_root_extension {
             E::VARIANTS
         } else {
@@ -1381,26 +1400,27 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 self.encode_integer_into_buffer::<usize>(
                     E::VARIANCE_CONSTRAINT,
                     &index,
-                    &mut buffer,
+                    &mut work,
                 )?;
 
-                buffer.extend(choice_encoder.output);
+                work.extend(choice_encoder.output);
             }
             (index, Some(None)) => {
-                self.encode_normally_small_integer(index, &mut buffer)?;
+                self.encode_normally_small_integer(index, &mut work)?;
                 let mut output = choice_encoder.output();
 
                 if output.is_empty() {
                     output.push(0);
                 }
-                self.encode_octet_string_into_buffer(Constraints::default(), &output, &mut buffer)?;
+                self.encode_octet_string_into_buffer(Constraints::default(), &output, &mut work)?;
             }
             (_, None) => {
-                buffer.extend(choice_encoder.output);
+                work.extend(choice_encoder.output);
             }
         }
 
-        self.extend(tag, &buffer);
+        self.extend(tag, &work);
+        self.work = work;
         Ok(())
     }
 
