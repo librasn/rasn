@@ -132,11 +132,18 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_integer<I: IntegerType>(
         &mut self,
         _t: Tag,
-        _c: Constraints,
+        c: Constraints,
         value: &I,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        // BigInt always works — no i64 limitation unlike JER.
+        // When the INTEGER type defines a NamedNumberList, emit the symbolic
+        // identifier instead of the bare decimal (ITU-T X.680 §19.9).
+        if let Some(named_values) = c.named_values()
+            && let Some(i128_val) = num_traits::ToPrimitive::to_i128(value)
+            && let Some(&(_, name)) = named_values.iter().find(|(v, _)| *v == i128_val)
+        {
+            return self.update_root_or_constructed(AvnValue::Enumerated(name.into()));
+        }
         let s = value.to_bigint().unwrap_or_default().to_string();
         self.update_root_or_constructed(AvnValue::Integer(s))
     }
@@ -598,6 +605,28 @@ mod tests {
         )
         .unwrap();
         assert_eq!(enc.to_string(), "42");
+    }
+
+    #[test]
+    fn integer_with_named_values_encodes_name() {
+        const NAMED: &[(i128, &str)] = &[(1, "pukAppl1"), (2, "pukAppl2"), (129, "secondPUKAppl1")];
+        let c = Constraints::default().with_named_values(NAMED);
+
+        let mut enc = AvnEncoder::new();
+        enc.encode_integer(Tag::INTEGER, c, &1_i64, Identifier::EMPTY)
+            .unwrap();
+        assert_eq!(enc.to_string(), "pukAppl1");
+    }
+
+    #[test]
+    fn integer_with_named_values_falls_back_to_number() {
+        const NAMED: &[(i128, &str)] = &[(1, "pukAppl1"), (2, "pukAppl2")];
+        let c = Constraints::default().with_named_values(NAMED);
+
+        let mut enc = AvnEncoder::new();
+        enc.encode_integer(Tag::INTEGER, c, &99_i64, Identifier::EMPTY)
+            .unwrap();
+        assert_eq!(enc.to_string(), "99");
     }
 
     #[test]

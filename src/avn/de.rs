@@ -419,9 +419,9 @@ impl crate::Decoder for Decoder {
     fn decode_integer<I: crate::types::IntegerType>(
         &mut self,
         _t: Tag,
-        _c: Constraints,
+        c: Constraints,
     ) -> Result<I, Self::Error> {
-        decode_avn_value!(Self::integer_from_value::<I>, self.stack)
+        decode_avn_value!(|v| Self::integer_from_value::<I>(v, c), self.stack)
     }
 
     fn decode_real<R: crate::types::RealType>(
@@ -802,9 +802,26 @@ impl Decoder {
         })
     }
 
-    fn integer_from_value<I: crate::types::IntegerType>(value: AvnValue) -> Result<I, DecodeError> {
+    fn integer_from_value<I: crate::types::IntegerType>(
+        value: AvnValue,
+        constraints: Constraints,
+    ) -> Result<I, DecodeError> {
         let s = match value {
             AvnValue::Integer(s) => s,
+            // Named value identifiers are parsed as Enumerated by the parser.
+            // Look up the identifier in the NamedNumberList to resolve the integer.
+            AvnValue::Enumerated(ref id) => {
+                if let Some(named_values) = constraints.named_values()
+                    && let Some(&(val, _)) = named_values.iter().find(|(_, n)| *n == id)
+                {
+                    return I::try_from(BigInt::from(val))
+                        .map_err(|_| DecodeError::integer_overflow(I::WIDTH, crate::Codec::Avn));
+                }
+                return Err(DecodeError::from(AvnDecodeErrorKind::AvnTypeMismatch {
+                    needed: "integer",
+                    found: alloc::format!("{:?}", value),
+                }));
+            }
             other => {
                 return Err(DecodeError::from(AvnDecodeErrorKind::AvnTypeMismatch {
                     needed: "integer",
@@ -1041,5 +1058,48 @@ impl Decoder {
 
     fn date_from_value(value: AvnValue) -> Result<Date, DecodeError> {
         crate::ber::de::Decoder::parse_date_string(&Self::char_string_from_value(value)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::de::Decoder as DecoderTrait;
+
+    #[test]
+    fn decode_integer_named_value() {
+        const NAMED: &[(i128, &str)] = &[(1, "pukAppl1"), (2, "pukAppl2")];
+        let c = Constraints::default().with_named_values(NAMED);
+
+        let mut dec = Decoder::new("pukAppl1").unwrap();
+        let val: i64 = dec.decode_integer(Tag::INTEGER, c).unwrap();
+        assert_eq!(val, 1);
+    }
+
+    #[test]
+    fn decode_integer_bare_number_with_named_values() {
+        const NAMED: &[(i128, &str)] = &[(1, "pukAppl1"), (2, "pukAppl2")];
+        let c = Constraints::default().with_named_values(NAMED);
+
+        let mut dec = Decoder::new("99").unwrap();
+        let val: i64 = dec.decode_integer(Tag::INTEGER, c).unwrap();
+        assert_eq!(val, 99);
+    }
+
+    #[test]
+    fn decode_integer_unknown_identifier_fails() {
+        const NAMED: &[(i128, &str)] = &[(1, "pukAppl1")];
+        let c = Constraints::default().with_named_values(NAMED);
+
+        let mut dec = Decoder::new("unknownId").unwrap();
+        let result: Result<i64, _> = dec.decode_integer(Tag::INTEGER, c);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decode_integer_identifier_without_named_values_fails() {
+        let mut dec = Decoder::new("pukAppl1").unwrap();
+        let result: Result<i64, _> = dec.decode_integer(Tag::INTEGER, Constraints::default());
+        assert!(result.is_err());
     }
 }
