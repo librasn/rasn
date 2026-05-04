@@ -32,6 +32,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.14](https://github.com/librasn/rasn/compare/rasn-v0.28.13...rasn-v0.28.14) - 2026-05-04
+
+### Added
+
+- use width constant for per codec
+- *(per)* add encode_buf functions
+- add constraint checking when encoding
+- check integer and bit string constraints in BER
+- check octet string constraints when decoding ber
+- add {ber, cer, der}::encode_buf
+
+### Fixed
+
+- *(xer)* Return XER error on integer overflow
+
+### Other
+
+- fmt
+- add scratchpad worker buffer in PER
+- reuse buffer in SEQUENCE OF encodings
+- pass buffer into child encoder
+- remove integer decoding heap allocation
+- *(per)* use arrays for set tracking
+- use arrays with index for field tracking
+- add a fast path for encode_constructed
+- fmt
+- reuse buffer for allocating constructed types
+- clippy lints
+- use object_identifier_as_bytes directly
+
 ## [0.28.13](https://github.com/librasn/rasn/compare/rasn-v0.28.12...rasn-v0.28.13) - 2026-04-24
 
 ### Other
