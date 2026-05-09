@@ -11,7 +11,12 @@ default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
 
 [dependencies]
 bon = { version = "3.5", default-features = false }
+lazy_static = { version = "1", features = ["spin_no_std"] }
 rasn = { path = "../..", version = "0.28", default-features = false }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
+
+[build-dependencies]
+anyhow = "1"
+rasn-compiler = "0.16.0"
