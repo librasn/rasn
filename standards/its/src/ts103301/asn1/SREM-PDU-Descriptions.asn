@@ -1,0 +1,49 @@
+--! @options: no-fields-header
+
+SREM-PDU-Descriptions {
+	itu-t (0) identified-organization (4) etsi (0) itsDomain (5) wg1 (1) ts103301 (103301) srem (3) version2 (2)
+}
+
+DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+IMPORTS
+
+/**
+* Includes from ETSI-ITS-DSRC
+*/
+SignalRequestMessage
+FROM ETSI-ITS-DSRC {
+  itu-t (0) identified-organization (4) etsi (0) itsDomain (5) wg1 (1) ts103301 (103301) dsrc (6) major-version-2 (2) minor-version-1 (1)
+}
+WITH SUCCESSORS
+
+/**
+* Include ETSI TS 102 894-2 (ETSI-ITS-CDD)
+*/
+ItsPduHeader
+FROM ETSI-ITS-CDD {
+  itu-t (0) identified-organization (4) etsi (0) itsDomain (5) wg1 (1) 102894 cdd (2) major-version-4 (4) minor-version-1 (1)
+}
+WITH SUCCESSORS;
+
+/**
+* Signal request extended Message Message
+* This DF includes DEs for the SREM: protocolVersion, the SREM message type identifier `messageID`,
+* the station identifier `stationID` of the originating ITS-S and the signal request data from ETSI-ITS-DSRC.
+*
+* @field header: The DE `protocolVersion` is used to select the appropriate protocol decoder at the receiving ITS-S. 
+*                It shall be set to 2.
+*                The DE `messageID` shall be srem(9).
+* @field srm:    contains the Signal request data as defined in ETSI-ITS-DSRC.
+* 
+* @category: Basic Information
+* @revision: V1.3.1
+*/
+SREM ::= SEQUENCE {
+    header  ItsPduHeader,
+    srm     SignalRequestMessage
+}
+
+END
