@@ -20,4 +20,4 @@ pretty_assertions = "1.4.1"
 [build-dependencies]
 anyhow = "1"
 encoding_rs = "0.8.35"
-rasn-compiler = "0.16.0"
+rasn-compiler = { git = "https://github.com/schphil/compiler.git", rev = "51e27a43de53c7e2499daf411aea2c1c85c2dedd" }

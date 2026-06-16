@@ -9,13 +9,15 @@ pub mod etsi_its_dsrc {
     extern crate alloc;
     use super::etsi_its_cdd::{Iso3833VehicleType, Latitude, Longitude, StationID};
     use super::etsi_its_dsrc_region::{
-        RegAdvisorySpeed, RegComputedLane, RegConnectionManeuverAssist, RegGenericLane,
-        RegIntersectionGeometry, RegIntersectionState, RegLaneAttributes, RegLaneDataAttribute,
-        RegMapData, RegMovementEvent, RegMovementState, RegNodeAttributeSetXY,
-        RegNodeOffsetPointXY, RegPosition3D, RegRTCMcorrections, RegRequestorDescription,
-        RegRequestorType, RegRestrictionUserType, RegRoadSegment, RegSPAT, RegSignalControlZone,
-        RegSignalRequest, RegSignalRequestMessage, RegSignalRequestPackage, RegSignalStatus,
-        RegSignalStatusMessage, RegSignalStatusPackage,
+        RegAdvisorySpeed_Type, RegComputedLane_Type, RegConnectionManeuverAssist_Type,
+        RegGenericLane_Type, RegIntersectionGeometry_Type, RegIntersectionState_Type,
+        RegLaneAttributes_Type, RegLaneDataAttribute_Type, RegMapData_Type, RegMovementEvent_Type,
+        RegMovementState_Type, RegNodeAttributeSetXY_Type, RegNodeOffsetPointXY_Type,
+        RegPosition3D_Type, RegRTCMcorrections_Type, RegRequestorDescription_Type,
+        RegRequestorType_Type, RegRestrictionUserType_Type, RegRoadSegment_Type, RegSPAT_Type,
+        RegSignalControlZone_Type, RegSignalRequestMessage_Type, RegSignalRequestPackage_Type,
+        RegSignalRequest_Type, RegSignalStatusMessage_Type, RegSignalStatusPackage_Type,
+        RegSignalStatus_Type,
     };
     use core::borrow::Borrow;
     use lazy_static::lazy_static;
@@ -24,13 +26,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousAdvisorySpeedRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousAdvisorySpeedRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -65,7 +67,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -102,7 +103,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=16"))]
     pub struct AdvisorySpeedList(pub SequenceOf<AdvisorySpeed>);
@@ -112,7 +112,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -139,7 +138,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*    found in the collection of ConnectsTo entries."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate)]
     pub struct AllowedManeuvers(pub FixedBitString<12usize>);
@@ -154,7 +152,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 0.0125 degrees"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=28800"))]
     pub struct Angle(pub u16);
@@ -170,7 +167,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct AntennaOffsetSet {
@@ -205,7 +201,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @note: zero to be used when valid value is unknown"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=15"))]
     pub struct ApproachID(pub u8);
@@ -252,7 +247,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*    sent within SAE-defined PSIDs) rests with the regional deployment."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -302,13 +296,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousComputedLaneRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousComputedLaneRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -352,7 +346,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -407,7 +400,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct ConnectingLane {
@@ -438,7 +430,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct Connection {
@@ -474,13 +465,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousConnectionManeuverAssistRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousConnectionManeuverAssistRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -539,7 +530,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -587,7 +577,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*   connects shall be listed."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=16"))]
     pub struct ConnectsToList(pub SequenceOf<Connection>);
@@ -598,7 +587,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @note: Note that some elements of this structure may not be sent when not needed. At least one element shall be present."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct DDateTime {
@@ -637,7 +625,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: days"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=31"))]
     pub struct DDay(pub u8);
@@ -648,7 +635,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: hours"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=31"))]
     pub struct DHour(pub u8);
@@ -659,7 +645,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: minutes"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=60"))]
     pub struct DMinute(pub u8);
@@ -670,7 +655,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: months"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=12"))]
     pub struct DMonth(pub u8);
@@ -682,7 +666,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: minutes from UTC time"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("-840..=840"))]
     pub struct DOffset(pub i16);
@@ -694,7 +677,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: milliseconds"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=65535"))]
     pub struct DSecond(pub u16);
@@ -705,7 +687,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: years"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=4095"))]
     pub struct DYear(pub u16);
@@ -714,7 +695,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -752,7 +732,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: degree"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("-150..=150"))]
     pub struct DeltaAngle(pub i16);
@@ -771,7 +750,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("-122..=121"))]
     pub struct DeltaTime(pub i8);
@@ -783,7 +761,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=63"))]
     pub struct DescriptiveName(pub Ia5String);
@@ -795,7 +772,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: cm"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("-32767..=32767"))]
     pub struct DrivenLineOffsetLg(pub i16);
@@ -807,7 +783,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: cm"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("-2047..=2047"))]
     pub struct DrivenLineOffsetSm(pub i16);
@@ -824,7 +799,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        projected downward, regardless of vehicle tilt, to the point where the vehicle meets the road surface."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("-4096..=61439"))]
     pub struct Elevation(pub i32);
@@ -856,7 +830,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @note: Encoded as a 4 bit value"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum ElevationConfidence {
@@ -907,7 +880,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=16"))]
     pub struct EnabledLaneList(pub SequenceOf<LaneID>);
@@ -916,7 +888,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=15"))]
     pub struct FuelType(pub u8);
@@ -938,7 +909,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -1005,7 +975,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate)]
     pub struct GNSSstatus(pub FixedBitString<8usize>);
@@ -1013,13 +982,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousGenericLaneRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousGenericLaneRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -1083,7 +1052,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*       topology, may be e.g. the same for all lanes within an approach of an intersection."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -1151,7 +1119,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum HeadingConfidenceDSRC {
@@ -1184,7 +1151,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 0.0125 degrees"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=28800"))]
     pub struct HeadingDSRC(pub u16);
@@ -1205,7 +1171,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*    or approach with the same results."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(choice, automatic_tags)]
     #[non_exhaustive]
@@ -1218,13 +1183,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousIntersectionGeometryRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousIntersectionGeometryRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -1271,7 +1236,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -1321,7 +1285,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=32"))]
     pub struct IntersectionGeometryList(pub SequenceOf<IntersectionGeometry>);
@@ -1336,7 +1299,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=65535"))]
     pub struct IntersectionID(pub u16);
@@ -1353,7 +1315,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        RoadRegulatorID). Taken together these form a unique value which is never repeated."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct IntersectionReferenceID {
@@ -1369,13 +1330,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousIntersectionStateRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousIntersectionStateRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -1423,7 +1384,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -1474,7 +1434,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=32"))]
     pub struct IntersectionStateList(pub SequenceOf<IntersectionState>);
@@ -1500,7 +1459,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @note: All zeros indicate normal operating mode with no recent changes. The duration of the term **recent** is defined by the system performance requirement in use."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate)]
     pub struct IntersectionStatusObject(pub FixedBitString<16usize>);
@@ -1508,13 +1466,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct LaneAttributesRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl LaneAttributesRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -1559,7 +1517,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct LaneAttributes {
@@ -1596,7 +1553,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "LaneAttributes-Barrier")]
     pub struct LaneAttributesBarrier(pub FixedBitString<16usize>);
@@ -1618,7 +1574,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "LaneAttributes-Bike")]
     pub struct LaneAttributesBike(pub FixedBitString<16usize>);
@@ -1643,7 +1598,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "LaneAttributes-Crosswalk")]
     pub struct LaneAttributesCrosswalk(pub FixedBitString<16usize>);
@@ -1660,7 +1614,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "LaneAttributes-Parking")]
     pub struct LaneAttributesParking(pub FixedBitString<16usize>);
@@ -1677,7 +1630,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "LaneAttributes-Sidewalk")]
     pub struct LaneAttributesSidewalk(pub FixedBitString<16usize>);
@@ -1696,7 +1648,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "LaneAttributes-Striping")]
     pub struct LaneAttributesStriping(pub FixedBitString<16usize>);
@@ -1714,7 +1665,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "LaneAttributes-TrackedVehicle")]
     pub struct LaneAttributesTrackedVehicle(pub FixedBitString<16usize>);
@@ -1730,7 +1680,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "LaneAttributes-Vehicle", size("8", extensible))]
     pub struct LaneAttributesVehicle(pub BitString);
@@ -1746,7 +1695,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        between two lanes. It is not the same as the laneID, which is the unique index to each lane itself."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct LaneConnectionID(pub u8);
@@ -1754,13 +1702,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousLaneDataAttributeRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousLaneDataAttributeRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -1803,7 +1751,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*     positional translation factors to be used (offset, rotate, scale) and any further segment attribute changes."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(choice, automatic_tags)]
     #[non_exhaustive]
@@ -1821,7 +1768,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=8"))]
     pub struct LaneDataAttributeList(pub SequenceOf<LaneDataAttribute>);
@@ -1844,7 +1790,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        asserting any bit value Bi-Directional Travel (such as a ped crosswalk) is indicated by asserting both of the bits."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate)]
     pub struct LaneDirection(pub FixedBitString<2usize>);
@@ -1860,7 +1805,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct LaneID(pub u8);
@@ -1869,7 +1813,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=255"))]
     pub struct LaneList(pub SequenceOf<GenericLane>);
@@ -1897,7 +1840,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @note: All zeros would indicate **not shared** and **not overlapping**"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate)]
     pub struct LaneSharing(pub FixedBitString<10usize>);
@@ -1925,7 +1867,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(choice, automatic_tags)]
     #[non_exhaustive]
@@ -1945,7 +1886,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @units: cm"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=32767"))]
     pub struct LaneWidth(pub u16);
@@ -1968,7 +1908,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=100"))]
     pub struct LayerID(pub u8);
@@ -1979,7 +1918,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -1998,7 +1936,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=4294967295"))]
     pub struct LineNumber(pub u32);
@@ -2007,7 +1944,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=16"))]
     pub struct ManeuverAssistList(pub SequenceOf<ConnectionManeuverAssist>);
@@ -2015,13 +1951,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousMapDataRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousMapDataRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -2069,7 +2005,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Road topology information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -2125,7 +2060,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 1.5 degrees from north"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("-180..=180"))]
     pub struct MergeDivergeNodeAngle(pub i16);
@@ -2143,7 +2077,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        accommodated, as are leap seconds in the DSecond data concept."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=527040"))]
     pub struct MinuteOfTheYear(pub u32);
@@ -2151,13 +2084,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousMovementEventRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousMovementEventRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -2187,7 +2120,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -2218,7 +2150,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=16"))]
     pub struct MovementEventList(pub SequenceOf<MovementEvent>);
@@ -2227,7 +2158,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=255"))]
     pub struct MovementList(pub SequenceOf<MovementState>);
@@ -2291,7 +2221,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum MovementPhaseState {
@@ -2318,13 +2247,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousMovementStateRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousMovementStateRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -2379,7 +2308,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*      conditions, the unused phase states are simply skipped."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -2450,7 +2378,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=127"))]
     pub struct MsgCount(pub u8);
@@ -2459,7 +2386,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "Node-LLmD-64b")]
     pub struct NodeLLmD64b {
@@ -2476,7 +2402,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "Node-XY-20b")]
     pub struct NodeXY20b {
@@ -2493,7 +2418,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "Node-XY-22b")]
     pub struct NodeXY22b {
@@ -2510,7 +2434,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "Node-XY-24b")]
     pub struct NodeXY24b {
@@ -2527,7 +2450,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "Node-XY-26b")]
     pub struct NodeXY26b {
@@ -2544,7 +2466,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "Node-XY-28b")]
     pub struct NodeXY28b {
@@ -2561,7 +2482,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "Node-XY-32b")]
     pub struct NodeXY32b {
@@ -2577,13 +2497,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousNodeAttributeSetXYRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousNodeAttributeSetXYRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -2623,7 +2543,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -2684,7 +2603,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @note: See usage examples in [ISO TS 19091] G.8.2.8"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -2707,7 +2625,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=8"))]
     pub struct NodeAttributeXYList(pub SequenceOf<NodeAttributeXY>);
@@ -2730,7 +2647,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(choice, automatic_tags)]
     #[non_exhaustive]
@@ -2742,13 +2658,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct NodeOffsetPointXYRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl NodeOffsetPointXYRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -2790,7 +2706,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(choice, automatic_tags)]
     pub enum NodeOffsetPointXY {
@@ -2815,7 +2730,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("2..=63"))]
     pub struct NodeSetXY(pub SequenceOf<NodeXY>);
@@ -2837,7 +2751,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -2863,7 +2776,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -2910,7 +2822,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "Offset-B09", value("-256..=255"))]
     pub struct OffsetB09(pub i16);
@@ -2922,7 +2833,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "Offset-B10", value("-512..=511"))]
     pub struct OffsetB10(pub i16);
@@ -2934,7 +2844,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "Offset-B11", value("-1024..=1023"))]
     pub struct OffsetB11(pub i16);
@@ -2946,7 +2855,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "Offset-B12", value("-2048..=2047"))]
     pub struct OffsetB12(pub i16);
@@ -2958,7 +2866,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "Offset-B13", value("-4096..=4095"))]
     pub struct OffsetB13(pub i16);
@@ -2969,7 +2876,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "Offset-B14", value("-8192..=8191"))]
     pub struct OffsetB14(pub i16);
@@ -2981,7 +2887,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "Offset-B16", value("-32768..=32767"))]
     pub struct OffsetB16(pub i16);
@@ -2994,7 +2899,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=5"))]
     pub struct OverlayLaneList(pub SequenceOf<LaneID>);
@@ -3004,7 +2908,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(delegate)]
     pub struct PedestrianBicycleDetect(pub bool);
@@ -3012,13 +2915,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousPosition3DRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousPosition3DRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -3050,7 +2953,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -3103,7 +3005,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct PositionConfidenceSet {
@@ -3121,7 +3022,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct PositionalAccuracy {
@@ -3149,7 +3049,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=32"))]
     pub struct PreemptPriorityList(pub SequenceOf<SignalControlZone>);
@@ -3169,7 +3068,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -3188,7 +3086,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct PriorityLevel(pub u8);
@@ -3198,7 +3095,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -3227,7 +3123,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated, identifier = "RTCM-Revision")]
     #[non_exhaustive]
@@ -3241,13 +3136,13 @@ pub mod etsi_its_dsrc {
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SEQUENCE")]
     pub struct AnonymousRTCMcorrectionsRegional {
-        #[rasn(value("0..=255"), identifier = "regionId")]
-        pub region_id: u8,
+        #[rasn(identifier = "regionId")]
+        pub region_id: RegionId,
         #[rasn(identifier = "regExtValue")]
         pub reg_ext_value: Any,
     }
     impl AnonymousRTCMcorrectionsRegional {
-        pub fn new(region_id: u8, reg_ext_value: Any) -> Self {
+        pub fn new(region_id: RegionId, reg_ext_value: Any) -> Self {
             Self {
                 region_id,
                 reg_ext_value,
@@ -3283,7 +3178,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -3328,7 +3222,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct RTCMheader {
@@ -3349,7 +3242,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=1023"))]
     pub struct RTCMmessage(pub OctetString);
@@ -3358,7 +3250,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=5"))]
     pub struct RTCMmessageList(pub SequenceOf<RTCMmessage>);
@@ -3378,7 +3269,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        The values 128 and above are for local region use"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct RegionId(pub u8);
@@ -3390,7 +3280,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct RegulatorySpeedLimit {
@@ -3408,7 +3297,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=65535"))]
     pub struct ReportingPoint(pub u16);
@@ -3425,7 +3313,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        when this data element is used. Further details of these operational concepts can be found in the relevant standards."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct RequestID(pub u8);
@@ -3444,7 +3331,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum RequestImportanceLevel {
@@ -3481,7 +3367,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum RequestSubRole {
@@ -3557,7 +3442,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        unique ID used in the orginal request) are used."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -3612,7 +3496,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -3683,7 +3566,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -3737,7 +3619,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -3769,7 +3650,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct RestrictionClassAssignment {
@@ -3794,7 +3674,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct RestrictionClassID(pub u8);
@@ -3810,7 +3689,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        and stable for regional deployment areas such as a metropolitan area based on their operational practices and needs."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=254"))]
     pub struct RestrictionClassList(pub SequenceOf<RestrictionClassAssignment>);
@@ -3854,7 +3732,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(choice, automatic_tags)]
     #[non_exhaustive]
@@ -3867,7 +3744,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=16"))]
     pub struct RestrictionUserTypeList(pub SequenceOf<RestrictionUserType>);
@@ -3876,7 +3752,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=255"))]
     pub struct RoadLaneSetList(pub SequenceOf<GenericLane>);
@@ -3890,7 +3765,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=65535"))]
     pub struct RoadRegulatorID(pub u16);
@@ -3939,7 +3813,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -3992,7 +3865,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=65535"))]
     pub struct RoadSegmentID(pub u16);
@@ -4001,7 +3873,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=32"))]
     pub struct RoadSegmentList(pub SequenceOf<RoadSegment>);
@@ -4015,7 +3886,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct RoadSegmentReferenceID {
@@ -4039,7 +3909,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 0.3 degrees of angle over a range of -38.1 to + 38.1 degrees"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("-128..=127"))]
     pub struct RoadwayCrownAngle(pub i8);
@@ -4048,7 +3917,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=4294967295"))]
     pub struct RouteNumber(pub u32);
@@ -4100,7 +3968,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4136,7 +4003,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: in steps of 0.05 percent"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, identifier = "Scale-B12", value("-2048..=2047"))]
     pub struct ScaleB12(pub i16);
@@ -4192,7 +4058,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -4241,7 +4106,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=8"))]
     pub struct SegmentAttributeXYList(pub SequenceOf<SegmentAttributeXY>);
@@ -4258,7 +4122,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 0.05m"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct SemiMajorAxisAccuracy(pub u8);
@@ -4277,7 +4140,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 360/65535 degree"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=65535"))]
     pub struct SemiMajorAxisOrientation(pub u16);
@@ -4294,7 +4156,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 0.05m"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct SemiMinorAxisAccuracy(pub u8);
@@ -4331,7 +4192,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4361,7 +4221,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct SignalGroupID(pub u8);
@@ -4410,7 +4269,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        path through the intersection to the degree it is known."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4450,7 +4308,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=32"))]
     pub struct SignalRequestList(pub SequenceOf<SignalRequestPackage>);
@@ -4508,7 +4365,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4592,7 +4448,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4633,7 +4488,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4705,7 +4559,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4737,7 +4590,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=32"))]
     pub struct SignalStatusList(pub SequenceOf<SignalStatus>);
@@ -4788,7 +4640,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4867,7 +4718,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -4911,7 +4761,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=32"))]
     pub struct SignalStatusPackageList(pub SequenceOf<SignalStatusPackage>);
@@ -4926,7 +4775,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 0.1 m/s"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=500"))]
     pub struct SpeedAdvice(pub u16);
@@ -4949,7 +4797,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum SpeedConfidenceDSRC {
@@ -4970,7 +4817,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, size("1..=9"))]
     pub struct SpeedLimitList(pub SequenceOf<RegulatorySpeedLimit>);
@@ -4986,7 +4832,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -5014,7 +4859,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct SpeedandHeadingandThrottleConfidence {
@@ -5049,7 +4893,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*        periodically change to a new random value to ensure the overall anonymity of the vehicle."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate)]
     pub struct TemporaryID(pub FixedOctetString<4usize>);
@@ -5069,7 +4912,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum ThrottleConfidence {
@@ -5122,7 +4964,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*          where each of these functions is performed in the overall roadside system."]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct TimeChangeDetails {
@@ -5207,7 +5048,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum TimeConfidence {
@@ -5317,7 +5157,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: percent"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=15"))]
     pub struct TimeIntervalConfidence(pub u8);
@@ -5340,7 +5179,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @note: Note that this is NOT expressed in GPS time or in local time"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=36001"))]
     pub struct TimeMark(pub u16);
@@ -5349,7 +5187,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=4294967295"))]
     pub struct TourNumber(pub u32);
@@ -5358,7 +5195,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=7"))]
     pub struct TrainLength(pub u8);
@@ -5367,7 +5203,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=255"))]
     pub struct TransitDirection(pub u8);
@@ -5376,7 +5211,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum TransitVehicleOccupancy {
@@ -5406,7 +5240,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate)]
     pub struct TransitVehicleStatus(pub FixedBitString<8usize>);
@@ -5419,7 +5252,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct TransmissionAndSpeed {
@@ -5436,7 +5268,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     pub enum TransmissionState {
@@ -5459,7 +5290,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 5cm"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=127"))]
     pub struct VehicleHeight(pub u8);
@@ -5477,7 +5307,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(choice, automatic_tags)]
     pub enum VehicleID {
@@ -5510,7 +5339,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -5543,7 +5371,6 @@ pub mod etsi_its_dsrc {
     #[doc = "* @unit: 0.02 m/s"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=8191"))]
     pub struct Velocity(pub u16);
@@ -5552,7 +5379,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V2.2.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=4294967295"))]
     pub struct VersionId(pub u32);
@@ -5563,7 +5389,6 @@ pub mod etsi_its_dsrc {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(delegate)]
     pub struct WaitOnStopline(pub bool);
@@ -5607,7 +5432,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -5627,7 +5451,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "ConnectionManeuverAssist-addGrpC")]
     #[non_exhaustive]
@@ -5662,7 +5485,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "ConnectionTrajectory-addGrpC")]
     #[non_exhaustive]
@@ -5684,7 +5506,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -5702,7 +5523,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -5734,7 +5554,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "IntersectionState-addGrpC")]
     #[non_exhaustive]
@@ -5765,7 +5584,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -5805,7 +5623,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "LaneAttributes-addGrpC")]
     #[non_exhaustive]
@@ -5835,7 +5652,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "MapData-addGrpC")]
     #[non_exhaustive]
@@ -5858,7 +5674,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "MovementEvent-addGrpC")]
     #[non_exhaustive]
@@ -5886,7 +5701,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -5926,7 +5740,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "NodeAttributeSet-addGrpC")]
     #[non_exhaustive]
@@ -5962,7 +5775,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "Position3D-addGrpC")]
     #[non_exhaustive]
@@ -5984,7 +5796,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -6019,7 +5830,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -6035,7 +5845,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash, Copy)]
     #[rasn(enumerated)]
     #[non_exhaustive]
@@ -6056,7 +5865,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "RequestorDescription-addGrpC")]
     #[non_exhaustive]
@@ -6085,7 +5893,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "RestrictionUserType-addGrpC")]
     #[non_exhaustive]
@@ -6104,7 +5911,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     #[non_exhaustive]
@@ -6147,7 +5953,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags, identifier = "SignalStatusPackage-addGrpC")]
     #[non_exhaustive]
@@ -6174,7 +5979,6 @@ pub mod etsi_its_dsrc_add_grp_c {
     #[doc = "*"]
     #[doc = "* @category: Infrastructure information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(delegate, value("0..=60000"))]
     pub struct TimeReference(pub u16);
@@ -6218,7 +6022,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6256,7 +6060,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6294,7 +6098,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6332,7 +6136,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6389,7 +6193,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6447,7 +6251,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6486,7 +6290,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6524,7 +6328,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6581,7 +6385,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6639,7 +6443,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6678,7 +6482,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6716,7 +6520,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6773,7 +6577,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6831,7 +6635,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6870,7 +6674,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6908,7 +6712,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -6965,7 +6769,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7004,7 +6808,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7042,7 +6846,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7099,7 +6903,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7138,7 +6942,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7176,7 +6980,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7233,7 +7037,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7272,7 +7076,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7310,7 +7114,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7367,7 +7171,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7406,7 +7210,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7444,7 +7248,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7482,7 +7286,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7520,7 +7324,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7558,7 +7362,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7596,7 +7400,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7634,7 +7438,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7672,7 +7476,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7710,7 +7514,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7748,7 +7552,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7786,7 +7590,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7824,7 +7628,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7862,7 +7666,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7900,7 +7704,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7938,7 +7742,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -7976,7 +7780,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -8033,7 +7837,7 @@ pub mod etsi_its_dsrc_region {
                 .into()),
             }
         }
-        pub fn encode<E: Encoder>(
+        pub fn encode<'encoder, E: rasn::Encoder<'encoder>>(
             &self,
             encoder: &mut E,
             identifier: &RegionId,
@@ -8079,7 +7883,6 @@ pub mod mapem_pdu_descriptions {
     #[doc = "* "]
     #[doc = "* @category: Basic Information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct MAPEM {
@@ -8118,7 +7921,6 @@ pub mod rtcmem_pdu_descriptions {
     #[doc = "* "]
     #[doc = "* @category: Basic Information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct RTCMEM {
@@ -8159,7 +7961,6 @@ pub mod spatem_pdu_descriptions {
     #[doc = "* "]
     #[doc = "* @category: Basic Information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct SPATEM {
@@ -8198,7 +7999,6 @@ pub mod srem_pdu_descriptions {
     #[doc = "* "]
     #[doc = "* @category: Basic Information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct SREM {
@@ -8238,7 +8038,6 @@ pub mod ssem_pdu_descriptions {
     #[doc = "* "]
     #[doc = "* @category: Basic Information"]
     #[doc = "* @revision: V1.3.1"]
-    #[doc = ""]
     #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
     #[rasn(automatic_tags)]
     pub struct SSEM {
