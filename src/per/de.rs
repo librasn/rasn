@@ -179,11 +179,15 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<()> {
         let extensible_is_present = self.parse_extensible_bit(constraints)?;
-        let constraints = constraints.size().filter(|_| !extensible_is_present);
+        let size = constraints.size().filter(|_| !extensible_is_present);
+        let mut total_length = 0usize;
         let input =
-            self.decode_string_length(self.input, constraints, is_large_string, &mut decode_fn)?;
+            self.decode_string_length(self.input, size, is_large_string, &mut |input, length| {
+                total_length += length;
+                decode_fn(input, length)
+            })?;
         self.input = input;
-        Ok(())
+        self.check_size(size, total_length)
     }
 
     fn decode_extensible_container(
@@ -192,10 +196,14 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<()> {
         let extensible_is_present = self.parse_extensible_bit(&constraints)?;
-        let constraints = constraints.size().filter(|_| !extensible_is_present);
-        let input = self.decode_length(self.input, constraints, &mut decode_fn)?;
+        let size = constraints.size().filter(|_| !extensible_is_present);
+        let mut total_length = 0usize;
+        let input = self.decode_length(self.input, size, &mut |input, length| {
+            total_length += length;
+            decode_fn(input, length)
+        })?;
         self.input = input;
-        Ok(())
+        self.check_size(size, total_length)
     }
 
     fn decode_octets(&mut self) -> Result<types::BitString> {
@@ -427,12 +435,21 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     }
 
     fn parse_integer<I: types::IntegerType>(&mut self, constraints: Constraints) -> Result<I> {
-        let extensible = self.parse_extensible_bit(&constraints)?;
+        self.parse_integer_with_extension_bit(constraints)
+            .map(|(value, _)| value)
+    }
+
+    fn parse_integer_with_extension_bit<I: types::IntegerType>(
+        &mut self,
+        constraints: Constraints,
+    ) -> Result<(I, bool)> {
+        let extension_is_present = self.parse_extensible_bit(&constraints)?;
         let value_constraint = constraints.value();
 
-        let Some(value_constraint) = value_constraint.filter(|_| !extensible) else {
+        let Some(value_constraint) = value_constraint.filter(|_| !extension_is_present) else {
             let bytes = &self.decode_octets()?;
-            return I::try_from_bytes(bytes.as_raw_slice(), self.codec());
+            return I::try_from_bytes(bytes.as_raw_slice(), self.codec())
+                .map(|value| (value, extension_is_present));
         };
 
         const K64: i128 = SIXTY_FOUR_K as i128;
@@ -447,7 +464,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
         let number = if let Some(range) = value_constraint.constraint.range() {
             match (self.options.aligned, range) {
-                (_, 0) => return Ok(minimum),
+                (_, 0) => return Ok((minimum, extension_is_present)),
                 (true, 256) => {
                     self.input = self.parse_padding(self.input)?;
                     self.parse_non_negative_binary_integer::<I::UnsignedPair>(range)?
@@ -492,9 +509,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
             return minimum
                 .checked_add(&number)
+                .map(|value| (value, extension_is_present))
                 .ok_or_else(|| DecodeError::integer_overflow(I::WIDTH, self.codec()));
         };
-        Ok(minimum.wrapping_unsigned_add(number))
+
+        Ok((minimum.wrapping_unsigned_add(number), extension_is_present))
     }
 
     fn parse_extension_header(&mut self) -> Result<bool> {
@@ -547,6 +566,34 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             ));
         }
         Ok(())
+    }
+
+    /// Checks a decoded length against an already extension-bit-filtered size
+    /// constraint, so that we don't accept lengths we would refuse to encode.
+    ///
+    /// PER encodes a constrained length in `log2(range)` bits, so whenever the
+    /// range isn't a power of two the surplus code points would otherwise be
+    /// accepted silently.
+    ///
+    /// `size` is `None` when the type is unconstrained, or when the extension
+    /// bit signalled a length outside of the root constraint; in both cases no
+    /// check applies. Mirrors the `Error::check_length` call the encoder makes
+    /// in `encode_string_length`.
+    fn check_size(
+        &self,
+        size: Option<&Extensible<constraints::Size>>,
+        length: usize,
+    ) -> Result<()> {
+        let Some(size) = size else {
+            return Ok(());
+        };
+        size.constraint.contains_or_else(&length, || {
+            DecodeError::size_constraint_not_satisfied(
+                Some(length),
+                size.constraint.to_string(),
+                self.codec(),
+            )
+        })
     }
 
     #[allow(clippy::too_many_lines)]
@@ -742,7 +789,21 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         _: Tag,
         constraints: Constraints,
     ) -> Result<I> {
-        self.parse_integer::<I>(constraints)
+        let (result, extension_is_present) =
+            self.parse_integer_with_extension_bit::<I>(constraints)?;
+
+        if let Some(value) = constraints.value()
+            && !extension_is_present
+            && !value.constraint.in_bound(&result)
+        {
+            return Err(DecodeError::value_constraint_not_satisfied(
+                result.to_bigint().unwrap_or_default(),
+                value.constraint.value,
+                self.codec(),
+            ));
+        }
+
+        Ok(result)
     }
 
     fn decode_real<R: types::RealType>(
@@ -1239,6 +1300,171 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::Decoder as _;
+
+    fn unaligned(input: &[u8]) -> Decoder<'_, 0, 0> {
+        Decoder::new(
+            crate::types::BitStr::from_slice(input),
+            DecoderOptions::unaligned(),
+        )
+    }
+
+    fn aligned(input: &[u8]) -> Decoder<'_, 0, 0> {
+        Decoder::new(
+            crate::types::BitStr::from_slice(input),
+            DecoderOptions::aligned(),
+        )
+    }
+
+    /// APER uses a two-octet constrained whole number for ranges from 257 to
+    /// 64K, leaving surplus code points that must be rejected.
+    #[test]
+    fn aligned_integer_value_constraint() {
+        const CONSTRAINTS: Constraints = constraints!(value_constraint!(1, 300));
+
+        // 0x012c -> 300 + minimum 1 = 301, outside of 1..=300.
+        let mut decoder = aligned(&[0x01, 0x2c]);
+        assert!(matches!(
+            *decoder
+                .decode_integer::<u16>(Tag::INTEGER, CONSTRAINTS)
+                .unwrap_err()
+                .kind,
+            DecodeErrorKind::ValueConstraintNotSatisfied { .. }
+        ));
+
+        // 0x012b -> 299 + minimum 1 = 300, the upper bound.
+        let mut decoder = aligned(&[0x01, 0x2b]);
+        assert_eq!(
+            decoder
+                .decode_integer::<u16>(Tag::INTEGER, CONSTRAINTS)
+                .unwrap(),
+            300
+        );
+    }
+
+    #[test]
+    fn aligned_sequence_of_size_constraint() {
+        const CONSTRAINTS: Constraints = constraints!(size_constraint!(1, 300));
+
+        // A SEQUENCE OF NULL needs no payload bits, keeping the APER two-octet
+        // length determinant test small.
+        let mut decoder = aligned(&[0x01, 0x2c]);
+        assert!(matches!(
+            *decoder
+                .decode_sequence_of::<()>(Tag::SEQUENCE, CONSTRAINTS)
+                .unwrap_err()
+                .kind,
+            DecodeErrorKind::SizeConstraintNotSatisfied {
+                size: Some(301),
+                ..
+            }
+        ));
+
+        let mut decoder = aligned(&[0x01, 0x2b]);
+        assert_eq!(
+            decoder
+                .decode_sequence_of::<()>(Tag::SEQUENCE, CONSTRAINTS)
+                .unwrap(),
+            vec![(); 300]
+        );
+    }
+
+    #[test]
+    fn visible_string_size_constraint() {
+        // VisibleString (SIZE (1..10)) -> the length is counted in characters.
+        const CONSTRAINTS: Constraints = constraints!(size_constraint!(1, 10));
+
+        // 0b1111 -> 15 + 1 = 16 characters. The size is checked before the
+        // characters are mapped, so this fails on the length, not the alphabet.
+        let mut decoder = unaligned(&[0xff; 20]);
+        assert!(matches!(
+            *decoder
+                .decode_visible_string(Tag::VISIBLE_STRING, CONSTRAINTS)
+                .unwrap_err()
+                .kind,
+            DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(16), .. }
+        ));
+    }
+
+    /// Half-open size constraints have no `range()`, so they use the
+    /// unconstrained length determinant and were previously never checked at
+    /// all, even though the encoder rejects them.
+    #[test]
+    fn half_open_size_constraint() {
+        const CONSTRAINTS: Constraints = constraints!(size_constraint!(end: 4));
+
+        // 0b0_0000110 -> 6 octets, above the maximum of 4.
+        let mut decoder = unaligned(&[0x06, 1, 2, 3, 4, 5, 6]);
+        assert!(matches!(
+            *decoder
+                .decode_octet_string::<Vec<u8>>(Tag::OCTET_STRING, CONSTRAINTS)
+                .unwrap_err()
+                .kind,
+            DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(6), .. }
+        ));
+
+        // 0b0_0000011 -> 3 octets, within the maximum.
+        let mut decoder = unaligned(&[0x03, 0xAA, 0xBB, 0xCC]);
+        assert_eq!(
+            decoder
+                .decode_octet_string::<Vec<u8>>(Tag::OCTET_STRING, CONSTRAINTS)
+                .unwrap(),
+            [0xAA, 0xBB, 0xCC]
+        );
+    }
+
+    #[test]
+    fn extensible_size_constraint() {
+        const CONSTRAINTS: Constraints = constraints!(size_constraint!(1, 3, extensible));
+
+        // Extension bit 0 selects the root. The spare length code 0b11 would
+        // decode as four elements and must be rejected.
+        let mut decoder = unaligned(&[0b0111_1110]);
+        assert!(matches!(
+            *decoder
+                .decode_sequence_of::<bool>(Tag::SEQUENCE, CONSTRAINTS)
+                .unwrap_err()
+                .kind,
+            DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(4), .. }
+        ));
+
+        // Extension bit 1 selects unconstrained length encoding, so a value
+        // outside the root remains valid.
+        let value = crate::types::OctetString::from_static(&[1, 2, 3, 4, 5]);
+        let encoded = crate::uper::encode_with_constraints(CONSTRAINTS, &value).unwrap();
+        assert_eq!(
+            crate::uper::decode_with_constraints::<crate::types::OctetString>(
+                CONSTRAINTS,
+                &encoded
+            )
+            .unwrap(),
+            value
+        );
+    }
+
+    #[test]
+    fn extensible_integer_value_constraint() {
+        const CONSTRAINTS: Constraints = constraints!(value_constraint!(1, 10, extensible));
+
+        // Extension bit 0 selects the root, where 0b1111 is a spare code point.
+        let mut decoder = unaligned(&[0b0111_1000]);
+        assert!(matches!(
+            *decoder
+                .decode_integer::<u8>(Tag::INTEGER, CONSTRAINTS)
+                .unwrap_err()
+                .kind,
+            DecodeErrorKind::ValueConstraintNotSatisfied { .. }
+        ));
+
+        // Extension bit 1 selects unconstrained integer encoding, so an
+        // outside-root value remains valid.
+        let encoded = crate::uper::encode_with_constraints(CONSTRAINTS, &16u8).unwrap();
+        assert_eq!(
+            crate::uper::decode_with_constraints::<u8>(CONSTRAINTS, &encoded).unwrap(),
+            16
+        );
+    }
 
     #[test]
     fn bitvec() {
