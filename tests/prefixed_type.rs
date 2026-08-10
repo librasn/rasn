@@ -160,3 +160,86 @@ fn test_issue_520_implicit_tag_on_tagged_choice_round_trip() {
     assert_eq!(tc2, tc2_de);
     assert_eq!(ttc2, ttc2_de);
 }
+
+#[test]
+fn test_tagged_any_round_trip() {
+    use rasn::prelude::*;
+
+    /*
+    TestModuleA DEFINITIONS ::= BEGIN
+        --tagged ANY
+        OpaqueInfo ::= [34] ANY
+
+        --actual content of OpaqueInfo
+        Info ::= [34] SEQUENCE {
+          version [1] OCTET STRING(SIZE(3)), -- implicitly tagged
+          data    [2] OCTET STRING OPTIONAL,
+        }
+    END
+    */
+
+    /// make it opaque by replacing `Info` with ANY.
+    #[doc = "tagged ANY"]
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+    #[rasn(delegate, tag(context, 34))]
+    pub struct OpaqueInfo(pub Any);
+
+    /// a SEQUENCE where we don't need to know the details.
+    #[doc = "actual content of OpaqueInfo"]
+    #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, Eq, Hash)]
+    #[rasn(tag(context, 34))]
+    pub struct Info {
+        #[rasn(size("3"), tag(context, 1))]
+        pub version: OctetString,
+        #[rasn(tag(context, 2))]
+        pub data: Option<OctetString>,
+    }
+
+    let version = [0x02_u8, 0x03, 0x00];
+
+    // round-trip test. encoding of `Info` and `OpaqueInfo` should be identical.
+    let value = Info {
+        version: OctetString::from(version),
+        data: None,
+    };
+    let encoded = rasn::der::encode(&value).unwrap();
+    assert_eq!(
+        [0xbf_u8, 0x22, 0x05, 0x81, 0x03, 0x02, 0x03, 0x00],
+        encoded.as_slice()
+    );
+
+    let opaque = rasn::der::decode::<OpaqueInfo>(&encoded).unwrap();
+    let encoded2 = rasn::der::encode(&opaque).unwrap();
+
+    assert_eq!(encoded, encoded2);
+}
+
+#[test]
+fn issue_488_tagged_any_round_trip() {
+    use rasn::prelude::*;
+
+    // This test is mostly identical to https://github.com/librasn/rasn/issues/488. (round-trip test is added)
+    // All fields in actual IncomingRequest are replaced with Option<Any> since user is not interested in them.
+
+    #[derive(Debug, AsnType, Decode, Encode, PartialEq, Eq)]
+    struct IncomingRequest {
+        #[rasn(tag(Context, 0))]
+        handshake: Option<Any>,
+        #[rasn(tag(Context, 1))]
+        user_data: Option<Any>,
+    }
+
+    let incoming = vec![0x30_u8, 0x06, 0xA1, 0x04, 0x01, 0x02, 0x03, 0x04];
+    let decoded: IncomingRequest = rasn::Codec::Der.decode_from_binary(&incoming).unwrap();
+    let expected = IncomingRequest {
+        handshake: None,
+        user_data: Some(Any::new(vec![0x01, 0x02, 0x03, 0x04])),
+    };
+    assert_eq!(decoded, expected);
+
+    // round-trip test.
+    let encoded = rasn::der::encode(&decoded).unwrap();
+    assert_eq!(incoming, encoded);
+    // encoding of an explicitly tagged type shall be constructed (X.690 section 8.14.3)
+    assert_eq!(encoded[2] & 0x20, 0x20);
+}
