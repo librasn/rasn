@@ -403,8 +403,10 @@ impl crate::Encoder<'_> for Encoder {
         }
         // If we have Any type or Choice type directly, don't encode the tag
         if tag != Tag::EOC {
-            let inner_constructed = (inner[0] & 0x20) != 0;
-            let ident = Identifier::from_tag(tag, inner_constructed);
+            // BER encoding of tagged ANY is always constructed because
+            // X.680 section 31.2.9 and 31.2.7 c) forbids implicit tagging on ANY (open type) and CHOICE,
+            // and X.690 section 8.14.3 requires that encoding of an explicitly tagged type shall be constructed.
+            let ident = Identifier::from_tag(tag, true);
             let ident_bytes = self.encode_identifier(ident);
             self.append_byte_or_bytes(ident_bytes);
             self.encode_length(ident, inner);
