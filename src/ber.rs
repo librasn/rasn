@@ -573,9 +573,11 @@ mod tests {
             d: true,
         };
         // Sequence tag (0x30), length 7
-        // Any 'c' is implicitly tagged with [2]: tag (0x82), length 2, value [0x05, 0x00]
+        // Any 'c' is explicitly tagged with [2]: tag (0xA2), constructed, length 2, value [0x05, 0x00],
+        // since Any (open type) is explicitly tagged by automatic tagging (X.680 section 25.10 note 1
+        // and section 31.2.7) and explicitly tagged type shall be constructed (X.690 section 8.14.3)
         // Boolean 'd' is implicitly tagged with [3]: tag (0x83), length 1, value TRUE
-        let expected4 = &[0x30, 0x07, 0x82, 0x02, 0x05, 0x00, 0x83, 0x01, 0xFF];
+        let expected4 = &[0x30, 0x07, 0xA2, 0x02, 0x05, 0x00, 0x83, 0x01, 0xFF];
         assert_eq!(encode(&value4).unwrap(), expected4);
         assert_eq!(decode::<TestSequence>(expected4).unwrap(), value4);
 
@@ -590,10 +592,10 @@ mod tests {
         // 'a' (u32, 255): implicitly tagged with [0] -> 80 02 00 FF
         // 'b' (TestChoice::Boolean(false)): explicitly tagged with [1] -> A1 03 (content)
         //   'Boolean' variant implicitly tagged with [1] -> 81 01 00
-        // 'c' (Any): implicitly tagged with [2] -> 82 02 05 00
+        // 'c' (Any): explicitly tagged with [2] -> A2 02 05 00
         // 'd' (bool, false): implicitly tagged with [3] -> 83 01 00
         let expected5 = &[
-            0x30, 0x10, 0x80, 0x02, 0x00, 0xFF, 0xA1, 0x03, 0x81, 0x01, 0x00, 0x82, 0x02, 0x05,
+            0x30, 0x10, 0x80, 0x02, 0x00, 0xFF, 0xA1, 0x03, 0x81, 0x01, 0x00, 0xA2, 0x02, 0x05,
             0x00, 0x83, 0x01, 0x00,
         ];
         assert_eq!(encode(&value5).unwrap(), expected5);
@@ -608,10 +610,10 @@ mod tests {
         };
         // Sequence tag (0x30), length 10
         // 'a' (u32, 1): implicitly tagged with [0] -> 80 01 01
-        // 'c' (Any): implicitly tagged with [2] -> 82 02 05 00
+        // 'c' (Any): explicitly tagged with [2] -> A2 02 05 00
         // 'd' (bool, true): implicitly tagged with [3] -> 83 01 FF
         let expected6 = &[
-            0x30, 0x0A, 0x80, 0x01, 0x01, 0x82, 0x02, 0x05, 0x00, 0x83, 0x01, 0xFF,
+            0x30, 0x0A, 0x80, 0x01, 0x01, 0xA2, 0x02, 0x05, 0x00, 0x83, 0x01, 0xFF,
         ];
         assert_eq!(encode(&value6).unwrap(), expected6);
         assert_eq!(decode::<TestSequence>(expected6).unwrap(), value6);
@@ -643,8 +645,8 @@ mod tests {
             b: Some(Any::new(any_payload.to_vec())),
         };
         // Sequence tag (0x30), length 4
-        // 'b' (Any, NULL): implicitly tagged with [1] -> 81 02 05 00
-        let expected3 = &[0x30, 0x04, 0x81, 0x02, 0x05, 0x00];
+        // 'b' (Any, NULL): explicitly tagged with [1] -> A1 02 05 00
+        let expected3 = &[0x30, 0x04, 0xA1, 0x02, 0x05, 0x00];
         assert_eq!(encode(&value3).unwrap(), expected3);
     }
 
