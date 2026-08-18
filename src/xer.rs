@@ -288,9 +288,9 @@ mod tests {
     round_trip!(
         object_identifier,
         ObjectIdentifier,
-        ObjectIdentifier::from(Oid::const_new(&[1, 654, 2, 1])),
+        ObjectIdentifier::from(Oid::const_new(&[2, 654, 2, 1])),
         "OBJECT_IDENTIFIER",
-        "1.654.2.1"
+        "2.654.2.1"
     );
     round_trip!(
         sequence,
@@ -377,10 +377,10 @@ mod tests {
             inner: InnerTestA {
                 hidden: Some(false),
             },
-            oid: Some(ObjectIdentifier::from(Oid::const_new(&[1, 8270, 4, 1]))),
+            oid: Some(ObjectIdentifier::from(Oid::const_new(&[2, 8270, 4, 1]))),
         },
         "NestedTestA",
-        "<wine><true /></wine><grappa>00010203</grappa><inner><hidden><false /></hidden></inner><oid>1.8270.4.1</oid>"
+        "<wine><true /></wine><grappa>00010203</grappa><inner><hidden><false /></hidden></inner><oid>2.8270.4.1</oid>"
     );
     round_trip!(
         sequence_with_defaults,
@@ -402,10 +402,10 @@ mod tests {
             wine: true,
             grappa: vec![0, 1, 2, 3].into(),
             inner: InnerTestA { hidden: None },
-            oid: Some(ObjectIdentifier::from(Oid::const_new(&[1, 8270, 4, 1])))
+            oid: Some(ObjectIdentifier::from(Oid::const_new(&[2, 8270, 4, 1])))
         },
         "NestedTestA",
-        "<wine><true /></wine><grappa>00010203</grappa><inner /><oid>1.8270.4.1</oid>"
+        "<wine><true /></wine><grappa>00010203</grappa><inner /><oid>2.8270.4.1</oid>"
     );
     round_trip!(
         extensible_sequence_without_extensions,
@@ -545,11 +545,11 @@ mod tests {
                 inner: InnerTestA {
                     hidden: Some(false),
                 },
-                oid: Some(ObjectIdentifier::from(Oid::const_new(&[1, 8270, 4, 1]))),
+                oid: Some(ObjectIdentifier::from(Oid::const_new(&[2, 8270, 4, 1]))),
             }
         },
         "SequenceWithChoice",
-        "<recursion><Leaf /></recursion><nested><wine><true /></wine><grappa>00010203</grappa><inner><hidden><false /></hidden></inner><oid>1.8270.4.1</oid></nested>"
+        "<recursion><Leaf /></recursion><nested><wine><true /></wine><grappa>00010203</grappa><inner><hidden><false /></hidden></inner><oid>2.8270.4.1</oid></nested>"
     );
     round_trip!(
         sequence_with_element_after_sequence_of,

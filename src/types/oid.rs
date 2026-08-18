@@ -5,7 +5,18 @@ pub(crate) const MAX_OID_FIRST_OCTET: u32 = 2;
 pub(crate) const MAX_OID_SECOND_OCTET: u32 = 39;
 
 const fn is_valid_oid(slice: &[u32]) -> bool {
-    !slice.is_empty() && slice[0] <= MAX_OID_FIRST_OCTET
+    if slice.is_empty() || slice[0] > MAX_OID_FIRST_OCTET {
+        return false;
+    }
+    // Per X.660/X.690, when the first arc is 0 or 1 the second arc must be
+    // <= 39: the encoding packs the first two arcs as `first * 40 + second`,
+    // so a larger second arc aliases onto a different OID on encode (e.g.
+    // `0.40` would encode and decode back as `1.0`). Reject such values at
+    // construction. The first arc `2` has no such upper bound on the second.
+    if slice[0] < MAX_OID_FIRST_OCTET && slice.len() >= 2 && slice[1] > MAX_OID_SECOND_OCTET {
+        return false;
+    }
+    true
 }
 
 /// A reference to a global unique identifier that identifies an concept, such
@@ -800,5 +811,17 @@ mod test {
             Oid::ISO_MEMBER_BODY,
             ObjectIdentifier::new(vec![1, 2]).unwrap()
         );
+    }
+
+    #[test]
+    fn second_arc_validation() {
+        // First arc 2 does not bound the second arc.
+        assert!(ObjectIdentifier::new(vec![2, 999]).is_some());
+        // First arc 0 or 1: second arc up to 39 is valid (boundary).
+        assert!(ObjectIdentifier::new(vec![0, 39]).is_some());
+        // First arc 0 or 1: second arc above 39 would alias onto another OID
+        // when encoded (e.g. 0.40 -> 1.0), so it must be rejected.
+        assert!(ObjectIdentifier::new(vec![0, 40]).is_none());
+        assert!(ObjectIdentifier::new(vec![1, 40]).is_none());
     }
 }
