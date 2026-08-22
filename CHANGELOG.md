@@ -32,6 +32,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.15](https://github.com/librasn/rasn/compare/rasn-v0.28.14...rasn-v0.28.15) - 2026-08-22
+
+### Fixed
+
+- *(aper)* APER byte-alignment for constrained strings inside CHOICE + SEQUENCE(OPTIONAL) nesting ([#564](https://github.com/librasn/rasn/pull/564))
+- *(oid)* reject OIDs whose second arc exceeds 39 under first arc 0/1
+
+### Other
+
+- fix tests for automatic tagging of ANY type
+- fix tagging of tagged ANY type
+- add round trip test for tagged ANY type
+
 ## [0.28.14](https://github.com/librasn/rasn/compare/rasn-v0.28.13...rasn-v0.28.14) - 2026-08-07
 
 ### Added
