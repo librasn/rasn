@@ -1,8 +1,14 @@
 #![cfg_attr(not(test), no_std)]
 extern crate alloc;
 
+/// ASN.1 definitions for ETSI TS 102 894-2
+pub mod ts102894_2;
+
 /// ASN.1 definitions for ETSI TS 103 097
 pub mod ts103097;
+
+/// ASN.1 definitions for ETSI TS 103 301
+pub mod ts103301;
 
 /// ASN.1 definitions for IEEE 1609.2
 pub mod ieee1609dot2;
