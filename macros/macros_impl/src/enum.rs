@@ -116,6 +116,7 @@ impl Enum<'_> {
                 Some(0),
                 Some(variant_count as i128),
             ))),
+            named_values: Vec::new(),
         }
         .const_expr(crate_root);
 

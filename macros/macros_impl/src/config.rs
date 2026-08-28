@@ -11,6 +11,7 @@ pub struct Constraints {
     pub from: Option<Constraint<StringValue>>,
     pub size: Option<Constraint<Value>>,
     pub value: Option<Constraint<Value>>,
+    pub named_values: Vec<(i128, String)>,
 }
 
 impl Constraints {
@@ -26,12 +27,25 @@ impl Constraints {
             let from = self.from_attr().map(add_comma);
             let extensible = self.extensible.then_some(quote!(#[non_exhaustive]));
             let value = self.value_attr().map(add_comma);
+            let named_values = self.named_values_attr().map(add_comma);
 
             quote! {
-                #[rasn(#size #from #value)]
+                #[rasn(#size #from #value #named_values)]
                 #extensible
             }
         })
+    }
+
+    fn named_values_attr(&self) -> Option<proc_macro2::TokenStream> {
+        if self.named_values.is_empty() {
+            return None;
+        }
+        // Emit: named_values("pukAppl1" = 1, "pukAppl2" = 2, ...)
+        let pairs = self
+            .named_values
+            .iter()
+            .map(|(val, name)| quote!(#name = #val));
+        Some(quote!(named_values(#(#pairs),*)))
     }
 
     pub fn const_expr(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
@@ -41,6 +55,7 @@ impl Constraints {
             let from = self.from_def(crate_root).map(add_comma);
             let extensible = self.extensible_def(crate_root).map(add_comma);
             let value = self.value_def(crate_root).map(add_comma);
+            let named_values_chain = self.named_values_def();
 
             quote! {
                 #crate_root::types::Constraints::new(&[
@@ -49,8 +64,20 @@ impl Constraints {
                     #extensible
                     #from
                 ])
+                #named_values_chain
             }
         })
+    }
+
+    fn named_values_def(&self) -> Option<proc_macro2::TokenStream> {
+        if self.named_values.is_empty() {
+            return None;
+        }
+        let pairs = self
+            .named_values
+            .iter()
+            .map(|(val, name)| quote!((#val as i128, #name)));
+        Some(quote!(.with_named_values(&[#(#pairs),*])))
     }
 
     fn size_def(&self, crate_root: &syn::Path) -> Option<proc_macro2::TokenStream> {
@@ -221,7 +248,11 @@ impl Constraints {
     }
 
     fn has_constraints(&self) -> bool {
-        self.extensible || self.from.is_some() || self.size.is_some() || self.value.is_some()
+        self.extensible
+            || self.from.is_some()
+            || self.size.is_some()
+            || self.value.is_some()
+            || !self.named_values.is_empty()
     }
 }
 
@@ -252,6 +283,7 @@ impl Config {
         let mut value = None;
         let mut delegate = false;
         let mut extensible = false;
+        let mut named_values: Vec<(i128, String)> = Vec::new();
 
         for attr in &input.attrs {
             if attr.path().is_ident("non_exhaustive") {
@@ -288,6 +320,8 @@ impl Config {
                         size = Some(Value::from_meta(&meta)?);
                     } else if path.is_ident("value") {
                         value = Some(Value::from_meta(&meta)?);
+                    } else if path.is_ident("named_values") {
+                        named_values = parse_named_values_meta(&meta)?;
                     } else {
                         return Err(meta.error(format!(
                             "unknown input provided: {}",
@@ -369,6 +403,7 @@ impl Config {
                 from,
                 size,
                 value,
+                named_values,
             },
             crate_root: crate_root.unwrap_or_else(|| {
                 syn::LitStr::new(crate::CRATE_NAME, proc_macro2::Span::call_site())
@@ -472,6 +507,7 @@ impl<'config> VariantConfig<'config> {
         let mut size = None;
         let mut tag = None;
         let mut value = None;
+        let mut named_values: Vec<(i128, String)> = Vec::new();
 
         for attr in &variant.attrs {
             if !attr.path().is_ident(crate::CRATE_NAME) {
@@ -494,6 +530,8 @@ impl<'config> VariantConfig<'config> {
                     extensible = true;
                 } else if path.is_ident("extension_addition") {
                     extension_addition = true;
+                } else if path.is_ident("named_values") {
+                    named_values = parse_named_values_meta(&meta)?;
                 }
 
                 Ok(())
@@ -521,6 +559,7 @@ impl<'config> VariantConfig<'config> {
                 from,
                 size,
                 value,
+                named_values,
             },
             context,
         })
@@ -760,6 +799,7 @@ impl<'a> FieldConfig<'a> {
         let mut extensible = false;
         let mut extension_addition = false;
         let mut extension_addition_group = false;
+        let mut named_values: Vec<(i128, String)> = Vec::new();
         /*if !field.attrs.is_empty() {
             panic!("{:?}", field)
         }*/
@@ -800,6 +840,8 @@ impl<'a> FieldConfig<'a> {
                     extension_addition = true;
                 } else if path.is_ident("extension_addition_group") {
                     extension_addition_group = true;
+                } else if path.is_ident("named_values") {
+                    named_values = parse_named_values_meta(&meta)?;
                 } else {
                     return Err(meta.error(format!(
                         "unknown field tag {:?}",
@@ -830,6 +872,7 @@ impl<'a> FieldConfig<'a> {
                 from,
                 size,
                 value,
+                named_values,
             },
             context,
         })
@@ -1575,4 +1618,33 @@ fn skip_comma(content: &syn::parse::ParseBuffer) {
     if content.peek(Token![,]) {
         let _: Token![,] = content.parse().unwrap();
     }
+}
+
+/// Parse `named_values("name1" = integer1, "name2" = integer2, ...)` from a
+/// `#[rasn(named_values(...))]` attribute and return the list of `(i128, String)` pairs.
+fn parse_named_values_meta(item: &syn::meta::ParseNestedMeta) -> syn::Result<Vec<(i128, String)>> {
+    let mut pairs = Vec::new();
+    let content;
+    parenthesized!(content in item.input);
+
+    while !content.is_empty() {
+        // Expect a string literal for the name
+        let name: syn::LitStr = content.parse()?;
+        // Expect `=`
+        let _: Token![=] = content.parse()?;
+        // Expect an integer literal for the value; handle optional negative sign
+        let negative = if content.peek(Token![-]) {
+            let _: Token![-] = content.parse()?;
+            true
+        } else {
+            false
+        };
+        let int: syn::LitInt = content.parse()?;
+        let val: i128 = int.base10_parse()?;
+        let val = if negative { -val } else { val };
+        pairs.push((val, name.value()));
+        skip_comma(&content);
+    }
+
+    Ok(pairs)
 }

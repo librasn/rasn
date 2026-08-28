@@ -40,6 +40,7 @@ pub struct Constraints {
     size: Option<Extensible<Size>>,
     permitted_alphabet: Option<Extensible<PermittedAlphabet>>,
     extensible: bool,
+    named_values: Option<&'static [(i128, &'static str)]>,
 }
 
 impl Constraints {
@@ -49,6 +50,7 @@ impl Constraints {
         size: None,
         permitted_alphabet: None,
         extensible: false,
+        named_values: None,
     };
 
     /// Creates a new set of constraints from a given slice.
@@ -92,7 +94,22 @@ impl Constraints {
             size,
             permitted_alphabet,
             extensible,
+            named_values: None,
         }
+    }
+
+    /// Returns a new `Constraints` with the given named value mapping for
+    /// INTEGER types that define a `NamedNumberList` (ITU-T X.680 §19.9).
+    ///
+    /// Each entry maps a numeric value to its ASN.1 identifier name.
+    /// Text-based codecs (AVN) use this to emit/parse symbolic names.
+    #[must_use]
+    pub const fn with_named_values(
+        mut self,
+        named_values: &'static [(i128, &'static str)],
+    ) -> Self {
+        self.named_values = Some(named_values);
+        self
     }
 
     /// A const variant of the default function.
@@ -123,12 +140,18 @@ impl Constraints {
             (None, None) => None,
         };
         let extensible = self.extensible || rhs.extensible;
+        let named_values = match (self.named_values, rhs.named_values) {
+            (_, Some(rhs_nv)) => Some(rhs_nv),
+            (Some(nv), None) => Some(nv),
+            (None, None) => None,
+        };
 
         Self {
             value,
             size,
             permitted_alphabet,
             extensible,
+            named_values,
         }
     }
 
@@ -172,6 +195,13 @@ impl Constraints {
     #[must_use]
     pub const fn value(&self) -> Option<&Extensible<Value>> {
         self.value.as_ref()
+    }
+
+    /// Returns the named values mapping for INTEGER types with a
+    /// `NamedNumberList`, if available.
+    #[must_use]
+    pub const fn named_values(&self) -> Option<&'static [(i128, &'static str)]> {
+        self.named_values
     }
 }
 

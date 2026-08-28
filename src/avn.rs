@@ -242,6 +242,26 @@ mod tests {
         );
     }
 
+    // Named-number INTEGER round-trip test
+    #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
+    #[rasn(delegate, crate_root = "crate")]
+    #[rasn(value("0..=255"), named_values("pukAppl1" = 1, "pukAppl2" = 2, "secondPUKAppl1" = 129, "secondPUKAppl2" = 130))]
+    struct PUKKeyRef(pub u8);
+
+    #[test]
+    fn named_integer_round_trip() {
+        // Named value should encode as identifier and decode back
+        round_trip_avn!(PUKKeyRef, PUKKeyRef(1), "pukAppl1");
+        round_trip_avn!(PUKKeyRef, PUKKeyRef(2), "pukAppl2");
+        round_trip_avn!(PUKKeyRef, PUKKeyRef(129), "secondPUKAppl1");
+    }
+
+    #[test]
+    fn named_integer_unlisted_value_uses_number() {
+        // Values not in the NamedNumberList fall back to bare numbers
+        round_trip_avn!(PUKKeyRef, PUKKeyRef(99), "99");
+    }
+
     #[test]
     fn with_identifier_annotation() {
         round_trip_avn!(
