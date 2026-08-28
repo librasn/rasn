@@ -63,6 +63,7 @@ as well as being transport layer and encoding rule agnostic.
 #### C-ITS Standards
 
 - [**IEEE 1609.2:** IEEE Standard for Wireless Access in Vehicular Environments (WAVE) - Security Services for Application and Management Messages ](standards/its/src/ieee1609dot2/)
+- [**ETSI TS 102 894-2:** Intelligent Transport Systems (ITS) – Common Data Dictionary (CDD), defining reusable data objects used across ITS messages](standards/its/src/ts102894_2/)
 - [**ETSI TS 103 097:** Intelligent Transport Systems (ITS) - Security header and certificate formats](standards/its/src/ts103097/)
 
 
