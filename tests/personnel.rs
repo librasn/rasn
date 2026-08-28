@@ -1,3 +1,4 @@
+#[cfg(feature = "codec_oer")]
 use pretty_assertions::assert_eq;
 use rasn::prelude::*;
 
@@ -387,6 +388,7 @@ pub struct InitialString {
     pub initial: NameString,
 }
 
+#[cfg(feature = "codec_per")]
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[non_exhaustive]
 struct Ax {
@@ -400,6 +402,7 @@ struct Ax {
     j: Option<PrintableString>,
 }
 
+#[cfg(feature = "codec_per")]
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 #[rasn(choice)]
 #[non_exhaustive]
@@ -411,6 +414,7 @@ enum AxChoice {
     F(Ia5String),
 }
 
+#[cfg(feature = "codec_per")]
 #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
 struct AxExtension {
     #[rasn(size(3))]
@@ -418,6 +422,7 @@ struct AxExtension {
     h: Option<bool>,
 }
 
+#[cfg(feature = "codec_per")]
 impl Default for Ax {
     fn default() -> Self {
         Self {
@@ -434,6 +439,7 @@ impl Default for Ax {
     }
 }
 
+#[cfg(any(feature = "codec_oer", feature = "codec_per"))]
 macro_rules! test {
     ($( $(#[$attrs:ident])* $name:ident ( $codec:ident ) : $typ:ty = $value:expr => $expected:expr;)+) => {
         $(
@@ -456,6 +462,7 @@ macro_rules! test {
     }
 }
 
+#[cfg(feature = "codec_oer")]
 test! {
     unconstrained_ber(ber): PersonnelRecord = <_>::default() => &[
         0x60, 0x81, 0x85,
@@ -495,7 +502,10 @@ test! {
                     0xA0, 0x0A,
                         0x43, 0x8, 0x31, 0x39, 0x35, 0x39, 0x30, 0x37, 0x31, 0x37,
     ];
+}
 
+#[cfg(feature = "codec_per")]
+test! {
     unconstrained_aper(aper): PersonnelRecord = <_>::default() => &[
         0x80, 0x04, 0x4A, 0x6F, 0x68, 0x6E, 0x01, 0x50, 0x05, 0x53, 0x6D, 0x69,
         0x74, 0x68, 0x01, 0x33, 0x08, 0x44, 0x69, 0x72, 0x65, 0x63, 0x74, 0x6F,
@@ -572,6 +582,10 @@ test! {
         0x6E, 0x65, 0x73, 0x00, 0x19, 0x59, 0x07, 0x17,
         0x01, 0x01, 0x40
     ];
+}
+
+#[cfg(feature = "codec_oer")]
+test! {
     unconstrained_coer(coer): PersonnelRecord = <_>::default() => &[
         0x80,0x04,0x4A,0x6F,0x68,0x6E,0x01,0x50,0x05,0x53,0x6D,0x69,0x74,0x68,0x01,
         0x33,0x08,0x44,0x69,0x72,0x65,0x63,0x74,0x6F,0x72,0x08,0x31,0x39,0x37,0x31,

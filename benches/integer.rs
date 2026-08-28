@@ -6,8 +6,15 @@
 // Use macros to generate the tests
 // Wrap with black_box to prevent the compiler from optimizing out the code
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use rasn::{ber, oer, uper, xer};
+use criterion::{Criterion, black_box, criterion_main};
+#[cfg(feature = "codec_ber")]
+use rasn::ber;
+#[cfg(feature = "codec_oer")]
+use rasn::oer;
+#[cfg(feature = "codec_per")]
+use rasn::uper;
+#[cfg(feature = "codec_xer")]
+use rasn::xer;
 
 #[allow(non_camel_case_types, non_snake_case, non_upper_case_globals, unused)]
 pub mod world3d {
@@ -151,25 +158,46 @@ macro_rules! rasn_dec_fn {
     };
 }
 
+#[cfg(feature = "codec_per")]
 rasn_enc_fn!(uper_rasn_enc, uper);
+#[cfg(feature = "codec_oer")]
 rasn_enc_fn!(oer_rasn_enc, oer);
+#[cfg(feature = "codec_ber")]
 rasn_enc_fn!(ber_rasn_enc, ber);
+#[cfg(feature = "codec_xer")]
 rasn_enc_fn!(xer_rasn_enc, xer);
 
+#[cfg(feature = "codec_per")]
 rasn_dec_fn!(uper_rasn_dec, uper);
+#[cfg(feature = "codec_oer")]
 rasn_dec_fn!(oer_rasn_dec, oer);
+#[cfg(feature = "codec_ber")]
 rasn_dec_fn!(ber_rasn_dec, ber);
+#[cfg(feature = "codec_xer")]
 rasn_dec_fn!(xer_rasn_dec, xer);
 
-criterion_group!(
-    benches,
-    uper_rasn_enc,
-    uper_rasn_dec,
-    oer_rasn_enc,
-    oer_rasn_dec,
-    ber_rasn_enc,
-    ber_rasn_dec,
-    xer_rasn_enc,
-    xer_rasn_dec
-);
+pub fn benches() {
+    let mut criterion: Criterion<_> = Criterion::default().configure_from_args();
+
+    #[cfg(feature = "codec_per")]
+    uper_rasn_enc(&mut criterion);
+    #[cfg(feature = "codec_per")]
+    uper_rasn_dec(&mut criterion);
+
+    #[cfg(feature = "codec_oer")]
+    oer_rasn_enc(&mut criterion);
+    #[cfg(feature = "codec_oer")]
+    oer_rasn_dec(&mut criterion);
+
+    #[cfg(feature = "codec_ber")]
+    ber_rasn_enc(&mut criterion);
+    #[cfg(feature = "codec_ber")]
+    ber_rasn_dec(&mut criterion);
+
+    #[cfg(feature = "codec_xer")]
+    xer_rasn_enc(&mut criterion);
+    #[cfg(feature = "codec_xer")]
+    xer_rasn_dec(&mut criterion);
+}
+
 criterion_main!(benches);

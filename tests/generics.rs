@@ -5,6 +5,7 @@ pub trait LeetTrait {
     fn leet(&self) -> Self::Leet;
 }
 
+#[cfg(feature = "codec_oer")]
 // https://github.com/librasn/rasn/issues/193
 #[test]
 fn test_sequence_with_generics_issue_193() {
@@ -74,6 +75,8 @@ fn test_sequence_with_generic_and_constraints() {
         Third(T),
     }
 }
+
+#[cfg(feature = "codec_oer")]
 #[test]
 fn test_multi_field_tuple_structs_with_phantom_data() {
     use core::marker::PhantomData;

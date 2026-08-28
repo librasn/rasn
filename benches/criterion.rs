@@ -1,9 +1,11 @@
 mod common;
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, black_box, criterion_main};
 
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 use common::*;
 
+#[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
 fn rasn(c: &mut Criterion) {
     let decoded = black_box(bench_default());
 
@@ -19,7 +21,12 @@ fn rasn(c: &mut Criterion) {
         }}
     }
 
-    bench_encoding_rules!(ber, der, cer, uper, oer);
+    #[cfg(feature = "codec_oer")]
+    bench_encoding_rules!(ber, der, cer);
+    #[cfg(feature = "codec_per")]
+    bench_encoding_rules!(uper);
+    #[cfg(feature = "codec_oer")]
+    bench_encoding_rules!(oer);
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -131,8 +138,20 @@ fn x509_rtt(c: &mut Criterion) {
 }
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-criterion_group!(codec, x509_decode, x509_encode, x509_rtt, rasn);
+pub fn codec() {
+    let mut criterion: Criterion<_> = Criterion::default().configure_from_args();
 
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    x509_decode(&mut criterion);
+    x509_encode(&mut criterion);
+    x509_rtt(&mut criterion);
+
+    #[cfg(any(feature = "codec_per", feature = "codec_per", feature = "codec_oer"))]
+    rasn(&mut criterion);
+}
+
+#[cfg(all(
+    not(any(target_arch = "x86_64", target_arch = "aarch64")),
+    any(feature = "codec_per", feature = "codec_per", feature = "codec_oer")
+))]
 criterion_group!(codec, rasn);
 criterion_main!(codec);

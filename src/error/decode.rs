@@ -1,5 +1,6 @@
 //! Error types associated with decoding from ASN.1 codecs.
 
+#[cfg(any(feature = "codec_jer", feature = "codec_xer"))]
 use core::num::ParseIntError;
 
 use super::strings::PermittedAlphabetError;
@@ -19,30 +20,50 @@ use num_bigint::BigInt;
 #[non_exhaustive]
 #[allow(missing_docs)]
 pub enum CodecDecodeError {
+    #[cfg(feature = "codec_ber")]
     Ber(BerDecodeErrorKind),
+    #[cfg(feature = "codec_ber")]
     Cer(CerDecodeErrorKind),
+    #[cfg(feature = "codec_ber")]
     Der(DerDecodeErrorKind),
+    #[cfg(feature = "codec_per")]
     Uper(UperDecodeErrorKind),
+    #[cfg(feature = "codec_per")]
     Aper(AperDecodeErrorKind),
+    #[cfg(feature = "codec_jer")]
     Jer(JerDecodeErrorKind),
+    #[cfg(feature = "codec_oer")]
     Oer(OerDecodeErrorKind),
+    #[cfg(feature = "codec_oer")]
     Coer(CoerDecodeErrorKind),
+    #[cfg(feature = "codec_xer")]
     Xer(XerDecodeErrorKind),
+    #[cfg(feature = "codec_avn")]
     Avn(AvnDecodeErrorKind),
 }
 
 impl core::fmt::Display for CodecDecodeError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
+            #[cfg(feature = "codec_ber")]
             CodecDecodeError::Ber(kind) => write!(f, "BER decoding error: {kind}"),
+            #[cfg(feature = "codec_ber")]
             CodecDecodeError::Cer(kind) => write!(f, "CER decoding error: {kind}"),
+            #[cfg(feature = "codec_ber")]
             CodecDecodeError::Der(kind) => write!(f, "DER decoding error: {kind}"),
+            #[cfg(feature = "codec_per")]
             CodecDecodeError::Uper(kind) => write!(f, "UPER decoding error: {kind}"),
+            #[cfg(feature = "codec_per")]
             CodecDecodeError::Aper(kind) => write!(f, "APER decoding error: {kind}"),
+            #[cfg(feature = "codec_jer")]
             CodecDecodeError::Jer(kind) => write!(f, "JER decoding error: {kind}"),
+            #[cfg(feature = "codec_oer")]
             CodecDecodeError::Oer(kind) => write!(f, "OER decoding error: {kind}"),
+            #[cfg(feature = "codec_oer")]
             CodecDecodeError::Coer(kind) => write!(f, "COER decoding error: {kind}"),
+            #[cfg(feature = "codec_xer")]
             CodecDecodeError::Xer(kind) => write!(f, "XER decoding error: {kind}"),
+            #[cfg(feature = "codec_avn")]
             CodecDecodeError::Avn(kind) => write!(f, "AVN decoding error: {kind}"),
         }
     }
@@ -59,15 +80,25 @@ macro_rules! impl_from {
 }
 
 // implement From for each variant of CodecDecodeError into DecodeError
+#[cfg(feature = "codec_ber")]
 impl_from!(Ber, BerDecodeErrorKind);
+#[cfg(feature = "codec_ber")]
 impl_from!(Cer, CerDecodeErrorKind);
+#[cfg(feature = "codec_ber")]
 impl_from!(Der, DerDecodeErrorKind);
+#[cfg(feature = "codec_per")]
 impl_from!(Uper, UperDecodeErrorKind);
+#[cfg(feature = "codec_per")]
 impl_from!(Aper, AperDecodeErrorKind);
+#[cfg(feature = "codec_jer")]
 impl_from!(Jer, JerDecodeErrorKind);
+#[cfg(feature = "codec_oer")]
 impl_from!(Oer, OerDecodeErrorKind);
+#[cfg(feature = "codec_oer")]
 impl_from!(Coer, CoerDecodeErrorKind);
+#[cfg(feature = "codec_xer")]
 impl_from!(Xer, XerDecodeErrorKind);
+#[cfg(feature = "codec_avn")]
 impl_from!(Avn, AvnDecodeErrorKind);
 
 impl From<CodecDecodeError> for DecodeError {
@@ -427,18 +458,28 @@ impl DecodeError {
     #[must_use]
     fn from_codec_kind(inner: CodecDecodeError) -> Self {
         let codec = match inner {
+            #[cfg(feature = "codec_ber")]
             CodecDecodeError::Ber(_) => crate::Codec::Ber,
+            #[cfg(feature = "codec_ber")]
             #[allow(unreachable_patterns)]
             CodecDecodeError::Cer(_) => crate::Codec::Cer,
+            #[cfg(feature = "codec_ber")]
             CodecDecodeError::Der(_) => crate::Codec::Der,
+            #[cfg(feature = "codec_per")]
             #[allow(unreachable_patterns)]
             CodecDecodeError::Uper(_) => crate::Codec::Uper,
+            #[cfg(feature = "codec_per")]
             #[allow(unreachable_patterns)]
             CodecDecodeError::Aper(_) => crate::Codec::Aper,
+            #[cfg(feature = "codec_jer")]
             CodecDecodeError::Jer(_) => crate::Codec::Jer,
+            #[cfg(feature = "codec_oer")]
             CodecDecodeError::Oer(_) => crate::Codec::Oer,
+            #[cfg(feature = "codec_oer")]
             CodecDecodeError::Coer(_) => crate::Codec::Coer,
+            #[cfg(feature = "codec_xer")]
             CodecDecodeError::Xer(_) => crate::Codec::Xer,
+            #[cfg(feature = "codec_avn")]
             CodecDecodeError::Avn(_) => crate::Codec::Avn,
         };
         Self {
@@ -765,6 +806,7 @@ pub enum DecodeErrorKind {
     ExceedsMaxParseDepth,
 }
 
+#[cfg(feature = "codec_ber")]
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for BER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -795,6 +837,7 @@ pub enum BerDecodeErrorKind {
     },
 }
 
+#[cfg(feature = "codec_ber")]
 impl BerDecodeErrorKind {
     /// A helper function to create an error [`BerDecodeErrorKind::InvalidDate`].
     #[must_use]
@@ -810,6 +853,7 @@ impl BerDecodeErrorKind {
         }
     }
 }
+#[cfg(feature = "codec_ber")]
 // TODO check if there are more codec-specific errors here
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for CER.
 #[derive(Snafu, Debug)]
@@ -817,6 +861,7 @@ impl BerDecodeErrorKind {
 #[non_exhaustive]
 pub enum CerDecodeErrorKind {}
 
+#[cfg(feature = "codec_ber")]
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for DER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -827,6 +872,7 @@ pub enum DerDecodeErrorKind {
     ConstructedEncodingNotAllowed,
 }
 
+#[cfg(feature = "codec_jer")]
 /// An error that occurred when decoding JER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -870,6 +916,7 @@ pub enum JerDecodeErrorKind {
     },
 }
 
+#[cfg(feature = "codec_jer")]
 impl JerDecodeErrorKind {
     /// Helper function to create an error [`JerDecodeErrorKind::EndOfInput`].
     #[must_use]
@@ -878,6 +925,7 @@ impl JerDecodeErrorKind {
     }
 }
 
+#[cfg(feature = "codec_per")]
 // TODO check if there codec-specific errors here
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for UPER.
 #[derive(Snafu, Debug)]
@@ -885,6 +933,7 @@ impl JerDecodeErrorKind {
 #[non_exhaustive]
 pub enum UperDecodeErrorKind {}
 
+#[cfg(feature = "codec_per")]
 // TODO check if there codec-specific errors here
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for APER.
 #[derive(Snafu, Debug)]
@@ -892,6 +941,7 @@ pub enum UperDecodeErrorKind {}
 #[non_exhaustive]
 pub enum AperDecodeErrorKind {}
 
+#[cfg(feature = "codec_xer")]
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for XER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -952,6 +1002,7 @@ pub enum XerDecodeErrorKind {
     },
 }
 
+#[cfg(feature = "codec_oer")]
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for OER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -999,6 +1050,7 @@ pub enum OerDecodeErrorKind {
     },
 }
 
+#[cfg(feature = "codec_oer")]
 impl OerDecodeErrorKind {
     #[must_use]
     /// Helper function to create an error [`OerDecodeErrorKind::InvalidTagNumberOnChoice`].
@@ -1031,6 +1083,7 @@ impl OerDecodeErrorKind {
         CodecDecodeError::Oer(Self::InvalidPreamble { msg }).into()
     }
 }
+#[cfg(feature = "codec_avn")]
 
 /// An error that occurred when decoding AVN.
 #[derive(Snafu, Debug)]
@@ -1083,6 +1136,7 @@ pub enum AvnDecodeErrorKind {
     },
 }
 
+#[cfg(feature = "codec_avn")]
 impl AvnDecodeErrorKind {
     /// Helper to create an end-of-input [`CodecDecodeError`].
     #[must_use]
@@ -1091,6 +1145,7 @@ impl AvnDecodeErrorKind {
     }
 }
 
+#[cfg(feature = "codec_oer")]
 /// `DecodeError` kinds of `Kind::CodecSpecific` which are specific for COER.
 #[derive(Snafu, Debug)]
 #[snafu(visibility(pub))]
@@ -1179,6 +1234,8 @@ mod tests {
             Ok(_) => panic!("Expected error"),
         }
     }
+
+    #[cfg(feature = "codec_per")]
     #[test]
     fn test_uper_missing_choice_index() {
         use crate as rasn;

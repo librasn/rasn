@@ -22,6 +22,7 @@ pub struct S1 {
     pub ext_group_b3: Option<S1ExtGroupB3>,
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn uper_issue505_empty_extension_group_encoded_as_absent() {
     let value_with_empty_some = S1 {
@@ -51,6 +52,7 @@ fn uper_issue505_empty_extension_group_encoded_as_absent() {
     assert_eq!(decoded.ext_group_b3, Some(S1ExtGroupB3 { b3: Some(true) }));
 }
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn uper_issue505_some_all_none_equals_none() {
     let with_empty_some = S1 {

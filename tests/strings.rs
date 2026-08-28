@@ -1,6 +1,13 @@
 use bitvec::prelude::*;
+#[cfg(feature = "codec_ber")]
+use rasn::ber;
+#[cfg(feature = "codec_jer")]
+use rasn::jer;
+#[cfg(feature = "codec_oer")]
+use rasn::oer;
 use rasn::prelude::*;
-use rasn::{aper, ber, jer, oer, uper};
+#[cfg(feature = "codec_per")]
+use rasn::{aper, uper};
 
 #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
 #[rasn(automatic_tags)]
@@ -128,9 +135,13 @@ macro_rules! test_decode_eq {
         }
     };
 }
+#[cfg(feature = "codec_per")]
 test_decode_eq!(test_uper_octet_eq, uper);
+#[cfg(feature = "codec_oer")]
 test_decode_eq!(test_oer_octet_eq, oer);
+#[cfg(feature = "codec_ber")]
 test_decode_eq!(test_ber_octet_eq, ber);
+#[cfg(feature = "codec_jer")]
 test_decode_eq!(test_jer_octet_eq, jer);
 
 #[derive(AsnType, Decode, Encode, Debug, Clone, PartialEq)]
@@ -140,6 +151,7 @@ pub struct ABitString {
     pub the_string: BitString,
 }
 
+#[cfg(feature = "codec_jer")]
 /// Tests that valid strings are parsed and invalid strings are rejected.
 #[test]
 fn test_jer_bitstring_dec() {
@@ -231,6 +243,7 @@ pub struct AnOctetString {
     pub the_string: OctetString,
 }
 
+#[cfg(feature = "codec_jer")]
 /// Tests that valid strings are parsed and invalid strings are rejected.
 #[test]
 fn test_jer_octetstring_dec() {
@@ -328,6 +341,7 @@ fn test_jer_octetstring_dec() {
     }
 }
 
+#[cfg(feature = "codec_per")]
 // Tests that OctetStrings are encoded and decoded correctly (APER, UPER).
 const BYTE_ARRAYS: &[&[u8]] = &[
     &[],
@@ -355,6 +369,7 @@ const BYTE_ARRAYS: &[&[u8]] = &[
     &[0xFF; 16383],
 ];
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn test_per_encode_octet_string() {
     for case in BYTE_ARRAYS {
@@ -383,6 +398,7 @@ fn test_per_encode_octet_string() {
     }
 }
 
+#[cfg(feature = "codec_per")]
 // Tests that UTF8Strings are encoded and decoded correctly (APER, UPER).
 const UTF8_STRINGS: &[&str] = &[
     "",
@@ -424,6 +440,7 @@ const UTF8_STRINGS: &[&str] = &[
     "👭👩🏻‍🤝‍👨🏾🧑🏿‍🤝‍🧑🏼",
 ];
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn test_per_encode_utf8_string() {
     for case in UTF8_STRINGS {

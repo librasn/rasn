@@ -880,6 +880,7 @@ impl IntegerType for Integer {
     }
 }
 
+#[cfg(feature = "codec_oer")]
 #[cfg(test)]
 macro_rules! assert_integer_round_trip {
     ($t:ty, $value:expr, $expected_unsigned:expr, $expected_signed:expr) => {{
@@ -945,6 +946,7 @@ macro_rules! assert_integer_round_trip {
     }};
 }
 
+#[cfg(feature = "codec_oer")]
 macro_rules! test_integer_conversions_and_operations {
     ($($t:ident),*) => {
         #[cfg(test)]
@@ -1114,6 +1116,7 @@ macro_rules! test_integer_conversions_and_operations {
     };
 }
 
+#[cfg(feature = "codec_oer")]
 test_integer_conversions_and_operations!(
     i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );

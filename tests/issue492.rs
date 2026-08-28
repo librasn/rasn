@@ -15,6 +15,7 @@ pub struct AnonymousItemList(pub Integer);
 #[rasn(delegate, size("0..=65535"))]
 pub struct ItemList(pub SequenceOf<AnonymousItemList>);
 
+#[cfg(feature = "codec_per")]
 #[test]
 fn test_minimal_64k_sequence_round_trip() {
     // Round-trip a small sequence to ensure decoder accepts 16-bit constrained length for span 65536

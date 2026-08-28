@@ -552,50 +552,59 @@ mod tests {
             "number": 42,
         });
 
-        // DER canonical
-        let der_enc = crate::der::encode(&value).unwrap();
-        let der_enc2 = crate::der::encode(&value2).unwrap();
-        let der_enc3 = crate::der::encode(&value3).unwrap();
-        assert_eq!(der_enc, der_enc2);
-        assert_eq!(der_enc, der_enc3);
-        let der_dec: Value = crate::der::decode(&der_enc).expect("DER decode failed");
-        assert_eq!(value, der_dec);
+        #[cfg(feature = "codec_ber")]
+        {
+            // DER canonical
+            let der_enc = crate::der::encode(&value).unwrap();
+            let der_enc2 = crate::der::encode(&value2).unwrap();
+            let der_enc3 = crate::der::encode(&value3).unwrap();
+            assert_eq!(der_enc, der_enc2);
+            assert_eq!(der_enc, der_enc3);
+            let der_dec: Value = crate::der::decode(&der_enc).expect("DER decode failed");
+            assert_eq!(value, der_dec);
 
-        // BER non canonical
-        let ber_enc = crate::ber::encode(&value).unwrap();
-        let ber_dec: Value = crate::ber::decode(&ber_enc).expect("BER decode failed");
-        assert_eq!(value, ber_dec);
+            // BER non canonical
+            let ber_enc = crate::ber::encode(&value).unwrap();
+            let ber_dec: Value = crate::ber::decode(&ber_enc).expect("BER decode failed");
+            assert_eq!(value, ber_dec);
+        }
 
-        // OER
-        let oer_enc = crate::oer::encode(&value).unwrap();
-        let oer_enc2 = crate::oer::encode(&value2).unwrap();
-        let oer_enc3 = crate::oer::encode(&value3).unwrap();
-        assert_eq!(oer_enc, oer_enc2);
-        assert_eq!(oer_enc, oer_enc3);
-        let oer_dec: Value = crate::oer::decode(&oer_enc).expect("OER decode failed");
-        assert_eq!(value, oer_dec);
+        #[cfg(feature = "codec_oer")]
+        {
+            // OER
+            let oer_enc = crate::oer::encode(&value).unwrap();
+            let oer_enc2 = crate::oer::encode(&value2).unwrap();
+            let oer_enc3 = crate::oer::encode(&value3).unwrap();
+            assert_eq!(oer_enc, oer_enc2);
+            assert_eq!(oer_enc, oer_enc3);
+            let oer_dec: Value = crate::oer::decode(&oer_enc).expect("OER decode failed");
+            assert_eq!(value, oer_dec);
 
-        // COER
-        let coer_enc = crate::coer::encode(&value).unwrap();
-        let coer_enc2 = crate::coer::encode(&value2).unwrap();
-        let coer_enc3 = crate::coer::encode(&value3).unwrap();
-        assert_eq!(coer_enc, coer_enc2);
-        assert_eq!(coer_enc, coer_enc3);
-        let coer_dec: Value = crate::coer::decode(&coer_enc).expect("COER decode failed");
-        assert_eq!(value, coer_dec);
+            // COER
+            let coer_enc = crate::coer::encode(&value).unwrap();
+            let coer_enc2 = crate::coer::encode(&value2).unwrap();
+            let coer_enc3 = crate::coer::encode(&value3).unwrap();
+            assert_eq!(coer_enc, coer_enc2);
+            assert_eq!(coer_enc, coer_enc3);
+            let coer_dec: Value = crate::coer::decode(&coer_enc).expect("COER decode failed");
+            assert_eq!(value, coer_dec);
+        }
 
-        // UPER
-        let uper_enc = crate::uper::encode(&value).unwrap();
-        let uper_enc2 = crate::uper::encode(&value2).unwrap();
-        let uper_enc3 = crate::uper::encode(&value3).unwrap();
-        assert_eq!(uper_enc, uper_enc2);
-        assert_eq!(uper_enc, uper_enc3);
-        let uper_dec: Value = crate::uper::decode(&uper_enc).expect("UPER decode failed");
-        assert_eq!(value, uper_dec);
+        #[cfg(feature = "codec_per")]
+        {
+            // UPER
+            let uper_enc = crate::uper::encode(&value).unwrap();
+            let uper_enc2 = crate::uper::encode(&value2).unwrap();
+            let uper_enc3 = crate::uper::encode(&value3).unwrap();
+            assert_eq!(uper_enc, uper_enc2);
+            assert_eq!(uper_enc, uper_enc3);
+            let uper_dec: Value = crate::uper::decode(&uper_enc).expect("UPER decode failed");
+            assert_eq!(value, uper_dec);
 
-        // APER is not designed to be canonical
-        let aper_enc = crate::aper::encode(&value).unwrap();
-        let aper_dec: Value = crate::aper::decode(&aper_enc).expect("APER decode failed");
-        assert_eq!(value, aper_dec);
+            // APER is not designed to be canonical
+            let aper_enc = crate::aper::encode(&value).unwrap();
+            let aper_dec: Value = crate::aper::decode(&aper_enc).expect("APER decode failed");
+            assert_eq!(value, aper_dec);
+        }
     }
 }

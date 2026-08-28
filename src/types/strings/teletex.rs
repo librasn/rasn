@@ -10,6 +10,7 @@ use once_cell::race::OnceBox;
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TeletexString(pub(super) Vec<u32>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
+#[cfg(feature = "codec_per")]
 static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl TeletexString {
@@ -41,10 +42,12 @@ impl StaticPermittedAlphabet for TeletexString {
     fn push_char(&mut self, ch: u32) {
         self.0.push(ch);
     }
+    #[cfg(feature = "codec_per")]
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
         self.0.iter().copied()
     }
 
+    #[cfg(feature = "codec_per")]
     fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         INDEX_MAP.get_or_init(Self::build_index_map)
     }

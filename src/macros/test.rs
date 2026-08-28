@@ -22,6 +22,7 @@ macro_rules! round_trip {
     }};
 }
 
+#[cfg(feature = "codec_oer")]
 /// unwrap_err but includes the encoding in the error message.
 macro_rules! encode_error {
     ($codec:ident, $typ:ty, $value:expr) => {{
@@ -41,6 +42,7 @@ macro_rules! encode_error {
     }};
 }
 
+#[cfg(feature = "codec_oer")]
 /// unwrap_err for decoding.
 macro_rules! decode_error {
     ($codec:ident, $typ:ty, $value:expr) => {{
@@ -55,6 +57,7 @@ macro_rules! decode_error {
     }};
 }
 
+#[cfg(feature = "codec_oer")]
 /// unwrap for decoding.
 macro_rules! decode_ok {
     ($codec:ident, $typ:ty, $value:expr, $expected:expr) => {{
@@ -69,6 +72,7 @@ macro_rules! decode_ok {
     }};
 }
 
+#[cfg(any(feature = "codec_per", feature = "codec_oer"))]
 /// Same functionality [round_trip] but with a constraints object for testing
 /// constrained types.
 macro_rules! round_trip_with_constraints {
@@ -86,6 +90,7 @@ macro_rules! round_trip_with_constraints {
     }};
 }
 
+#[cfg(feature = "codec_oer")]
 /// Same functionality [encode_error] but with a constraints object for testing
 /// constrained types.
 macro_rules! encode_error_with_constraints {
