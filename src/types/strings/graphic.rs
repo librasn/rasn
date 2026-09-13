@@ -25,6 +25,12 @@ impl GraphicString {
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
+
+    /// Convert the graphic string into a `Vec<u8>`, consuming the original string.
+    #[must_use]
+    pub fn into_vec(self) -> alloc::vec::Vec<u8> {
+        self.0
+    }
 }
 
 impl StaticPermittedAlphabet for GraphicString {
