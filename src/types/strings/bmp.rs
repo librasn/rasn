@@ -18,6 +18,12 @@ impl BmpString {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.0.iter().flat_map(|ch| ch.to_be_bytes()).collect()
     }
+
+    /// Convert the BMP string into a `Vec<u16>`, consuming the original string.
+    #[must_use]
+    pub fn into_vec(self) -> alloc::vec::Vec<u16> {
+        self.0
+    }
 }
 
 impl StaticPermittedAlphabet for BmpString {

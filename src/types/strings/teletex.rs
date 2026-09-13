@@ -26,6 +26,12 @@ impl TeletexString {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, PermittedAlphabetError> {
         Ok(Self(Self::try_from_slice(bytes)?))
     }
+
+    /// Convert the teletex string into a `Vec<u32>`, consuming the original string.
+    #[must_use]
+    pub fn into_vec(self) -> alloc::vec::Vec<u32> {
+        self.0
+    }
 }
 impl StaticPermittedAlphabet for TeletexString {
     type T = u32;

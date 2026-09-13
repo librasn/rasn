@@ -115,6 +115,12 @@ where
     pub fn to_vec(&self) -> alloc::vec::Vec<&T> {
         self.elements.iter().collect()
     }
+
+    /// Convert the set into a `Vec<T>`, consuming the original set.
+    #[must_use]
+    pub fn into_vec(self) -> alloc::vec::Vec<T> {
+        self.elements
+    }
 }
 
 impl<T> PartialEq for SetOf<T>
