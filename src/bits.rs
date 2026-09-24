@@ -127,6 +127,43 @@ fn or_bits(dst: &mut [u8], position: usize, src: &[u8], count: usize) {
     }
 }
 
+/// Appends the low `width` bits of `value`, most significant bit first.
+/// `width` is at most 128.
+pub(crate) fn push_bits(dst: &mut BitString, value: u128, width: usize) {
+    debug_assert!(width <= 128);
+    if width == 0 {
+        return;
+    }
+    dst.force_align();
+    let position = dst.len();
+    dst.resize(position + width, false);
+    let bytes = (value << (128 - width)).to_be_bytes();
+    or_bits(dst.as_raw_mut_slice(), position, &bytes, width);
+}
+
+/// Reads `src`, which holds at most 128 bits, as an unsigned integer with the
+/// most significant bit first.
+pub(crate) fn read_u128(src: &BitStr) -> u128 {
+    debug_assert!(src.len() <= 128);
+    match src.domain() {
+        Domain::Enclave(element) => {
+            let tail = usize::from(element.tail().into_inner());
+            u128::from(element.load_value() >> (8 - tail))
+        }
+        Domain::Region { head, body, tail } => {
+            let mut value = head.map_or(0, |element| u128::from(element.load_value()));
+            for &byte in body {
+                value = (value << 8) | u128::from(byte);
+            }
+            if let Some(element) = tail {
+                let tail = usize::from(element.tail().into_inner());
+                value = (value << tail) | u128::from(element.load_value() >> (8 - tail));
+            }
+            value
+        }
+    }
+}
+
 /// Appends fixed-width codes to a bit string without an intermediate buffer.
 pub(crate) struct BitAppender<'a> {
     bytes: &'a mut [u8],
@@ -180,6 +217,36 @@ pub(crate) fn read_bits(bytes: &[u8], position: usize, width: usize) -> u32 {
 mod tests {
     use super::*;
     use bitvec::prelude::*;
+
+    #[test]
+    fn push_and_read_wide_values() {
+        for width in 0..=128usize {
+            let mask = if width == 128 {
+                u128::MAX
+            } else {
+                (1u128 << width) - 1
+            };
+            let value = 0x0123_4567_89AB_CDEF_FEDC_BA98_7654_3210u128 & mask;
+            for dst_len in [0usize, 1, 5, 7, 8, 13] {
+                let mut actual = BitString::repeat(true, dst_len);
+                push_bits(&mut actual, value, width);
+                let mut expected = BitString::repeat(true, dst_len);
+                let (high, low) = ((value >> 64) as u64, value as u64);
+                if width > 64 {
+                    expected.extend_from_bitslice(&high.view_bits::<Msb0>()[128 - width..]);
+                    expected.extend_from_raw_slice(&low.to_be_bytes());
+                } else {
+                    expected.extend_from_bitslice(&low.view_bits::<Msb0>()[64 - width..]);
+                }
+                assert_eq!(actual, expected, "width {width} at {dst_len}");
+                assert_eq!(
+                    read_u128(&actual[dst_len..]),
+                    value,
+                    "width {width} at {dst_len}"
+                );
+            }
+        }
+    }
 
     #[test]
     fn appender_and_reader_round_trip() {

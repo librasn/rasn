@@ -2,8 +2,6 @@
 
 use alloc::{string::ToString, vec::Vec};
 
-use bitvec::prelude::*;
-
 use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
     THIRTY_TWO_K,
@@ -503,7 +501,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     self.encode_non_negative_binary_integer(
                         buffer,
                         range,
-                        &(effective_length as u32).to_be_bytes(),
+                        effective_length as u128,
                     );
                     if is_large_string {
                         self.pad_to_alignment(buffer);
@@ -704,127 +702,86 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             ));
         }
 
-        let effective_range = value_range
-            .constraint
-            .effective_value(value.to_i128().ok_or_else(|| {
-                Error::integer_type_conversion_failed(
-                    "Value too large for i128 type - outside of type constraint".to_string(),
-                    self.codec(),
-                )
-            })?);
-        let unsigned_ref;
-        let signed_ref;
-        let needed: usize;
-        let bytes = match &effective_range {
-            either::Left(offset) => {
-                (unsigned_ref, needed) = offset.to_unsigned_bytes_be();
-                unsigned_ref.as_ref()
-            }
-            either::Right(value) => {
-                (signed_ref, needed) = value.to_signed_bytes_be();
-                signed_ref.as_ref()
-            }
-        };
-
-        let effective_value: i128 = value_range
-            .constraint
-            .effective_value(value.to_i128().ok_or_else(|| {
-                Error::integer_type_conversion_failed(
-                    "Value too large for i128 type - outside of type constraint".to_string(),
-                    self.codec(),
-                )
-            })?)
-            .either_into();
+        let value_i128 = value.to_i128().ok_or_else(|| {
+            Error::integer_type_conversion_failed(
+                "Value too large for i128 type - outside of type constraint".to_string(),
+                self.codec(),
+            )
+        })?;
+        let effective_range = value_range.constraint.effective_value(value_i128);
 
         const K64: i128 = SIXTY_FOUR_K as i128;
         const OVER_K64: i128 = K64 + 1;
 
-        if let Some(range) = value_range.constraint.range() {
-            match (self.options.aligned, range) {
-                (true, 256) => {
-                    self.pad_to_alignment(buffer);
-                    self.encode_non_negative_binary_integer(buffer, range, &bytes[..needed]);
+        let Some(range) = value_range.constraint.range() else {
+            // Semi-constrained: a length-prefixed octet string of the offset
+            // from the lower bound, or of the value itself without one.
+            let unsigned_ref;
+            let signed_ref;
+            let needed: usize;
+            let bytes = match &effective_range {
+                either::Left(offset) => {
+                    (unsigned_ref, needed) = offset.to_unsigned_bytes_be();
+                    unsigned_ref.as_ref()
                 }
-                (true, 257..=K64) => {
-                    self.pad_to_alignment(buffer);
-                    self.encode_non_negative_binary_integer(buffer, K64, &bytes[..needed]);
+                either::Right(value) => {
+                    (signed_ref, needed) = value.to_signed_bytes_be();
+                    signed_ref.as_ref()
                 }
-                (true, OVER_K64..) => {
-                    let range_len_in_bytes =
-                        i128::from(num_integer::div_ceil(crate::num::log2(range), 8));
-
-                    if effective_value == 0 {
-                        self.encode_non_negative_binary_integer(
-                            &mut *buffer,
-                            range_len_in_bytes,
-                            &[0],
-                        );
-                        self.pad_to_alignment(&mut *buffer);
-                        self.encode_non_negative_binary_integer(
-                            &mut *buffer,
-                            255,
-                            &bytes[..needed],
-                        );
-                    } else {
-                        let range_value_in_bytes = i128::from(num_integer::div_ceil(
-                            crate::num::log2(effective_value + 1),
-                            8,
-                        ));
-                        self.encode_non_negative_binary_integer(
-                            buffer,
-                            range_len_in_bytes,
-                            &(range_value_in_bytes - 1).to_be_bytes(),
-                        );
-                        self.pad_to_alignment(&mut *buffer);
-                        self.encode_non_negative_binary_integer(
-                            &mut *buffer,
-                            crate::bits::range_from_len(range_value_in_bytes as u32 * 8),
-                            &bytes[..needed],
-                        );
-                    }
-                }
-                (_, _) => {
-                    let bits = if I::WIDTH <= 16 && range == (1i128 << I::WIDTH) {
-                        I::WIDTH as usize
-                    } else {
-                        crate::num::log2(range) as usize
-                    };
-                    self.encode_non_negative_binary_integer_bits(buffer, bits, &bytes[..needed]);
-                }
-            }
-        } else {
-            self.encode_length(buffer, needed, <_>::default(), |buf, range| {
+            };
+            return self.encode_length(buffer, needed, <_>::default(), |buf, range| {
                 crate::bits::extend_bitstring_from_bytes(buf, &bytes[..needed][range]);
                 Ok(())
-            })?;
+            });
+        };
+
+        // Both bounds are known, so the encoding is the non-negative offset
+        // from the lower bound (or nothing at all for a single value).
+        let offset: i128 = effective_range.either_into();
+        let offset = offset as u128;
+        match (self.options.aligned, range) {
+            (true, 256) => {
+                self.pad_to_alignment(buffer);
+                crate::bits::push_bits(buffer, offset, 8);
+            }
+            (true, 257..=K64) => {
+                self.pad_to_alignment(buffer);
+                crate::bits::push_bits(buffer, offset, 16);
+            }
+            (true, OVER_K64..) => {
+                // A length determinant for the octets of the offset, then the
+                // octet-aligned offset itself in the fewest whole octets.
+                let range_octets = crate::num::log2(range).div_ceil(8);
+                let offset_octets = if offset == 0 {
+                    1
+                } else {
+                    crate::num::log2(offset as i128 + 1).div_ceil(8)
+                };
+                self.encode_non_negative_binary_integer(
+                    buffer,
+                    i128::from(range_octets),
+                    u128::from(offset_octets - 1),
+                );
+                self.pad_to_alignment(buffer);
+                crate::bits::push_bits(buffer, offset, offset_octets as usize * 8);
+            }
+            (_, _) => {
+                let bits = if I::WIDTH <= 16 && range == (1i128 << I::WIDTH) {
+                    I::WIDTH as usize
+                } else {
+                    crate::num::log2(range) as usize
+                };
+                crate::bits::push_bits(buffer, offset, bits);
+            }
         }
 
         Ok(())
     }
 
-    fn encode_non_negative_binary_integer(
-        &self,
-        buffer: &mut BitString,
-        range: i128,
-        bytes: &[u8],
-    ) {
-        self.encode_non_negative_binary_integer_bits(
-            buffer,
-            crate::num::log2(range) as usize,
-            bytes,
-        );
-    }
-
-    fn encode_non_negative_binary_integer_bits(
-        &self,
-        buffer: &mut BitString,
-        bits: usize,
-        bytes: &[u8],
-    ) {
-        let mut buf = [0u8; 16];
-        let nbytes = bytes.len().min(16);
-        buf[16 - nbytes..].copy_from_slice(&bytes[bytes.len() - nbytes..]);
-        crate::bits::extend_bitstring(buffer, &buf.view_bits::<Msb0>()[128 - bits..]);
+    /// Writes `value` as a constrained whole number with the given `range`
+    /// (ITU-T X.691 §11.5), which takes `log2(range)` bits.
+    fn encode_non_negative_binary_integer(&self, buffer: &mut BitString, range: i128, value: u128) {
+        crate::bits::push_bits(buffer, value, crate::num::log2(range) as usize);
     }
 }
 
@@ -931,23 +888,11 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
 
         if value.is_extended_variant() {
             self.encode_normally_small_integer(index, &mut work)?;
-        } else if core::mem::size_of::<usize>() == 4 {
-            self.encode_non_negative_binary_integer(
-                &mut work,
-                E::variance() as i128,
-                &u32::try_from(index).unwrap().to_be_bytes(),
-            );
-        } else if core::mem::size_of::<usize>() == 2 {
-            self.encode_non_negative_binary_integer(
-                &mut work,
-                E::variance() as i128,
-                &u16::try_from(index).unwrap().to_be_bytes(),
-            );
         } else {
             self.encode_non_negative_binary_integer(
                 &mut work,
                 E::variance() as i128,
-                &usize::to_be_bytes(index)[..],
+                index as u128,
             );
         }
 
@@ -1529,6 +1474,8 @@ impl From<u8> for Input<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use bitvec::prelude::*;
 
     use crate::Encoder as _;
 

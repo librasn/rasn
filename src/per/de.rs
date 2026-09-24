@@ -416,11 +416,12 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         if bits == 0 {
             return Ok(I::ZERO);
         }
-        let needed_bytes = bits.div_ceil(8);
-        let pad_bits = needed_bytes * 8 - bits;
-        let mut buf = [0u8; 16];
-        crate::bits::write_bitslice(&mut buf[16 - needed_bytes..], pad_bits, &data);
-        I::try_from_unsigned_bytes(&buf[16 - needed_bytes..], self.codec())
+        let value = crate::bits::read_u128(&data);
+        match i128::try_from(value) {
+            Ok(value) => I::try_from(value)
+                .map_err(|_| DecodeError::integer_overflow(I::WIDTH, self.codec())),
+            Err(_) => I::try_from_unsigned_bytes(&value.to_be_bytes(), self.codec()),
+        }
     }
 
     fn parse_integer<I: types::IntegerType>(&mut self, constraints: Constraints) -> Result<I> {
