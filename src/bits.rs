@@ -27,17 +27,6 @@ pub(crate) fn extend_bitstring(dst: &mut BitString, src: &BitStr) {
     write_bitslice(dst.as_raw_mut_slice(), position, src);
 }
 
-/// Appends the octets of `src` to `dst`.
-pub(crate) fn extend_bitstring_from_bytes(dst: &mut BitString, src: &[u8]) {
-    if src.is_empty() {
-        return;
-    }
-    dst.force_align();
-    let position = dst.len();
-    dst.resize(position + src.len() * 8, false);
-    or_bits(dst.as_raw_mut_slice(), position, src, src.len() * 8);
-}
-
 /// Appends `src`, whose length must be a multiple of eight bits, to `dst` as
 /// octets. Octet-aligned input is copied directly.
 pub(crate) fn extend_vec_from_bitslice(dst: &mut Vec<u8>, src: &BitStr) {
@@ -127,18 +116,126 @@ fn or_bits(dst: &mut [u8], position: usize, src: &[u8], count: usize) {
     }
 }
 
-/// Appends the low `width` bits of `value`, most significant bit first.
-/// `width` is at most 128.
-pub(crate) fn push_bits(dst: &mut BitString, value: u128, width: usize) {
-    debug_assert!(width <= 128);
-    if width == 0 {
-        return;
+/// A growable bit sequence backed by octets, most significant bit first.
+///
+/// The octets always cover exactly `len` bits, and the bits past `len` in
+/// the last octet are zero, so appending only ever ORs new bits in and
+/// growing costs a `Vec::resize` rather than bitvec's element bookkeeping
+/// and domain-based fill.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct BitBuffer {
+    bytes: Vec<u8>,
+    len: usize,
+}
+
+impl BitBuffer {
+    pub(crate) const fn new() -> Self {
+        Self {
+            bytes: Vec::new(),
+            len: 0,
+        }
     }
-    dst.force_align();
-    let position = dst.len();
-    dst.resize(position + width, false);
-    let bytes = (value << (128 - width)).to_be_bytes();
-    or_bits(dst.as_raw_mut_slice(), position, &bytes, width);
+
+    /// Reuses the allocation of `bytes`, starting empty.
+    pub(crate) fn from_vec(mut bytes: Vec<u8>) -> Self {
+        bytes.clear();
+        Self { bytes, len: 0 }
+    }
+
+    pub(crate) fn len(&self) -> usize {
+        self.len
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.bytes.clear();
+        self.len = 0;
+    }
+
+    /// The octets holding the bits; the last one is zero past `len`.
+    pub(crate) fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    /// Consumes the buffer, padding it to a whole number of octets.
+    pub(crate) fn into_vec(self) -> Vec<u8> {
+        self.bytes
+    }
+
+    /// Appends `bits` zero bits and returns the position of the first.
+    fn grow(&mut self, bits: usize) -> usize {
+        let position = self.len;
+        self.len += bits;
+        let needed = self.len.div_ceil(8);
+        if needed > self.bytes.len() {
+            self.bytes.resize(needed, 0);
+        }
+        position
+    }
+
+    /// Grows to `new_len` bits, which must not be less than `len`, filling
+    /// the new bits with `bit`.
+    pub(crate) fn resize(&mut self, new_len: usize, bit: bool) {
+        debug_assert!(new_len >= self.len);
+        let position = self.grow(new_len - self.len);
+        if bit {
+            for index in position..new_len {
+                self.set(index, true);
+            }
+        }
+    }
+
+    pub(crate) fn push(&mut self, bit: bool) {
+        let position = self.grow(1);
+        if bit {
+            self.set(position, true);
+        }
+    }
+
+    pub(crate) fn set(&mut self, index: usize, bit: bool) {
+        debug_assert!(index < self.len);
+        let mask = 0x80u8 >> (index % 8);
+        if bit {
+            self.bytes[index / 8] |= mask;
+        } else {
+            self.bytes[index / 8] &= !mask;
+        }
+    }
+
+    /// Appends the low `width` bits of `value`, most significant bit first.
+    /// `width` is at most 128.
+    pub(crate) fn push_bits(&mut self, value: u128, width: usize) {
+        debug_assert!(width <= 128);
+        if width == 0 {
+            return;
+        }
+        let position = self.grow(width);
+        let bytes = (value << (128 - width)).to_be_bytes();
+        or_bits(&mut self.bytes, position, &bytes, width);
+    }
+
+    pub(crate) fn extend_from_bytes(&mut self, src: &[u8]) {
+        let position = self.grow(src.len() * 8);
+        or_bits(&mut self.bytes, position, src, src.len() * 8);
+    }
+
+    pub(crate) fn extend_from_bitslice(&mut self, src: &BitStr) {
+        let position = self.grow(src.len());
+        write_bitslice(&mut self.bytes, position, src);
+    }
+
+    pub(crate) fn extend_from_buffer(&mut self, src: &BitBuffer) {
+        let position = self.grow(src.len);
+        or_bits(&mut self.bytes, position, &src.bytes, src.len);
+    }
+
+    /// Reserves `additional` zero bits for the returned appender to fill.
+    pub(crate) fn appender(&mut self, additional: usize) -> BitAppender<'_> {
+        let position = self.grow(additional);
+        BitAppender {
+            bytes: &mut self.bytes,
+            position,
+        }
+    }
 }
 
 /// Reads `src`, which holds at most 128 bits, as an unsigned integer with the
@@ -170,18 +267,7 @@ pub(crate) struct BitAppender<'a> {
     position: usize,
 }
 
-impl<'a> BitAppender<'a> {
-    /// Reserves `additional` zeroed bits at the end of `dst` for `push` to fill.
-    pub(crate) fn new(dst: &'a mut BitString, additional: usize) -> Self {
-        dst.force_align();
-        let position = dst.len();
-        dst.resize(position + additional, false);
-        Self {
-            bytes: dst.as_raw_mut_slice(),
-            position,
-        }
-    }
-
+impl BitAppender<'_> {
     /// Writes the low `width` bits of `value`, most significant bit first.
     /// `width` is at most 32.
     pub(crate) fn push(&mut self, value: u32, width: usize) {
@@ -218,6 +304,18 @@ mod tests {
     use super::*;
     use bitvec::prelude::*;
 
+    fn filled(len: usize) -> BitBuffer {
+        let mut buffer = BitBuffer::new();
+        buffer.resize(len, true);
+        buffer
+    }
+
+    fn as_bitstring(buffer: &BitBuffer) -> BitString {
+        let mut bits = BitString::from_vec(buffer.as_bytes().to_vec());
+        bits.truncate(buffer.len());
+        bits
+    }
+
     #[test]
     fn push_and_read_wide_values() {
         for width in 0..=128usize {
@@ -228,8 +326,9 @@ mod tests {
             };
             let value = 0x0123_4567_89AB_CDEF_FEDC_BA98_7654_3210u128 & mask;
             for dst_len in [0usize, 1, 5, 7, 8, 13] {
-                let mut actual = BitString::repeat(true, dst_len);
-                push_bits(&mut actual, value, width);
+                let mut actual = filled(dst_len);
+                actual.push_bits(value, width);
+                let actual = as_bitstring(&actual);
                 let mut expected = BitString::repeat(true, dst_len);
                 let (high, low) = ((value >> 64) as u64, value as u64);
                 if width > 64 {
@@ -255,10 +354,10 @@ mod tests {
             let values: Vec<u32> = (0..20u32)
                 .map(|i| i.wrapping_mul(0x9E37_79B9) & mask)
                 .collect();
-            let mut actual = BitString::repeat(true, 3);
-            let mut expected = actual.clone();
+            let mut actual = filled(3);
+            let mut expected = BitString::repeat(true, 3);
             {
-                let mut appender = BitAppender::new(&mut actual, values.len() * width);
+                let mut appender = actual.appender(values.len() * width);
                 for &value in &values {
                     appender.push(value, width);
                 }
@@ -266,8 +365,8 @@ mod tests {
             for &value in &values {
                 expected.extend_from_bitslice(&value.view_bits::<Msb0>()[32 - width..]);
             }
-            assert_eq!(actual, expected, "width {width}");
-            let bytes = actual.as_raw_slice();
+            assert_eq!(as_bitstring(&actual), expected, "width {width}");
+            let bytes = actual.as_bytes();
             for (i, &value) in values.iter().enumerate() {
                 assert_eq!(
                     read_bits(bytes, 3 + i * width, width),
@@ -308,9 +407,9 @@ mod tests {
         for dst_len in 0..17 {
             let mut expected = BitString::repeat(true, dst_len);
             expected.extend_from_raw_slice(&bytes);
-            let mut actual = BitString::repeat(true, dst_len);
-            extend_bitstring_from_bytes(&mut actual, &bytes);
-            assert_eq!(actual, expected, "dst {dst_len}");
+            let mut actual = filled(dst_len);
+            actual.extend_from_bytes(&bytes);
+            assert_eq!(as_bitstring(&actual), expected, "dst {dst_len}");
         }
     }
 

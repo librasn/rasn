@@ -15,6 +15,8 @@ use crate::{
     },
 };
 
+use crate::bits::BitBuffer;
+
 pub use crate::error::EncodeError as Error;
 type Result<T, E = Error> = core::result::Result<T, E>;
 
@@ -66,18 +68,18 @@ impl EncoderOptions {
 #[derive(Debug)]
 pub struct Encoder<const RCL: usize = 0, const ECL: usize = 0> {
     options: EncoderOptions,
-    output: BitString,
+    output: BitBuffer,
     /// Scratch buffer reused across encode_* calls to avoid repeated heap allocations.
     /// Each method takes ownership via `mem::take`, clears it, uses it, then puts it back.
-    work: BitString,
+    work: BitBuffer,
     /// Second scratch buffer, lent to the encoder of an extension addition as
     /// its `work` while `work` serves as that encoder's output.
-    spare: BitString,
+    spare: BitBuffer,
     /// Preamble bits already present in `output` before this encoder's own field data begins.
     /// Set when a parent encoder moves its buffer into this child to avoid a separate allocation.
     /// Subtracted from `number_optional_default_fields` in `output_length` to avoid double-counting.
     preamble_pre_reserved: usize,
-    set_output: alloc::collections::BTreeMap<Tag, BitString>,
+    set_output: alloc::collections::BTreeMap<Tag, BitBuffer>,
     number_optional_default_fields: usize,
     root_bitfield: (usize, [(bool, Tag); RCL]),
     extension_bitfield: (usize, [bool; ECL]),
@@ -97,8 +99,8 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         Self {
             options,
             output: <_>::default(),
-            work: BitString::new(),
-            spare: BitString::new(),
+            work: BitBuffer::new(),
+            spare: BitBuffer::new(),
             preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
@@ -114,12 +116,13 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     /// Constructs a new encoder from the provided options, reusing the given
     /// bit buffer's allocation. The buffer is cleared before encoding begins.
     pub fn new_with_output(options: EncoderOptions, mut output: BitString) -> Self {
-        output.clear();
+        output.force_align();
+        let output = BitBuffer::from_vec(output.into_vec());
         Self {
             options,
             output,
-            work: BitString::new(),
-            spare: BitString::new(),
+            work: BitBuffer::new(),
+            spare: BitBuffer::new(),
             preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
@@ -166,7 +169,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     pub fn output(&mut self) -> Vec<u8> {
         let mut output = self.bitstring_output();
         Self::force_pad_to_alignment(&mut output);
-        output.as_raw_slice().to_vec()
+        output.as_bytes().to_vec()
     }
 
     /// Consumes the encoder and returns the octet-aligned output, reusing the
@@ -178,11 +181,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     }
 
     /// Returns the bit level output for the encoder.
-    fn bitstring_output(&mut self) -> BitString {
+    fn bitstring_output(&mut self) -> BitBuffer {
         if self.options.set_encoding {
-            let mut output = BitString::new();
+            let mut output = BitBuffer::new();
             for value in self.set_output.values() {
-                crate::bits::extend_bitstring(&mut output, value);
+                output.extend_from_buffer(value);
             }
             output
         } else {
@@ -226,17 +229,13 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         output_length += self.parent_output_length.unwrap_or_default();
 
         if self.options.set_encoding {
-            output_length += self
-                .set_output
-                .values()
-                .map(bitvec::vec::BitVec::len)
-                .sum::<usize>();
+            output_length += self.set_output.values().map(BitBuffer::len).sum::<usize>();
         }
 
         output_length
     }
 
-    fn pad_to_alignment(&self, buffer: &mut BitString) {
+    fn pad_to_alignment(&self, buffer: &mut BitBuffer) {
         if self.options.aligned {
             let mut output_length = self.output_length();
             output_length += buffer.len();
@@ -248,7 +247,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         }
     }
 
-    fn force_pad_to_alignment(buffer: &mut BitString) {
+    fn force_pad_to_alignment(buffer: &mut BitBuffer) {
         const BYTE_WIDTH: usize = 8;
         if !buffer.len().is_multiple_of(BYTE_WIDTH) {
             buffer.resize(buffer.len().next_multiple_of(BYTE_WIDTH), false);
@@ -259,7 +258,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     fn encode_extensible_bit(
         &mut self,
         constraints: &Constraints,
-        buffer: &mut BitString,
+        buffer: &mut BitBuffer,
         extensible_condition: impl FnOnce() -> bool,
     ) -> bool {
         if constraints.extensible() {
@@ -338,7 +337,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 .as_ref()
                 .or(constraints.size()),
             |buf, range| {
-                let mut appender = crate::bits::BitAppender::new(buf, range.len() * width);
+                let mut appender = buf.appender(range.len() * width);
                 for ch in value.chars().skip(range.start).take(range.len()) {
                     let code = alphabet
                         .encode(ch)
@@ -405,13 +404,13 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 }
             }
             let out = encoder.bitstring_output();
-            crate::bits::extend_bitstring(&mut self.output, &out);
+            self.output.extend_from_buffer(&out);
             return Ok(());
         }
 
         // Slow path: SET encoding or extensions present — use an intermediate buffer.
         let required_present = C::FIELDS.has_required_field();
-        let mut buffer = BitString::with_capacity(core::mem::size_of::<C>());
+        let mut buffer = BitBuffer::new();
         if C::IS_EXTENSIBLE {
             buffer.push(extensions_present);
         }
@@ -422,7 +421,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         }
         if option_bitfield[..needed].iter().any(|(bit, _tag)| *bit) || required_present {
             let out = encoder.bitstring_output();
-            crate::bits::extend_bitstring(&mut buffer, &out);
+            buffer.extend_from_buffer(&out);
         }
 
         if !C::IS_EXTENSIBLE || !extensions_present {
@@ -437,7 +436,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         for range in encoder.extension_fields.iter().flatten() {
             let field = &encoder.extension_scratch[range.clone()];
             self.encode_length(&mut buffer, field.len(), <_>::default(), |buf, range| {
-                crate::bits::extend_bitstring_from_bytes(buf, &field[range]);
+                buf.extend_from_bytes(&field[range]);
                 Ok(())
             })?;
         }
@@ -446,7 +445,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         Ok(())
     }
 
-    fn encode_normally_small_length(&mut self, value: usize, buffer: &mut BitString) -> Result<()> {
+    fn encode_normally_small_length(&mut self, value: usize, buffer: &mut BitBuffer) -> Result<()> {
         debug_assert!(value >= 1);
         let value = if value >= 64 { value } else { value - 1 };
         self.encode_normally_small_integer(value, buffer)
@@ -455,7 +454,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     fn encode_normally_small_integer(
         &mut self,
         value: usize,
-        buffer: &mut BitString,
+        buffer: &mut BitBuffer,
     ) -> Result<()> {
         let is_large = value >= 64;
         buffer.push(is_large);
@@ -473,11 +472,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     /// and above.
     fn encode_string_length(
         &self,
-        buffer: &mut BitString,
+        buffer: &mut BitBuffer,
         is_large_string: bool,
         length: usize,
         constraints: Option<&Extensible<constraints::Size>>,
-        mut encode_fn: impl FnMut(&mut BitString, core::ops::Range<usize>) -> Result<()>,
+        mut encode_fn: impl FnMut(&mut BitBuffer, core::ops::Range<usize>) -> Result<()>,
     ) -> Result<()> {
         let Some(constraints) = constraints else {
             return self.encode_unconstrained_length(buffer, length, None, encode_fn);
@@ -531,33 +530,30 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
     fn encode_length(
         &self,
-        buffer: &mut BitString,
+        buffer: &mut BitBuffer,
         length: usize,
         constraints: Option<&Extensible<constraints::Size>>,
-        encode_fn: impl FnMut(&mut BitString, core::ops::Range<usize>) -> Result<()>,
+        encode_fn: impl FnMut(&mut BitBuffer, core::ops::Range<usize>) -> Result<()>,
     ) -> Result<()> {
         self.encode_string_length(buffer, false, length, constraints, encode_fn)
     }
 
     fn encode_unconstrained_length(
         &self,
-        buffer: &mut BitString,
+        buffer: &mut BitBuffer,
         mut length: usize,
         min: Option<usize>,
-        mut encode_fn: impl FnMut(&mut BitString, core::ops::Range<usize>) -> Result<()>,
+        mut encode_fn: impl FnMut(&mut BitBuffer, core::ops::Range<usize>) -> Result<()>,
     ) -> Result<()> {
         let mut min = min.unwrap_or_default();
 
         self.pad_to_alignment(&mut *buffer);
         if length <= 127 {
-            crate::bits::extend_bitstring_from_bytes(buffer, &[length as u8]);
+            buffer.extend_from_bytes(&[length as u8]);
             (encode_fn)(buffer, min..min + length)?;
         } else if length < SIXTEEN_K.into() {
             const SIXTEENTH_BIT: u16 = 0x8000;
-            crate::bits::extend_bitstring_from_bytes(
-                buffer,
-                &(SIXTEENTH_BIT | length as u16).to_be_bytes(),
-            );
+            buffer.extend_from_bytes(&(SIXTEENTH_BIT | length as u16).to_be_bytes());
             (encode_fn)(buffer, min..min + length)?;
         } else {
             // ITU-T X.691 (02/2021) §11.9.3.8: a length of 16K or more is encoded as a
@@ -591,10 +587,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 // Every length determinant is octet-aligned in the ALIGNED variant; a
                 // no-op for the first fragment, which was aligned above.
                 self.pad_to_alignment(&mut *buffer);
-                crate::bits::extend_bitstring_from_bytes(
-                    buffer,
-                    &[FRAGMENT_MARKER | fragment_index],
-                );
+                buffer.extend_from_bytes(&[FRAGMENT_MARKER | fragment_index]);
 
                 (encode_fn)(buffer, min..min + amount)?;
                 min += amount;
@@ -608,7 +601,6 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     }
 
     fn extend<'input>(&mut self, tag: Tag, input: impl Into<Input<'input>>) {
-        use bitvec::field::BitField;
         let mut set_buffer = <_>::default();
         let buffer = if self.options.set_encoding {
             &mut set_buffer
@@ -618,16 +610,16 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
         match input.into() {
             Input::Bits(bits) => {
-                crate::bits::extend_bitstring(buffer, bits);
+                buffer.extend_from_buffer(bits);
             }
             Input::Bit(bit) => {
                 buffer.push(bit);
             }
             Input::Byte(byte) => {
-                buffer.store_be(byte);
+                buffer.extend_from_bytes(&[byte]);
             }
             Input::Bytes(bytes) => {
-                crate::bits::extend_bitstring_from_bytes(buffer, bytes);
+                buffer.extend_from_bytes(bytes);
             }
         }
         if self.options.set_encoding {
@@ -639,7 +631,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         &mut self,
         constraints: Constraints,
         value: &[u8],
-        buffer: &mut BitString,
+        buffer: &mut BitBuffer,
     ) -> Result<()> {
         let octet_string_length = value.len();
         let extensible_is_present = self.encode_extensible_bit(&constraints, buffer, || {
@@ -650,14 +642,14 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         });
         let Some(size) = constraints.size() else {
             return self.encode_length(buffer, value.len(), <_>::default(), |buf, range| {
-                crate::bits::extend_bitstring_from_bytes(buf, &value[range]);
+                buf.extend_from_bytes(&value[range]);
                 Ok(())
             });
         };
 
         if extensible_is_present {
             self.encode_length(buffer, value.len(), <_>::default(), |buf, range| {
-                crate::bits::extend_bitstring_from_bytes(buf, &value[range]);
+                buf.extend_from_bytes(&value[range]);
                 Ok(())
             })?;
         } else if Some(0) == size.constraint.range() {
@@ -666,7 +658,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             // ITU-T X.691 (02/2021) §17 NOTE: Octet strings of fixed length less than or equal to two octets are not octet-aligned.
             // All other octet strings are octet-aligned in the ALIGNED variant.
             self.encode_length(buffer, value.len(), Some(size), |buf, range| {
-                crate::bits::extend_bitstring_from_bytes(buf, &value[range]);
+                buf.extend_from_bytes(&value[range]);
                 Ok(())
             })?;
         } else {
@@ -674,7 +666,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 self.pad_to_alignment(buffer);
             }
             self.encode_string_length(buffer, true, value.len(), Some(size), |buf, range| {
-                crate::bits::extend_bitstring_from_bytes(buf, &value[range]);
+                buf.extend_from_bytes(&value[range]);
                 Ok(())
             })?;
         }
@@ -687,7 +679,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         &mut self,
         constraints: Constraints,
         value: &I,
-        buffer: &mut BitString,
+        buffer: &mut BitBuffer,
     ) -> Result<()> {
         let is_extended_value = self.encode_extensible_bit(&constraints, buffer, || {
             constraints.value().is_some_and(|value_range| {
@@ -698,7 +690,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         let value_range = if is_extended_value || constraints.value().is_none() {
             let (bytes, needed) = value.to_signed_bytes_be();
             self.encode_length(buffer, needed, constraints.size(), |buf, range| {
-                crate::bits::extend_bitstring_from_bytes(buf, &bytes.as_ref()[..needed][range]);
+                buf.extend_from_bytes(&bytes.as_ref()[..needed][range]);
                 Ok(())
             })?;
             return Ok(());
@@ -743,7 +735,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 }
             };
             return self.encode_length(buffer, needed, <_>::default(), |buf, range| {
-                crate::bits::extend_bitstring_from_bytes(buf, &bytes[..needed][range]);
+                buf.extend_from_bytes(&bytes[..needed][range]);
                 Ok(())
             });
         };
@@ -755,11 +747,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         match (self.options.aligned, range) {
             (true, 256) => {
                 self.pad_to_alignment(buffer);
-                crate::bits::push_bits(buffer, offset, 8);
+                buffer.push_bits(offset, 8);
             }
             (true, 257..=K64) => {
                 self.pad_to_alignment(buffer);
-                crate::bits::push_bits(buffer, offset, 16);
+                buffer.push_bits(offset, 16);
             }
             (true, OVER_K64..) => {
                 // A length determinant for the octets of the offset, then the
@@ -776,7 +768,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     u128::from(offset_octets - 1),
                 );
                 self.pad_to_alignment(buffer);
-                crate::bits::push_bits(buffer, offset, offset_octets as usize * 8);
+                buffer.push_bits(offset, offset_octets as usize * 8);
             }
             (_, _) => {
                 let bits = if I::WIDTH <= 16 && range == (1i128 << I::WIDTH) {
@@ -784,7 +776,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 } else {
                     crate::num::log2(range) as usize
                 };
-                crate::bits::push_bits(buffer, offset, bits);
+                buffer.push_bits(offset, bits);
             }
         }
 
@@ -793,8 +785,8 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
     /// Writes `value` as a constrained whole number with the given `range`
     /// (ITU-T X.691 §11.5), which takes `log2(range)` bits.
-    fn encode_non_negative_binary_integer(&self, buffer: &mut BitString, range: i128, value: u128) {
-        crate::bits::push_bits(buffer, value, crate::num::log2(range) as usize);
+    fn encode_non_negative_binary_integer(&self, buffer: &mut BitBuffer, range: i128, value: u128) {
+        buffer.push_bits(value, crate::num::log2(range) as usize);
     }
 }
 
@@ -841,7 +833,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
 
         if extensible_is_present || size.is_none() {
             self.encode_length(&mut work, value.len(), <_>::default(), |buf, range| {
-                crate::bits::extend_bitstring(buf, &value[range]);
+                buf.extend_from_bitslice(&value[range]);
                 Ok(())
             })?;
         } else if size.and_then(|size| size.constraint.range()) == Some(0) {
@@ -852,7 +844,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             // ITU-T X.691 (02/2021) §16: Bitstrings constrained to a fixed length less than or equal to 16 bits
             // do not cause octet alignment. Larger bitstrings are octet-aligned in the ALIGNED variant.
             self.encode_length(&mut work, value.len(), constraints.size(), |buf, range| {
-                crate::bits::extend_bitstring(buf, &value[range]);
+                buf.extend_from_bitslice(&value[range]);
                 Ok(())
             })?;
         } else {
@@ -865,7 +857,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 value.len(),
                 constraints.size(),
                 |buf, range| {
-                    crate::bits::extend_bitstring(buf, &value[range]);
+                    buf.extend_from_bitslice(&value[range]);
                     Ok(())
                 },
             )?;
@@ -1127,7 +1119,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             })
         });
 
-        let mut element_work = BitString::new();
+        let mut element_work = BitBuffer::new();
         let mut element_spare = core::mem::take(&mut self.spare);
         let mut element_scratch = core::mem::take(&mut self.extension_scratch);
         self.encode_length(
@@ -1303,11 +1295,11 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             for range in child.extension_fields.iter().flatten() {
                 let field = &self.extension_scratch[range.clone()];
                 self.encode_length(&mut work, field.len(), <_>::default(), |buf, range| {
-                    crate::bits::extend_bitstring_from_bytes(buf, &field[range]);
+                    buf.extend_from_bytes(&field[range]);
                     Ok(())
                 })?;
             }
-            crate::bits::extend_bitstring(&mut self.output, &work);
+            self.output.extend_from_buffer(&work);
             self.work = work;
         }
         self.extension_scratch.truncate(scratch_base);
@@ -1391,7 +1383,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                     &mut work,
                 )?;
 
-                crate::bits::extend_bitstring(&mut work, &choice_encoder.output);
+                work.extend_from_buffer(&choice_encoder.output);
             }
             (index, Some(None)) => {
                 self.encode_normally_small_integer(index, &mut work)?;
@@ -1403,7 +1395,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 self.encode_octet_string_into_buffer(Constraints::default(), &output, &mut work)?;
             }
             (_, None) => {
-                crate::bits::extend_bitstring(&mut work, &choice_encoder.output);
+                work.extend_from_buffer(&choice_encoder.output);
             }
         }
 
@@ -1428,7 +1420,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 options: self.options.without_set_encoding(),
                 output,
                 work: core::mem::take(&mut self.spare),
-                spare: BitString::new(),
+                spare: BitBuffer::new(),
                 preamble_pre_reserved: 0,
                 set_output: <_>::default(),
                 number_optional_default_fields: 0,
@@ -1450,11 +1442,9 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             self.spare = core::mem::take(&mut encoder.work);
             self.extension_scratch = core::mem::take(&mut encoder.extension_scratch);
             result?;
-            output.force_align();
             Self::force_pad_to_alignment(&mut output);
             let start = self.extension_scratch.len();
-            self.extension_scratch
-                .extend_from_slice(output.as_raw_slice());
+            self.extension_scratch.extend_from_slice(output.as_bytes());
             self.extension_fields[self.extension_bitfield.0] =
                 Some(start..self.extension_scratch.len());
             self.work = output;
@@ -1489,7 +1479,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             options: self.options.without_set_encoding(),
             output,
             work: core::mem::take(&mut self.spare),
-            spare: BitString::new(),
+            spare: BitBuffer::new(),
             preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
@@ -1506,9 +1496,8 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         self.extension_scratch = core::mem::take(&mut encoder.extension_scratch);
         result?;
         let (present_count, presence) = encoder.root_bitfield;
-        output.force_align();
         Self::force_pad_to_alignment(&mut output);
-        let out = output.as_raw_slice();
+        let out = output.as_bytes();
 
         let all_absent = if E::FIELDS.has_required_field() {
             false
@@ -1539,12 +1528,12 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
 enum Input<'input> {
     Bit(bool),
     Byte(u8),
-    Bits(&'input BitString),
+    Bits(&'input BitBuffer),
     Bytes(&'input [u8]),
 }
 
-impl<'input> From<&'input BitString> for Input<'input> {
-    fn from(value: &'input BitString) -> Self {
+impl<'input> From<&'input BitBuffer> for Input<'input> {
+    fn from(value: &'input BitBuffer) -> Self {
         Self::Bits(value)
     }
 }
@@ -1577,8 +1566,6 @@ impl From<u8> for Input<'_> {
 mod tests {
     use super::*;
 
-    use bitvec::prelude::*;
-
     use crate::Encoder as _;
 
     #[derive(crate::AsnType, Default, crate::Encode, Clone, Copy)]
@@ -1610,7 +1597,7 @@ mod tests {
     #[test]
     fn length() {
         let encoder = Encoder::<0, 0>::new(EncoderOptions::unaligned());
-        let mut buffer = types::BitString::new();
+        let mut buffer = BitBuffer::new();
         encoder
             .encode_length(
                 &mut buffer,
@@ -1621,7 +1608,7 @@ mod tests {
                 |_, _| Ok(()),
             )
             .unwrap();
-        assert_eq!(&[0xC], buffer.as_raw_slice());
+        assert_eq!(&[0xC], buffer.as_bytes());
     }
 
     #[test]
@@ -1637,12 +1624,12 @@ mod tests {
     #[test]
     fn normally_small_integer() {
         let mut encoder = Encoder::<0, 0>::new(EncoderOptions::unaligned());
-        let mut buffer = types::BitString::new();
+        let mut buffer = BitBuffer::new();
         encoder
             .encode_normally_small_integer(2, &mut buffer)
             .unwrap();
         assert_eq!(buffer.len(), 7);
-        assert_eq!(bitvec::bits![0, 0, 0, 0, 0, 1, 0], buffer);
+        assert_eq!(buffer.as_bytes(), &[0b0000_0100]);
     }
 
     #[test]
