@@ -1,7 +1,7 @@
 //! Decoding Packed Encoding Rules data into Rust structures.
 
 use alloc::{borrow::Cow, string::ToString, vec::Vec};
-use bitvec::{field::BitField, view::BitView};
+use bitvec::field::BitField;
 
 use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
@@ -213,7 +213,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let input = self.decode_length(self.input, <_>::default(), &mut |input, length| {
             let (input, data) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            buffer.extend_from_bitslice(&*data);
+            crate::bits::extend_bitstring(&mut buffer, &data);
             Ok(input)
         })?;
 
@@ -419,10 +419,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let needed_bytes = bits.div_ceil(8);
         let pad_bits = needed_bytes * 8 - bits;
         let mut buf = [0u8; 16];
-        {
-            let buf_bits = buf[16 - needed_bytes..].view_bits_mut::<bitvec::order::Msb0>();
-            buf_bits[pad_bits..].copy_from_bitslice(&data);
-        }
+        crate::bits::write_bitslice(&mut buf[16 - needed_bytes..], pad_bits, &data);
         I::try_from_unsigned_bytes(&buf[16 - needed_bytes..], self.codec())
     }
 
@@ -662,7 +659,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
             let (input, part) = nom::bytes::streaming::take(length * char_width)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            bit_string.extend_from_bitslice(&*part);
+            crate::bits::extend_bitstring(&mut bit_string, &part);
             Ok(input)
         })?;
 
@@ -741,17 +738,17 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         Self::codec(self)
     }
     fn decode_any(&mut self, _tag: Tag) -> Result<types::Any> {
-        let mut octet_string = types::BitString::default();
+        let mut octet_string = Vec::new();
         let codec = self.codec();
 
         self.decode_extensible_container(Constraints::default(), |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            octet_string.extend_from_bitslice(&*part);
+            crate::bits::extend_vec_from_bitslice(&mut octet_string, &part);
             Ok(input)
         })?;
 
-        Ok(types::Any::new(octet_string.as_raw_slice().to_vec()))
+        Ok(types::Any::new(octet_string))
     }
 
     fn decode_bool(&mut self, _: Tag) -> Result<bool> {
@@ -829,9 +826,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
 
-            let mut bytes = part.to_bitvec();
-            bytes.force_align();
-            octet_string.extend_from_slice(bytes.as_raw_slice());
+            crate::bits::extend_vec_from_bitslice(&mut octet_string, &part);
             Ok(input)
         })?;
         Ok(T::from(octet_string))
@@ -854,7 +849,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            bit_string.extend_from_bitslice(&*part);
+            crate::bits::extend_bitstring(&mut bit_string, &part);
             Ok(input)
         })?;
         Ok(bit_string)
