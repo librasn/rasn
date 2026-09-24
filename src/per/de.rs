@@ -213,7 +213,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let input = self.decode_length(self.input, <_>::default(), &mut |input, length| {
             let (input, data) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            buffer.extend(&*data);
+            buffer.extend_from_bitslice(&*data);
             Ok(input)
         })?;
 
@@ -662,7 +662,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
             let (input, part) = nom::bytes::streaming::take(length * char_width)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            bit_string.extend(&*part);
+            bit_string.extend_from_bitslice(&*part);
             Ok(input)
         })?;
 
@@ -747,7 +747,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.decode_extensible_container(Constraints::default(), |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            octet_string.extend(&*part);
+            octet_string.extend_from_bitslice(&*part);
             Ok(input)
         })?;
 
@@ -854,7 +854,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            bit_string.extend(&*part);
+            bit_string.extend_from_bitslice(&*part);
             Ok(input)
         })?;
         Ok(bit_string)
@@ -1358,6 +1358,51 @@ mod tests {
                 "APER round trip failed for length {length}"
             );
         }
+    }
+
+    /// Elements of a SEQUENCE OF align relative to the start of the whole
+    /// encoding, not to the start of the element list (X.691 §11.1.2).
+    #[test]
+    fn aligned_sequence_of_element_alignment() {
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Inner {
+            #[rasn(size("3"))]
+            octets: crate::types::OctetString,
+        }
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Outer {
+            flag: bool,
+            #[rasn(size("2"))]
+            fixed: Vec<Inner>,
+            #[rasn(size("1..=4"))]
+            ranged: Vec<Inner>,
+            trailer: u8,
+        }
+
+        let value = Outer {
+            flag: true,
+            fixed: vec![
+                Inner {
+                    octets: crate::types::OctetString::from_static(&[1, 2, 3]),
+                },
+                Inner {
+                    octets: crate::types::OctetString::from_static(&[4, 5, 6]),
+                },
+            ],
+            ranged: vec![Inner {
+                octets: crate::types::OctetString::from_static(&[7, 8, 9]),
+            }],
+            trailer: 0xAB,
+        };
+
+        // The flag occupies bit 0, so the first fixed-size octet string (which is
+        // octet-aligned in APER) must be preceded by seven padding bits.
+        let encoded = crate::aper::encode(&value).unwrap();
+        assert_eq!(encoded, [0x80, 1, 2, 3, 4, 5, 6, 0x00, 7, 8, 9, 0xAB]);
+        assert_eq!(crate::aper::decode::<Outer>(&encoded).unwrap(), value);
     }
 
     /// APER uses a two-octet constrained whole number for ranges from 257 to
