@@ -32,8 +32,6 @@ pub fn encode<T: crate::Encode>(
 
 #[cfg(test)]
 mod tests {
-    use core::f64;
-
     use bitvec::bitvec;
     use bitvec::order::Msb0;
 
