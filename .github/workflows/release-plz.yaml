@@ -20,6 +20,11 @@ jobs:
           fetch-depth: 0
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+      # release-plz runs cargo-semver-checks without feature flags, which
+      # enables `arc-slice` and `bytes` together and fails to build `rasn`.
+      # Put a wrapper ahead of it on PATH that checks default features only.
+      - name: Restrict cargo-semver-checks to default features
+        run: echo "$GITHUB_WORKSPACE/.github/semver-checks-shim" >> "$GITHUB_PATH"
       - name: Run release-plz
         uses: MarcoIeni/release-plz-action@v0.5
         env:

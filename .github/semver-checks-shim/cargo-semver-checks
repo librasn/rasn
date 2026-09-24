@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Wrapper around cargo-semver-checks used by the Release-plz workflow.
+#
+# release-plz runs `cargo-semver-checks semver-checks check-release ...` without
+# any feature flags, so cargo-semver-checks enables (almost) every feature. The
+# `arc-slice` and `bytes` features of `rasn` are mutually exclusive, so that
+# build can never succeed. This wrapper restricts `check-release` to the
+# crate's default features (`f32`, `f64`, `bytes`) and passes every other
+# invocation through unchanged.
+set -euo pipefail
+
+shim_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+real=""
+IFS=: read -r -a path_dirs <<< "$PATH"
+for dir in "${path_dirs[@]}"; do
+    [[ -z "$dir" || "$dir" == "$shim_dir" ]] && continue
+    if [[ -x "$dir/cargo-semver-checks" ]]; then
+        real="$dir/cargo-semver-checks"
+        break
+    fi
+done
+if [[ -z "$real" ]]; then
+    echo "cargo-semver-checks shim: real cargo-semver-checks not found on PATH" >&2
+    exit 127
+fi
+
+for arg in "$@"; do
+    if [[ "$arg" == "check-release" ]]; then
+        exec "$real" "$@" --default-features
+    fi
+done
+exec "$real" "$@"
