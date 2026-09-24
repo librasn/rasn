@@ -788,6 +788,28 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     fn encode_non_negative_binary_integer(&self, buffer: &mut BitBuffer, range: i128, value: u128) {
         buffer.push_bits(value, crate::num::log2(range) as usize);
     }
+
+    /// Encodes a time value as an octet string holding its DER encoding: the
+    /// identifier of its universal tag, a short-form length, and the canonical
+    /// `content` string.
+    fn encode_der_time(&mut self, tag: Tag, universal_tag: Tag, content: &[u8]) -> Result<()> {
+        // Canonical time strings are far shorter than 128 octets, so the
+        // length takes the short form and the octet string is never fragmented.
+        debug_assert!(content.len() < 128);
+        let identifier = super::DerIdentifier::primitive(universal_tag);
+        let length = identifier.as_slice().len() + 1 + content.len();
+        let mut work = core::mem::take(&mut self.work);
+        work.clear();
+        self.encode_length(&mut work, length, <_>::default(), |buf, _| {
+            buf.extend_from_bytes(identifier.as_slice());
+            buf.extend_from_bytes(&[content.len() as u8]);
+            buf.extend_from_bytes(content);
+            Ok(())
+        })?;
+        self.extend(tag, &work);
+        self.work = work;
+        Ok(())
+    }
 }
 
 impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC> {
@@ -1062,12 +1084,13 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &types::UtcTime,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(
-            tag,
-            Constraints::default(),
-            &crate::der::encode(value)?,
-            Identifier::EMPTY,
+        // ITU-T X.680 defines UTCTime as an IMPLICIT VisibleString holding the
+        // canonical time string, so PER encodes it as one.
+        let string = types::VisibleString::from_iso646_bytes(
+            &crate::ber::enc::Encoder::datetime_to_canonical_utc_time_bytes(value),
         )
+        .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
+        self.encode_known_multiplier_string(tag, &Constraints::default(), &string)
     }
 
     fn encode_generalized_time(
@@ -1076,12 +1099,13 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &types::GeneralizedTime,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(
-            tag,
-            Constraints::default(),
-            &crate::der::encode(value)?,
-            Identifier::EMPTY,
+        // ITU-T X.680 defines GeneralizedTime as an IMPLICIT VisibleString
+        // holding the canonical time string, so PER encodes it as one.
+        let string = types::VisibleString::from_iso646_bytes(
+            &crate::ber::enc::Encoder::datetime_to_canonical_generalized_time_bytes(value),
         )
+        .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
+        self.encode_known_multiplier_string(tag, &Constraints::default(), &string)
     }
 
     fn encode_date(
@@ -1090,11 +1114,10 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         value: &types::Date,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(
+        self.encode_der_time(
             tag,
-            Constraints::default(),
-            &crate::der::encode(value)?,
-            Identifier::EMPTY,
+            Tag::DATE,
+            &crate::ber::enc::Encoder::naivedate_to_date_bytes(value),
         )
     }
 

@@ -12,6 +12,42 @@ const SIXTY_FOUR_K: u32 = 65536;
 const SMALL_UNSIGNED_CONSTRAINT: Constraints = constraints!(value_constraint!(0, 63));
 const LARGE_UNSIGNED_CONSTRAINT: Constraints = constraints!(value_constraint!(start: 0));
 
+/// The identifier octets that start a DER encoding.
+///
+/// PER carries `DATE` as an octet string holding the value's complete DER
+/// encoding, so both the encoder and the decoder need the identifier of the
+/// value's universal tag.
+#[derive(Clone, Copy, Debug)]
+struct DerIdentifier {
+    octets: [u8; 2],
+    len: usize,
+}
+
+impl DerIdentifier {
+    /// The identifier of a primitive universal `tag` with a number below 128:
+    /// one octet for numbers below 31, otherwise the two-octet form.
+    const fn primitive(tag: crate::types::Tag) -> Self {
+        const HIGH_TAG_NUMBER: u32 = 0x1F;
+        debug_assert!(matches!(tag.class, crate::types::Class::Universal));
+        debug_assert!(tag.value < 0x80);
+        if tag.value < HIGH_TAG_NUMBER {
+            Self {
+                octets: [tag.value as u8, 0],
+                len: 1,
+            }
+        } else {
+            Self {
+                octets: [HIGH_TAG_NUMBER as u8, tag.value as u8],
+                len: 2,
+            }
+        }
+    }
+
+    fn as_slice(&self) -> &[u8] {
+        &self.octets[..self.len]
+    }
+}
+
 /// Attempts to decode `T` from `input` using PER.
 pub(crate) fn decode<T: crate::Decode>(
     options: de::DecoderOptions,

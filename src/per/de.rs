@@ -24,6 +24,19 @@ type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
 
+/// The canonical string inside the DER encoding of a time value, when `bytes`
+/// is exactly the identifier of `universal_tag`, a short-form length, and that
+/// many string octets.
+fn der_time_content(bytes: &[u8], universal_tag: Tag) -> Option<&str> {
+    let identifier = super::DerIdentifier::primitive(universal_tag);
+    let rest = bytes.strip_prefix(identifier.as_slice())?;
+    let (&length, content) = rest.split_first()?;
+    if length >= 0x80 || usize::from(length) != content.len() {
+        return None;
+    }
+    core::str::from_utf8(content).ok()
+}
+
 /// Options for configuring the [`Decoder`].
 #[derive(Clone, Copy, Debug)]
 pub struct DecoderOptions {
@@ -894,22 +907,38 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             })
     }
 
-    fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let bytes = self.decode_octet_string::<Cow<[u8]>>(tag, Constraints::default())?;
+    // ITU-T X.680 defines GeneralizedTime and UTCTime as IMPLICIT VisibleString
+    // holding the canonical time string, so PER decodes them as one.
 
-        crate::ber::decode(&bytes)
+    fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
+        let string = self.decode_visible_string(tag, Constraints::default())?;
+        let string = alloc::string::String::from_utf8(string.into_vec()).map_err(|e| {
+            DecodeError::string_conversion_failed(
+                Tag::GENERALIZED_TIME,
+                e.to_string(),
+                self.codec(),
+            )
+        })?;
+        crate::ber::de::Decoder::parse_canonical_generalized_time_string(string)
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
-        let bytes = self.decode_octet_string::<Cow<[u8]>>(tag, Constraints::default())?;
-
-        crate::ber::decode(&bytes)
+        let string = self.decode_visible_string(tag, Constraints::default())?;
+        let string = core::str::from_utf8(string.as_iso646_bytes()).map_err(|e| {
+            DecodeError::string_conversion_failed(Tag::UTC_TIME, e.to_string(), self.codec())
+        })?;
+        crate::ber::de::Decoder::parse_canonical_utc_time_string(string)
     }
 
+    // DATE is carried as an octet string holding its DER encoding. A
+    // well-formed one is parsed in place; anything else goes through the BER
+    // decoder so that it reports the error.
     fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
         let bytes = self.decode_octet_string::<Cow<[u8]>>(tag, Constraints::default())?;
-
-        crate::ber::decode(&bytes)
+        match der_time_content(&bytes, Tag::DATE) {
+            Some(content) => crate::ber::de::Decoder::parse_date_string(content),
+            None => crate::ber::decode(&bytes),
+        }
     }
 
     fn decode_sequence_of<D: Decode>(
@@ -1350,6 +1379,72 @@ mod tests {
         let encoded = crate::aper::encode(&value).unwrap();
         assert_eq!(encoded, [0x80, 1, 2, 3, 4, 5, 6, 0x00, 7, 8, 9, 0xAB]);
         assert_eq!(crate::aper::decode::<Outer>(&encoded).unwrap(), value);
+    }
+
+    /// UTCTime and GeneralizedTime are VisibleStrings holding the canonical
+    /// time string (X.680 §46, §47), so UPER packs seven bits per character
+    /// and APER one octet. DATE is carried as an octet string holding its DER
+    /// encoding. This pins those bytes.
+    #[test]
+    fn time_types() {
+        use chrono::TimeZone;
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        struct Times {
+            flag: bool,
+            utc: crate::types::UtcTime,
+            general: crate::types::GeneralizedTime,
+            date: crate::types::Date,
+            trailer: u8,
+        }
+
+        let value = Times {
+            flag: true,
+            utc: chrono::Utc
+                .with_ymd_and_hms(2018, 6, 13, 11, 1, 59)
+                .unwrap(),
+            general: chrono::FixedOffset::east_opt(5 * 3600)
+                .unwrap()
+                .with_ymd_and_hms(2018, 6, 13, 11, 1, 58)
+                .unwrap(),
+            date: chrono::NaiveDate::from_ymd_opt(2024, 2, 29).unwrap(),
+            trailer: 0xAB,
+        };
+
+        let mut expected = alloc::vec![0x80, 0x0D];
+        expected.extend_from_slice(b"180613110159Z");
+        expected.push(0x0F);
+        expected.extend_from_slice(b"20180613060158Z");
+        expected.extend_from_slice(&[0x0B, 0x1F, 0x1F, 0x08]);
+        expected.extend_from_slice(b"20240229");
+        expected.push(0xAB);
+
+        let encoded = crate::aper::encode(&value).unwrap();
+        assert_eq!(encoded, expected);
+        assert_eq!(crate::aper::decode::<Times>(&encoded).unwrap(), value);
+        let encoded = crate::uper::encode(&value).unwrap();
+        assert_eq!(crate::uper::decode::<Times>(&encoded).unwrap(), value);
+
+        // Seven-bit characters after the length determinant in UPER.
+        assert_eq!(
+            crate::uper::encode(&value.utc).unwrap(),
+            [
+                0x0D, 0x62, 0xE1, 0x83, 0x66, 0x2C, 0xD8, 0xB1, 0x60, 0xC5, 0xAB, 0x9B, 0x40
+            ]
+        );
+        assert_eq!(
+            crate::uper::encode(&value.general).unwrap(),
+            [
+                0x0F, 0x64, 0xC1, 0x8B, 0x86, 0x0D, 0x98, 0xB3, 0x60, 0xD9, 0x83, 0x16, 0xAE, 0x2D,
+                0x00
+            ]
+        );
+
+        // A string that is not a canonical time is rejected.
+        let mut short = alloc::vec![0x0C];
+        short.extend_from_slice(b"18061311015Z");
+        assert!(crate::aper::decode::<crate::types::UtcTime>(&short).is_err());
     }
 
     /// An extension addition group is an open type (X.691 §19.9), so its
