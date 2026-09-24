@@ -580,12 +580,15 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         self.pad_to_alignment(&mut *buffer);
         if length <= 127 {
             buffer.extend((length as u8).to_be_bytes());
-            buffer.extend((encode_fn)(0..length)?);
+            buffer.extend((encode_fn)(min..min + length)?);
         } else if length < SIXTEEN_K.into() {
             const SIXTEENTH_BIT: u16 = 0x8000;
             buffer.extend((SIXTEENTH_BIT | length as u16).to_be_bytes());
-            buffer.extend((encode_fn)(0..length)?);
+            buffer.extend((encode_fn)(min..min + length)?);
         } else {
+            // ITU-T X.691 (02/2021) §11.9.3.8: a length of 16K or more is encoded as a
+            // series of fragments, each a multiple of 16K items, and is always terminated
+            // by a final length determinant (possibly zero) for the remaining items.
             loop {
                 // Hack to get around no exclusive syntax.
                 const K64: usize = SIXTY_FOUR_K as usize;
@@ -611,17 +614,16 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 };
 
                 const FRAGMENT_MARKER: u8 = 0xC0;
+                // Every length determinant is octet-aligned in the ALIGNED variant; a
+                // no-op for the first fragment, which was aligned above.
+                self.pad_to_alignment(&mut *buffer);
                 buffer.extend(&[FRAGMENT_MARKER | fragment_index]);
 
                 buffer.extend((encode_fn)(min..min + amount)?);
                 min += amount;
-
-                if length == SIXTEEN_K as usize {
-                    // Add final fragment in the frame.
-                    buffer.extend(&[0]);
-                    break;
-                }
-                length = length.saturating_sub(amount);
+                // When the fragments consume the whole value, the next iteration
+                // emits the mandatory zero-length terminator through the `_` arm.
+                length -= amount;
             }
         }
 

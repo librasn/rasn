@@ -226,54 +226,46 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         mut input: InputSlice<'input>,
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
-        input = self.parse_padding(input)?;
-        let (input, mask) = nom::bytes::streaming::take(1u8)(input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-
-        if !mask[0] {
-            let (input, length) = nom::bytes::streaming::take(7u8)(input)
-                .map(|(i, bs)| (i, bs.to_bitvec()))
-                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-            (decode_fn)(input, length.load_be::<usize>())
-        } else {
-            let (input, mask) = nom::bytes::streaming::take(1u8)(input)
+        // ITU-T X.691 (02/2021) §11.9.3.8: a 16K..64K fragment is always followed by
+        // another length determinant, either a further fragment or the final (possibly
+        // zero) length. Iterate rather than recurse so that a long chain of fragments
+        // cannot exhaust the stack.
+        loop {
+            input = self.parse_padding(input)?;
+            let (rest, mask) = nom::bytes::streaming::take(1u8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
 
             if !mask[0] {
-                let (input, length) = nom::bytes::streaming::take(14u8)(input)
-                    .map(|(i, bs)| (i, bs.to_bitvec()))
+                let (rest, length) = nom::bytes::streaming::take(7u8)(rest)
                     .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-                (decode_fn)(input, length.load_be::<usize>())
-            } else {
-                let (input, mask) = nom::bytes::streaming::take(6u8)(input)
-                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-                let length: usize = match mask.load_be::<u8>() {
-                    1 => SIXTEEN_K.into(),
-                    2 => THIRTY_TWO_K.into(),
-                    3 => FOURTY_EIGHT_K.into(),
-                    4 => SIXTY_FOUR_K as usize,
-                    _ => {
-                        return Err(DecodeError::parser_fail(
-                            "Invalid length fragment".into(),
-                            self.codec(),
-                        ));
-                    }
-                };
-
-                let mut input = (decode_fn)(input, length)?;
-
-                loop {
-                    let new_input = self.decode_length(input, <_>::default(), decode_fn)?;
-
-                    if input.len() == new_input.len() || new_input.is_empty() {
-                        break;
-                    } else {
-                        input = (decode_fn)(new_input, length)?;
-                    }
-                }
-
-                Ok(input)
+                return (decode_fn)(rest, length.load_be::<usize>());
             }
+
+            let (rest, mask) = nom::bytes::streaming::take(1u8)(rest)
+                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+
+            if !mask[0] {
+                let (rest, length) = nom::bytes::streaming::take(14u8)(rest)
+                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+                return (decode_fn)(rest, length.load_be::<usize>());
+            }
+
+            let (rest, mask) = nom::bytes::streaming::take(6u8)(rest)
+                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+            let length: usize = match mask.load_be::<u8>() {
+                1 => SIXTEEN_K.into(),
+                2 => THIRTY_TWO_K.into(),
+                3 => FOURTY_EIGHT_K.into(),
+                4 => SIXTY_FOUR_K as usize,
+                _ => {
+                    return Err(DecodeError::parser_fail(
+                        "Invalid length fragment".into(),
+                        self.codec(),
+                    ));
+                }
+            };
+
+            input = (decode_fn)(rest, length)?;
         }
     }
 
@@ -1325,6 +1317,47 @@ mod tests {
             crate::types::BitStr::from_slice(input),
             DecoderOptions::aligned(),
         )
+    }
+
+    /// Lengths of 16K and above are fragmented (X.691 §11.9.3.8). The tail
+    /// fragment must carry the right items, and a field following the
+    /// fragmented value must still decode.
+    #[test]
+    fn fragmented_length_round_trip() {
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Fragmented {
+            octets: crate::types::OctetString,
+            bits: crate::types::BitString,
+            sequence: Vec<u16>,
+            trailer: u8,
+        }
+
+        for length in [16_383usize, 16_384, 16_385, 32_768, 65_536, 65_537, 100_000] {
+            let value = Fragmented {
+                octets: (0..length)
+                    .map(|i| (i / 256) as u8)
+                    .collect::<Vec<u8>>()
+                    .into(),
+                bits: (0..length).map(|i| i % 3 == 0).collect(),
+                sequence: (0..length).map(|i| (i % 65_536) as u16).collect(),
+                trailer: 0xAB,
+            };
+
+            let encoded = crate::uper::encode(&value).unwrap();
+            let decoded = crate::uper::decode::<Fragmented>(&encoded).unwrap();
+            assert!(
+                decoded == value,
+                "UPER round trip failed for length {length}"
+            );
+
+            let encoded = crate::aper::encode(&value).unwrap();
+            let decoded = crate::aper::decode::<Fragmented>(&encoded).unwrap();
+            assert!(
+                decoded == value,
+                "APER round trip failed for length {length}"
+            );
+        }
     }
 
     /// APER uses a two-octet constrained whole number for ranges from 257 to
