@@ -825,12 +825,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         // Aligned PER (X.691 §17): fixed-size OCTET STRING with SIZE > 2 is
         // octet-aligned. The encoder calls pad_to_alignment before the length
         // determinant, so we must consume that padding here too.
-        if let Some(size) = constraints.size() {
-            if size.constraint.range() == Some(1) && size.constraint.as_start() > Some(&2) {
-                if self.options.aligned {
-                    self.input = self.parse_padding(self.input)?;
-                }
-            }
+        if let Some(size) = constraints.size()
+            && size.constraint.range() == Some(1)
+            && size.constraint.as_start() > Some(&2)
+            && self.options.aligned
+        {
+            self.input = self.parse_padding(self.input)?;
         }
 
         self.decode_extensible_container(constraints, |input, length| {
