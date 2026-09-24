@@ -70,6 +70,9 @@ pub struct Encoder<const RCL: usize = 0, const ECL: usize = 0> {
     /// Scratch buffer reused across encode_* calls to avoid repeated heap allocations.
     /// Each method takes ownership via `mem::take`, clears it, uses it, then puts it back.
     work: BitString,
+    /// Second scratch buffer, lent to the encoder of an extension addition as
+    /// its `work` while `work` serves as that encoder's output.
+    spare: BitString,
     /// Preamble bits already present in `output` before this encoder's own field data begins.
     /// Set when a parent encoder moves its buffer into this child to avoid a separate allocation.
     /// Subtracted from `number_optional_default_fields` in `output_length` to avoid double-counting.
@@ -78,7 +81,12 @@ pub struct Encoder<const RCL: usize = 0, const ECL: usize = 0> {
     number_optional_default_fields: usize,
     root_bitfield: (usize, [(bool, Tag); RCL]),
     extension_bitfield: (usize, [bool; ECL]),
-    extension_fields: [Option<Vec<u8>>; ECL],
+    /// The encoded extension additions of this sequence, as ranges of
+    /// `extension_scratch`.
+    extension_fields: [Option<core::ops::Range<usize>>; ECL],
+    /// Octets of encoded extension additions, shared down the encoder chain:
+    /// a child appends above its parent's ranges and truncates back when done.
+    extension_scratch: Vec<u8>,
     is_extension_sequence: bool,
     parent_output_length: Option<usize>,
 }
@@ -90,6 +98,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             options,
             output: <_>::default(),
             work: BitString::new(),
+            spare: BitString::new(),
             preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
@@ -97,6 +106,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             extension_bitfield: (0, [false; ECL]),
             is_extension_sequence: <_>::default(),
             extension_fields: [(); ECL].map(|_| None),
+            extension_scratch: Vec::new(),
             parent_output_length: <_>::default(),
         }
     }
@@ -109,6 +119,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             options,
             output,
             work: BitString::new(),
+            spare: BitString::new(),
             preamble_pre_reserved: 0,
             set_output: <_>::default(),
             number_optional_default_fields: 0,
@@ -116,6 +127,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             extension_bitfield: (0, [false; ECL]),
             is_extension_sequence: <_>::default(),
             extension_fields: [(); ECL].map(|_| None),
+            extension_scratch: Vec::new(),
             parent_output_length: <_>::default(),
         }
     }
@@ -422,7 +434,8 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             buffer.push(bit.is_some());
         }
 
-        for field in encoder.extension_fields.iter().filter_map(Option::as_ref) {
+        for range in encoder.extension_fields.iter().flatten() {
+            let field = &encoder.extension_scratch[range.clone()];
             self.encode_length(&mut buffer, field.len(), <_>::default(), |buf, range| {
                 crate::bits::extend_bitstring_from_bytes(buf, &field[range]);
                 Ok(())
@@ -1115,6 +1128,8 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         });
 
         let mut element_work = BitString::new();
+        let mut element_spare = core::mem::take(&mut self.spare);
+        let mut element_scratch = core::mem::take(&mut self.extension_scratch);
         self.encode_length(
             &mut work,
             values.len(),
@@ -1126,6 +1141,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                     options,
                     output: core::mem::take(buffer),
                     work: core::mem::take(&mut element_work),
+                    spare: core::mem::take(&mut element_spare),
                     preamble_pre_reserved: 0,
                     set_output: <_>::default(),
                     number_optional_default_fields: 0,
@@ -1133,16 +1149,21 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                     extension_bitfield: (0, []),
                     is_extension_sequence: false,
                     extension_fields: [],
+                    extension_scratch: core::mem::take(&mut element_scratch),
                     parent_output_length,
                 };
                 for value in &values[range] {
                     E::encode(value, &mut encoder)?;
                 }
                 element_work = encoder.work;
+                element_spare = encoder.spare;
+                element_scratch = encoder.extension_scratch;
                 *buffer = encoder.output;
                 Ok(())
             },
         )?;
+        self.spare = element_spare;
+        self.extension_scratch = element_scratch;
 
         self.extend(tag, &work);
         self.work = work;
@@ -1222,43 +1243,75 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         C: crate::types::Constructed<RL, EL>,
         F: FnOnce(&mut Self::AnyEncoder<'b, RL, EL>) -> Result<(), Self::Error>,
     {
-        // Fast path: non-extensible, non-SET sequences.
-        // Move self.output into the child encoder so its fields are written directly into the
-        // parent's buffer, avoiding a separate allocation and the subsequent bit-copy.
-        if !self.options.set_encoding && !C::IS_EXTENSIBLE {
-            let needed = C::FIELDS.number_of_optional_and_default_fields();
-            let preamble_start = self.output.len();
-            if needed > 0 {
-                self.output.resize(preamble_start + needed, false);
-            }
-            let mut child = Encoder::<RL, EL> {
-                options: self.options,
-                output: core::mem::take(&mut self.output),
-                work: core::mem::take(&mut self.work),
-                preamble_pre_reserved: needed,
-                set_output: <_>::default(),
-                number_optional_default_fields: needed,
-                root_bitfield: (0, [(false, Tag::new_private(0)); RL]),
-                extension_bitfield: (0, [false; EL]),
-                is_extension_sequence: false,
-                extension_fields: [(); EL].map(|_| None),
-                parent_output_length: self.parent_output_length,
-            };
-            (encoder_scope)(&mut child)?;
-            // Move the buffers back; reclaim any grown work allocation from the child.
-            self.work = core::mem::take(&mut child.work);
-            self.output = core::mem::take(&mut child.output);
-            for (i, (bit, _)) in child.root_bitfield.1[..needed].iter().enumerate() {
-                if *bit {
-                    self.output.set(preamble_start + i, true);
-                }
-            }
-            return Ok(());
+        // A SET parent collects each member separately by tag, so a sequence
+        // inside one needs its own buffer.
+        if self.options.set_encoding {
+            let mut encoder = self.new_sequence_encoder::<RL, EL, C>();
+            (encoder_scope)(&mut encoder)?;
+            return self.encode_constructed::<RL, EL, C>(tag, encoder);
         }
 
-        let mut encoder = self.new_sequence_encoder::<RL, EL, C>();
-        (encoder_scope)(&mut encoder)?;
-        self.encode_constructed::<RL, EL, C>(tag, encoder)
+        // Reserve the preamble (extension bit and presence bitmap) in place and
+        // lend the output buffer to the child, so its root fields are written
+        // straight into it. Extension additions are gathered in the scratch
+        // buffer and appended after the root fields.
+        let needed = C::FIELDS.number_of_optional_and_default_fields();
+        let preamble_start = self.output.len();
+        let presence_start = preamble_start + usize::from(C::IS_EXTENSIBLE);
+        self.output.resize(presence_start + needed, false);
+        let scratch_base = self.extension_scratch.len();
+        let mut child = Encoder::<RL, EL> {
+            options: self.options,
+            output: core::mem::take(&mut self.output),
+            work: core::mem::take(&mut self.work),
+            spare: core::mem::take(&mut self.spare),
+            preamble_pre_reserved: needed,
+            set_output: <_>::default(),
+            number_optional_default_fields: needed,
+            root_bitfield: (0, [(false, Tag::new_private(0)); RL]),
+            extension_bitfield: (0, [false; EL]),
+            is_extension_sequence: false,
+            extension_fields: [(); EL].map(|_| None),
+            extension_scratch: core::mem::take(&mut self.extension_scratch),
+            parent_output_length: self.parent_output_length,
+        };
+        let result = (encoder_scope)(&mut child);
+        // Move the buffers back, reclaiming any growth, before reporting an error.
+        self.output = core::mem::take(&mut child.output);
+        self.work = core::mem::take(&mut child.work);
+        self.spare = core::mem::take(&mut child.spare);
+        self.extension_scratch = core::mem::take(&mut child.extension_scratch);
+        result?;
+
+        for (i, (bit, _)) in child.root_bitfield.1[..needed].iter().enumerate() {
+            if *bit {
+                self.output.set(presence_start + i, true);
+            }
+        }
+
+        if C::IS_EXTENSIBLE && child.extension_fields.iter().any(Option::is_some) {
+            self.output.set(preamble_start, true);
+            // ITU-T X.691 (02/2021) §19.8: the number of extension additions as a
+            // normally small length, one presence bit per addition, then each
+            // present addition as an open type.
+            let mut work = core::mem::take(&mut self.work);
+            work.clear();
+            self.encode_normally_small_length(EL, &mut work)?;
+            for field in &child.extension_fields {
+                work.push(field.is_some());
+            }
+            for range in child.extension_fields.iter().flatten() {
+                let field = &self.extension_scratch[range.clone()];
+                self.encode_length(&mut work, field.len(), <_>::default(), |buf, range| {
+                    crate::bits::extend_bitstring_from_bytes(buf, &field[range]);
+                    Ok(())
+                })?;
+            }
+            crate::bits::extend_bitstring(&mut self.output, &work);
+            self.work = work;
+        }
+        self.extension_scratch.truncate(scratch_base);
+        Ok(())
     }
 
     fn encode_set<'b, const RL: usize, const EL: usize, C, F>(
@@ -1367,10 +1420,25 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         if value.is_present() {
-            // Lend the scratch buffer to the child so the extension does not need
-            // its own; the encoded bytes are kept until the preamble is known.
-            let mut encoder = Encoder::<0, 0>::new(self.options.without_set_encoding());
-            encoder.work = core::mem::take(&mut self.work);
+            // Encode into lent scratch buffers, then keep the octets in the
+            // shared scratch until the extension header can be written.
+            let mut output = core::mem::take(&mut self.work);
+            output.clear();
+            let mut encoder = Encoder::<0, 0> {
+                options: self.options.without_set_encoding(),
+                output,
+                work: core::mem::take(&mut self.spare),
+                spare: BitString::new(),
+                preamble_pre_reserved: 0,
+                set_output: <_>::default(),
+                number_optional_default_fields: 0,
+                root_bitfield: (0, []),
+                extension_bitfield: (0, []),
+                is_extension_sequence: false,
+                extension_fields: [],
+                extension_scratch: core::mem::take(&mut self.extension_scratch),
+                parent_output_length: None,
+            };
             let result = E::encode_with_tag_and_constraints(
                 &value,
                 &mut encoder,
@@ -1378,9 +1446,18 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 constraints,
                 Identifier::EMPTY,
             );
-            self.work = core::mem::take(&mut encoder.work);
+            let mut output = core::mem::take(&mut encoder.output);
+            self.spare = core::mem::take(&mut encoder.work);
+            self.extension_scratch = core::mem::take(&mut encoder.extension_scratch);
             result?;
-            self.extension_fields[self.extension_bitfield.0] = Some(encoder.output_into_vec());
+            output.force_align();
+            Self::force_pad_to_alignment(&mut output);
+            let start = self.extension_scratch.len();
+            self.extension_scratch
+                .extend_from_slice(output.as_raw_slice());
+            self.extension_fields[self.extension_bitfield.0] =
+                Some(start..self.extension_scratch.len());
+            self.work = output;
             self.set_extension_presence(true);
         } else {
             self.extension_fields[self.extension_bitfield.0] = None;
@@ -1402,15 +1479,36 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             self.set_extension_presence(false);
             return Ok(());
         };
-        // Must use an owned-buffer encoder here — we need to capture the output as
-        // Vec<u8> for storage in extension_fields. Never use the ext fast path.
-        let mut encoder = Encoder::<RL, EL>::new(self.options.without_set_encoding());
-        encoder.is_extension_sequence = true;
-        encoder.number_optional_default_fields = E::FIELDS.number_of_optional_and_default_fields();
-        encoder.parent_output_length = Some(self.output_length());
-        value.encode(&mut encoder)?;
+        // Encode the group into lent scratch buffers; its octets are kept in the
+        // shared scratch until the extension header can be written. The group is
+        // an open type (ITU-T X.691 §19.9), so its contents align relative to
+        // their own octet-aligned start rather than to the enclosing sequence.
+        let mut output = core::mem::take(&mut self.work);
+        output.clear();
+        let mut encoder = Encoder::<RL, EL> {
+            options: self.options.without_set_encoding(),
+            output,
+            work: core::mem::take(&mut self.spare),
+            spare: BitString::new(),
+            preamble_pre_reserved: 0,
+            set_output: <_>::default(),
+            number_optional_default_fields: 0,
+            root_bitfield: (0, [(false, Tag::new_private(0)); RL]),
+            extension_bitfield: (0, [false; EL]),
+            is_extension_sequence: false,
+            extension_fields: [(); EL].map(|_| None),
+            extension_scratch: core::mem::take(&mut self.extension_scratch),
+            parent_output_length: None,
+        };
+        let result = value.encode(&mut encoder);
+        let mut output = core::mem::take(&mut encoder.output);
+        self.spare = core::mem::take(&mut encoder.work);
+        self.extension_scratch = core::mem::take(&mut encoder.extension_scratch);
+        result?;
         let (present_count, presence) = encoder.root_bitfield;
-        let out = encoder.output_into_vec();
+        output.force_align();
+        Self::force_pad_to_alignment(&mut output);
+        let out = output.as_raw_slice();
 
         let all_absent = if E::FIELDS.has_required_field() {
             false
@@ -1426,9 +1524,13 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             self.extension_fields[self.extension_bitfield.0] = None;
             self.set_extension_presence(false);
         } else {
-            self.extension_fields[self.extension_bitfield.0] = Some(out);
+            let start = self.extension_scratch.len();
+            self.extension_scratch.extend_from_slice(out);
+            self.extension_fields[self.extension_bitfield.0] =
+                Some(start..self.extension_scratch.len());
             self.set_extension_presence(true);
         }
+        self.work = output;
         Ok(())
     }
 }

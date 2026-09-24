@@ -1352,6 +1352,54 @@ mod tests {
         assert_eq!(crate::aper::decode::<Outer>(&encoded).unwrap(), value);
     }
 
+    /// An extension addition group is an open type (X.691 §19.9), so its
+    /// contents align relative to their own start, not the enclosing sequence.
+    #[test]
+    fn aligned_extension_addition_group() {
+        use crate::Encoder as _;
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        struct Group {
+            flag: bool,
+            #[rasn(size("3"))]
+            octets: crate::types::OctetString,
+        }
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        #[non_exhaustive]
+        struct Outer {
+            first: bool,
+            second: bool,
+            #[rasn(extension_addition_group)]
+            group: Option<Group>,
+            #[rasn(extension_addition)]
+            #[rasn(size("3"))]
+            after: Option<crate::types::OctetString>,
+        }
+
+        let value = Outer {
+            first: true,
+            second: false,
+            group: Some(Group {
+                flag: true,
+                octets: crate::types::OctetString::from_static(&[1, 2, 3]),
+            }),
+            after: Some(crate::types::OctetString::from_static(&[7, 8, 9])),
+        };
+
+        // Extension bit, two root bits, the extension header, then the group's
+        // open type: its flag bit is followed by seven padding bits before the
+        // octet-aligned string, regardless of where the open type itself sits.
+        let encoded = crate::aper::encode(&value).unwrap();
+        assert_eq!(encoded, [0xC0, 0x70, 0x04, 0x80, 1, 2, 3, 0x03, 7, 8, 9]);
+        assert_eq!(crate::aper::decode::<Outer>(&encoded).unwrap(), value);
+
+        let encoded = crate::uper::encode(&value).unwrap();
+        assert_eq!(crate::uper::decode::<Outer>(&encoded).unwrap(), value);
+    }
+
     /// Known-multiplier character strings (X.691 §30.5): value and index
     /// encodings, permitted alphabets, single-character alphabets, and the
     /// aligned variant's width rounding and large-string padding.
