@@ -26,6 +26,12 @@ impl Ia5String {
     pub fn as_iso646_bytes(&self) -> &[u8] {
         &self.0
     }
+
+    /// Convert the IA5 string into a `Vec<u8>`, consuming the original string.
+    #[must_use]
+    pub fn into_vec(self) -> alloc::vec::Vec<u8> {
+        self.0
+    }
 }
 
 impl core::fmt::Display for Ia5String {
