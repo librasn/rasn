@@ -10,7 +10,6 @@ use once_cell::race::OnceBox;
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BmpString(pub(super) Vec<u16>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
-static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl BmpString {
     /// Converts the string into a set of big endian bytes.
@@ -44,10 +43,6 @@ impl StaticPermittedAlphabet for BmpString {
     }
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
         self.0.iter().map(|&byte| u32::from(byte))
-    }
-
-    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
-        INDEX_MAP.get_or_init(Self::build_index_map)
     }
 
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {

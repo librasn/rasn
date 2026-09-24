@@ -14,7 +14,7 @@ use crate::{
         self, Constraints, Enumerated, IntegerType, SetOf, Tag,
         constraints::{self, Extensible},
         fields::{Field, Fields},
-        strings::{StaticPermittedAlphabet, should_be_indexed},
+        strings::{CharacterAlphabet, StaticPermittedAlphabet},
     },
 };
 
@@ -646,87 +646,38 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             false
         };
 
+        // ITU-T X.691 (02/2021) §30.5: each character is a fixed-width value or
+        // alphabet index. Gather the character bits, then read them back one
+        // code at a time.
+        let alphabet = CharacterAlphabet::new::<ALPHABET>(
+            constraints
+                .permitted_alphabet()
+                .map(|alphabet| alphabet.constraint.as_inner()),
+            self.options.aligned,
+        );
+        let width = alphabet.width();
         let mut total_length = 0;
         let codec = self.codec();
         self.decode_extensible_string(&constraints, is_large_string, |input, length| {
             total_length += length;
-            if constraints
-                .permitted_alphabet()
-                .is_some_and(|alphabet| alphabet.constraint.len() == 1)
-            {
-                return Ok(input);
-            }
-
-            let (input, part) = nom::bytes::streaming::take(length * char_width)(input)
+            let (input, part) = nom::bytes::streaming::take(length * width)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
             crate::bits::extend_bitstring(&mut bit_string, &part);
             Ok(input)
         })?;
 
-        match (
-            constraints.permitted_alphabet(),
-            should_be_indexed(
-                ALPHABET::CHARACTER_SET_WIDTH as u32,
-                ALPHABET::CHARACTER_SET,
-            ),
-            constraints.permitted_alphabet().map(|alphabet| {
-                ALPHABET::CHARACTER_SET_WIDTH
-                    > if self.options.aligned {
-                        {
-                            let alphabet_width =
-                                crate::num::log2(alphabet.constraint.len() as i128);
-                            if alphabet_width.is_power_of_two() {
-                                alphabet_width
-                            } else {
-                                alphabet_width.next_power_of_two()
-                            }
-                        }
-                    } else {
-                        crate::num::log2(alphabet.constraint.len() as i128)
-                    } as usize
-            }),
-        ) {
-            (Some(alphabet), true, _) | (Some(alphabet), _, Some(true)) => {
-                if alphabet.constraint.len() == 1 {
-                    let mut string = ALPHABET::default();
-                    for _ in 0..total_length {
-                        string.push_char(alphabet.constraint[0]);
-                    }
-                    Ok(string)
-                } else {
-                    let map = alphabet
-                        .constraint
-                        .iter()
-                        .copied()
-                        .enumerate()
-                        .map(|(i, e)| (i as u32, e))
-                        .collect();
-                    ALPHABET::try_from_permitted_alphabet(bit_string, Some(&map))
-                        .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
-                }
-            }
-            (None, true, _) => ALPHABET::try_from_permitted_alphabet(bit_string, None)
-                .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec())),
-            (None, false, _) if !self.options.aligned => {
-                ALPHABET::try_from_permitted_alphabet(bit_string, None)
-                    .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec()))
-            }
-            _ => ALPHABET::try_from_bits(
-                bit_string,
-                if self.options.aligned {
-                    {
-                        if ALPHABET::CHARACTER_SET_WIDTH.is_power_of_two() {
-                            ALPHABET::CHARACTER_SET_WIDTH
-                        } else {
-                            ALPHABET::CHARACTER_SET_WIDTH.next_power_of_two()
-                        }
-                    }
-                } else {
-                    ALPHABET::CHARACTER_SET_WIDTH
-                },
-            )
-            .map_err(|e| DecodeError::permitted_alphabet_error(e, self.codec())),
+        let bytes = bit_string.as_raw_slice();
+        let mut string = ALPHABET::default();
+        let mut position = 0;
+        for _ in 0..total_length {
+            let code = crate::bits::read_bits(bytes, position, width);
+            position += width;
+            let ch = alphabet
+                .decode(code)
+                .map_err(|e| DecodeError::permitted_alphabet_error(e, codec))?;
+            string.push_char(ch);
         }
+        Ok(string)
     }
 }
 impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'input, RFC, EFC> {
@@ -1398,6 +1349,79 @@ mod tests {
         let encoded = crate::aper::encode(&value).unwrap();
         assert_eq!(encoded, [0x80, 1, 2, 3, 4, 5, 6, 0x00, 7, 8, 9, 0xAB]);
         assert_eq!(crate::aper::decode::<Outer>(&encoded).unwrap(), value);
+    }
+
+    /// Known-multiplier character strings (X.691 §30.5): value and index
+    /// encodings, permitted alphabets, single-character alphabets, and the
+    /// aligned variant's width rounding and large-string padding.
+    #[test]
+    fn known_multiplier_string_round_trip() {
+        use crate::AsnType as _;
+        use crate::types::{Ia5String, NumericString, PrintableString, VisibleString};
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", delegate, from("A..=E"), size("1..=20"))]
+        struct FiveLetters(VisibleString);
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(
+            crate_root = "crate",
+            delegate,
+            from("a..=z", "A..=Z", "-", "."),
+            size("1..=64")
+        )]
+        struct Name(VisibleString);
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", delegate, from("x"))]
+        struct OnlyX(Ia5String);
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", delegate, size("1..=10"))]
+        struct Digits(NumericString);
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Strings {
+            flag: bool,
+            five: FiveLetters,
+            name: Name,
+            only_x: OnlyX,
+            digits: Digits,
+            printable: PrintableString,
+            ia5: Ia5String,
+            trailer: u8,
+        }
+
+        let value = Strings {
+            flag: true,
+            five: FiveLetters(VisibleString::try_from("ABCDEEDCBA").unwrap()),
+            name: Name(VisibleString::try_from("Smith-Jones.Jr").unwrap()),
+            only_x: OnlyX(Ia5String::try_from("xxxx").unwrap()),
+            digits: Digits(NumericString::try_from("0123456789").unwrap()),
+            printable: PrintableString::try_from("Hello, World?").unwrap(),
+            ia5: Ia5String::try_from("The quick brown fox").unwrap(),
+            trailer: 0xAB,
+        };
+
+        let encoded = crate::uper::encode(&value).unwrap();
+        assert_eq!(crate::uper::decode::<Strings>(&encoded).unwrap(), value);
+        let encoded = crate::aper::encode(&value).unwrap();
+        assert_eq!(crate::aper::decode::<Strings>(&encoded).unwrap(), value);
+
+        // Five letters take three bits unaligned and four aligned, by index.
+        assert_eq!(
+            crate::uper::encode(&FiveLetters(VisibleString::try_from("AE").unwrap())).unwrap(),
+            [0x08, 0x80]
+        );
+        assert_eq!(
+            crate::aper::encode(&FiveLetters(VisibleString::try_from("AE").unwrap())).unwrap(),
+            [0x08, 0x04]
+        );
+
+        // Characters outside the permitted alphabet are rejected both ways.
+        assert!(crate::uper::encode(&FiveLetters(VisibleString::try_from("AF").unwrap())).is_err());
+        assert!(crate::uper::decode::<FiveLetters>(&[0x0F, 0]).is_err());
     }
 
     /// APER uses a two-octet constrained whole number for ranges from 257 to

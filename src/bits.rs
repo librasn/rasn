@@ -127,10 +127,89 @@ fn or_bits(dst: &mut [u8], position: usize, src: &[u8], count: usize) {
     }
 }
 
+/// Appends fixed-width codes to a bit string without an intermediate buffer.
+pub(crate) struct BitAppender<'a> {
+    bytes: &'a mut [u8],
+    position: usize,
+}
+
+impl<'a> BitAppender<'a> {
+    /// Reserves `additional` zeroed bits at the end of `dst` for `push` to fill.
+    pub(crate) fn new(dst: &'a mut BitString, additional: usize) -> Self {
+        dst.force_align();
+        let position = dst.len();
+        dst.resize(position + additional, false);
+        Self {
+            bytes: dst.as_raw_mut_slice(),
+            position,
+        }
+    }
+
+    /// Writes the low `width` bits of `value`, most significant bit first.
+    /// `width` is at most 32.
+    pub(crate) fn push(&mut self, value: u32, width: usize) {
+        debug_assert!(width <= 32);
+        if width == 0 {
+            return;
+        }
+        let bytes = (u64::from(value) << (64 - width)).to_be_bytes();
+        or_bits(self.bytes, self.position, &bytes, width);
+        self.position += width;
+    }
+}
+
+/// Reads `width` bits (at most 32) from `bytes` starting at bit `position`,
+/// most significant bit first.
+pub(crate) fn read_bits(bytes: &[u8], position: usize, width: usize) -> u32 {
+    debug_assert!(width <= 32);
+    if width == 0 {
+        return 0;
+    }
+    let first = position / 8;
+    let shift = position % 8;
+    let needed = (shift + width).div_ceil(8);
+    let mut accumulator = 0u64;
+    for &byte in &bytes[first..first + needed] {
+        accumulator = (accumulator << 8) | u64::from(byte);
+    }
+    let excess = needed * 8 - shift - width;
+    ((accumulator >> excess) & ((1u64 << width) - 1)) as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use bitvec::prelude::*;
+
+    #[test]
+    fn appender_and_reader_round_trip() {
+        for width in 0..=32usize {
+            let mask = ((1u64 << width) - 1) as u32;
+            let values: Vec<u32> = (0..20u32)
+                .map(|i| i.wrapping_mul(0x9E37_79B9) & mask)
+                .collect();
+            let mut actual = BitString::repeat(true, 3);
+            let mut expected = actual.clone();
+            {
+                let mut appender = BitAppender::new(&mut actual, values.len() * width);
+                for &value in &values {
+                    appender.push(value, width);
+                }
+            }
+            for &value in &values {
+                expected.extend_from_bitslice(&value.view_bits::<Msb0>()[32 - width..]);
+            }
+            assert_eq!(actual, expected, "width {width}");
+            let bytes = actual.as_raw_slice();
+            for (i, &value) in values.iter().enumerate() {
+                assert_eq!(
+                    read_bits(bytes, 3 + i * width, width),
+                    value,
+                    "width {width} at {i}"
+                );
+            }
+        }
+    }
 
     fn pattern(len: usize) -> Vec<u8> {
         (0..len)

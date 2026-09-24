@@ -13,7 +13,6 @@ use once_cell::race::OnceBox;
 pub struct GeneralString(pub(super) Vec<u8>);
 
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
-static INDEX_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl GeneralString {
     /// Attempts to convert the provided bytes into [Self].
@@ -69,10 +68,6 @@ impl StaticPermittedAlphabet for GeneralString {
     fn push_char(&mut self, ch: u32) {
         self.0.push(ch as u8);
     }
-    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
-        INDEX_MAP.get_or_init(Self::build_index_map)
-    }
-
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         CHARACTER_MAP.get_or_init(Self::build_character_map)
     }

@@ -13,9 +13,7 @@ use crate::{
     types::{
         self, BitString, Constraints, Enumerated, Identifier, IntegerType, Tag,
         constraints::{self, Extensible, Size},
-        strings::{
-            BitStr, DynConstrainedCharacterString, StaticPermittedAlphabet, should_be_indexed,
-        },
+        strings::{BitStr, CharacterAlphabet, StaticPermittedAlphabet},
     },
 };
 
@@ -311,88 +309,35 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             false
         };
 
-        match (
-            constraints.permitted_alphabet(),
-            should_be_indexed(S::CHARACTER_SET_WIDTH as u32, S::CHARACTER_SET),
-            constraints.permitted_alphabet().map(|alphabet| {
-                S::CHARACTER_SET_WIDTH
-                    > self.character_width(
-                        crate::num::log2(alphabet.constraint.len() as i128) as usize
-                    )
-            }),
-        ) {
-            (Some(alphabet), _, Some(true)) | (Some(alphabet), true, _) => {
-                let alphabet = &alphabet.constraint;
-                let characters = &DynConstrainedCharacterString::from_bits(value.chars(), alphabet)
-                    .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
-
-                self.encode_length(
-                    &mut work,
-                    value.len(),
-                    is_extended_value
-                        .then(|| -> Extensible<Size> { <_>::default() })
-                        .as_ref()
-                        .or(constraints.size()),
-                    |buf, range| {
-                        crate::bits::extend_bitstring(buf, &characters[range]);
-                        Ok(())
-                    },
-                )?;
-            }
-            (None, true, _) => {
-                let characters =
-                    &DynConstrainedCharacterString::from_bits(value.chars(), S::CHARACTER_SET)
-                        .map_err(|e| Error::alphabet_constraint_not_satisfied(e, self.codec()))?;
-
-                self.encode_length(
-                    &mut work,
-                    value.len(),
-                    is_extended_value
-                        .then(|| -> Extensible<Size> { <_>::default() })
-                        .as_ref()
-                        .or(constraints.size()),
-                    |buf, range| {
-                        crate::bits::extend_bitstring(buf, &characters[range]);
-                        Ok(())
-                    },
-                )?;
-            }
-            _ => {
-                let char_length = value.len();
-                let octet_aligned_value = self.options.aligned.then(|| {
-                    if S::CHARACTER_SET_WIDTH <= self.character_width(S::CHARACTER_SET_WIDTH) {
-                        value.to_octet_aligned_string()
-                    } else {
-                        value.to_octet_aligned_index_string()
-                    }
-                });
-                // 30.5.4 Rec. ITU-T X.691 (02/2021)
-                let value = value.to_index_or_value_bitstring();
-
-                let octet_aligned_value = &octet_aligned_value;
-                self.encode_string_length(
-                    &mut work,
-                    is_large_string,
-                    char_length,
-                    is_extended_value
-                        .then(|| -> Extensible<Size> { <_>::default() })
-                        .as_ref()
-                        .or(constraints.size()),
-                    |buf, range| {
-                        match octet_aligned_value {
-                            Some(value) => {
-                                crate::bits::extend_bitstring_from_bytes(buf, &value[range])
-                            }
-                            None => crate::bits::extend_bitstring(
-                                buf,
-                                &value[S::char_range_to_bit_range(range)],
-                            ),
-                        }
-                        Ok(())
-                    },
-                )?;
-            }
-        };
+        // ITU-T X.691 (02/2021) §30.5: each character is written as a fixed-width
+        // value or alphabet index, straight into the buffer.
+        let alphabet = CharacterAlphabet::new::<S>(
+            constraints
+                .permitted_alphabet()
+                .map(|alphabet| alphabet.constraint.as_inner()),
+            self.options.aligned,
+        );
+        let width = alphabet.width();
+        let codec = self.codec();
+        self.encode_string_length(
+            &mut work,
+            is_large_string,
+            string_length,
+            is_extended_value
+                .then(|| -> Extensible<Size> { <_>::default() })
+                .as_ref()
+                .or(constraints.size()),
+            |buf, range| {
+                let mut appender = crate::bits::BitAppender::new(buf, range.len() * width);
+                for ch in value.chars().skip(range.start).take(range.len()) {
+                    let code = alphabet
+                        .encode(ch)
+                        .map_err(|e| Error::alphabet_constraint_not_satisfied(e, codec))?;
+                    appender.push(code, width);
+                }
+                Ok(())
+            },
+        )?;
 
         self.extend(tag, &work);
         self.work = work;

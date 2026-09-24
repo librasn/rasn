@@ -7,7 +7,6 @@ use crate::error::strings::{InvalidRestrictedString, PermittedAlphabetError};
 use alloc::{boxed::Box, vec::Vec};
 use bitvec::prelude::*;
 
-use crate::types;
 pub(crate) enum CharacterSetName {
     Bmp,
     General,
@@ -46,11 +45,30 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
     /// Encoding specific requirement
     const CHARACTER_SET_WIDTH: usize = crate::num::log2(Self::CHARACTER_SET.len() as i128) as usize;
     const CHARACTER_SET_NAME: CharacterSetName;
+    /// Whether `CHARACTER_SET` is sorted in ascending order, which allows
+    /// membership tests by binary search.
+    const CHARACTER_SET_IS_SORTED: bool = is_sorted(Self::CHARACTER_SET);
+    /// The largest character value in `CHARACTER_SET`.
+    const CHARACTER_SET_MAX: u32 = largest_character(Self::CHARACTER_SET);
+    /// Membership of the character values below 256 in `CHARACTER_SET`, one
+    /// bit per value.
+    const CHARACTER_SET_BITMAP: [u64; 4] = bitmap_of(Self::CHARACTER_SET);
+    /// Whether PER writes the characters of the unconstrained type by index
+    /// rather than by value, because the largest value does not fit in
+    /// `CHARACTER_SET_WIDTH` bits (ITU-T X.691 §30.5.4).
+    const IS_INDEXED: bool = Self::CHARACTER_SET_WIDTH < 64
+        && (1u64 << Self::CHARACTER_SET_WIDTH) <= Self::CHARACTER_SET_MAX as u64;
 
     fn push_char(&mut self, ch: u32);
     fn chars(&self) -> impl Iterator<Item = u32> + '_;
     fn contains_char(ch: u32) -> bool {
-        Self::CHARACTER_SET.contains(&ch)
+        if Self::CHARACTER_SET_MAX < 256 {
+            bitmap_contains(&Self::CHARACTER_SET_BITMAP, ch)
+        } else if Self::CHARACTER_SET_IS_SORTED {
+            Self::CHARACTER_SET.binary_search(&ch).is_ok()
+        } else {
+            Self::CHARACTER_SET.contains(&ch)
+        }
     }
     fn invalid_restricted_string(ch: u32) -> InvalidRestrictedString {
         match Self::CHARACTER_SET_NAME {
@@ -121,101 +139,13 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         }
         Ok(vec)
     }
-    fn index_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
-    fn char_range_to_bit_range(mut range: core::ops::Range<usize>) -> core::ops::Range<usize> {
-        let width = Self::CHARACTER_SET_WIDTH;
-        range.start *= width;
-        range.end *= width;
-        range
-    }
-
-    fn to_index_or_value_bitstring(&self) -> types::BitString {
-        if should_be_indexed(Self::CHARACTER_SET_WIDTH as u32, Self::CHARACTER_SET) {
-            self.to_index_string()
-        } else {
-            self.to_bit_string()
-        }
-    }
-
-    fn to_index_string(&self) -> types::BitString {
-        let index_map = Self::index_map();
-        let mut index_string = types::BitString::new();
-        let width = Self::CHARACTER_SET_WIDTH;
-        for ch in self.chars() {
-            let index = index_map.get(&ch).unwrap();
-            index_string
-                .extend_from_bitslice(&index.view_bits::<Msb0>()[(u32::BITS as usize - width)..]);
-        }
-        index_string
-    }
-
-    fn to_octet_aligned_index_string(&self) -> Vec<u8> {
-        let index_map = Self::index_map();
-        let mut index_string = types::BitString::new();
-        let width = Self::CHARACTER_SET_WIDTH;
-        let new_width = self.octet_aligned_char_width();
-
-        for ch in self.chars() {
-            let ch = &index_map[&ch].view_bits::<Msb0>()[(u32::BITS as usize - width)..];
-            let mut padding = types::BitString::new();
-            for _ in 0..(new_width - width) {
-                padding.push(false);
-            }
-            padding.extend_from_bitslice(ch);
-            index_string.extend(padding);
-        }
-        index_string.as_raw_slice().to_vec()
-    }
-
-    fn octet_aligned_char_width(&self) -> usize {
-        if Self::CHARACTER_SET_WIDTH.is_power_of_two() {
-            Self::CHARACTER_SET_WIDTH
-        } else {
-            Self::CHARACTER_SET_WIDTH.next_power_of_two()
-        }
-    }
-
-    fn to_bit_string(&self) -> types::BitString {
-        let mut octet_string = types::BitString::new();
-        let width = Self::CHARACTER_SET_WIDTH;
-
-        for ch in self.chars() {
-            octet_string
-                .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS as usize - width)..]);
-        }
-        octet_string
-    }
-
-    fn to_octet_aligned_string(&self) -> Vec<u8> {
-        let mut octet_string = types::BitString::new();
-        let width = self.octet_aligned_char_width();
-
-        for ch in self.chars() {
-            octet_string
-                .extend_from_bitslice(&ch.view_bits::<Msb0>()[(u32::BITS as usize - width)..]);
-        }
-        octet_string.as_raw_slice().to_vec()
-    }
-
     fn character_width() -> u32 {
         crate::num::log2(Self::CHARACTER_SET.len() as i128)
     }
 
     fn len(&self) -> usize {
         self.chars().count()
-    }
-
-    #[allow(clippy::box_collection)]
-    fn build_index_map() -> Box<alloc::collections::BTreeMap<u32, u32>> {
-        Box::new(
-            Self::CHARACTER_SET
-                .iter()
-                .copied()
-                .enumerate()
-                .map(|(i, e)| (e, u32::from_usize(i).unwrap_or_default()))
-                .collect(),
-        )
     }
 
     #[allow(clippy::box_collection)]
@@ -291,92 +221,181 @@ pub(crate) fn should_be_indexed(width: u32, character_set: &[u32]) -> bool {
     2u32.pow(width) <= largest_value
 }
 
-#[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DynConstrainedCharacterString {
-    character_set: BTreeMap<u32, u32>,
-    buffer: types::BitString,
+const fn is_sorted(set: &[u32]) -> bool {
+    let mut i = 1;
+    while i < set.len() {
+        if set[i - 1] > set[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 
-impl DynConstrainedCharacterString {
-    pub fn from_bits(
-        data: impl Iterator<Item = u32>,
-        character_set: &[u32],
-    ) -> Result<Self, PermittedAlphabetError> {
-        let mut buffer = types::BitString::new();
-        let char_width = crate::num::log2(character_set.len() as i128);
-        let indexed = should_be_indexed(char_width, character_set);
-        let alphabet: BTreeMap<u32, u32>;
-        if indexed {
-            alphabet = character_set
-                .iter()
-                .enumerate()
-                .map(|(i, a)| (*a, i as u32))
-                .collect::<BTreeMap<_, _>>();
-            for ch in data {
-                let Some(index) = alphabet.get(&ch).copied() else {
-                    return Err(PermittedAlphabetError::CharacterNotFound { character: ch });
-                };
-                let range = ((u32::BITS - char_width) as usize)..(u32::BITS as usize);
-                let bit_ch = &index.view_bits::<Msb0>()[range];
-                buffer.extend_from_bitslice(bit_ch);
+const fn largest_character(set: &[u32]) -> u32 {
+    let mut largest = 0;
+    let mut i = 0;
+    while i < set.len() {
+        if set[i] > largest {
+            largest = set[i];
+        }
+        i += 1;
+    }
+    largest
+}
+
+/// One bit per character value below 256; larger values are not recorded.
+const fn bitmap_of(set: &[u32]) -> [u64; 4] {
+    let mut bitmap = [0u64; 4];
+    let mut i = 0;
+    while i < set.len() {
+        if set[i] < 256 {
+            bitmap[(set[i] / 64) as usize] |= 1 << (set[i] % 64);
+        }
+        i += 1;
+    }
+    bitmap
+}
+
+fn bitmap_contains(bitmap: &[u64; 4], ch: u32) -> bool {
+    ch < 256 && (bitmap[(ch / 64) as usize] >> (ch % 64)) & 1 == 1
+}
+
+/// Sets up to this size are scanned linearly, which vectorises well; larger
+/// sorted sets are searched by bisection.
+const SMALL_SET: usize = 64;
+
+fn invalid_base_character<S: StaticPermittedAlphabet>(ch: u32) -> PermittedAlphabetError {
+    PermittedAlphabetError::InvalidRestrictedString {
+        source: S::invalid_restricted_string(ch),
+    }
+}
+
+/// The effective alphabet of a known-multiplier character string in PER
+/// (ITU-T X.691 §30.5): the set the characters are drawn from, the number of
+/// bits each character occupies, and whether characters are written by value
+/// or by their index in the set.
+pub(crate) struct CharacterAlphabet<'a> {
+    set: &'a [u32],
+    width: usize,
+    indexed: bool,
+    sorted: bool,
+    /// Membership by value, present when every character is below 256.
+    bitmap: Option<[u64; 4]>,
+    invalid: fn(u32) -> PermittedAlphabetError,
+}
+
+impl<'a> CharacterAlphabet<'a> {
+    /// Resolves the alphabet of `S`, narrowed to `permitted` when that
+    /// constraint changes the encoding, for the aligned or unaligned variant.
+    pub(crate) fn new<S: StaticPermittedAlphabet>(
+        permitted: Option<&'a [u32]>,
+        aligned: bool,
+    ) -> Self {
+        let align = |width: usize| {
+            if aligned && !width.is_power_of_two() {
+                width.next_power_of_two()
+            } else {
+                width
             }
-        } else {
-            alphabet = character_set
-                .iter()
-                .enumerate()
-                .map(|(i, a)| (i as u32, *a))
-                .collect::<BTreeMap<_, _>>();
-            for ch in data {
-                let range = ((u32::BITS - char_width) as usize)..(u32::BITS as usize);
-                let bit_ch = &ch.view_bits::<Msb0>()[range];
-                buffer.extend_from_bitslice(bit_ch);
+        };
+        // A single-character alphabet carries no information, so its
+        // characters occupy no bits.
+        let width_of = |count: usize| {
+            if count <= 1 {
+                0
+            } else {
+                align(crate::num::log2(count as i128) as usize)
+            }
+        };
+        let is_indexed = |width: usize, largest: u32| (1u64 << width) <= u64::from(largest);
+
+        match permitted {
+            Some(set)
+                if S::IS_INDEXED
+                    || S::CHARACTER_SET_WIDTH
+                        > align(crate::num::log2(set.len().max(1) as i128) as usize) =>
+            {
+                let sorted = set.is_sorted();
+                let largest = if sorted {
+                    set.last().copied()
+                } else {
+                    set.iter().copied().max()
+                }
+                .unwrap_or_default();
+                let width = width_of(set.len());
+                Self {
+                    set,
+                    width,
+                    indexed: is_indexed(width, largest),
+                    sorted,
+                    bitmap: (largest < 256).then(|| bitmap_of(set)),
+                    invalid: |character| PermittedAlphabetError::CharacterNotFound { character },
+                }
+            }
+            _ => {
+                let width = width_of(S::CHARACTER_SET.len());
+                Self {
+                    set: S::CHARACTER_SET,
+                    width,
+                    indexed: is_indexed(width, S::CHARACTER_SET_MAX),
+                    sorted: S::CHARACTER_SET_IS_SORTED,
+                    bitmap: (S::CHARACTER_SET_MAX < 256).then_some(S::CHARACTER_SET_BITMAP),
+                    invalid: invalid_base_character::<S>,
+                }
             }
         }
-
-        Ok(Self {
-            character_set: alphabet,
-            buffer,
-        })
     }
 
-    pub fn character_width(&self) -> usize {
-        crate::num::log2(self.character_set.len() as i128) as usize
+    /// The number of bits each character occupies.
+    pub(crate) fn width(&self) -> usize {
+        self.width
     }
 
-    #[allow(unused)]
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
+    fn contains(&self, ch: u32) -> bool {
+        match self.bitmap {
+            Some(bitmap) => bitmap_contains(&bitmap, ch),
+            None if self.sorted && self.set.len() > SMALL_SET => {
+                self.set.binary_search(&ch).is_ok()
+            }
+            None => self.set.contains(&ch),
+        }
     }
 
-    #[allow(unused)]
-    pub fn len(&self) -> usize {
-        self.buffer.len() / self.character_width()
+    fn position(&self, ch: u32) -> Option<usize> {
+        if self.sorted && self.set.len() > SMALL_SET {
+            self.set.binary_search(&ch).ok()
+        } else {
+            self.set.iter().position(|&candidate| candidate == ch)
+        }
     }
 
-    #[allow(unused)]
-    fn as_bitstr(&self) -> &types::BitStr {
-        &self.buffer
+    /// The code that represents `ch` in the encoding.
+    pub(crate) fn encode(&self, ch: u32) -> Result<u32, PermittedAlphabetError> {
+        if self.indexed {
+            self.position(ch)
+                .map(|index| index as u32)
+                .ok_or_else(|| (self.invalid)(ch))
+        } else if self.contains(ch) {
+            Ok(ch)
+        } else {
+            Err((self.invalid)(ch))
+        }
     }
 
-    #[allow(unused)]
-    fn iter(&self) -> impl Iterator<Item = &types::BitStr> + '_ {
-        self.buffer.chunks_exact(self.character_width())
-    }
-}
-
-impl core::ops::Index<usize> for DynConstrainedCharacterString {
-    type Output = types::BitStr;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.buffer[index..index * self.character_width()]
-    }
-}
-
-impl core::ops::Index<core::ops::Range<usize>> for DynConstrainedCharacterString {
-    type Output = types::BitStr;
-
-    fn index(&self, index: core::ops::Range<usize>) -> &Self::Output {
-        let width = self.character_width();
-        &self.buffer[index.start * width..index.end * width]
+    /// The character that `code` represents in the encoding.
+    pub(crate) fn decode(&self, code: u32) -> Result<u32, PermittedAlphabetError> {
+        if self.indexed {
+            self.set
+                .get(code as usize)
+                .copied()
+                .ok_or(PermittedAlphabetError::IndexNotFound {
+                    index: code as usize,
+                })
+        } else if self.contains(code) {
+            Ok(code)
+        } else {
+            Err((self.invalid)(code))
+        }
     }
 }
