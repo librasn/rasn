@@ -279,10 +279,11 @@ impl PartialEq<[u32]> for ObjectIdentifier {
 }
 
 macro_rules! oids {
-    ($($name:ident => $($num:literal),+ $(,)?);+ $(;)?) => {
+    ($($(#[$meta:meta])* $name:ident => $($num:literal),+ $(,)?);+ $(;)?) => {
         impl Oid {
             $(
                 #[allow(missing_docs)]
+                $(#[$meta])*
                 pub const $name: &'static Oid = Oid::const_new(&[$($num),+]);
             )+
         }
@@ -308,6 +309,10 @@ oids! {
     ISO_MEMBER_BODY_US_X957_X9CM => 1, 2, 840, 10040, 4;
     ISO_MEMBER_BODY_US_X957_X9CM_DSA => 1, 2, 840, 10040, 4, 1;
     ISO_MEMBER_BODY_US_X957_X9CM_DSA_SHA1 => 1, 2, 840, 10040, 4, 3;
+    ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION => 1, 2, 840, 10040, 2;
+    ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_NONE => 1, 2, 840, 10040, 2, 1;
+    ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_CALL_ISSUER => 1, 2, 840, 10040, 2, 2;
+    ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_REJECT => 1, 2, 840, 10040, 2, 3;
 
     ISO_MEMBER_BODY_US_ANSI_X962 => 1, 2, 840, 10045;
     ISO_MEMBER_BODY_US_ANSI_X962_FIELD_TYPE => 1, 2, 840, 10045, 1;
@@ -566,12 +571,23 @@ oids! {
 oids! {
     JOINT_ISO_ITU_T => 2;
 
+    // `member-body` and the X9-CM (X9.57) arcs live under `iso(1)`, not
+    // `joint-iso-itu-t(2)` (see the RFC 5280 errata for `holdInstruction`), and
+    // the X9-CM arc is `10040`, not `100400`. These constants are kept only for
+    // backwards compatibility.
+    #[deprecated(note = "`member-body` is `iso(1) member-body(2)`; use `Oid::ISO_MEMBER_BODY` instead")]
     JOINT_ISO_ITU_T_MEMBER_BODY => 2, 2;
+    #[deprecated(note = "`member-body` is `iso(1) member-body(2)`; use `Oid::ISO_MEMBER_BODY_US` instead")]
     JOINT_ISO_ITU_T_MEMBER_BODY_US => 2, 2, 840;
+    #[deprecated(note = "incorrect OID; X9-CM is `1.2.840.10040`, use `Oid::ISO_MEMBER_BODY_US_X957` instead")]
     JOINT_ISO_ITU_T_MEMBER_BODY_US_X9CM => 2, 2, 840, 100400;
+    #[deprecated(note = "incorrect OID; use `Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION` (`1.2.840.10040.2`) instead")]
     JOINT_ISO_ITU_T_MEMBER_BODY_US_X9CM_HOLD_INSTRUCTION => 2, 2, 840, 100400, 2;
+    #[deprecated(note = "incorrect OID; use `Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_NONE` (`1.2.840.10040.2.1`) instead")]
     JOINT_ISO_ITU_T_MEMBER_BODY_US_X9CM_HOLD_INSTRUCTION_NONE => 2, 2, 840, 100400, 2, 1;
+    #[deprecated(note = "incorrect OID; use `Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_CALL_ISSUER` (`1.2.840.10040.2.2`) instead")]
     JOINT_ISO_ITU_T_MEMBER_BODY_US_X9CM_HOLD_INSTRUCTION_CALL_ISSUER => 2, 2, 840, 100400, 2, 2;
+    #[deprecated(note = "incorrect OID; use `Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_REJECT` (`1.2.840.10040.2.3`) instead")]
     JOINT_ISO_ITU_T_MEMBER_BODY_US_X9CM_HOLD_INSTRUCTION_REJECT => 2, 2, 840, 100400, 2, 3;
 
     JOINT_ISO_ITU_T_DS => 2, 5;
@@ -810,6 +826,32 @@ mod test {
         assert_eq!(
             Oid::ISO_MEMBER_BODY,
             ObjectIdentifier::new(vec![1, 2]).unwrap()
+        );
+    }
+
+    #[test]
+    fn x9cm_hold_instruction_oids() {
+        // RFC 5280: id-holdinstruction-* live under
+        // iso(1) member-body(2) us(840) x9-57(10040) holdInstruction(2).
+        assert_eq!(
+            Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION,
+            Oid::new(&[1, 2, 840, 10040, 2]).unwrap()
+        );
+        assert_eq!(
+            Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_NONE,
+            Oid::new(&[1, 2, 840, 10040, 2, 1]).unwrap()
+        );
+        assert_eq!(
+            Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_CALL_ISSUER,
+            Oid::new(&[1, 2, 840, 10040, 2, 2]).unwrap()
+        );
+        assert_eq!(
+            Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_REJECT,
+            Oid::new(&[1, 2, 840, 10040, 2, 3]).unwrap()
+        );
+        assert!(
+            Oid::ISO_MEMBER_BODY_US_X957_HOLD_INSTRUCTION_NONE
+                .starts_with(Oid::ISO_MEMBER_BODY_US_X957)
         );
     }
 
