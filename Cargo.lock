@@ -193,16 +193,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bitvec-nom2"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d988fcc40055ceaa85edc55875a08f8abd29018582647fd82ad6128dba14a5f0"
-dependencies = [
- "bitvec",
- "nom",
-]
-
-[[package]]
 name = "bon"
 version = "3.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1001,7 +991,6 @@ dependencies = [
  "arc-slice",
  "asn1",
  "bitvec",
- "bitvec-nom2",
  "bytes",
  "cfg-if",
  "chrono",

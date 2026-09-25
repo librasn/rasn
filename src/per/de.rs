@@ -1,7 +1,6 @@
 //! Decoding Packed Encoding Rules data into Rust structures.
 
-use alloc::{borrow::Cow, string::ToString, vec::Vec};
-use bitvec::field::BitField;
+use alloc::{string::ToString, vec::Vec};
 
 use super::{
     FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
@@ -22,7 +21,50 @@ pub use crate::error::DecodeError;
 use crate::error::DecodeErrorKind;
 type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
-type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
+type InputSlice<'input> = crate::bits::BitReader<'input>;
+
+/// Splits off the first `count` bits of `input`, advancing it past them.
+#[inline]
+fn take<'input>(
+    input: &mut InputSlice<'input>,
+    count: usize,
+    codec: crate::Codec,
+) -> Result<InputSlice<'input>> {
+    input
+        .split(count)
+        .map_err(|missing| DecodeError::incomplete(nom::Needed::new(missing), codec))
+}
+
+/// The bits of an open type: a single fragment is read in place, while a
+/// value of 16K octets or more arrives in fragments that are gathered.
+enum OpenType<'input> {
+    Empty,
+    Borrowed(InputSlice<'input>),
+    Gathered(types::BitString),
+}
+
+impl OpenType<'_> {
+    fn bits(&self) -> &types::BitStr {
+        match self {
+            Self::Empty => types::BitStr::empty(),
+            Self::Borrowed(reader) => reader.bits(),
+            Self::Gathered(bits) => bits,
+        }
+    }
+
+    fn reader(&self) -> InputSlice<'_> {
+        match self {
+            Self::Empty => InputSlice::new(types::BitStr::empty()),
+            Self::Borrowed(reader) => *reader,
+            Self::Gathered(bits) => InputSlice::new(bits),
+        }
+    }
+
+    /// The octets, borrowed when they lie on octet boundaries.
+    fn octets(&self) -> alloc::borrow::Cow<'_, [u8]> {
+        self.reader().octets()
+    }
+}
 
 /// Options for configuring the [`Decoder`].
 #[derive(Clone, Copy, Debug)]
@@ -87,8 +129,18 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     /// Creates a new Decoder from the given input and options.
     #[must_use]
     pub fn new(input: &'input crate::types::BitStr, options: DecoderOptions) -> Self {
+        Self::from_reader(InputSlice::new(input), options)
+    }
+
+    /// Creates a decoder over `octets`.
+    pub(crate) fn from_octets(octets: &'input [u8], options: DecoderOptions) -> Self {
+        Self::from_reader(InputSlice::from_octets(octets), options)
+    }
+
+    /// Creates a decoder that continues from `input`.
+    fn from_reader(input: InputSlice<'input>, options: DecoderOptions) -> Self {
         Self {
-            input: input.into(),
+            input,
             options,
             fields: (0, [None; RFC]),
             extension_fields: None,
@@ -99,7 +151,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     /// Returns the remaining input, if any.
     #[must_use]
     pub fn input(&self) -> &'input crate::types::BitStr {
-        self.input.0
+        self.input.bits()
     }
 
     #[track_caller]
@@ -154,8 +206,9 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         if input.len().is_multiple_of(8) {
             Ok(input)
         } else {
-            let (input, _) = nom::bytes::streaming::take(input.len() % 8)(input)
-                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+            let mut input = input;
+            let padding = input.len() % 8;
+            take(&mut input, padding, self.codec())?;
             Ok(input)
         }
     }
@@ -163,13 +216,14 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     fn parse_optional_and_default_field_bitmap<const RC: usize>(
         &mut self,
         fields: &Fields<RC>,
-    ) -> Result<InputSlice<'input>> {
-        let (input, bitset) =
-            nom::bytes::streaming::take(fields.number_of_optional_and_default_fields())(self.input)
-                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-
-        self.input = input;
-        Ok(bitset)
+    ) -> Result<&'input types::BitStr> {
+        let codec = self.codec();
+        let bitset = take(
+            &mut self.input,
+            fields.number_of_optional_and_default_fields(),
+            codec,
+        )?;
+        Ok(bitset.bits())
     }
 
     fn decode_extensible_string(
@@ -209,28 +263,26 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     /// The bits of a length-prefixed open type, borrowed from the input.
     /// Only a value of 16K octets or more, which arrives in fragments, has to
     /// be gathered into a copy.
-    fn decode_open_type(&mut self) -> Result<Cow<'input, types::BitStr>> {
-        let mut bits: Cow<'input, types::BitStr> = Cow::Borrowed(types::BitStr::empty());
+    fn decode_open_type(&mut self) -> Result<OpenType<'input>> {
+        let mut open = OpenType::Empty;
         let codec = self.codec();
 
-        let input = self.decode_length(self.input, <_>::default(), &mut |input, length| {
-            let (input, data) = nom::bytes::streaming::take(length * 8)(input)
-                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            let data: &'input types::BitStr = data.0;
-            bits = match core::mem::replace(&mut bits, Cow::Borrowed(types::BitStr::empty())) {
-                Cow::Borrowed(previous) if previous.is_empty() => Cow::Borrowed(data),
+        let input = self.decode_length(self.input, <_>::default(), &mut |mut input, length| {
+            let data = take(&mut input, length * 8, codec)?;
+            open = match core::mem::replace(&mut open, OpenType::Empty) {
+                OpenType::Empty => OpenType::Borrowed(data),
                 previous => {
                     let mut gathered = types::BitString::new();
-                    crate::bits::extend_bitstring(&mut gathered, &previous);
-                    crate::bits::extend_bitstring(&mut gathered, data);
-                    Cow::Owned(gathered)
+                    crate::bits::extend_bitstring(&mut gathered, previous.bits());
+                    crate::bits::extend_bitstring(&mut gathered, data.bits());
+                    OpenType::Gathered(gathered)
                 }
             };
             Ok(input)
         })?;
 
         self.input = input;
-        Ok(bits)
+        Ok(open)
     }
 
     fn decode_unknown_length(
@@ -244,27 +296,19 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         // cannot exhaust the stack.
         loop {
             input = self.parse_padding(input)?;
-            let (rest, mask) = nom::bytes::streaming::take(1u8)(input)
-                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+            let codec = self.codec();
 
-            if !mask[0] {
-                let (rest, length) = nom::bytes::streaming::take(7u8)(rest)
-                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-                return (decode_fn)(rest, length.load_be::<usize>());
+            if !take(&mut input, 1, codec)?.first_bit() {
+                let length = take(&mut input, 7, codec)?.first_bits(7) as usize;
+                return (decode_fn)(input, length);
             }
 
-            let (rest, mask) = nom::bytes::streaming::take(1u8)(rest)
-                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-
-            if !mask[0] {
-                let (rest, length) = nom::bytes::streaming::take(14u8)(rest)
-                    .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-                return (decode_fn)(rest, length.load_be::<usize>());
+            if !take(&mut input, 1, codec)?.first_bit() {
+                let length = take(&mut input, 14, codec)?.first_bits(14) as usize;
+                return (decode_fn)(input, length);
             }
 
-            let (rest, mask) = nom::bytes::streaming::take(6u8)(rest)
-                .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-            let length: usize = match mask.load_be::<u8>() {
+            let length: usize = match take(&mut input, 6, codec)?.first_bits(6) {
                 1 => SIXTEEN_K.into(),
                 2 => THIRTY_TWO_K.into(),
                 3 => FOURTY_EIGHT_K.into(),
@@ -277,7 +321,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 }
             };
 
-            input = (decode_fn)(rest, length)?;
+            input = (decode_fn)(input, length)?;
         }
     }
 
@@ -317,14 +361,12 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                     range as i128
                 };
 
-                let (mut input, length) =
-                    nom::bytes::streaming::take(crate::num::log2(range))(input)
-                        .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+                let bits = crate::num::log2(range) as usize;
+                let length = take(&mut input, bits, self.codec())?;
                 if is_large_string {
                     input = self.parse_padding(input)?;
                 }
-                length
-                    .load_be::<usize>()
+                (length.first_bits(bits) as usize)
                     .checked_add(size_constraint.minimum())
                     .ok_or_else(|| DecodeError::exceeds_max_length(usize::MAX.into(), self.codec()))
                     .and_then(|sum| (decode_fn)(input, sum))
@@ -366,12 +408,10 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                     range as i128
                 };
 
-                let (mut input, length) =
-                    nom::bytes::streaming::take(crate::num::log2(range))(input)
-                        .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
+                let bits = crate::num::log2(range) as usize;
+                let length = take(&mut input, bits, self.codec())?;
                 input = self.parse_padding(input)?;
-                length
-                    .load_be::<usize>()
+                (length.first_bits(bits) as usize)
                     .checked_add(size_constraint.minimum())
                     .ok_or_else(|| DecodeError::exceeds_max_length(usize::MAX.into(), self.codec()))
                     .and_then(|sum| (decode_fn)(input, sum))
@@ -382,10 +422,8 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     }
 
     fn parse_one_bit(&mut self) -> Result<bool> {
-        let (input, boolean) = nom::bytes::streaming::take(1u8)(self.input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        self.input = input;
-        Ok(boolean[0])
+        let codec = self.codec();
+        Ok(take(&mut self.input, 1, codec)?.first_bit())
     }
 
     fn parse_normally_small_integer<I: IntegerType>(&mut self) -> Result<I> {
@@ -422,13 +460,12 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         &mut self,
         bits: usize,
     ) -> Result<I> {
-        let (input, data) = nom::bytes::streaming::take(bits)(self.input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        self.input = input;
+        let codec = self.codec();
+        let data = take(&mut self.input, bits, codec)?;
         if bits == 0 {
             return Ok(I::ZERO);
         }
-        let value = crate::bits::read_u128(&data);
+        let value = data.first_u128(bits);
         match i128::try_from(value) {
             Ok(value) => I::try_from(value)
                 .map_err(|_| DecodeError::integer_overflow(I::WIDTH, self.codec())),
@@ -449,8 +486,8 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let value_constraint = constraints.value();
 
         let Some(value_constraint) = value_constraint.filter(|_| !extension_is_present) else {
-            let bits = self.decode_open_type()?;
-            let octets = crate::bits::octets(&bits);
+            let open = self.decode_open_type()?;
+            let octets = open.octets();
             return I::try_from_bytes(&octets, self.codec())
                 .map(|value| (value, extension_is_present));
         };
@@ -504,8 +541,8 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 }
             }
         } else {
-            let bits = self.decode_open_type()?;
-            let octets = crate::bits::octets(&bits);
+            let open = self.decode_open_type()?;
+            let octets = open.octets();
             let number = value_constraint.constraint.as_start().map_or_else(
                 || I::try_from_signed_bytes(&octets, self.codec()),
                 |_| I::try_from_unsigned_bytes(&octets, self.codec()),
@@ -529,9 +566,8 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
         // The length bitfield has a lower bound of `1..`
         let extensions_length = self.parse_normally_small_length()? + 1;
-        let (input, bitfield) = nom::bytes::streaming::take(extensions_length)(self.input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        self.input = input;
+        let codec = self.codec();
+        let bitfield = take(&mut self.input, extensions_length, codec)?;
 
         let mut data = [None; EFC];
         for (i, (field, bit)) in self
@@ -539,7 +575,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             .as_ref()
             .unwrap()
             .iter()
-            .zip(bitfield.iter().map(|b| *b))
+            .zip(bitfield.bits().iter().map(|b| *b))
             .enumerate()
         {
             data[i] = Some((field, bit));
@@ -673,11 +709,10 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let width = alphabet.width();
         let mut total_length = 0;
         let codec = self.codec();
-        self.decode_extensible_string(&constraints, is_large_string, |input, length| {
+        self.decode_extensible_string(&constraints, is_large_string, |mut input, length| {
             total_length += length;
-            let (input, part) = nom::bytes::streaming::take(length * width)(input)
-                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            crate::bits::extend_bitstring(&mut bit_string, &part);
+            let part = take(&mut input, length * width, codec)?;
+            crate::bits::extend_bitstring(&mut bit_string, part.bits());
             Ok(input)
         })?;
 
@@ -712,10 +747,9 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut octet_string = Vec::new();
         let codec = self.codec();
 
-        self.decode_extensible_container(Constraints::default(), |input, length| {
-            let (input, part) = nom::bytes::streaming::take(length * 8)(input)
-                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            crate::bits::extend_vec_from_bitslice(&mut octet_string, &part);
+        self.decode_extensible_container(Constraints::default(), |mut input, length| {
+            let part = take(&mut input, length * 8, codec)?;
+            crate::bits::extend_vec_from_bitslice(&mut octet_string, part.bits());
             Ok(input)
         })?;
 
@@ -801,29 +835,27 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             self.input = self.parse_padding(self.input)?;
         }
 
-        self.decode_extensible_container(constraints, |input, length| {
-            let (input, part) = nom::bytes::streaming::take(length * 8)(input)
-                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            let part: &'input types::BitStr = part.0;
+        self.decode_extensible_container(constraints, |mut input, length| {
+            let part = take(&mut input, length * 8, codec)?;
 
             octets = match core::mem::replace(&mut octets, Octets::None) {
-                Octets::None => match crate::bits::aligned_octets(part) {
+                Octets::None => match part.aligned_octets() {
                     Some(borrowed) => Octets::Borrowed(borrowed),
                     None => {
                         let mut owned = Vec::with_capacity(length);
-                        crate::bits::extend_vec_from_bitslice(&mut owned, part);
+                        crate::bits::extend_vec_from_bitslice(&mut owned, part.bits());
                         Octets::Owned(owned)
                     }
                 },
                 Octets::Borrowed(previous) => {
                     let mut owned = Vec::with_capacity(previous.len() + length);
                     owned.extend_from_slice(previous);
-                    crate::bits::extend_vec_from_bitslice(&mut owned, part);
+                    crate::bits::extend_vec_from_bitslice(&mut owned, part.bits());
                     Octets::Owned(owned)
                 }
                 Octets::Owned(mut owned) => {
                     owned.reserve(length);
-                    crate::bits::extend_vec_from_bitslice(&mut owned, part);
+                    crate::bits::extend_vec_from_bitslice(&mut owned, part.bits());
                     Octets::Owned(owned)
                 }
             };
@@ -842,8 +874,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     }
 
     fn decode_object_identifier(&mut self, _: Tag) -> Result<crate::types::ObjectIdentifier> {
-        let bits = self.decode_open_type()?;
-        let octets = crate::bits::octets(&bits);
+        let open = self.decode_open_type()?;
+        let octets = open.octets();
         let decoder = crate::ber::de::Decoder::new(&octets, crate::ber::de::DecoderOptions::ber());
         decoder.decode_object_identifier_from_bytes(&octets)
     }
@@ -852,10 +884,9 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut bit_string = types::BitString::default();
         let codec = self.codec();
 
-        self.decode_extensible_container(constraints, |input, length| {
-            let (input, part) = nom::bytes::streaming::take(length)(input)
-                .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            crate::bits::extend_bitstring(&mut bit_string, &part);
+        self.decode_extensible_container(constraints, |mut input, length| {
+            let part = take(&mut input, length, codec)?;
+            crate::bits::extend_bitstring(&mut bit_string, part.bits());
             Ok(input)
         })?;
         Ok(bit_string)
@@ -994,7 +1025,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             // allocation.
             sequence_of.reserve(length.min(input.len()));
             for _ in 0..length {
-                let mut decoder = Self::new(input.0, options);
+                let mut decoder = Self::from_reader(input, options);
                 sequence_of.push(D::decode(&mut decoder)?);
                 input = decoder.input;
             }
@@ -1033,7 +1064,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let bitmap = self.parse_optional_and_default_field_bitmap(&D::FIELDS)?;
 
         let value = {
-            let mut sequence_decoder = Decoder::new(self.input(), self.options);
+            let mut sequence_decoder = Decoder::from_reader(self.input, self.options);
             sequence_decoder.options.remaining_depth =
                 sequence_decoder.options.remaining_depth.saturating_sub(1);
             sequence_decoder.extension_fields = D::EXTENDED_FIELDS;
@@ -1106,7 +1137,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
         let fields = {
             let mut fields = Vec::new();
-            let mut set_decoder = Decoder::new(self.input(), self.options);
+            let mut set_decoder = Decoder::from_reader(self.input, self.options);
             set_decoder.options.remaining_depth =
                 set_decoder.options.remaining_depth.saturating_sub(1);
             set_decoder.extension_fields = SET::EXTENDED_FIELDS;
@@ -1243,8 +1274,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         })?;
 
         if is_extensible {
-            let bits = self.decode_open_type()?;
-            let mut decoder = Decoder::<0, 0>::new(&bits, self.options);
+            let open = self.decode_open_type()?;
+            let mut decoder = Decoder::<0, 0>::from_reader(open.reader(), self.options);
             decoder.options.remaining_depth = decoder.options.remaining_depth.saturating_sub(1);
             D::from_tag(&mut decoder, tag)
         } else {
@@ -1275,8 +1306,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             return Ok(None);
         }
 
-        let bits = self.decode_open_type()?;
-        let mut decoder = Decoder::<RC, EC>::new(&bits, self.options);
+        let open = self.decode_open_type()?;
+        let mut decoder = Decoder::<RC, EC>::from_reader(open.reader(), self.options);
 
         D::decode(&mut decoder).map(Some)
     }
@@ -1313,8 +1344,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             return Ok(None);
         }
 
-        let bits = self.decode_open_type()?;
-        let mut decoder = Decoder::<0, 0>::new(&bits, self.options);
+        let open = self.decode_open_type()?;
+        let mut decoder = Decoder::<0, 0>::from_reader(open.reader(), self.options);
 
         D::decode_with_constraints(&mut decoder, constraints).map(Some)
     }
@@ -1430,6 +1461,7 @@ mod tests {
     #[test]
     fn octet_string_borrows_aligned_input() {
         use crate::Decoder as _;
+        use alloc::borrow::Cow;
 
         let mut decoder = aligned(&[0x03, 0xAA, 0xBB, 0xCC]);
         let octets = decoder

@@ -87,9 +87,8 @@ pub(crate) fn decode<T: crate::Decode>(
     options: de::DecoderOptions,
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
-    T::decode(&mut crate::per::de::Decoder::<0, 0>::new(
-        crate::types::BitStr::from_slice(input),
-        options,
+    T::decode(&mut crate::per::de::Decoder::<0, 0>::from_octets(
+        input, options,
     ))
 }
 /// Attempts to decode `T` from `input` using PER. Returns both `T` and reference to the remainder of the input.
@@ -100,7 +99,7 @@ pub(crate) fn decode_with_remainder<T: crate::Decode>(
     options: de::DecoderOptions,
     input: &[u8],
 ) -> Result<(T, &[u8]), crate::error::DecodeError> {
-    let decoder = &mut Decoder::<0, 0>::new(crate::types::BitStr::from_slice(input), options);
+    let decoder = &mut Decoder::<0, 0>::from_octets(input, options);
     let decoded_instance = T::decode(decoder)?;
     let remaining_bits = decoder.input().len();
     // Consider only whole bytes, ignore padding bits
@@ -143,7 +142,7 @@ pub(crate) fn decode_with_constraints<T: crate::Decode>(
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
     T::decode_with_constraints(
-        &mut crate::per::de::Decoder::<0, 0>::new(crate::types::BitStr::from_slice(input), options),
+        &mut crate::per::de::Decoder::<0, 0>::from_octets(input, options),
         constraints,
     )
 }

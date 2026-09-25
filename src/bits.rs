@@ -26,6 +26,7 @@ pub(crate) fn extend_bitstring(dst: &mut BitString, src: &BitStr) {
 
 /// The octets of `bits` when it starts and ends on an octet boundary, so
 /// they can be borrowed rather than copied.
+#[inline]
 pub(crate) fn aligned_octets(bits: &BitStr) -> Option<&[u8]> {
     match bits.domain() {
         Domain::Region {
@@ -34,20 +35,6 @@ pub(crate) fn aligned_octets(bits: &BitStr) -> Option<&[u8]> {
             tail: None,
         } => Some(body),
         _ => None,
-    }
-}
-
-/// The octets of `bits`, whose length must be a multiple of eight: borrowed
-/// when octet-aligned, otherwise shifted into a single allocation.
-pub(crate) fn octets(bits: &BitStr) -> Cow<'_, [u8]> {
-    debug_assert!(bits.len().is_multiple_of(8));
-    match aligned_octets(bits) {
-        Some(octets) => Cow::Borrowed(octets),
-        None => {
-            let mut owned = Vec::with_capacity(bits.len() / 8);
-            extend_vec_from_bitslice(&mut owned, bits);
-            Cow::Owned(owned)
-        }
     }
 }
 
@@ -284,6 +271,153 @@ pub(crate) fn read_u128(src: &BitStr) -> u128 {
     }
 }
 
+/// Reads `width` bits (at most 128) from `bytes` starting at bit `position`,
+/// most significant bit first.
+#[inline]
+pub(crate) fn read_wide(bytes: &[u8], position: usize, width: usize) -> u128 {
+    debug_assert!(width <= 128);
+    if width == 0 {
+        return 0;
+    }
+    let first = position / 8;
+    let shift = position % 8;
+    let needed = (shift + width).div_ceil(8);
+    let field = &bytes[first..first + needed];
+    // The leading octet is masked to the field, so the accumulator holds at
+    // most 128 bits from the first sixteen octets. A seventeenth octet, which
+    // only a field spanning that many octets has, is folded in after the
+    // trailing bits past the field are dropped.
+    let mut accumulator = u128::from(field[0] & (0xFF >> shift));
+    for &byte in &field[1..needed.min(16)] {
+        accumulator = (accumulator << 8) | u128::from(byte);
+    }
+    let excess = needed * 8 - shift - width;
+    match field.get(16) {
+        Some(&last) => (accumulator << (8 - excess)) | u128::from(last >> excess),
+        None => accumulator >> excess,
+    }
+}
+
+/// A position in a decoder's input.
+///
+/// Slicing works on the bit slice. Reads work on the octets behind it when
+/// the slice starts and ends on octet boundaries of its storage, which holds
+/// for every input the codec creates itself; other slices are read through
+/// the bit slice.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct BitReader<'a> {
+    bits: &'a BitStr,
+    /// The storage behind `bits`, and the position of `bits[0]` within it.
+    octets: Option<(&'a [u8], usize)>,
+}
+
+impl<'a> BitReader<'a> {
+    #[inline]
+    pub(crate) fn new(bits: &'a BitStr) -> Self {
+        Self {
+            bits,
+            octets: aligned_octets(bits).map(|octets| (octets, 0)),
+        }
+    }
+
+    /// A reader over all of `octets`.
+    #[inline]
+    pub(crate) fn from_octets(octets: &'a [u8]) -> Self {
+        use bitvec::view::BitView;
+        Self {
+            bits: octets.view_bits(),
+            octets: Some((octets, 0)),
+        }
+    }
+
+    #[inline]
+    pub(crate) fn bits(&self) -> &'a BitStr {
+        self.bits
+    }
+
+    #[inline]
+    pub(crate) fn len(&self) -> usize {
+        self.bits.len()
+    }
+
+    /// The octets of the remaining bits when they lie on octet boundaries,
+    /// so that they can be borrowed rather than copied.
+    #[inline]
+    pub(crate) fn aligned_octets(&self) -> Option<&'a [u8]> {
+        match self.octets {
+            Some((octets, position)) => {
+                let len = self.bits.len();
+                (position.is_multiple_of(8) && len.is_multiple_of(8))
+                    .then(|| &octets[position / 8..(position + len) / 8])
+            }
+            None => aligned_octets(self.bits),
+        }
+    }
+
+    /// The octets of the remaining bits, whose length must be a multiple of
+    /// eight: borrowed when octet-aligned, otherwise shifted into a single
+    /// allocation.
+    pub(crate) fn octets(&self) -> Cow<'a, [u8]> {
+        match self.aligned_octets() {
+            Some(octets) => Cow::Borrowed(octets),
+            None => {
+                let mut owned = Vec::with_capacity(self.bits.len() / 8);
+                extend_vec_from_bitslice(&mut owned, self.bits);
+                Cow::Owned(owned)
+            }
+        }
+    }
+
+    /// Splits off the first `count` bits, advancing past them, or gives the
+    /// number of bits short.
+    #[inline]
+    pub(crate) fn split(&mut self, count: usize) -> core::result::Result<Self, usize> {
+        if count > self.bits.len() {
+            return Err(count - self.bits.len());
+        }
+        let (taken, rest) = self.bits.split_at(count);
+        let taken = Self {
+            bits: taken,
+            octets: self.octets,
+        };
+        self.bits = rest;
+        if let Some((_, position)) = &mut self.octets {
+            *position += count;
+        }
+        Ok(taken)
+    }
+
+    /// The first bit.
+    #[inline]
+    pub(crate) fn first_bit(&self) -> bool {
+        debug_assert!(!self.bits.is_empty());
+        match self.octets {
+            Some((octets, position)) => (octets[position / 8] >> (7 - position % 8)) & 1 == 1,
+            None => self.bits[0],
+        }
+    }
+
+    /// The first `width` bits (at most 32) as an unsigned integer.
+    #[inline]
+    pub(crate) fn first_bits(&self, width: usize) -> u32 {
+        debug_assert!(width <= self.bits.len());
+        match self.octets {
+            Some((octets, position)) => read_bits(octets, position, width),
+            None => read_u128(&self.bits[..width]) as u32,
+        }
+    }
+
+    /// The first `width` bits (at most 128) as an unsigned integer.
+    #[inline]
+    pub(crate) fn first_u128(&self, width: usize) -> u128 {
+        debug_assert!(width <= self.bits.len());
+        match self.octets {
+            Some((octets, position)) => read_wide(octets, position, width),
+            None => read_u128(&self.bits[..width]),
+        }
+    }
+}
+
 /// Appends fixed-width codes to a bit string without an intermediate buffer.
 pub(crate) struct BitAppender<'a> {
     bytes: &'a mut [u8],
@@ -306,6 +440,7 @@ impl BitAppender<'_> {
 
 /// Reads `width` bits (at most 32) from `bytes` starting at bit `position`,
 /// most significant bit first.
+#[inline]
 pub(crate) fn read_bits(bytes: &[u8], position: usize, width: usize) -> u32 {
     debug_assert!(width <= 32);
     if width == 0 {
@@ -337,6 +472,37 @@ mod tests {
         let mut bits = BitString::from_vec(buffer.as_bytes().to_vec());
         bits.truncate(buffer.len());
         bits
+    }
+
+    #[test]
+    fn reader_matches_bitvec_on_any_storage() {
+        let storage = pattern(64);
+        let all = storage.view_bits::<Msb0>();
+        // Aligned storage reads through the octets; a slice starting mid-octet
+        // reads through the bit slice. Both must agree with bitvec.
+        for start in [0usize, 3] {
+            let mut reader = BitReader::new(&all[start..]);
+            assert_eq!(reader.octets.is_some(), start == 0);
+            let mut position = start;
+            for width in [1usize, 5, 7, 8, 9, 31, 32, 33, 64, 100, 128, 3] {
+                let expected = read_u128(&all[position..position + width]);
+                assert_eq!(
+                    reader.first_u128(width),
+                    expected,
+                    "at {position} width {width}"
+                );
+                if width <= 32 {
+                    assert_eq!(reader.first_bits(width), expected as u32);
+                }
+                assert_eq!(reader.first_bit(), all[position]);
+                let taken = reader.split(width).unwrap();
+                assert_eq!(taken.bits(), &all[position..position + width]);
+                assert_eq!(taken.first_u128(width), expected);
+                position += width;
+            }
+            assert_eq!(reader.len(), all.len() - position);
+            assert_eq!(reader.split(reader.len() + 5).err(), Some(5));
+        }
     }
 
     #[test]
