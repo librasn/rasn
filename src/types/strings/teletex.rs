@@ -46,6 +46,10 @@ impl StaticPermittedAlphabet for TeletexString {
     fn push_char(&mut self, ch: u32) {
         self.0.push(ch);
     }
+
+    fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
         self.0.iter().copied()
     }

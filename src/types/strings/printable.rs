@@ -52,6 +52,10 @@ impl StaticPermittedAlphabet for PrintableString {
         self.0.push(ch as u8);
     }
 
+    fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
+
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
         self.0.iter().map(|&byte| byte as u32)
     }

@@ -60,6 +60,8 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
         && (1u64 << Self::CHARACTER_SET_WIDTH) <= Self::CHARACTER_SET_MAX as u64;
 
     fn push_char(&mut self, ch: u32);
+    /// Reserves room for `additional` more characters.
+    fn reserve(&mut self, additional: usize);
     fn chars(&self) -> impl Iterator<Item = u32> + '_;
     fn contains_char(ch: u32) -> bool {
         if Self::CHARACTER_SET_MAX < 256 {

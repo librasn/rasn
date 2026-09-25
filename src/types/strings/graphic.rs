@@ -60,6 +60,9 @@ impl StaticPermittedAlphabet for GraphicString {
     fn push_char(&mut self, ch: u32) {
         self.0.push(ch as u8);
     }
+    fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
         CHARACTER_MAP.get_or_init(Self::build_character_map)
     }

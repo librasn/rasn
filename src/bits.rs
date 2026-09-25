@@ -1,6 +1,6 @@
 //! Module for different bit modification functions which are used in the library.
 
-use alloc::vec::Vec;
+use alloc::{borrow::Cow, vec::Vec};
 
 use bitvec::domain::Domain;
 
@@ -27,17 +27,39 @@ pub(crate) fn extend_bitstring(dst: &mut BitString, src: &BitStr) {
     write_bitslice(dst.as_raw_mut_slice(), position, src);
 }
 
+/// The octets of `bits` when it starts and ends on an octet boundary, so
+/// they can be borrowed rather than copied.
+pub(crate) fn aligned_octets(bits: &BitStr) -> Option<&[u8]> {
+    match bits.domain() {
+        Domain::Region {
+            head: None,
+            body,
+            tail: None,
+        } => Some(body),
+        _ => None,
+    }
+}
+
+/// The octets of `bits`, whose length must be a multiple of eight: borrowed
+/// when octet-aligned, otherwise shifted into a single allocation.
+pub(crate) fn octets(bits: &BitStr) -> Cow<'_, [u8]> {
+    debug_assert!(bits.len().is_multiple_of(8));
+    match aligned_octets(bits) {
+        Some(octets) => Cow::Borrowed(octets),
+        None => {
+            let mut owned = Vec::with_capacity(bits.len() / 8);
+            extend_vec_from_bitslice(&mut owned, bits);
+            Cow::Owned(owned)
+        }
+    }
+}
+
 /// Appends `src`, whose length must be a multiple of eight bits, to `dst` as
 /// octets. Octet-aligned input is copied directly.
 pub(crate) fn extend_vec_from_bitslice(dst: &mut Vec<u8>, src: &BitStr) {
     debug_assert!(src.len().is_multiple_of(8));
-    if let Domain::Region {
-        head: None,
-        body,
-        tail: None,
-    } = src.domain()
-    {
-        dst.extend_from_slice(body);
+    if let Some(octets) = aligned_octets(src) {
+        dst.extend_from_slice(octets);
         return;
     }
     let position = dst.len();

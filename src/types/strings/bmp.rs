@@ -41,6 +41,10 @@ impl StaticPermittedAlphabet for BmpString {
     fn push_char(&mut self, ch: u32) {
         self.0.push(ch as u16);
     }
+
+    fn reserve(&mut self, additional: usize) {
+        self.0.reserve(additional);
+    }
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
         self.0.iter().map(|&byte| u32::from(byte))
     }

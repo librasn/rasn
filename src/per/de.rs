@@ -1,6 +1,6 @@
 //! Decoding Packed Encoding Rules data into Rust structures.
 
-use alloc::{string::ToString, vec::Vec};
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use bitvec::field::BitField;
 
 use super::{
@@ -206,19 +206,31 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         self.check_size(size, total_length)
     }
 
-    fn decode_octets(&mut self) -> Result<types::BitString> {
-        let mut buffer = types::BitString::default();
+    /// The bits of a length-prefixed open type, borrowed from the input.
+    /// Only a value of 16K octets or more, which arrives in fragments, has to
+    /// be gathered into a copy.
+    fn decode_open_type(&mut self) -> Result<Cow<'input, types::BitStr>> {
+        let mut bits: Cow<'input, types::BitStr> = Cow::Borrowed(types::BitStr::empty());
         let codec = self.codec();
 
         let input = self.decode_length(self.input, <_>::default(), &mut |input, length| {
             let (input, data) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
-            crate::bits::extend_bitstring(&mut buffer, &data);
+            let data: &'input types::BitStr = data.0;
+            bits = match core::mem::replace(&mut bits, Cow::Borrowed(types::BitStr::empty())) {
+                Cow::Borrowed(previous) if previous.is_empty() => Cow::Borrowed(data),
+                previous => {
+                    let mut gathered = types::BitString::new();
+                    crate::bits::extend_bitstring(&mut gathered, &previous);
+                    crate::bits::extend_bitstring(&mut gathered, data);
+                    Cow::Owned(gathered)
+                }
+            };
             Ok(input)
         })?;
 
         self.input = input;
-        Ok(buffer)
+        Ok(bits)
     }
 
     fn decode_unknown_length(
@@ -437,8 +449,9 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let value_constraint = constraints.value();
 
         let Some(value_constraint) = value_constraint.filter(|_| !extension_is_present) else {
-            let bytes = &self.decode_octets()?;
-            return I::try_from_bytes(bytes.as_raw_slice(), self.codec())
+            let bits = self.decode_open_type()?;
+            let octets = crate::bits::octets(&bits);
+            return I::try_from_bytes(&octets, self.codec())
                 .map(|value| (value, extension_is_present));
         };
 
@@ -491,10 +504,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                 }
             }
         } else {
-            let bytes = &self.decode_octets()?;
+            let bits = self.decode_open_type()?;
+            let octets = crate::bits::octets(&bits);
             let number = value_constraint.constraint.as_start().map_or_else(
-                || I::try_from_signed_bytes(bytes.as_raw_slice(), self.codec()),
-                |_| I::try_from_unsigned_bytes(bytes.as_raw_slice(), self.codec()),
+                || I::try_from_signed_bytes(&octets, self.codec()),
+                |_| I::try_from_unsigned_bytes(&octets, self.codec()),
             )?;
 
             return minimum
@@ -669,6 +683,11 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
         let bytes = bit_string.as_raw_slice();
         let mut string = ALPHABET::default();
+        if width > 0 {
+            // The characters' bits have all been read, so this is bounded by
+            // the input.
+            string.reserve(total_length);
+        }
         let mut position = 0;
         for _ in 0..total_length {
             let code = crate::bits::read_bits(bytes, position, width);
@@ -760,7 +779,15 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         _: Tag,
         constraints: Constraints,
     ) -> Result<T> {
-        let mut octet_string = Vec::new();
+        // The octets are borrowed from the input whenever a single fragment
+        // is octet-aligned; only misaligned or fragmented values are copied,
+        // into one allocation sized by what has already been read.
+        enum Octets<'a> {
+            None,
+            Borrowed(&'a [u8]),
+            Owned(Vec<u8>),
+        }
+        let mut octets = Octets::None;
         let codec = self.codec();
 
         // Aligned PER (X.691 §17): fixed-size OCTET STRING with SIZE > 2 is
@@ -777,11 +804,37 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.decode_extensible_container(constraints, |input, length| {
             let (input, part) = nom::bytes::streaming::take(length * 8)(input)
                 .map_err(|e| DecodeError::map_nom_err(e, codec))?;
+            let part: &'input types::BitStr = part.0;
 
-            crate::bits::extend_vec_from_bitslice(&mut octet_string, &part);
+            octets = match core::mem::replace(&mut octets, Octets::None) {
+                Octets::None => match crate::bits::aligned_octets(part) {
+                    Some(borrowed) => Octets::Borrowed(borrowed),
+                    None => {
+                        let mut owned = Vec::with_capacity(length);
+                        crate::bits::extend_vec_from_bitslice(&mut owned, part);
+                        Octets::Owned(owned)
+                    }
+                },
+                Octets::Borrowed(previous) => {
+                    let mut owned = Vec::with_capacity(previous.len() + length);
+                    owned.extend_from_slice(previous);
+                    crate::bits::extend_vec_from_bitslice(&mut owned, part);
+                    Octets::Owned(owned)
+                }
+                Octets::Owned(mut owned) => {
+                    owned.reserve(length);
+                    crate::bits::extend_vec_from_bitslice(&mut owned, part);
+                    Octets::Owned(owned)
+                }
+            };
             Ok(input)
         })?;
-        Ok(T::from(octet_string))
+
+        Ok(match octets {
+            Octets::None => T::from(Vec::new()),
+            Octets::Borrowed(borrowed) => T::from(borrowed),
+            Octets::Owned(owned) => T::from(owned),
+        })
     }
 
     fn decode_null(&mut self, _: Tag) -> Result<()> {
@@ -789,7 +842,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     }
 
     fn decode_object_identifier(&mut self, _: Tag) -> Result<crate::types::ObjectIdentifier> {
-        let octets = self.decode_octets()?.into_vec();
+        let bits = self.decode_open_type()?;
+        let octets = crate::bits::octets(&bits);
         let decoder = crate::ber::de::Decoder::new(&octets, crate::ber::de::DecoderOptions::ber());
         decoder.decode_object_identifier_from_bytes(&octets)
     }
@@ -935,17 +989,15 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut options = self.options;
         options.remaining_depth = options.remaining_depth.saturating_sub(1);
         self.decode_extensible_container(constraints, |mut input, length| {
-            sequence_of.append(
-                &mut (0..length)
-                    .map(|_| {
-                        let mut decoder = Self::new(input.0, options);
-                        let value = D::decode(&mut decoder)?;
-                        input = decoder.input;
-                        Ok(value)
-                    })
-                    .collect::<Result<Vec<_>>>()?,
-            );
-
+            // Reserve for the claimed count only as far as the remaining input
+            // could hold, so a length determinant alone cannot force a large
+            // allocation.
+            sequence_of.reserve(length.min(input.len()));
+            for _ in 0..length {
+                let mut decoder = Self::new(input.0, options);
+                sequence_of.push(D::decode(&mut decoder)?);
+                input = decoder.input;
+            }
             Ok(input)
         })?;
 
@@ -1183,8 +1235,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         })?;
 
         if is_extensible {
-            let bytes = self.decode_octets()?;
-            let mut decoder = Decoder::<0, 0>::new(&bytes, self.options);
+            let bits = self.decode_open_type()?;
+            let mut decoder = Decoder::<0, 0>::new(&bits, self.options);
             decoder.options.remaining_depth = decoder.options.remaining_depth.saturating_sub(1);
             D::from_tag(&mut decoder, *tag)
         } else {
@@ -1215,8 +1267,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             return Ok(None);
         }
 
-        let bytes = self.decode_octets()?;
-        let mut decoder = Decoder::<RC, EC>::new(&bytes, self.options);
+        let bits = self.decode_open_type()?;
+        let mut decoder = Decoder::<RC, EC>::new(&bits, self.options);
 
         D::decode(&mut decoder).map(Some)
     }
@@ -1253,8 +1305,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             return Ok(None);
         }
 
-        let bytes = self.decode_octets()?;
-        let mut decoder = Decoder::<0, 0>::new(&bytes, self.options);
+        let bits = self.decode_open_type()?;
+        let mut decoder = Decoder::<0, 0>::new(&bits, self.options);
 
         D::decode_with_constraints(&mut decoder, constraints).map(Some)
     }
@@ -1363,6 +1415,28 @@ mod tests {
         let encoded = crate::aper::encode(&value).unwrap();
         assert_eq!(encoded, [0x80, 1, 2, 3, 4, 5, 6, 0x00, 7, 8, 9, 0xAB]);
         assert_eq!(crate::aper::decode::<Outer>(&encoded).unwrap(), value);
+    }
+
+    /// An octet string is borrowed from the input when it lies on octet
+    /// boundaries and copied into one allocation otherwise.
+    #[test]
+    fn octet_string_borrows_aligned_input() {
+        use crate::Decoder as _;
+
+        let mut decoder = aligned(&[0x03, 0xAA, 0xBB, 0xCC]);
+        let octets = decoder
+            .decode_octet_string::<Cow<[u8]>>(Tag::OCTET_STRING, Constraints::default())
+            .unwrap();
+        assert!(matches!(octets, Cow::Borrowed([0xAA, 0xBB, 0xCC])));
+
+        // One leading bit shifts the string off the octet boundary.
+        let mut decoder = unaligned(&[0x81, 0xD5, 0x5D, 0xE6, 0x00]);
+        decoder.decode_bool(Tag::BOOL).unwrap();
+        let octets = decoder
+            .decode_octet_string::<Cow<[u8]>>(Tag::OCTET_STRING, Constraints::default())
+            .unwrap();
+        assert!(matches!(octets, Cow::Owned(_)));
+        assert_eq!(&*octets, &[0xAA, 0xBB, 0xCC]);
     }
 
     /// UTCTime and GeneralizedTime are VisibleStrings holding the canonical
