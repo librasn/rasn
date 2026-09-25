@@ -118,7 +118,7 @@ pub(crate) fn encode<T: crate::Encode>(
 
     value.encode(&mut enc)?;
 
-    Ok(enc.output())
+    Ok(enc.output_into_vec())
 }
 
 /// Encodes `value` to PER into an existing `buffer`, reusing its allocation.
@@ -158,5 +158,5 @@ pub(crate) fn encode_with_constraints<T: crate::Encode>(
 
     value.encode_with_constraints(&mut enc, constraints)?;
 
-    Ok(enc.output())
+    Ok(enc.output_into_vec())
 }

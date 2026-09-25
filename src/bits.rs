@@ -173,6 +173,11 @@ impl BitBuffer {
         self.len = 0;
     }
 
+    /// Reserves room for at least `additional` more octets.
+    pub(crate) fn reserve_bytes(&mut self, additional: usize) {
+        self.bytes.reserve(additional);
+    }
+
     /// The octets holding the bits; the last one is zero past `len`.
     pub(crate) fn as_bytes(&self) -> &[u8] {
         &self.bytes

@@ -1543,6 +1543,61 @@ mod tests {
         assert!(crate::aper::decode::<crate::types::UtcTime>(&short).is_err());
     }
 
+    /// An extension alternative of a CHOICE is an open type (X.691 §23.8), so
+    /// its contents align relative to their own start, while a root
+    /// alternative continues in place after the index.
+    #[test]
+    fn aligned_choice_alternatives() {
+        use crate::AsnType as _;
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        struct Inner {
+            flag: bool,
+            #[rasn(size("3"))]
+            octets: crate::types::OctetString,
+        }
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", choice, automatic_tags)]
+        #[non_exhaustive]
+        enum Alternative {
+            Root(bool),
+            RootSequence(Inner),
+            #[rasn(extension_addition)]
+            Extension(Inner),
+        }
+
+        #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        struct Outer {
+            first: bool,
+            root: Alternative,
+            extension: Alternative,
+            trailer: u8,
+        }
+
+        let inner = || Inner {
+            flag: true,
+            octets: crate::types::OctetString::from_static(&[1, 2, 3]),
+        };
+        let value = Outer {
+            first: true,
+            root: Alternative::RootSequence(inner()),
+            extension: Alternative::Extension(inner()),
+            trailer: 0xAB,
+        };
+
+        // first, extension bit 0, index 1, flag, then the octet-aligned string;
+        // extension bit 1 and a normally small index 0; then the open type:
+        // its length, then flag and seven padding bits before the string.
+        let encoded = crate::aper::encode(&value).unwrap();
+        assert_eq!(encoded, [0xB0, 1, 2, 3, 0x80, 0x04, 0x80, 1, 2, 3, 0xAB]);
+        assert_eq!(crate::aper::decode::<Outer>(&encoded).unwrap(), value);
+        let encoded = crate::uper::encode(&value).unwrap();
+        assert_eq!(crate::uper::decode::<Outer>(&encoded).unwrap(), value);
+    }
+
     /// An extension addition group is an open type (X.691 §19.9), so its
     /// contents align relative to their own start, not the enclosing sequence.
     #[test]
