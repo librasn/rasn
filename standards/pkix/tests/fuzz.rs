@@ -35,7 +35,12 @@ fn splice() {
     let encoded = rasn::cer::encode(&value).unwrap();
     assert_eq!(value, rasn::cer::decode(&encoded).unwrap());
 
-    let value = rasn::der::decode::<rasn_pkix::AlgorithmIdentifier>(data).unwrap();
+    // `splice.bin` carries trailing bytes after the AlgorithmIdentifier. DER
+    // decoding is now strict and rejects trailing data (see #552), so parse the
+    // raw fixture with `decode_with_remainder`, mirroring the lenient BER/CER arms
+    // above; the canonical re-encoding has no trailing data.
+    let (value, _) =
+        rasn::der::decode_with_remainder::<rasn_pkix::AlgorithmIdentifier>(data).unwrap();
     let encoded = rasn::der::encode(&value).unwrap();
     assert_eq!(value, rasn::der::decode(&encoded).unwrap());
 }
