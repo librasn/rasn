@@ -32,6 +32,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.15](https://github.com/librasn/rasn/compare/rasn-v0.28.14...rasn-v0.28.15) - 2026-09-25
+
+### Added
+
+- *(per)* support DATE-ENCODING and YEAR-ENCODING
+- Added into_vec to strings and set of types ([#572](https://github.com/librasn/rasn/pull/572))
+
+### Fixed
+
+- *(ci)* fix error on 32-bit platforms
+- *(oid)* place X9-CM hold instruction OIDs under iso(1) ([#573](https://github.com/librasn/rasn/pull/573))
+- *(per)* correctly parse and encode utc & general dates
+- *(lint)* remove f64 import
+- *(per)* fix unconstrained length encoding and unknown length decoding
+- *(clippy)* fix if lint
+- *(aper)* APER byte-alignment for constrained strings inside CHOICE + SEQUENCE(OPTIONAL) nesting ([#564](https://github.com/librasn/rasn/pull/564))
+- *(oid)* reject OIDs whose second arc exceeds 39 under first arc 0/1
+
+### Other
+
+- *(per)* switch to internal bit reader over bitvec-nom
+- *(per)* walk static tag tree instead of allocating a list
+- *(per)* remove some encoding overhead for non set fields
+- *(per)* borrow input data when possible for strings, sequences, and open types
+- *(per)* use internal bit buffer for encoding
+- *(per)* write extension additions into scratch buf
+- *(per)* code directly to and from integers
+- *(per)* use a shared type for character sets, encode directly to buf
+- *(ci)* shim semver-checks to use default-features
+- *(per)* write bits in words rather than bit by bit
+- *(per)* use extend_from_bitslice, and pass buf into encode fns
+- fix tests for automatic tagging of ANY type
+- fix tagging of tagged ANY type
+- add round trip test for tagged ANY type
+
 ## [0.28.14](https://github.com/librasn/rasn/compare/rasn-v0.28.13...rasn-v0.28.14) - 2026-08-07
 
 ### Added
