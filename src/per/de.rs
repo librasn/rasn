@@ -1198,14 +1198,18 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         D: crate::types::DecodeChoice,
     {
         self.check_recursion_depth()?;
+        use crate::types::TagTree;
         let is_extensible = self.parse_extensible_bit(&constraints)?;
-        let variants = crate::types::variants::Variants::from_static(if is_extensible {
+        // The decoded index selects a leaf of the static tag tree, with
+        // nested choices flattened.
+        let variants = if is_extensible {
             D::EXTENDED_VARIANTS.unwrap_or(&[])
         } else {
             D::VARIANTS
-        });
+        };
+        let variance = TagTree::leaf_count(variants);
 
-        let index = if variants.len() != 1 || is_extensible {
+        let index = if variance != 1 || is_extensible {
             if is_extensible {
                 self.parse_normally_small_integer::<usize>()
                     .map_err(|error| {
@@ -1216,7 +1220,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                         )
                     })?
             } else {
-                debug_assert!(!variants.is_empty());
+                debug_assert!(variance > 0);
                 self.parse_integer(D::VARIANCE_CONSTRAINT)
                     .map_err(|error| {
                         DecodeError::choice_index_exceeds_platform_width(
@@ -1230,18 +1234,22 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             0
         };
 
-        let tag = variants.get(index).ok_or_else(|| {
-            DecodeError::choice_index_not_found(index, variants.clone(), self.codec())
+        let tag = TagTree::leaf_at(variants, index).ok_or_else(|| {
+            DecodeError::choice_index_not_found(
+                index,
+                crate::types::variants::Variants::from_static(variants),
+                self.codec(),
+            )
         })?;
 
         if is_extensible {
             let bits = self.decode_open_type()?;
             let mut decoder = Decoder::<0, 0>::new(&bits, self.options);
             decoder.options.remaining_depth = decoder.options.remaining_depth.saturating_sub(1);
-            D::from_tag(&mut decoder, *tag)
+            D::from_tag(&mut decoder, tag)
         } else {
             self.options.remaining_depth = self.options.remaining_depth.saturating_sub(1);
-            let result = D::from_tag(self, *tag);
+            let result = D::from_tag(self, tag);
             self.options.remaining_depth = self.options.remaining_depth.saturating_add(1);
             result
         }

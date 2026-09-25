@@ -332,6 +332,68 @@ impl TagTree {
         }
     }
 
+    /// The number of `Leaf`s in `nodes`, which is the number of alternatives
+    /// once nested choices are flattened.
+    #[must_use]
+    pub(crate) const fn leaf_count(nodes: &[TagTree]) -> usize {
+        let mut count = 0;
+        let mut index = 0;
+        while index < nodes.len() {
+            count += match &nodes[index] {
+                TagTree::Choice(nodes) => Self::leaf_count(nodes),
+                TagTree::Leaf(_) => 1,
+            };
+            index += 1;
+        }
+        count
+    }
+
+    /// The position of the `Leaf` matching `needle` among the flattened
+    /// alternatives of `nodes`.
+    #[must_use]
+    pub(crate) fn leaf_position(needle: &Tag, nodes: &[TagTree]) -> Option<usize> {
+        let mut position = 0;
+        for node in nodes {
+            match node {
+                TagTree::Choice(nodes) => match Self::leaf_position(needle, nodes) {
+                    Some(inner) => return Some(position + inner),
+                    None => position += Self::leaf_count(nodes),
+                },
+                TagTree::Leaf(tag) => {
+                    if tag == needle {
+                        return Some(position);
+                    }
+                    position += 1;
+                }
+            }
+        }
+        None
+    }
+
+    /// The tag of the `Leaf` at `position` among the flattened alternatives
+    /// of `nodes`.
+    #[must_use]
+    pub(crate) fn leaf_at(nodes: &[TagTree], mut position: usize) -> Option<Tag> {
+        for node in nodes {
+            match node {
+                TagTree::Choice(nodes) => {
+                    let count = Self::leaf_count(nodes);
+                    if position < count {
+                        return Self::leaf_at(nodes, position);
+                    }
+                    position -= count;
+                }
+                TagTree::Leaf(tag) => {
+                    if position == 0 {
+                        return Some(*tag);
+                    }
+                    position -= 1;
+                }
+            }
+        }
+        None
+    }
+
     /// Whether `needle` matches any `Leaf`s in `nodes`.
     #[must_use]
     pub const fn tag_contains(needle: &Tag, nodes: &[TagTree]) -> bool {

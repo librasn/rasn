@@ -275,9 +275,8 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     /// encoders align correctly.
     ///
     /// Outside SET encoding the buffer is `output` itself, so a field is
-    /// written once rather than into a scratch buffer and then copied. A SET
-    /// member is gathered separately and filed under `tag`, because members
-    /// are emitted in canonical tag order.
+    /// written in place. A SET member is gathered separately and filed under
+    /// `tag`, because members are emitted in canonical tag order.
     fn encode_field(
         &mut self,
         tag: Tag,
@@ -1334,17 +1333,18 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let is_root_alternative = crate::types::TagTree::tag_contains(&tag, E::VARIANTS);
-        let variants = crate::types::variants::Variants::from_static(if is_root_alternative {
+        use crate::types::TagTree;
+        // The alternative's index is its position among the leaves of the
+        // static tag tree, with nested choices flattened.
+        let is_root_alternative = TagTree::tag_contains(&tag, E::VARIANTS);
+        let variants = if is_root_alternative {
             E::VARIANTS
         } else {
             E::EXTENDED_VARIANTS.unwrap_or(&[])
-        });
-        let index = variants
-            .iter()
-            .enumerate()
-            .find_map(|(i, &variant_tag)| (tag == variant_tag).then_some(i))
+        };
+        let index = TagTree::leaf_position(&tag, variants)
             .ok_or_else(|| Error::variant_not_in_choice(self.codec()))?;
+        let variance = TagTree::leaf_count(variants);
         let options = self.options.without_set_encoding();
 
         self.encode_field(tag, |this, buffer, origin| {
@@ -1368,7 +1368,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 );
             }
 
-            if variants.len() > 1 {
+            if variance > 1 {
                 this.encode_integer_into_buffer::<usize>(E::VARIANCE_CONSTRAINT, &index, buffer)?;
             }
             // The chosen alternative is written straight into the buffer by a

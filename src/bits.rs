@@ -10,11 +10,8 @@ pub(crate) fn range_from_len(bit_length: u32) -> i128 {
     2i128.pow(bit_length) - 1
 }
 
-/// Appends `src` to `dst`.
-///
-/// `bitvec` copies between differently aligned bit-slices one bit at a time;
-/// this shifts whole words instead, which is what the PER codec needs since
-/// its buffers are almost never octet-aligned.
+/// Appends `src` to `dst` by shifting whole words, whatever the alignment of
+/// either side.
 pub(crate) fn extend_bitstring(dst: &mut BitString, src: &BitStr) {
     if src.is_empty() {
         return;
@@ -142,8 +139,7 @@ fn or_bits(dst: &mut [u8], position: usize, src: &[u8], count: usize) {
 ///
 /// The octets always cover exactly `len` bits, and the bits past `len` in
 /// the last octet are zero, so appending only ever ORs new bits in and
-/// growing costs a `Vec::resize` rather than bitvec's element bookkeeping
-/// and domain-based fill.
+/// growing is a single `Vec::resize`.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct BitBuffer {
     bytes: Vec<u8>,
