@@ -519,13 +519,8 @@ mod tests {
                 actual.push_bits(value, width);
                 let actual = as_bitstring(&actual);
                 let mut expected = BitString::repeat(true, dst_len);
-                let (high, low) = ((value >> 64) as u64, value as u64);
-                if width > 64 {
-                    expected.extend_from_bitslice(&high.view_bits::<Msb0>()[128 - width..]);
-                    expected.extend_from_raw_slice(&low.to_be_bytes());
-                } else {
-                    expected.extend_from_bitslice(&low.view_bits::<Msb0>()[64 - width..]);
-                }
+                let bytes = value.to_be_bytes();
+                expected.extend_from_bitslice(&bytes.view_bits::<Msb0>()[128 - width..]);
                 assert_eq!(actual, expected, "width {width} at {dst_len}");
                 assert_eq!(
                     read_u128(&actual[dst_len..]),
