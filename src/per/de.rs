@@ -1,6 +1,6 @@
 //! Decoding Packed Encoding Rules data into Rust structures.
 
-use alloc::{borrow::Cow, string::ToString, vec::Vec};
+use alloc::{string::ToString, vec::Vec};
 use bitvec::field::BitField;
 
 use super::{
@@ -23,19 +23,6 @@ use crate::error::DecodeErrorKind;
 type Result<T, E = DecodeError> = core::result::Result<T, E>;
 
 type InputSlice<'input> = nom_bitvec::BSlice<'input, u8, bitvec::order::Msb0>;
-
-/// The canonical string inside the DER encoding of a time value, when `bytes`
-/// is exactly the identifier of `universal_tag`, a short-form length, and that
-/// many string octets.
-fn der_time_content(bytes: &[u8], universal_tag: Tag) -> Option<&str> {
-    let identifier = super::DerIdentifier::primitive(universal_tag);
-    let rest = bytes.strip_prefix(identifier.as_slice())?;
-    let (&length, content) = rest.split_first()?;
-    if length >= 0x80 || usize::from(length) != content.len() {
-        return None;
-    }
-    core::str::from_utf8(content).ok()
-}
 
 /// Options for configuring the [`Decoder`].
 #[derive(Clone, Copy, Debug)]
@@ -930,15 +917,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         crate::ber::de::Decoder::parse_canonical_utc_time_string(string)
     }
 
-    // DATE is carried as an octet string holding its DER encoding. A
-    // well-formed one is parsed in place; anything else goes through the BER
-    // decoder so that it reports the error.
-    fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
-        let bytes = self.decode_octet_string::<Cow<[u8]>>(tag, Constraints::default())?;
-        match der_time_content(&bytes, Tag::DATE) {
-            Some(content) => crate::ber::de::Decoder::parse_date_string(content),
-            None => crate::ber::decode(&bytes),
-        }
+    fn decode_date(&mut self, _: Tag) -> core::result::Result<types::Date, Self::Error> {
+        // ITU-T X.691 (02/2021) §32.2.7: DATE is encoded as DATE-ENCODING.
+        let encoding = super::DateEncoding::decode(self)?;
+        encoding.into_date().ok_or_else(|| {
+            crate::error::BerDecodeErrorKind::invalid_date(alloc::format!("{encoding:?}")).into()
+        })
     }
 
     fn decode_sequence_of<D: Decode>(
@@ -1383,8 +1367,8 @@ mod tests {
 
     /// UTCTime and GeneralizedTime are VisibleStrings holding the canonical
     /// time string (X.680 §46, §47), so UPER packs seven bits per character
-    /// and APER one octet. DATE is carried as an octet string holding its DER
-    /// encoding. This pins those bytes.
+    /// and APER one octet. DATE is encoded as DATE-ENCODING (X.691 §32.2.7).
+    /// This pins those bytes.
     #[test]
     fn time_types() {
         use chrono::TimeZone;
@@ -1416,8 +1400,10 @@ mod tests {
         expected.extend_from_slice(b"180613110159Z");
         expected.push(0x0F);
         expected.extend_from_slice(b"20180613060158Z");
-        expected.extend_from_slice(&[0x0B, 0x1F, 0x1F, 0x08]);
-        expected.extend_from_slice(b"20240229");
+        // DATE-ENCODING: choice index 1 (near-future) in two bits, then the
+        // octet-aligned year offset 3, then month 2 and day 29 as offsets in
+        // four and five bits, before the octet-aligned trailer.
+        expected.extend_from_slice(&[0x40, 0x03, 0x1E, 0x00]);
         expected.push(0xAB);
 
         let encoded = crate::aper::encode(&value).unwrap();
@@ -1425,6 +1411,42 @@ mod tests {
         assert_eq!(crate::aper::decode::<Times>(&encoded).unwrap(), value);
         let encoded = crate::uper::encode(&value).unwrap();
         assert_eq!(crate::uper::decode::<Times>(&encoded).unwrap(), value);
+
+        // Unaligned, the same date is nineteen bits: 01 00000011 0001 11100.
+        assert_eq!(
+            crate::uper::encode(&value.date).unwrap(),
+            [0x40, 0xC7, 0x80]
+        );
+        // An immediate year (2005..2020) takes four bits: 00 0101 0000 00000.
+        let immediate = chrono::NaiveDate::from_ymd_opt(2010, 1, 1).unwrap();
+        assert_eq!(crate::uper::encode(&immediate).unwrap(), [0x14, 0x00]);
+        // Every year range, including the unconstrained remainder, round-trips.
+        for (year, month, day) in [
+            (1, 1, 1),
+            (1500, 6, 15),
+            (1748, 12, 31),
+            (1749, 1, 1),
+            (2004, 12, 31),
+            (2005, 1, 1),
+            (2020, 12, 31),
+            (2276, 12, 31),
+            (2277, 1, 1),
+            (9999, 12, 31),
+        ] {
+            let date = chrono::NaiveDate::from_ymd_opt(year, month, day).unwrap();
+            let encoded = crate::uper::encode(&date).unwrap();
+            assert_eq!(
+                crate::uper::decode::<crate::types::Date>(&encoded).unwrap(),
+                date
+            );
+            let encoded = crate::aper::encode(&date).unwrap();
+            assert_eq!(
+                crate::aper::decode::<crate::types::Date>(&encoded).unwrap(),
+                date
+            );
+        }
+        // Components that do not form a date are rejected: 30 February 2010.
+        assert!(crate::uper::decode::<crate::types::Date>(&[0x14, 0x7A]).is_err());
 
         // Seven-bit characters after the length determinant in UPER.
         assert_eq!(

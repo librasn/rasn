@@ -788,28 +788,6 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     fn encode_non_negative_binary_integer(&self, buffer: &mut BitBuffer, range: i128, value: u128) {
         buffer.push_bits(value, crate::num::log2(range) as usize);
     }
-
-    /// Encodes a time value as an octet string holding its DER encoding: the
-    /// identifier of its universal tag, a short-form length, and the canonical
-    /// `content` string.
-    fn encode_der_time(&mut self, tag: Tag, universal_tag: Tag, content: &[u8]) -> Result<()> {
-        // Canonical time strings are far shorter than 128 octets, so the
-        // length takes the short form and the octet string is never fragmented.
-        debug_assert!(content.len() < 128);
-        let identifier = super::DerIdentifier::primitive(universal_tag);
-        let length = identifier.as_slice().len() + 1 + content.len();
-        let mut work = core::mem::take(&mut self.work);
-        work.clear();
-        self.encode_length(&mut work, length, <_>::default(), |buf, _| {
-            buf.extend_from_bytes(identifier.as_slice());
-            buf.extend_from_bytes(&[content.len() as u8]);
-            buf.extend_from_bytes(content);
-            Ok(())
-        })?;
-        self.extend(tag, &work);
-        self.work = work;
-        Ok(())
-    }
 }
 
 impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC> {
@@ -1110,15 +1088,12 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
 
     fn encode_date(
         &mut self,
-        tag: Tag,
+        _: Tag,
         value: &types::Date,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_der_time(
-            tag,
-            Tag::DATE,
-            &crate::ber::enc::Encoder::naivedate_to_date_bytes(value),
-        )
+        // ITU-T X.691 (02/2021) §32.2.7: DATE is encoded as DATE-ENCODING.
+        super::DateEncoding::from(*value).encode(self)
     }
 
     fn encode_sequence_of<E: Encode>(

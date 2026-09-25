@@ -2,6 +2,8 @@ pub mod de;
 pub mod enc;
 
 use crate::types::Constraints;
+// The derives for the X.691 clause 32 encoding types below need these in scope.
+use crate::{AsnType as _, Decoder as _};
 
 pub use self::{de::Decoder, enc::Encoder};
 
@@ -12,39 +14,71 @@ const SIXTY_FOUR_K: u32 = 65536;
 const SMALL_UNSIGNED_CONSTRAINT: Constraints = constraints!(value_constraint!(0, 63));
 const LARGE_UNSIGNED_CONSTRAINT: Constraints = constraints!(value_constraint!(start: 0));
 
-/// The identifier octets that start a DER encoding.
-///
-/// PER carries `DATE` as an octet string holding the value's complete DER
-/// encoding, so both the encoder and the decoder need the identifier of the
-/// value's universal tag.
-#[derive(Clone, Copy, Debug)]
-struct DerIdentifier {
-    octets: [u8; 2],
-    len: usize,
+/// ITU-T X.691 (02/2021) §32.2.7: `DATE` has the property settings
+/// "Basic=Date Date=YMD Year=Basic", so PER encodes it as if it were this
+/// `DATE-ENCODING` type, defined in an AUTOMATIC TAGS environment.
+#[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, Clone, Copy, PartialEq)]
+#[rasn(crate_root = "crate", automatic_tags)]
+struct DateEncoding {
+    year: YearEncoding,
+    #[rasn(value("1..=12"))]
+    month: u8,
+    #[rasn(value("1..=31"))]
+    day: u8,
 }
 
-impl DerIdentifier {
-    /// The identifier of a primitive universal `tag` with a number below 128:
-    /// one octet for numbers below 31, otherwise the two-octet form.
-    const fn primitive(tag: crate::types::Tag) -> Self {
-        const HIGH_TAG_NUMBER: u32 = 0x1F;
-        debug_assert!(matches!(tag.class, crate::types::Class::Universal));
-        debug_assert!(tag.value < 0x80);
-        if tag.value < HIGH_TAG_NUMBER {
-            Self {
-                octets: [tag.value as u8, 0],
-                len: 1,
-            }
-        } else {
-            Self {
-                octets: [HIGH_TAG_NUMBER as u8, tag.value as u8],
-                len: 2,
-            }
+/// ITU-T X.691 (02/2021) §32.2.3: `YEAR-ENCODING`, which gives common years a
+/// six-bit or ten-bit encoding.
+#[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, Clone, Copy, PartialEq)]
+#[rasn(crate_root = "crate", choice, automatic_tags)]
+enum YearEncoding {
+    Immediate(ImmediateYear),
+    NearFuture(NearFutureYear),
+    NearPast(NearPastYear),
+    /// `INTEGER (MIN..1748 | 2277..MAX)`, which is not a PER-visible range and
+    /// so is encoded as an unconstrained integer.
+    Remainder(i32),
+}
+
+#[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, Clone, Copy, PartialEq)]
+#[rasn(crate_root = "crate", delegate, value("2005..=2020"))]
+struct ImmediateYear(u16);
+
+#[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, Clone, Copy, PartialEq)]
+#[rasn(crate_root = "crate", delegate, value("2021..=2276"))]
+struct NearFutureYear(u16);
+
+#[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, Clone, Copy, PartialEq)]
+#[rasn(crate_root = "crate", delegate, value("1749..=2004"))]
+struct NearPastYear(u16);
+
+impl From<crate::types::Date> for DateEncoding {
+    fn from(date: crate::types::Date) -> Self {
+        use chrono::Datelike;
+        let year = date.year();
+        Self {
+            year: match year {
+                2005..=2020 => YearEncoding::Immediate(ImmediateYear(year as u16)),
+                2021..=2276 => YearEncoding::NearFuture(NearFutureYear(year as u16)),
+                1749..=2004 => YearEncoding::NearPast(NearPastYear(year as u16)),
+                _ => YearEncoding::Remainder(year),
+            },
+            month: date.month() as u8,
+            day: date.day() as u8,
         }
     }
+}
 
-    fn as_slice(&self) -> &[u8] {
-        &self.octets[..self.len]
+impl DateEncoding {
+    /// The date, unless the components do not form one (such as 30 February).
+    fn into_date(self) -> Option<crate::types::Date> {
+        let year = match self.year {
+            YearEncoding::Immediate(ImmediateYear(year))
+            | YearEncoding::NearFuture(NearFutureYear(year))
+            | YearEncoding::NearPast(NearPastYear(year)) => i32::from(year),
+            YearEncoding::Remainder(year) => year,
+        };
+        crate::types::Date::from_ymd_opt(year, self.month.into(), self.day.into())
     }
 }
 
