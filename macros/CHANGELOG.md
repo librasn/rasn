@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.15](https://github.com/librasn/rasn/compare/rasn-derive-v0.28.14...rasn-derive-v0.28.15) - 2026-09-25
+
+### Other
+
+- release v0.28.15 ([#568](https://github.com/librasn/rasn/pull/568))
+
 ## [0.28.8](https://github.com/librasn/rasn/compare/rasn-derive-v0.28.7...rasn-derive-v0.28.8) - 2026-02-20
 
 ### Other
