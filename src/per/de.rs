@@ -344,7 +344,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             if range == 0 {
                 Ok(input)
             } else if range == 1 {
-                if self.options.aligned {
+                if self.options.aligned && is_large_string {
                     input = self.parse_padding(input)?;
                 }
                 (decode_fn)(input, size_constraint.minimum())
@@ -678,7 +678,6 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                         DecodeError::exceeds_max_length(usize::MAX.into(), self.codec())
                     })? > 16 =>
                 {
-                    self.input = self.parse_padding(self.input)?;
                     true
                 }
                 Bounded::Range {
@@ -688,7 +687,6 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
                     DecodeError::exceeds_max_length(usize::MAX.into(), self.codec())
                 })? > 16 =>
                 {
-                    self.input = self.parse_padding(self.input)?;
                     true
                 }
                 _ => false,
@@ -920,20 +918,17 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         self.parse_fixed_width_string(constraints)
     }
 
-    fn decode_teletex_string(
-        &mut self,
-        _: Tag,
-        _constraints: &Constraints,
-    ) -> Result<types::TeletexString> {
-        todo!()
+    fn decode_teletex_string(&mut self, _: Tag, _: &Constraints) -> Result<types::TeletexString> {
+        // X.691 §30.6: TeletexString uses base-encoding octets and an
+        // unconstrained octet length, without PER-visible constraints.
+        let bytes: types::OctetString =
+            self.decode_octet_string(Tag::TELETEX_STRING, &Constraints::default())?;
+        types::TeletexString::from_bytes(&bytes)
+            .map_err(|error| DecodeError::permitted_alphabet_error(error, self.codec()))
     }
 
-    fn decode_bmp_string(
-        &mut self,
-        _: Tag,
-        _constraints: &Constraints,
-    ) -> Result<types::BmpString> {
-        todo!()
+    fn decode_bmp_string(&mut self, _: Tag, constraints: &Constraints) -> Result<types::BmpString> {
+        self.parse_fixed_width_string(constraints)
     }
 
     fn decode_utf8_string(
