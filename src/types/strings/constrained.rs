@@ -142,9 +142,6 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
             .collect())
     }
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
-    fn character_width() -> u32 {
-        crate::num::log2(Self::CHARACTER_SET.len() as i128)
-    }
 
     fn len(&self) -> usize {
         self.chars().count()
