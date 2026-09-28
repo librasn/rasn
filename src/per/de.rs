@@ -1024,10 +1024,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut options = self.options;
         options.remaining_depth = options.remaining_depth.saturating_sub(1);
         self.decode_extensible_container(constraints, |mut input, length| {
-            // Reserve for the claimed count only as far as the remaining input
-            // could hold, so a length determinant alone cannot force a large
-            // allocation.
-            sequence_of.reserve(length.min(input.len()));
+            // Grow only after decoding an element: input bits do not bound
+            // the memory occupied by a decoded value.
             for _ in 0..length {
                 let mut decoder = Self::from_reader(input, options);
                 sequence_of.push(D::decode(&mut decoder)?);
