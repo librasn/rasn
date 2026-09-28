@@ -117,6 +117,9 @@ pub struct Decoder<'input, const RFC: usize = 0, const EFC: usize = 0> {
     /// `Some(Some((cursor, data)))` = header parsed.
     #[allow(clippy::type_complexity)]
     extensions_present: Option<Option<(usize, [Option<(Field, bool)>; EFC])>>,
+    /// Number of extension additions present in the encoding that are not
+    /// in `extension_fields`, known once the header is parsed.
+    unknown_extensions: usize,
 }
 
 impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
@@ -145,6 +148,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             fields: (0, [None; RFC]),
             extension_fields: None,
             extensions_present: None,
+            unknown_extensions: 0,
         }
     }
 
@@ -434,21 +438,6 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             self.parse_integer::<I>(&SMALL_UNSIGNED_CONSTRAINT)
         }
     }
-    fn parse_normally_small_length(&mut self) -> Result<usize> {
-        let is_large = self.parse_one_bit()?;
-        if !is_large {
-            self.parse_integer::<usize>(&SMALL_UNSIGNED_CONSTRAINT)
-        } else {
-            let mut length_out = 0usize;
-            let input = self.decode_unknown_length(self.input, &mut |input, length| {
-                length_out = length;
-                Ok(input)
-            })?;
-            self.input = input;
-            Ok(length_out)
-        }
-    }
-
     fn parse_non_negative_binary_integer<I: types::IntegerType>(
         &mut self,
         range: i128,
@@ -564,22 +553,39 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
             None => return Ok(false),
         }
 
-        // The length bitfield has a lower bound of `1..`
-        let extensions_length = self.parse_normally_small_length()? + 1;
+        let is_large = self.parse_one_bit()?;
         let codec = self.codec();
-        let bitfield = take(&mut self.input, extensions_length, codec)?;
-
+        let fields = self.extension_fields;
         let mut data = [None; EFC];
-        for (i, (field, bit)) in self
-            .extension_fields
-            .as_ref()
-            .unwrap()
-            .iter()
-            .zip(bitfield.bits().iter().map(|b| *b))
-            .enumerate()
-        {
-            data[i] = Some((field, bit));
+        let mut index = 0;
+        let mut unknown = 0;
+        // Consume each bitmap fragment before reading its next determinant.
+        // Keep only the known fields and the count of present unknown additions.
+        let mut read_bitmap = |mut input, length| {
+            let bitmap = take(&mut input, length, codec)?;
+            for present in bitmap.bits().iter().map(|bit| *bit) {
+                if let Some(field) = fields.as_ref().and_then(|fields| fields.get(index)) {
+                    data[index] = Some((*field, present));
+                } else if present {
+                    unknown += 1;
+                }
+                index += 1;
+            }
+            Ok(input)
+        };
+        self.input = if is_large {
+            self.decode_unknown_length(self.input, &mut read_bitmap)?
+        } else {
+            let length = self.parse_integer::<usize>(&SMALL_UNSIGNED_CONSTRAINT)? + 1;
+            read_bitmap(self.input, length)?
+        };
+        if index == 0 {
+            return Err(DecodeError::parser_fail(
+                "Empty extension addition bitmap".into(),
+                codec,
+            ));
         }
+        self.unknown_extensions = unknown;
 
         for entry in &data {
             if let Some((field, is_present)) = entry
@@ -596,6 +602,33 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         self.extensions_present = Some(Some((0, data)));
 
         Ok(true)
+    }
+
+    /// Skips the extension additions present in the encoding that were not
+    /// decoded: those the type does not know, sent by a peer that uses a later
+    /// version of it. Each one is an open type (X.691 §19.9), so that such a
+    /// decoder can step over it to the components that follow.
+    fn skip_extension_additions(&mut self) -> Result<()> {
+        if !self.parse_extension_header()? {
+            return Ok(());
+        }
+        let unread = match &self.extensions_present {
+            Some(Some((cursor, data))) => data[*cursor..]
+                .iter()
+                .flatten()
+                .filter(|(_, is_present)| *is_present)
+                .count(),
+            _ => 0,
+        };
+        let codec = self.codec();
+        for _ in 0..unread + self.unknown_extensions {
+            // Discard directly from the input instead of gathering fragments.
+            self.input = self.decode_unknown_length(self.input, &mut |mut input, length| {
+                take(&mut input, length * 8, codec)?;
+                Ok(input)
+            })?;
+        }
+        Ok(())
     }
 
     fn check_recursion_depth(&self) -> Result<()> {
@@ -1083,6 +1116,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             }
             sequence_decoder.fields = (0, fields_data);
             let value = (decode_fn)(&mut sequence_decoder)?;
+            sequence_decoder.skip_extension_additions()?;
 
             self.input = sequence_decoder.input;
             value
@@ -1176,6 +1210,8 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                     field.tag,
                 )?)
             }
+
+            set_decoder.skip_extension_additions()?;
 
             self.input = set_decoder.input;
             fields
