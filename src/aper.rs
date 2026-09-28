@@ -282,7 +282,7 @@ mod tests {
             L {
                 a: Integer::from(7)
             },
-            &[]
+            &[0]
         );
         // round_trip!(aper, M, 103.into(), &[0x80, 0x01, 0x67]);
         round_trip!(aper, N, N::new(1), &[0x00, 0x01]);
