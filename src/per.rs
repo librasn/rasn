@@ -87,9 +87,10 @@ pub(crate) fn decode<T: crate::Decode>(
     options: de::DecoderOptions,
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
-    T::decode(&mut crate::per::de::Decoder::<0, 0>::from_octets(
-        input, options,
-    ))
+    let mut decoder = Decoder::<0, 0>::from_octets(input, options);
+    let value = T::decode(&mut decoder)?;
+    decoder.finish_complete_encoding(input.len() * 8)?;
+    Ok(value)
 }
 /// Attempts to decode `T` from `input` using PER. Returns both `T` and reference to the remainder of the input.
 ///
@@ -101,9 +102,8 @@ pub(crate) fn decode_with_remainder<T: crate::Decode>(
 ) -> Result<(T, &[u8]), crate::error::DecodeError> {
     let decoder = &mut Decoder::<0, 0>::from_octets(input, options);
     let decoded_instance = T::decode(decoder)?;
-    let remaining_bits = decoder.input().len();
-    // Consider only whole bytes, ignore padding bits
-    let remaining_size = remaining_bits / 8;
+    decoder.parse_complete_padding(input.len() * 8)?;
+    let remaining_size = decoder.input().len() / 8;
     debug_assert!(input.len() >= remaining_size);
     Ok((decoded_instance, &input[input.len() - remaining_size..]))
 }
@@ -141,10 +141,10 @@ pub(crate) fn decode_with_constraints<T: crate::Decode>(
     constraints: &Constraints,
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
-    T::decode_with_constraints(
-        &mut crate::per::de::Decoder::<0, 0>::from_octets(input, options),
-        constraints,
-    )
+    let mut decoder = Decoder::<0, 0>::from_octets(input, options);
+    let value = T::decode_with_constraints(&mut decoder, constraints)?;
+    decoder.finish_complete_encoding(input.len() * 8)?;
+    Ok(value)
 }
 
 /// Attempts to encode `value` to PER.
