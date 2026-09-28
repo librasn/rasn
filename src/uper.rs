@@ -1082,6 +1082,8 @@ mod tests {
             #[rasn(extension_addition)]
             pub omitted: Option<()>,
         }
+        // ITU-T X.691 (02/2021) §11.2.1: the NULL extension addition is an
+        // open type holding a complete encoding, one zero octet (§11.1.3).
         round_trip!(
             uper,
             Omitted,
@@ -1089,7 +1091,7 @@ mod tests {
                 a: Some(OctetString::from_static(&[0x00, 0x01, 0x02])),
                 omitted: Some(())
             },
-            &[192, 192, 0, 64, 128, 64, 0]
+            &[192, 192, 0, 64, 128, 64, 64, 0]
         );
     }
     #[test]

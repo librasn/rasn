@@ -154,6 +154,39 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         self.input.bits()
     }
 
+    /// Consumes the final zero padding of a complete encoding (X.691 §11.1).
+    /// A value whose field-list is empty occupies a single zero octet.
+    pub(crate) fn parse_complete_padding(&mut self, input_length: usize) -> Result<()> {
+        let consumed_bits = input_length - self.input.len();
+        let padding = if consumed_bits == 0 {
+            8
+        } else {
+            (8 - consumed_bits % 8) % 8
+        };
+        let codec = self.codec();
+        let padding_bits = take(&mut self.input, padding, codec)?;
+        // Preserve the receiver's existing treatment of sub-octet spare bits.
+        // A zero-bit value still requires its complete one-zero-octet encoding.
+        if consumed_bits == 0 && padding_bits.bits().any() {
+            return Err(DecodeError::parser_fail(
+                "Nonzero octet for empty complete PER value".into(),
+                codec,
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn finish_complete_encoding(&mut self, input_length: usize) -> Result<()> {
+        self.parse_complete_padding(input_length)?;
+        if self.input.len() != 0 {
+            return Err(DecodeError::parser_fail(
+                "Trailing data after complete PER value".into(),
+                self.codec(),
+            ));
+        }
+        Ok(())
+    }
+
     #[track_caller]
     fn require_field(&mut self, tag: Tag) -> Result<bool> {
         let cursor = self.fields.0;
@@ -1277,7 +1310,9 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             let open = self.decode_open_type()?;
             let mut decoder = Decoder::<0, 0>::from_reader(open.reader(), self.options);
             decoder.options.remaining_depth = decoder.options.remaining_depth.saturating_sub(1);
-            D::from_tag(&mut decoder, tag)
+            let value = D::from_tag(&mut decoder, tag)?;
+            decoder.finish_complete_encoding(open.bits().len())?;
+            Ok(value)
         } else {
             self.options.remaining_depth = self.options.remaining_depth.saturating_sub(1);
             let result = D::from_tag(self, tag);
@@ -1309,7 +1344,9 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let open = self.decode_open_type()?;
         let mut decoder = Decoder::<RC, EC>::from_reader(open.reader(), self.options);
 
-        D::decode(&mut decoder).map(Some)
+        let value = D::decode(&mut decoder)?;
+        decoder.finish_complete_encoding(open.bits().len())?;
+        Ok(Some(value))
     }
 
     fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
@@ -1347,7 +1384,9 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let open = self.decode_open_type()?;
         let mut decoder = Decoder::<0, 0>::from_reader(open.reader(), self.options);
 
-        D::decode_with_constraints(&mut decoder, constraints).map(Some)
+        let value = D::decode_with_constraints(&mut decoder, constraints)?;
+        decoder.finish_complete_encoding(open.bits().len())?;
+        Ok(Some(value))
     }
 }
 
