@@ -543,4 +543,28 @@ mod tests {
         );
         let _: ConnectData = rasn::aper::decode(&encoded).expect("failed to decode");
     }
+
+    #[test]
+    fn bmp_strings_decode() {
+        // ITU-T X.691 (02/2021) §30.5: 16-bit characters, aligned after the
+        // length since 4 characters take 16 bits or more.
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Bmp {
+            a: bool,
+            #[rasn(size("1..=4"))]
+            b: BmpString,
+        }
+
+        round_trip!(
+            aper,
+            Bmp,
+            Bmp {
+                a: true,
+                // "ab", as big-endian 16-bit characters.
+                b: BmpString::try_from(&[0x00, 0x61, 0x00, 0x62][..]).unwrap()
+            },
+            &[0xa0, 0x00, 0x61, 0x00, 0x62]
+        );
+    }
 }
