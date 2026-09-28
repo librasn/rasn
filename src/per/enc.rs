@@ -1036,11 +1036,11 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     fn encode_teletex_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        _: Constraints,
         value: &types::TeletexString,
-        _: Identifier,
+        identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_known_multiplier_string(tag, &constraints, value)
+        self.encode_octet_string(tag, Constraints::default(), &value.to_bytes(), identifier)
     }
 
     fn encode_bmp_string(

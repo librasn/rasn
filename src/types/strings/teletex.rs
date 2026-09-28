@@ -6,16 +6,19 @@ use super::{
 use alloc::vec::Vec;
 use once_cell::race::OnceBox;
 
-/// A string, which contains the characters defined in T.61 standard.
+/// A string containing the encoded octets defined by T.61.
+///
+/// Octets, including escape sequences and non-spacing accents, are preserved.
+/// This type does not translate T.61 into Unicode or validate escape sequences.
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TeletexString(pub(super) Vec<u32>);
+pub struct TeletexString(pub(super) Vec<u8>);
 static CHARACTER_MAP: OnceBox<alloc::collections::BTreeMap<u32, u32>> = OnceBox::new();
 
 impl TeletexString {
-    /// Converts the string into a set of big endian bytes.
+    /// Returns the encoded T.61 octets.
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
-        self.0.iter().flat_map(|ch| ch.to_be_bytes()).collect()
+        self.0.clone()
     }
 
     /// Attempts to convert the provided bytes into [Self].
@@ -26,32 +29,37 @@ impl TeletexString {
         Ok(Self(Self::try_from_slice(bytes)?))
     }
 
-    /// Convert the teletex string into a `Vec<u32>`, consuming the original string.
+    /// Convert the teletex string into a `Vec<u8>`, consuming the original string.
     #[must_use]
-    pub fn into_vec(self) -> alloc::vec::Vec<u32> {
+    pub fn into_vec(self) -> alloc::vec::Vec<u8> {
         self.0
     }
 }
+const fn octet_alphabet() -> [u32; 256] {
+    let mut octets = [0; 256];
+    let mut index = 0;
+    while index < octets.len() {
+        octets[index] = index as u32;
+        index += 1;
+    }
+    octets
+}
+
 impl StaticPermittedAlphabet for TeletexString {
-    type T = u32;
-    // TODO add correct character set, see https://github.com/mouse07410/asn1c/blob/84d3a59c1bb89c59be6ca0625bb14ebea9084ba5/skeletons/TeletexString.c
-    const CHARACTER_SET: &'static [u32] = &[0];
+    type T = u8;
+    const CHARACTER_SET: &'static [u32] = &octet_alphabet();
     const CHARACTER_SET_NAME: constrained::CharacterSetName =
         constrained::CharacterSetName::Teletex;
-    // TODO remove once correct character set is added
-    fn contains_char(_: u32) -> bool {
-        true
-    }
 
     fn push_char(&mut self, ch: u32) {
-        self.0.push(ch);
+        self.0.push(ch as u8);
     }
 
     fn reserve(&mut self, additional: usize) {
         self.0.reserve(additional);
     }
     fn chars(&self) -> impl Iterator<Item = u32> + '_ {
-        self.0.iter().copied()
+        self.0.iter().map(|&octet| u32::from(octet))
     }
 
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32> {
