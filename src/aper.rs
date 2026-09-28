@@ -543,4 +543,28 @@ mod tests {
         );
         let _: ConnectData = rasn::aper::decode(&encoded).expect("failed to decode");
     }
+
+    #[test]
+    fn utf8_string_sizes_are_not_per_visible() {
+        // ITU-T X.691 (02/2021) §30.6: UTF8String is not a known-multiplier
+        // character string type, so its length is an unconstrained count of
+        // octets whatever its size constraint says.
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Name {
+            a: bool,
+            #[rasn(size("1..=150"))]
+            b: Utf8String,
+        }
+
+        round_trip!(
+            aper,
+            Name,
+            Name {
+                a: true,
+                b: "amf-é".into()
+            },
+            &[0x80, 0x06, 0x61, 0x6d, 0x66, 0x2d, 0xc3, 0xa9]
+        );
+    }
 }
