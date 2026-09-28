@@ -168,6 +168,23 @@ impl Constraints {
         false
     }
 
+    /// Returns whether a constraint that PER can see is extensible, which
+    /// makes the type extensible for PER encodings (ITU-T X.691 (02/2021)
+    /// §10.3.18). Unlike [`Self::extensible`], an extensible permitted-alphabet
+    /// constraint does not count: it is not PER-visible (§10.3.11).
+    #[must_use]
+    pub(crate) const fn per_visibly_extensible(&self) -> bool {
+        if self.extensible {
+            return true;
+        }
+        if let Some(value) = &self.value
+            && value.extensible.is_some()
+        {
+            return true;
+        }
+        matches!(&self.size, Some(size) if size.extensible.is_some())
+    }
+
     /// Returns the value constraint from the set, if available.
     #[must_use]
     pub const fn value(&self) -> Option<&Extensible<Value>> {
