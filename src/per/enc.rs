@@ -165,18 +165,20 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         encoder
     }
 
-    /// Returns the octet aligned output for the encoder.
+    /// Returns the octet aligned output for the encoder: the complete
+    /// encoding of the value (ITU-T X.691 (02/2021) §11.1.3, §11.1.4).
     pub fn output(&mut self) -> Vec<u8> {
         let mut output = self.bitstring_output();
-        Self::force_pad_to_alignment(&mut output);
+        Self::complete_encoding(&mut output);
         output.as_bytes().to_vec()
     }
 
     /// Consumes the encoder and returns the octet-aligned output, reusing the
-    /// internal buffer's allocation instead of copying it.
+    /// internal buffer's allocation instead of copying it: the complete
+    /// encoding of the value (ITU-T X.691 (02/2021) §11.1.3, §11.1.4).
     pub fn output_into_vec(mut self) -> Vec<u8> {
         let mut output = self.bitstring_output();
-        Self::force_pad_to_alignment(&mut output);
+        Self::complete_encoding(&mut output);
         output.into_vec()
     }
 
@@ -244,6 +246,18 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     buffer.push(false);
                 }
             }
+        }
+    }
+
+    /// Turns `buffer` into the complete encoding of a value (ITU-T X.691
+    /// (02/2021) §11.1.3, §11.1.4), as the contents of an open type need
+    /// (§11.2.1): zero bits up to a whole octet, and a single zero octet in
+    /// place of an empty encoding.
+    fn complete_encoding(buffer: &mut BitBuffer) {
+        if buffer.len() == 0 {
+            buffer.resize(8, false);
+        } else {
+            Self::force_pad_to_alignment(buffer);
         }
     }
 
@@ -1357,10 +1371,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 this.encode_normally_small_integer(index, buffer)?;
                 let mut alternative = Self::new(options);
                 (encode_fn)(&mut alternative)?;
-                let mut octets = alternative.output_into_vec();
-                if octets.is_empty() {
-                    octets.push(0);
-                }
+                let octets = alternative.output_into_vec();
                 return this.encode_octet_string_into_buffer(
                     &Constraints::default(),
                     &octets,
@@ -1435,7 +1446,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             self.spare = core::mem::take(&mut encoder.work);
             self.extension_scratch = core::mem::take(&mut encoder.extension_scratch);
             result?;
-            Self::force_pad_to_alignment(&mut output);
+            Self::complete_encoding(&mut output);
             let start = self.extension_scratch.len();
             self.extension_scratch.extend_from_slice(output.as_bytes());
             self.extension_fields[self.extension_bitfield.0] =
@@ -1489,7 +1500,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         self.extension_scratch = core::mem::take(&mut encoder.extension_scratch);
         result?;
         let (present_count, presence) = encoder.root_bitfield;
-        Self::force_pad_to_alignment(&mut output);
+        Self::complete_encoding(&mut output);
         let out = output.as_bytes();
 
         let all_absent = if E::FIELDS.has_required_field() {

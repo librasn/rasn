@@ -282,7 +282,7 @@ mod tests {
             L {
                 a: Integer::from(7)
             },
-            &[]
+            &[0]
         );
         // round_trip!(aper, M, 103.into(), &[0x80, 0x01, 0x67]);
         round_trip!(aper, N, N::new(1), &[0x00, 0x01]);
@@ -542,5 +542,31 @@ mod tests {
             ]
         );
         let _: ConnectData = rasn::aper::decode(&encoded).expect("failed to decode");
+    }
+
+    #[test]
+    fn empty_encodings_are_one_zero_octet() {
+        // ITU-T X.691 (02/2021) §11.1.4: an empty encoding of the outermost
+        // value is a single zero octet, and so is the content of an open type
+        // holding one (§11.2.1), such as a NULL extension addition.
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", automatic_tags)]
+        #[non_exhaustive]
+        struct WithNull {
+            a: bool,
+            #[rasn(extension_addition)]
+            b: Option<()>,
+        }
+
+        round_trip!(aper, (), (), &[0x00]);
+        round_trip!(
+            aper,
+            WithNull,
+            WithNull {
+                a: true,
+                b: Some(())
+            },
+            &[0xc0, 0x40, 0x01, 0x00]
+        );
     }
 }
