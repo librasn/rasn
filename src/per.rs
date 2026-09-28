@@ -14,6 +14,53 @@ const SIXTY_FOUR_K: u32 = 65536;
 const SMALL_UNSIGNED_CONSTRAINT: Constraints = constraints!(value_constraint!(0, 63));
 const LARGE_UNSIGNED_CONSTRAINT: Constraints = constraints!(value_constraint!(start: 0));
 
+/// The items that a length determinant counts. They decide whether the items
+/// that follow the length, or that have a fixed size and no length, start on
+/// an octet boundary in the ALIGNED variant.
+#[derive(Clone, Copy, Debug)]
+enum Items {
+    /// The components of a SEQUENCE OF or SET OF (ITU-T X.691 (02/2021)
+    /// §20.6), which the length never aligns.
+    Components,
+    /// The octets of an OCTET STRING (§17.6 to §17.8), aligned unless the size
+    /// is fixed at two octets or fewer.
+    Octets,
+    /// The bits of a BIT STRING (§16.9 to §16.11), aligned unless the size is
+    /// fixed at 16 bits or fewer.
+    Bits,
+    /// The characters of a known-multiplier character string, each this many
+    /// bits wide (§30.5.6, §30.5.7): aligned when the upper bound times the
+    /// width is more than 16 bits for a fixed size, 16 bits or more otherwise.
+    Characters(usize),
+}
+
+impl Items {
+    /// Whether the items are octet-aligned in the ALIGNED variant under the
+    /// effective `size` constraint (`None` when the length is unconstrained).
+    fn aligned(
+        self,
+        size: Option<&crate::types::constraints::Extensible<crate::types::constraints::Size>>,
+    ) -> bool {
+        let Some((Some(&lower), Some(&upper))) = size.map(|size| size.constraint.start_and_end())
+        else {
+            return true;
+        };
+        if upper >= SIXTY_FOUR_K as usize {
+            return true;
+        }
+        let fixed = lower == upper;
+        match self {
+            Self::Components => false,
+            Self::Octets => !fixed || upper > 2,
+            Self::Bits => !fixed || upper > 16,
+            Self::Characters(width) => {
+                let bits = upper.saturating_mul(width);
+                if fixed { bits > 16 } else { bits >= 16 }
+            }
+        }
+    }
+}
+
 /// ITU-T X.691 (02/2021) §32.2.7: `DATE` has the property settings
 /// "Basic=Date Date=YMD Year=Basic", so PER encodes it as if it were this
 /// `DATE-ENCODING` type, defined in an AUTOMATIC TAGS environment.
