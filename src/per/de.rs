@@ -932,12 +932,10 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         todo!()
     }
 
-    fn decode_utf8_string(
-        &mut self,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<types::Utf8String> {
-        self.decode_octet_string(tag, constraints)
+    fn decode_utf8_string(&mut self, tag: Tag, _: Constraints) -> Result<types::Utf8String> {
+        // ITU-T X.691 (02/2021) §30.6: UTF8String is not a known-multiplier
+        // character string type, so no constraint on it is PER-visible.
+        self.decode_octet_string(tag, Constraints::default())
             .and_then(|bytes| {
                 alloc::string::String::from_utf8(bytes).map_err(|e| {
                     DecodeError::string_conversion_failed(
@@ -949,34 +947,24 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
             })
     }
 
-    fn decode_general_string(
-        &mut self,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<types::GeneralString> {
-        <types::GeneralString>::try_from(self.decode_octet_string::<Vec<u8>>(tag, constraints)?)
-            .map_err(|e| {
-                DecodeError::string_conversion_failed(
-                    Tag::GENERAL_STRING,
-                    e.to_string(),
-                    self.codec(),
-                )
-            })
+    fn decode_general_string(&mut self, tag: Tag, _: Constraints) -> Result<types::GeneralString> {
+        // ITU-T X.691 (02/2021) §30.6: no constraint on it is PER-visible.
+        <types::GeneralString>::try_from(
+            self.decode_octet_string::<Vec<u8>>(tag, Constraints::default())?,
+        )
+        .map_err(|e| {
+            DecodeError::string_conversion_failed(Tag::GENERAL_STRING, e.to_string(), self.codec())
+        })
     }
 
-    fn decode_graphic_string(
-        &mut self,
-        tag: Tag,
-        constraints: Constraints,
-    ) -> Result<types::GraphicString> {
-        <types::GraphicString>::try_from(self.decode_octet_string::<Vec<u8>>(tag, constraints)?)
-            .map_err(|e| {
-                DecodeError::string_conversion_failed(
-                    Tag::GRAPHIC_STRING,
-                    e.to_string(),
-                    self.codec(),
-                )
-            })
+    fn decode_graphic_string(&mut self, tag: Tag, _: Constraints) -> Result<types::GraphicString> {
+        // ITU-T X.691 (02/2021) §30.6: no constraint on it is PER-visible.
+        <types::GraphicString>::try_from(
+            self.decode_octet_string::<Vec<u8>>(tag, Constraints::default())?,
+        )
+        .map_err(|e| {
+            DecodeError::string_conversion_failed(Tag::GRAPHIC_STRING, e.to_string(), self.codec())
+        })
     }
 
     // ITU-T X.680 defines GeneralizedTime and UTCTime as IMPLICIT VisibleString

@@ -456,3 +456,81 @@ fn test_per_encode_utf8_string() {
         assert_eq!(case, uper::decode::<Utf8String>(&buf_expected).unwrap());
     }
 }
+
+#[test]
+fn non_known_multiplier_string_sizes_are_not_per_visible() {
+    // X.691 §30.6: these strings use an unconstrained octet count, even with
+    // fixed or extensible sizes. The booleans expose alignment and extra bits.
+    #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    struct Utf8 {
+        before: bool,
+        #[rasn(size(5))]
+        value: Utf8String,
+        after: bool,
+    }
+
+    #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    struct General {
+        before: bool,
+        #[rasn(size("1..=150"))]
+        value: GeneralString,
+        after: bool,
+    }
+
+    #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    struct Graphic {
+        before: bool,
+        #[rasn(size("1..=2", extensible))]
+        value: GraphicString,
+        after: bool,
+    }
+
+    fn check<T: Encode + Decode + core::fmt::Debug + PartialEq>(
+        value: T,
+        aper_bytes: &[u8],
+        uper_bytes: &[u8],
+    ) {
+        assert_eq!(aper::encode(&value).unwrap(), aper_bytes);
+        assert_eq!(aper::decode::<T>(aper_bytes).unwrap(), value);
+        assert_eq!(uper::encode(&value).unwrap(), uper_bytes);
+        assert_eq!(uper::decode::<T>(uper_bytes).unwrap(), value);
+    }
+
+    check(
+        Utf8 {
+            before: true,
+            value: "amf-é".into(),
+            after: true,
+        },
+        &[0x80, 0x06, 0x61, 0x6d, 0x66, 0x2d, 0xc3, 0xa9, 0x80],
+        &[0x83, 0x30, 0xb6, 0xb3, 0x16, 0xe1, 0xd4, 0xc0],
+    );
+    check(
+        General {
+            before: true,
+            value: GeneralString::from_bytes(b"am\xe9").unwrap(),
+            after: true,
+        },
+        &[0x80, 0x03, 0x61, 0x6d, 0xe9, 0x80],
+        &[0x81, 0xb0, 0xb6, 0xf4, 0xc0],
+    );
+    // Neither a root value nor an extension value introduces an extension bit.
+    check(
+        Graphic {
+            before: true,
+            value: GraphicString::from_bytes(b"a\xe9").unwrap(),
+            after: true,
+        },
+        &[0x80, 0x02, 0x61, 0xe9, 0x80],
+        &[0x81, 0x30, 0xf4, 0xc0],
+    );
+    check(
+        Graphic {
+            before: true,
+            value: GraphicString::from_bytes(b"am\xe9").unwrap(),
+            after: true,
+        },
+        &[0x80, 0x03, 0x61, 0x6d, 0xe9, 0x80],
+        &[0x81, 0xb0, 0xb6, 0xf4, 0xc0],
+    );
+}
