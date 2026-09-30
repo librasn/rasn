@@ -878,34 +878,20 @@ impl Bounded<i128> {
     /// Constraint type is `i128` here, so we can make checks based on that.
     #[inline(always)]
     pub fn in_bound<I: IntegerType>(&self, element: &I) -> bool {
-        match &self {
-            Self::Range { start, end } => {
-                start.as_ref().is_none_or(|&start| {
-                    if let Some(e) = element.to_i128() {
-                        e >= start
-                    } else if let Some(e) = element.to_bigint() {
-                        e >= BigInt::from(start)
-                    } else {
-                        false
-                    }
-                }) && end.as_ref().is_none_or(|&end| {
-                    if let Some(e) = element.to_i128() {
-                        e <= end
-                    } else if let Some(e) = element.to_bigint() {
-                        e <= BigInt::from(end)
-                    } else {
-                        false
-                    }
-                })
-            }
-            Self::Single(value) => {
-                if let Some(e) = element.to_i128() {
-                    e == *value
-                } else {
-                    false
-                }
-            }
-            Self::None => true,
+        let (start, end) = match self {
+            Self::None => return true,
+            Self::Single(value) => (Some(*value), Some(*value)),
+            Self::Range { start, end } => (*start, *end),
+        };
+        if let Some(element) = element.to_i128() {
+            start.is_none_or(|start| element >= start) && end.is_none_or(|end| element <= end)
+        } else if let Some(element) = element.to_bigint() {
+            // The value is outside the `i128` range, so it can only satisfy
+            // an open-ended range on that side.
+            start.is_none_or(|start| element >= BigInt::from(start))
+                && end.is_none_or(|end| element <= BigInt::from(end))
+        } else {
+            false
         }
     }
 }
