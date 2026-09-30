@@ -138,7 +138,7 @@ pub(crate) fn encode_buf<T: crate::Encode>(
 /// Attempts to decode `T` from `input` using PER.
 pub(crate) fn decode_with_constraints<T: crate::Decode>(
     options: de::DecoderOptions,
-    constraints: Constraints,
+    constraints: &Constraints,
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
     T::decode_with_constraints(
@@ -150,7 +150,7 @@ pub(crate) fn decode_with_constraints<T: crate::Decode>(
 /// Attempts to encode `value` to PER.
 pub(crate) fn encode_with_constraints<T: crate::Encode>(
     options: enc::EncoderOptions,
-    constraints: Constraints,
+    constraints: &Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     let mut enc = crate::per::enc::Encoder::<0, 0>::new(options);

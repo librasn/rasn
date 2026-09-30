@@ -94,7 +94,7 @@ impl Decode for Opaque {
     fn decode_with_tag_and_constraints<D: rasn::Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_octet_string(tag, constraints).map(Self)
     }
@@ -105,7 +105,7 @@ impl Encode for Opaque {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         encoder

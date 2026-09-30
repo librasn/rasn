@@ -89,7 +89,7 @@ macro_rules! opaque_impls {
                 &self,
                 encoder: &mut EN,
                 tag: $crate::rasn::types::Tag,
-                constraints: $crate::rasn::types::Constraints,
+                constraints: &$crate::rasn::types::Constraints,
                 identifier: Identifier,
             ) -> Result<(), EN::Error> {
                 self.to_opaque()
@@ -101,7 +101,7 @@ macro_rules! opaque_impls {
             fn decode_with_tag_and_constraints<D: $crate::rasn::Decoder>(
                 decoder: &mut D,
                 tag: $crate::rasn::types::Tag,
-                constraints: $crate::rasn::types::Constraints,
+                constraints: &$crate::rasn::types::Constraints,
             ) -> Result<Self, D::Error> {
                 $crate::v2::Opaque::decode_with_tag_and_constraints(decoder, tag, constraints).and_then(|opaque| {
                     let decoder = &mut $crate::rasn::ber::de::Decoder::new(opaque.as_ref(), $crate::rasn::ber::de::DecoderOptions::ber());
@@ -178,7 +178,7 @@ macro_rules! object_type {
         $crate::delegate_impls!($name, $typ);
 
         impl $crate::rasn::Decode for $name {
-            fn decode_with_tag_and_constraints<D: $crate::rasn::Decoder>(decoder: &mut D, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints) -> Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<D: $crate::rasn::Decoder>(decoder: &mut D, tag: $crate::rasn::types::Tag, constraints: &$crate::rasn::types::Constraints) -> Result<Self, D::Error> {
                 use core::convert::TryFrom;
 
                 let syntax = $crate::v2::ObjectSyntax::decode_with_tag_and_constraints(decoder, tag, constraints)?;
@@ -188,7 +188,7 @@ macro_rules! object_type {
         }
 
         impl $crate::rasn::Encode for $name {
-            fn encode_with_tag_and_constraints<'encoder, EN: $crate::rasn::Encoder<'encoder>>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: $crate::rasn::types::Constraints, identifier: $crate::rasn::types::Identifier) -> Result<(), EN::Error> {
+            fn encode_with_tag_and_constraints<'encoder, EN: $crate::rasn::Encoder<'encoder>>(&self, encoder: &mut EN, tag: $crate::rasn::types::Tag, constraints: &$crate::rasn::types::Constraints, identifier: $crate::rasn::types::Identifier) -> Result<(), EN::Error> {
                 self.0.encode_with_tag_and_constraints(encoder, tag, constraints, identifier)
             }
         }

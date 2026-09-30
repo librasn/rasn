@@ -10,7 +10,7 @@ fn kerberos_flags_dec() {
     let input = b"\x03\x05\x00\x40\x81\x00\x00";
     let mut decoder = ber::de::Decoder::new(input, ber::de::DecoderOptions::ber());
     let output = decoder
-        .decode_bit_string(Tag::new(Class::Universal, 3), Constraints::default())
+        .decode_bit_string(Tag::new(Class::Universal, 3), &Constraints::default())
         .unwrap();
     let expected = KerberosFlags::from_vec([0x40, 0x81, 0x00, 0x00].to_vec());
     assert_eq!(output, expected)
@@ -23,7 +23,7 @@ fn kerberos_flags_enc() {
     encoder
         .encode_bit_string(
             Tag::new(Class::Universal, 3),
-            Constraints::default(),
+            &Constraints::default(),
             &bitstring,
             Identifier::EMPTY,
         )

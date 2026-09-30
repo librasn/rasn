@@ -81,7 +81,7 @@ impl crate::Encoder<'_> for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(
             t,
-            Constraints::default(),
+            &Constraints::default(),
             value.as_bytes(),
             Identifier::EMPTY,
         )
@@ -94,7 +94,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_bit_string(
         &mut self,
         _t: Tag,
-        constraints: crate::types::Constraints,
+        constraints: &crate::types::Constraints,
         value: &crate::types::BitStr,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -147,7 +147,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_integer<I: IntegerType>(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &I,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -164,7 +164,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_real<R: RealType>(
         &mut self,
         _t: Tag,
-        _c: Constraints,
+        _c: &Constraints,
         value: &R,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -198,7 +198,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_octet_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &[u8],
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -214,7 +214,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_general_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &crate::types::GeneralString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -227,7 +227,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_graphic_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &crate::types::GraphicString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -240,7 +240,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_utf8_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &str,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -250,7 +250,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_visible_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &crate::types::VisibleString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -263,7 +263,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_ia5_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &crate::types::Ia5String,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -276,7 +276,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_printable_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &crate::types::PrintableString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -289,7 +289,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_numeric_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &crate::types::NumericString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -302,7 +302,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_teletex_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         _value: &crate::types::TeletexString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -312,7 +312,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_bmp_string(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &crate::types::BmpString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -409,7 +409,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _t: Tag,
         value: &[E],
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::Array(value.iter().try_fold(
@@ -439,7 +439,7 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         _t: Tag,
         value: &crate::types::SetOf<E>,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.update_root_or_constructed(Value::Array(value.to_vec().iter().try_fold(
@@ -463,7 +463,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_some_with_tag_and_constraints<E: crate::Encode>(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: &E,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -482,7 +482,7 @@ impl crate::Encoder<'_> for Encoder {
 
     fn encode_choice<E: crate::Encode + crate::types::Choice>(
         &mut self,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         _: Identifier,
@@ -520,7 +520,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_extension_addition<E: crate::Encode>(
         &mut self,
         _t: Tag,
-        _c: crate::types::Constraints,
+        _c: &crate::types::Constraints,
         value: E,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {

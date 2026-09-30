@@ -421,12 +421,12 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_bit_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::BitStr,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let bit_length = value.len();
-        Self::check_encode_size_constraint(bit_length, &constraints, self.codec())?;
+        Self::check_encode_size_constraint(bit_length, constraints, self.codec())?;
         let vec = value.to_bitvec();
         let bytes = vec.as_raw_slice();
         let unused_bits: u8 = ((bytes.len() * 8) - bit_length).try_into().map_err(|err| {
@@ -454,7 +454,7 @@ impl crate::Encoder<'_> for Encoder {
 
     fn encode_choice<E: Encode>(
         &mut self,
-        _: Constraints,
+        _: &Constraints,
         _t: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         _: crate::types::Identifier,
@@ -471,7 +471,7 @@ impl crate::Encoder<'_> for Encoder {
         let value = E::discriminant(value);
         self.encode_integer(
             tag,
-            Constraints::default(),
+            &Constraints::default(),
             &value,
             crate::types::Identifier::EMPTY,
         )
@@ -480,11 +480,11 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_integer<I: IntegerType>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &I,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        Self::check_encode_value_constraint(value, &constraints, self.codec())?;
+        Self::check_encode_value_constraint(value, constraints, self.codec())?;
         let (bytes, needed) = value.to_signed_bytes_be();
         self.encode_primitive(tag, &bytes.as_ref()[..needed]);
         Ok(())
@@ -493,7 +493,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_real<R: types::RealType>(
         &mut self,
         _: Tag,
-        _: Constraints,
+        _: &Constraints,
         _: &R,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -524,118 +524,118 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_octet_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &[u8],
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        Self::check_encode_size_constraint(value.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(value.len(), constraints, self.codec())?;
         self.encode_octet_string_(tag, value)
     }
 
     fn encode_visible_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::VisibleString,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let bytes = value.as_iso646_bytes();
-        Self::check_encode_size_constraint(bytes.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(bytes.len(), constraints, self.codec())?;
         self.encode_octet_string_(tag, bytes)
     }
 
     fn encode_ia5_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::Ia5String,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let bytes = value.as_iso646_bytes();
-        Self::check_encode_size_constraint(bytes.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(bytes.len(), constraints, self.codec())?;
         self.encode_octet_string_(tag, bytes)
     }
 
     fn encode_general_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::GeneralString,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        Self::check_encode_size_constraint(value.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(value.len(), constraints, self.codec())?;
         self.encode_octet_string_(tag, value)
     }
 
     fn encode_graphic_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::GraphicString,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        Self::check_encode_size_constraint(value.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(value.len(), constraints, self.codec())?;
         self.encode_octet_string_(tag, value)
     }
 
     fn encode_printable_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::PrintableString,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let bytes = value.as_bytes();
-        Self::check_encode_size_constraint(bytes.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(bytes.len(), constraints, self.codec())?;
         self.encode_octet_string_(tag, bytes)
     }
 
     fn encode_numeric_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::NumericString,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let bytes = value.as_bytes();
-        Self::check_encode_size_constraint(bytes.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(bytes.len(), constraints, self.codec())?;
         self.encode_octet_string_(tag, bytes)
     }
 
     fn encode_teletex_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::TeletexString,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let bytes = value.to_bytes();
-        Self::check_encode_size_constraint(bytes.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(bytes.len(), constraints, self.codec())?;
         self.encode_octet_string_(tag, &bytes)
     }
 
     fn encode_bmp_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::BmpString,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let bytes = value.to_bytes();
         // BmpString SIZE constraint is in characters; each character is 2 bytes.
-        Self::check_encode_size_constraint(bytes.len() / 2, &constraints, self.codec())?;
+        Self::check_encode_size_constraint(bytes.len() / 2, constraints, self.codec())?;
         self.encode_octet_string_(tag, &bytes)
     }
 
     fn encode_utf8_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &str,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         // UTF8String SIZE constraint is in Unicode characters, not bytes.
-        Self::check_encode_size_constraint(value.chars().count(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(value.chars().count(), constraints, self.codec())?;
         self.encode_octet_string_(tag, value.as_bytes())
     }
 
@@ -698,7 +698,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_some_with_tag_and_constraints<E: Encode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &E,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -729,10 +729,10 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         tag: Tag,
         values: &[E],
-        constraints: Constraints,
+        constraints: &Constraints,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        Self::check_encode_size_constraint(values.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(values.len(), constraints, self.codec())?;
         let mut sequence_encoder = self.take_child_encoder();
 
         for value in values {
@@ -754,10 +754,10 @@ impl crate::Encoder<'_> for Encoder {
         &mut self,
         tag: Tag,
         values: &types::SetOf<E>,
-        constraints: Constraints,
+        constraints: &Constraints,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        Self::check_encode_size_constraint(values.len(), &constraints, self.codec())?;
+        Self::check_encode_size_constraint(values.len(), constraints, self.codec())?;
         // Encode every element sequentially into one buffer, recording each
         // element's byte range so we can sort without extra allocations.
         let mut combined = core::mem::take(&mut self.worker);
@@ -872,7 +872,7 @@ impl crate::Encoder<'_> for Encoder {
     fn encode_extension_addition<E: Encode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: E,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -1090,7 +1090,7 @@ mod tests {
         use crate::Encoder as _;
         use crate::error::EncodeErrorKind;
 
-        let constraints = constraints!(size_constraint!(3));
+        let constraints = &constraints!(size_constraint!(3));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
         enc.encode_octet_string(
@@ -1136,7 +1136,7 @@ mod tests {
         use crate::error::EncodeErrorKind;
 
         // SIZE(8) means exactly 8 bits
-        let constraints = constraints!(size_constraint!(8));
+        let constraints = &constraints!(size_constraint!(8));
         let eight_bits = BitString::from_vec(alloc::vec![0xAA]);
         let sixteen_bits = BitString::from_vec(alloc::vec![0xAA, 0xBB]);
 
@@ -1165,7 +1165,7 @@ mod tests {
         use crate::error::EncodeErrorKind;
 
         // VALUE(0..100)
-        let constraints = constraints!(value_constraint!(0, 100));
+        let constraints = &constraints!(value_constraint!(0, 100));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
         enc.encode_integer(Tag::INTEGER, constraints, &50i32, Identifier::EMPTY)
@@ -1196,7 +1196,7 @@ mod tests {
         use crate::error::EncodeErrorKind;
 
         // SIZE(1..3)
-        let constraints = constraints!(size_constraint!(1, 3));
+        let constraints = &constraints!(size_constraint!(1, 3));
 
         let mut enc = Encoder::new(EncoderOptions::ber());
         enc.encode_sequence_of(Tag::SEQUENCE, &[1i32, 2], constraints, Identifier::EMPTY)
@@ -1232,7 +1232,7 @@ mod tests {
         use crate::error::EncodeErrorKind;
 
         // SIZE(1..3)
-        let constraints = constraints!(size_constraint!(1, 3));
+        let constraints = &constraints!(size_constraint!(1, 3));
         let two: SetOf<i32> = SetOf::from_vec(vec![1, 2]);
         let empty: SetOf<i32> = SetOf::new();
         let four: SetOf<i32> = SetOf::from_vec(vec![1, 2, 3, 4]);

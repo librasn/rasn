@@ -436,7 +436,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_enumerated<E: Enumerated>(&mut self, tag: Tag) -> Result<E> {
-        let discriminant = self.decode_integer::<isize>(tag, Constraints::default())?;
+        let discriminant = self.decode_integer::<isize>(tag, &Constraints::default())?;
 
         E::from_discriminant(discriminant)
             .ok_or_else(|| DecodeError::discriminant_value_not_found(discriminant, self.codec()))
@@ -445,7 +445,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_integer<I: types::IntegerType>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<I> {
         let primitive_bytes = self.parse_primitive_value(tag)?.1;
         let integer_width = I::WIDTH as usize / 8;
@@ -488,7 +488,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_real<R: types::RealType>(
         &mut self,
         _: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<R, Self::Error> {
         Err(DecodeError::real_not_supported(self.codec()))
     }
@@ -496,14 +496,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
         &'b mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<T> {
         let (identifier, contents) = self.parse_value(tag)?;
 
         if identifier.is_primitive() {
             match contents {
                 Some(c) => {
-                    Self::check_size_constraint(c.len(), &constraints, self.codec())?;
+                    Self::check_size_constraint(c.len(), constraints, self.codec())?;
                     Ok(T::from(c))
                 }
                 None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
@@ -540,7 +540,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
                 self.parse_eoc()?;
             }
-            Self::check_size_constraint(buffer.len(), &constraints, self.codec())?;
+            Self::check_size_constraint(buffer.len(), constraints, self.codec())?;
             Ok(T::from(buffer))
         }
     }
@@ -559,7 +559,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_bit_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::BitString> {
         let (input, bs) =
             self::parser::parse_encoded_value(self.config, self.input, tag, |input, codec| {
@@ -590,14 +590,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
             })?;
 
         self.input = input;
-        Self::check_size_constraint(bs.len(), &constraints, self.codec())?;
+        Self::check_size_constraint(bs.len(), constraints, self.codec())?;
         Ok(bs)
     }
 
     fn decode_visible_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::VisibleString, Self::Error> {
         types::VisibleString::try_from(
             self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
@@ -609,7 +609,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_ia5_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::Ia5String> {
         types::Ia5String::try_from(
             self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
@@ -621,7 +621,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_printable_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::PrintableString> {
         types::PrintableString::try_from(
             self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
@@ -633,7 +633,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_numeric_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::NumericString> {
         types::NumericString::try_from(
             self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
@@ -645,7 +645,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_teletex_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::TeletexString> {
         types::TeletexString::try_from(
             self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
@@ -657,7 +657,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_bmp_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::BmpString> {
         types::BmpString::try_from(
             self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
@@ -669,7 +669,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_utf8_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::Utf8String> {
         let vec = self.decode_octet_string(tag, constraints)?;
         types::Utf8String::from_utf8(vec).map_err(|e| {
@@ -684,7 +684,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_general_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::GeneralString> {
         <types::GeneralString>::try_from(
             self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
@@ -696,7 +696,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_graphic_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::GraphicString> {
         <types::GraphicString>::try_from(
             self.decode_octet_string::<Cow<[u8]>>(tag, constraints)?
@@ -706,7 +706,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let string = self.decode_utf8_string(tag, Constraints::default())?;
+        let string = self.decode_utf8_string(tag, &Constraints::default())?;
         if self.config.encoding_rules.is_ber() {
             Self::parse_any_generalized_time_string(string)
         } else {
@@ -716,7 +716,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
         // Reference https://obj-sys.com/asn1tutorial/node15.html
-        let string = self.decode_utf8_string(tag, Constraints::default())?;
+        let string = self.decode_utf8_string(tag, &Constraints::default())?;
         if self.config.encoding_rules.is_ber() {
             Self::parse_any_utc_time_string(string)
         } else {
@@ -725,14 +725,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
-        let string = self.decode_utf8_string(tag, Constraints::default())?;
+        let string = self.decode_utf8_string(tag, &Constraints::default())?;
         Self::parse_date_string(&string)
     }
 
     fn decode_sequence_of<D: Decode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Vec<D>, Self::Error> {
         let items = self.parse_constructed_contents(tag, true, |decoder| {
             decoder.config.remaining_depth = decoder.config.remaining_depth.saturating_sub(1);
@@ -763,14 +763,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
             Ok(items)
         })?;
-        Self::check_size_constraint(items.len(), &constraints, self.codec())?;
+        Self::check_size_constraint(items.len(), constraints, self.codec())?;
         Ok(items)
     }
 
     fn decode_set_of<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::SetOf<D>, Self::Error> {
         let items = self.parse_constructed_contents(tag, true, |decoder| {
             decoder.config.remaining_depth = decoder.config.remaining_depth.saturating_sub(1);
@@ -794,7 +794,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
             Ok(items)
         })?;
-        Self::check_size_constraint(items.len(), &constraints, self.codec())?;
+        Self::check_size_constraint(items.len(), constraints, self.codec())?;
         Ok(items)
     }
 
@@ -888,7 +888,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
 
     fn decode_optional_with_constraints<D: Decode>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error> {
         self.decode_optional_with_check(D::TAG, |decoder| {
             D::decode_with_constraints(decoder, constraints)
@@ -898,14 +898,14 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_optional_with_tag_and_constraints<D: Decode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error> {
         self.decode_optional_with_check(tag, |decoder| {
             D::decode_with_tag_and_constraints(decoder, tag, constraints)
         })
     }
 
-    fn decode_choice<D>(&mut self, _: Constraints) -> Result<D, Self::Error>
+    fn decode_choice<D>(&mut self, _: &Constraints) -> Result<D, Self::Error>
     where
         D: crate::types::DecodeChoice,
     {
@@ -919,7 +919,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
         &mut self,
         tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> core::result::Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -931,7 +931,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         &mut self,
         tag: Tag,
         // Constraints are irrelevant using BER
-        _: Constraints,
+        _: &Constraints,
     ) -> core::result::Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -1191,7 +1191,7 @@ mod tests {
             fn decode_with_tag_and_constraints<D: crate::Decoder>(
                 decoder: &mut D,
                 tag: Tag,
-                _: Constraints,
+                _: &Constraints,
             ) -> Result<Self, D::Error> {
                 decoder.decode_sequence(tag, None::<fn() -> Self>, |sequence| {
                     let name: Ia5String = Ia5String::decode(sequence)?;
@@ -1332,7 +1332,7 @@ mod tests {
         use crate::Decoder as _;
 
         // SIZE(8) means exactly 8 bits.
-        let constraints = constraints!(size_constraint!(8));
+        let constraints = &constraints!(size_constraint!(8));
 
         // 8-bit string: tag 0x03, len 2 (1 unused-bits byte + 1 data byte), unused=0, data=0xAA
         let exact = &[0x03, 0x02, 0x00, 0xAA];
@@ -1365,7 +1365,7 @@ mod tests {
         use crate::Decoder as _;
 
         // VALUE(0..100)
-        let constraints = constraints!(value_constraint!(0, 100));
+        let constraints = &constraints!(value_constraint!(0, 100));
 
         // 50 is in range: tag 0x02, len 1, value 0x32
         let in_range = &[0x02, 0x01, 0x32u8];
@@ -1401,7 +1401,7 @@ mod tests {
         use crate::Decoder as _;
 
         // SIZE(1..3) — between 1 and 3 elements inclusive
-        let constraints = constraints!(size_constraint!(1, 3));
+        let constraints = &constraints!(size_constraint!(1, 3));
 
         // 2 elements: SEQUENCE tag 0x30, len 6, [INTEGER 1, INTEGER 2]
         let two = &[0x30u8, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02];
@@ -1438,7 +1438,7 @@ mod tests {
         use crate::Decoder as _;
 
         // SIZE(1..3) — between 1 and 3 elements inclusive
-        let constraints = constraints!(size_constraint!(1, 3));
+        let constraints = &constraints!(size_constraint!(1, 3));
 
         // 2 elements: SET tag 0x31, len 6, [INTEGER 1, INTEGER 2]
         let two = &[0x31u8, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02];

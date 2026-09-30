@@ -74,12 +74,12 @@ impl crate::types::DecodeChoice for Value {
                 Ok(Value::Bool(b))
             }
             Tag::INTEGER => {
-                let i: i64 = decoder.decode_integer(Tag::INTEGER, Constraints::default())?;
+                let i: i64 = decoder.decode_integer(Tag::INTEGER, &Constraints::default())?;
                 Ok(Value::Number(Number::from(i)))
             }
             t if t == TAG_DECIMAL => {
                 // Decimal numbers are encoded as UTF8String with context tag
-                let s = decoder.decode_utf8_string(TAG_DECIMAL, Constraints::default())?;
+                let s = decoder.decode_utf8_string(TAG_DECIMAL, &Constraints::default())?;
 
                 if let Some(num) = s.parse::<f64>().ok().and_then(Number::from_f64) {
                     return Ok(Value::Number(num));
@@ -91,19 +91,19 @@ impl crate::types::DecodeChoice for Value {
                 ))
             }
             Tag::UTF8_STRING => {
-                let s = decoder.decode_utf8_string(Tag::UTF8_STRING, Constraints::default())?;
+                let s = decoder.decode_utf8_string(Tag::UTF8_STRING, &Constraints::default())?;
                 Ok(Value::String(s))
             }
             t if t == TAG_ARRAY => {
                 let arr: Vec<Value> =
-                    decoder.decode_sequence_of(TAG_ARRAY, Constraints::default())?;
+                    decoder.decode_sequence_of(TAG_ARRAY, &Constraints::default())?;
                 Ok(Value::Array(arr))
             }
             t if t == TAG_OBJECT => {
                 let map: ValueMap = ValueMap::decode_with_tag_and_constraints(
                     decoder,
                     TAG_OBJECT,
-                    Constraints::default(),
+                    &Constraints::default(),
                 )?;
                 Ok(Value::Object(map))
             }
@@ -120,7 +120,7 @@ impl Encode for Value {
         // For CHOICE types, we use encode_choice
         let tag = value_to_tag(self);
         encoder.encode_choice::<Self>(
-            Self::CONSTRAINTS,
+            &Self::CONSTRAINTS,
             tag,
             |enc| {
                 match self {
@@ -135,7 +135,7 @@ impl Encode for Value {
                         if let Some(i) = n.as_i64() {
                             enc.encode_integer(
                                 Tag::INTEGER,
-                                Constraints::default(),
+                                &Constraints::default(),
                                 &i,
                                 Identifier::EMPTY,
                             )?;
@@ -144,7 +144,7 @@ impl Encode for Value {
                             let s = n.to_string();
                             enc.encode_utf8_string(
                                 TAG_DECIMAL,
-                                Constraints::default(),
+                                &Constraints::default(),
                                 &s,
                                 Identifier::EMPTY,
                             )?;
@@ -153,7 +153,7 @@ impl Encode for Value {
                     Value::String(s) => {
                         enc.encode_utf8_string(
                             Tag::UTF8_STRING,
-                            Constraints::default(),
+                            &Constraints::default(),
                             s,
                             Identifier::EMPTY,
                         )?;
@@ -162,7 +162,7 @@ impl Encode for Value {
                         enc.encode_sequence_of(
                             TAG_ARRAY,
                             arr,
-                            Constraints::default(),
+                            &Constraints::default(),
                             Identifier::EMPTY,
                         )?;
                     }
@@ -170,7 +170,7 @@ impl Encode for Value {
                         map.encode_with_tag_and_constraints(
                             enc,
                             TAG_OBJECT,
-                            Constraints::default(),
+                            &Constraints::default(),
                             Identifier::EMPTY,
                         )?;
                     }
@@ -186,7 +186,7 @@ impl Encode for Value {
         &self,
         encoder: &mut E,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
         _identifier: Identifier,
     ) -> Result<(), E::Error> {
         // CHOICE types ignore the outer tag - they use their variant's tag
@@ -196,13 +196,13 @@ impl Encode for Value {
 
 impl Decode for Value {
     fn decode<D: Decoder>(decoder: &mut D) -> Result<Self, D::Error> {
-        decoder.decode_choice::<Self>(Constraints::default())
+        decoder.decode_choice::<Self>(&Constraints::default())
     }
 
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         // CHOICE types ignore the outer tag
         Self::decode(decoder)
@@ -268,7 +268,7 @@ impl Encode for ValueEntry<'_> {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder.encode_sequence::<2, 0, OwnedValueEntry, _>(
@@ -276,7 +276,7 @@ impl Encode for ValueEntry<'_> {
             |enc| {
                 enc.encode_utf8_string(
                     Tag::UTF8_STRING,
-                    Constraints::default(),
+                    &Constraints::default(),
                     self.key,
                     Identifier::EMPTY,
                 )?;
@@ -293,10 +293,10 @@ impl Decode for OwnedValueEntry {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_sequence::<2, 0, Self, _, _>(tag, None::<fn() -> Self>, |dec| {
-            let key = dec.decode_utf8_string(Tag::UTF8_STRING, Constraints::default())?;
+            let key = dec.decode_utf8_string(Tag::UTF8_STRING, &Constraints::default())?;
             let value = Value::decode(dec)?;
             Ok(OwnedValueEntry { key, value })
         })
@@ -308,7 +308,7 @@ impl Encode for ValueMap {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         let entries: Vec<ValueEntry<'_>> = self
@@ -324,7 +324,7 @@ impl Decode for ValueMap {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         let entries: Vec<OwnedValueEntry> = decoder.decode_sequence_of(tag, constraints)?;
         Ok(entries.into_iter().map(|e| (e.key, e.value)).collect())

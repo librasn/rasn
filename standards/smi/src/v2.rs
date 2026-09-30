@@ -75,14 +75,14 @@ impl Encode for ExtUtcTime {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         const CONSTRAINT_1: constraints::Constraints = constraints!(value_constraint!(13));
         encoder
             .encode_octet_string(
                 tag,
-                CONSTRAINT_1,
+                &CONSTRAINT_1,
                 self.0.format(FULL_DATE_FORMAT).to_string().as_bytes(),
                 identifier,
             )
@@ -94,7 +94,7 @@ impl Decode for ExtUtcTime {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         let bytes = OctetString::decode_with_tag(decoder, tag)?;
         let len = bytes.len();

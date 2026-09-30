@@ -600,7 +600,7 @@ impl<'config> VariantConfig<'config> {
                             const_constraint = quote! {
                                 const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
                             };
-                            quote!(decoder.decode_default_with_tag_and_constraints(tag, #path, #constraint_name))
+                            quote!(decoder.decode_default_with_tag_and_constraints(tag, #path, &#constraint_name))
                         } else {
                             quote!(decoder.decode_default_with_tag(tag, #path))
                         }
@@ -608,7 +608,7 @@ impl<'config> VariantConfig<'config> {
                         const_constraint = quote! {
                             const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
                         };
-                        quote!(<_>::decode_with_tag_and_constraints(decoder, tag, #constraint_name))
+                        quote!(<_>::decode_with_tag_and_constraints(decoder, tag, &#constraint_name))
                     } else {
                         quote!(<_>::decode_with_tag(decoder, tag))
                     }
@@ -908,7 +908,7 @@ impl<'a> FieldConfig<'a> {
                     #constraint_def
                     encoder.encode_extension_addition(
                         #tag,
-                        #constraint_name,
+                        &#constraint_name,
                         &#this #field,
                         #identifier,
                     )?;
@@ -922,7 +922,7 @@ impl<'a> FieldConfig<'a> {
                             #constraint_def
                             encoder.encode_default_with_tag_and_constraints(
                                 #tag,
-                                #constraint_name,
+                                &#constraint_name,
                                 &#this #field,
                                 #default_fn
                                 #identifier,
@@ -935,7 +935,7 @@ impl<'a> FieldConfig<'a> {
                             #this #field.encode_with_tag_and_constraints(
                                 encoder,
                                 #tag,
-                                #constraint_name,
+                                &#constraint_name,
                                 #default_fn
                                 #identifier,
                             )?;
@@ -954,7 +954,7 @@ impl<'a> FieldConfig<'a> {
                 #constraint_def
                 encoder.encode_extension_addition(
                     #tag,
-                    #constraint_name,
+                    &#constraint_name,
                     &#this #field,
                     #identifier,
                 )?;
@@ -967,7 +967,7 @@ impl<'a> FieldConfig<'a> {
                     quote!(
                         #constraint_def
                         encoder.encode_default_with_constraints(
-                            #constraint_name,
+                            &#constraint_name,
                             &#this #field,
                             #default_fn
                             #identifier,
@@ -979,7 +979,7 @@ impl<'a> FieldConfig<'a> {
                         #constraint_def
                         #this #field.encode_with_constraints_and_identifier(
                             encoder,
-                            #constraint_name,
+                            &#constraint_name,
                             #identifier,
                         )?;
                     )
@@ -1095,7 +1095,7 @@ impl<'a> FieldConfig<'a> {
                         decoder.decode_default_with_tag_and_constraints(
                             #tag,
                             #path,
-                            #constraint_name,
+                            &#constraint_name,
                         ) #or_else }
                     )
                 }
@@ -1108,7 +1108,7 @@ impl<'a> FieldConfig<'a> {
                         <_>::decode_with_tag_and_constraints(
                             decoder,
                             #tag,
-                            #constraint_name,
+                            &#constraint_name,
                         ) #or_else }
                     )
                 }
@@ -1120,7 +1120,7 @@ impl<'a> FieldConfig<'a> {
                         #constraint_def
                         decoder.decode_default_with_constraints(
                             #path,
-                            #constraint_name,
+                            &#constraint_name,
                         ) #or_else }
                     )
                 }
@@ -1132,7 +1132,7 @@ impl<'a> FieldConfig<'a> {
                         #constraint_def
                         <_>::decode_with_constraints(
                             decoder,
-                            #constraint_name,
+                            &#constraint_name,
                         ) #or_else }
                     )
                 }
@@ -1168,13 +1168,13 @@ impl<'a> FieldConfig<'a> {
                                 #constraint_def
                                 decoder.decode_extension_addition_with_explicit_tag_and_constraints(
                                     #tag,
-                                    #constraint_name
+                                    &#constraint_name
                                     ) #or_else #handle_extension)
                         }
                     } else {
                         quote!(decoder.decode_extension_addition_with_explicit_tag_and_constraints(
                             #tag,
-                            <#ty as #crate_root::AsnType>::CONSTRAINTS) #or_else #handle_extension)
+                            &<#ty as #crate_root::AsnType>::CONSTRAINTS) #or_else #handle_extension)
                     }
                 }
                 (Some(false), Some(path), true) => {
@@ -1183,7 +1183,7 @@ impl<'a> FieldConfig<'a> {
                         decoder.decode_extension_addition_with_default_and_tag_and_constraints(
                             #tag,
                             #path,
-                            #constraint_name
+                            &#constraint_name
                             ) #or_else
                     )
                 }
@@ -1194,7 +1194,7 @@ impl<'a> FieldConfig<'a> {
                             <_>::decode_extension_addition_with_tag_and_constraints(
                                 decoder,
                                 #tag,
-                                #constraint_name
+                                &#constraint_name
                             ) #or_else #handle_extension
                         }
                     )
@@ -1211,7 +1211,7 @@ impl<'a> FieldConfig<'a> {
                         #constraint_def
                         decoder.decode_extension_addition_with_default_and_constraints(
                             #path,
-                            #constraint_name,
+                            &#constraint_name,
                         ) #or_else }
                     )
                 }
@@ -1226,7 +1226,7 @@ impl<'a> FieldConfig<'a> {
                     quote!({
                         #constraint_def
                         decoder.decode_extension_addition_with_constraints(
-                            #constraint_name,
+                            &#constraint_name,
                         ) #or_else }
                     )
                 }

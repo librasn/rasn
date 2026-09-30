@@ -52,7 +52,7 @@ pub fn encode_buf<T: crate::Encode>(
 
 /// Attempts to decode `T` from `input` using UPER-BASIC.
 pub fn decode_with_constraints<T: crate::Decode>(
-    constraints: Constraints,
+    constraints: &Constraints,
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
     crate::per::decode_with_constraints(de::DecoderOptions::unaligned(), constraints, input)
@@ -60,7 +60,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
 
 /// Attempts to encode `value` to UPER-CANONICAL.
 pub fn encode_with_constraints<T: crate::Encode>(
-    constraints: Constraints,
+    constraints: &Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     let result =

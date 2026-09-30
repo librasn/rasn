@@ -50,7 +50,7 @@ impl Decode for BitString {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_bit_string(tag, constraints)
     }
@@ -61,7 +61,7 @@ impl Encode for BitString {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -80,7 +80,7 @@ impl Encode for BitStr {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -99,7 +99,7 @@ impl<const N: usize> Decode for FixedBitString<N> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         let out = decoder.decode_bit_string(tag, constraints)?;
         if out.len() != N {
@@ -121,7 +121,7 @@ impl<const N: usize> Encode for FixedBitString<N> {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder

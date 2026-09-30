@@ -77,7 +77,7 @@ impl Decode for GraphicString {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_graphic_string(tag, constraints)
     }
@@ -88,7 +88,7 @@ impl Encode for GraphicString {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder

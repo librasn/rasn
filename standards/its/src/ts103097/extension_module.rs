@@ -83,7 +83,7 @@ impl rasn::Encode for EtsiExtContent {
         &self,
         encoder: &mut EN,
         _: rasn::types::Tag,
-        _: rasn::types::Constraints,
+        _: &rasn::types::Constraints,
         _: rasn::types::Identifier,
     ) -> core::result::Result<(), EN::Error> {
         Self::encode(self, encoder)
@@ -106,7 +106,7 @@ impl rasn::Decode for EtsiOriginatingHeaderInfoExtension {
     fn decode_with_tag_and_constraints<D: rasn::Decoder>(
         decoder: &mut D,
         tag: rasn::types::Tag,
-        _: rasn::types::Constraints,
+        _: &rasn::types::Constraints,
     ) -> core::result::Result<Self, D::Error> {
         Ok(Self(decoder
             .decode_sequence::<2usize, 0usize, Extension<EtsiTs103097HeaderInfoExtensions>, _, _>(

@@ -19,7 +19,7 @@ pub trait Encode: AsnType {
         self.encode_with_tag_and_constraints(
             encoder,
             Self::TAG,
-            Self::CONSTRAINTS,
+            &Self::CONSTRAINTS,
             Self::IDENTIFIER,
         )
     }
@@ -34,7 +34,7 @@ pub trait Encode: AsnType {
         encoder: &mut E,
         tag: Tag,
     ) -> Result<(), E::Error> {
-        self.encode_with_tag_and_constraints(encoder, tag, Self::CONSTRAINTS, Self::IDENTIFIER)
+        self.encode_with_tag_and_constraints(encoder, tag, &Self::CONSTRAINTS, Self::IDENTIFIER)
     }
 
     /// Encode this value with `identifier` into the given [`crate::Encoder`].
@@ -47,7 +47,7 @@ pub trait Encode: AsnType {
         encoder: &mut E,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
-        self.encode_with_tag_and_constraints(encoder, Self::TAG, Self::CONSTRAINTS, identifier)
+        self.encode_with_tag_and_constraints(encoder, Self::TAG, &Self::CONSTRAINTS, identifier)
     }
 
     /// Encode this value with `tag` and `identifier` into the given [`crate::Encoder`].
@@ -61,7 +61,7 @@ pub trait Encode: AsnType {
         tag: Tag,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
-        self.encode_with_tag_and_constraints(encoder, tag, Self::CONSTRAINTS, identifier)
+        self.encode_with_tag_and_constraints(encoder, tag, &Self::CONSTRAINTS, identifier)
     }
 
     /// Encode this value into the given [`crate::Encoder`] with the
@@ -73,7 +73,7 @@ pub trait Encode: AsnType {
     fn encode_with_constraints<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<(), E::Error> {
         self.encode_with_tag_and_constraints(encoder, Self::TAG, constraints, Self::IDENTIFIER)
     }
@@ -87,7 +87,7 @@ pub trait Encode: AsnType {
     fn encode_with_constraints_and_identifier<'b, E: Encoder<'b>>(
         &self,
         encoder: &mut E,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         self.encode_with_tag_and_constraints(encoder, Self::TAG, constraints, identifier)
@@ -103,7 +103,7 @@ pub trait Encode: AsnType {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error>;
 }
@@ -143,7 +143,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_bit_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::BitStr,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -168,7 +168,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_integer<I: IntegerType>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &I,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -177,7 +177,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_real<R: RealType>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &R,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -189,7 +189,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_octet_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &[u8],
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -198,7 +198,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_general_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::GeneralString,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -207,7 +207,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_graphic_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::GraphicString,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -216,7 +216,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_utf8_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &str,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -225,7 +225,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_visible_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::VisibleString,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -234,7 +234,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_ia5_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::Ia5String,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -243,7 +243,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_printable_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::PrintableString,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -252,7 +252,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_numeric_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::NumericString,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -261,7 +261,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_teletex_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::TeletexString,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -270,7 +270,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_bmp_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::BmpString,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -329,7 +329,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         &mut self,
         tag: Tag,
         value: &[E],
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
 
@@ -355,7 +355,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         &mut self,
         tag: Tag,
         value: &types::SetOf<E>,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
 
@@ -400,14 +400,14 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
         value: &E,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_some_with_tag_and_constraints(tag, E::CONSTRAINTS, value, identifier)
+        self.encode_some_with_tag_and_constraints(tag, &E::CONSTRAINTS, value, identifier)
     }
 
     /// Encode the present value of an optional field.
     fn encode_some_with_tag_and_constraints<E: Encode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &E,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -467,7 +467,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_default_with_tag_and_constraints<E: Encode + PartialEq>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &E,
         default: impl FnOnce() -> E,
         identifier: Identifier,
@@ -483,7 +483,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     /// Encode the present constrained value of an optional field.
     fn encode_default_with_constraints<E: Encode + PartialEq>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &E,
         default: impl FnOnce() -> E,
         identifier: Identifier,
@@ -499,7 +499,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     /// Encode a `CHOICE` value.
     fn encode_choice<E: Encode + crate::types::Choice>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
         tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         identifier: Identifier,
@@ -509,7 +509,7 @@ pub trait Encoder<'encoder, const RCL: usize = 0, const ECL: usize = 0> {
     fn encode_extension_addition<E: Encode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: E,
         identifier: Identifier,
     ) -> Result<Self::Ok, Self::Error>;
@@ -573,7 +573,7 @@ impl<E: Encode> Encode for &'_ E {
     fn encode_with_constraints<'b, EN: Encoder<'b>>(
         &self,
         encoder: &mut EN,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<(), EN::Error> {
         E::encode_with_constraints(self, encoder, constraints)
     }
@@ -581,7 +581,7 @@ impl<E: Encode> Encode for &'_ E {
     fn encode_with_constraints_and_identifier<'b, EN: Encoder<'b>>(
         &self,
         encoder: &mut EN,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         E::encode_with_constraints_and_identifier(self, encoder, constraints, identifier)
@@ -591,7 +591,7 @@ impl<E: Encode> Encode for &'_ E {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         E::encode_with_tag_and_constraints(self, encoder, tag, constraints, identifier)
@@ -603,7 +603,7 @@ impl Encode for () {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder.encode_null(tag, identifier).map(drop)
@@ -647,7 +647,7 @@ impl<E: Encode> Encode for Option<E> {
     fn encode_with_constraints<'b, EN: Encoder<'b>>(
         &self,
         encoder: &mut EN,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<(), EN::Error> {
         match self {
             Some(value) => encoder.encode_some_with_tag_and_constraints(
@@ -664,7 +664,7 @@ impl<E: Encode> Encode for Option<E> {
     fn encode_with_constraints_and_identifier<'b, EN: Encoder<'b>>(
         &self,
         encoder: &mut EN,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         match self {
@@ -695,7 +695,7 @@ impl<E: Encode> Encode for Option<E> {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         match self {
@@ -714,7 +714,7 @@ impl Encode for bool {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder.encode_bool(tag, *self, identifier).map(drop)
@@ -725,7 +725,7 @@ macro_rules! impl_integers {
     ($($int:ty),+) => {
         $(
             impl Encode for $int {
-                fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(&self, encoder: &mut E, tag: Tag, constraints: Constraints, identifier: Identifier) -> Result<(), E::Error> {
+                fn encode_with_tag_and_constraints<'b, E: Encoder<'b>>(&self, encoder: &mut E, tag: Tag, constraints: &Constraints, identifier: Identifier) -> Result<(), E::Error> {
                     encoder.encode_integer(
                         tag,
                         constraints,
@@ -759,7 +759,7 @@ impl Encode for BigInt {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -773,7 +773,7 @@ impl<const START: i128, const END: i128> Encode for types::ConstrainedInteger<ST
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -787,7 +787,7 @@ impl Encode for types::Integer {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -802,7 +802,7 @@ impl Encode for f32 {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -817,7 +817,7 @@ impl Encode for f64 {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -831,7 +831,7 @@ impl Encode for types::OctetString {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -845,7 +845,7 @@ impl Encode for types::Utf8String {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -859,7 +859,7 @@ impl Encode for &'_ str {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -873,7 +873,7 @@ impl Encode for types::ObjectIdentifier {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -887,7 +887,7 @@ impl Encode for types::Oid {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -901,7 +901,7 @@ impl Encode for types::UtcTime {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -915,7 +915,7 @@ impl Encode for types::GeneralizedTime {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -929,7 +929,7 @@ impl Encode for types::Any {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -954,7 +954,7 @@ impl<E: Encode> Encode for alloc::boxed::Box<E> {
     fn encode_with_constraints<'b, EN: Encoder<'b>>(
         &self,
         encoder: &mut EN,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<(), EN::Error> {
         E::encode_with_constraints(self, encoder, constraints)
     }
@@ -971,7 +971,7 @@ impl<E: Encode> Encode for alloc::boxed::Box<E> {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         E::encode_with_tag_and_constraints(
@@ -1000,7 +1000,7 @@ impl<'a, E: 'a + alloc::borrow::ToOwned + Encode> Encode for alloc::borrow::Cow<
     fn encode_with_constraints<'b, EN: Encoder<'b>>(
         &self,
         encoder: &mut EN,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<(), EN::Error> {
         E::encode_with_constraints(self, encoder, constraints)
     }
@@ -1017,7 +1017,7 @@ impl<'a, E: 'a + alloc::borrow::ToOwned + Encode> Encode for alloc::borrow::Cow<
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         E::encode_with_tag_and_constraints(
@@ -1035,7 +1035,7 @@ impl<E: Encode> Encode for alloc::vec::Vec<E> {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         encoder
@@ -1049,7 +1049,7 @@ impl<E: Encode + Eq + core::hash::Hash> Encode for SetOf<E> {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         encoder
@@ -1063,7 +1063,7 @@ impl<E: Encode, const N: usize> Encode for [E; N] {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         encoder
@@ -1077,7 +1077,7 @@ impl<T: AsnType, V: Encode> Encode for types::Implicit<T, V> {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         V::encode_with_tag_and_constraints(
@@ -1096,7 +1096,7 @@ impl<T: AsnType, V: Encode> Encode for types::Explicit<T, V> {
         &self,
         encoder: &mut E,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -1110,7 +1110,7 @@ impl<T: AsnType> Encode for core::marker::PhantomData<T> {
         &self,
         _: &mut E,
         _: Tag,
-        _: Constraints,
+        _: &Constraints,
         _: Identifier,
     ) -> Result<(), E::Error> {
         Ok(())

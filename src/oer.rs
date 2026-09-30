@@ -60,7 +60,7 @@ pub fn encode_buf<T: crate::Encode>(
 /// Returns `DecodeError` if `input` is not valid OER encoding, while setting specific constraints.
 #[allow(dead_code)]
 pub fn decode_with_constraints<T: crate::Decode>(
-    constraints: Constraints,
+    constraints: &Constraints,
     input: &[u8],
 ) -> Result<T, DecodeError> {
     T::decode_with_constraints(
@@ -74,7 +74,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
 /// Returns `EncodeError` if `value` cannot be encoded as COER, while setting specific constraints.
 #[allow(dead_code)]
 pub fn encode_with_constraints<T: crate::Encode>(
-    constraints: Constraints,
+    constraints: &Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, EncodeError> {
     let mut buffer = alloc::vec::Vec::with_capacity(core::mem::size_of::<T>());

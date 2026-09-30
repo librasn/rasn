@@ -28,7 +28,7 @@ fn extensions() {
                 encoder.encode_bool(Tag::BOOL, true, Identifier::EMPTY)?;
                 encoder.encode_integer::<u32>(
                     Tag::INTEGER,
-                    Constraints::default(),
+                    &Constraints::default(),
                     &0u32,
                     Identifier::EMPTY,
                 )?;

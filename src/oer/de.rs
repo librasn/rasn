@@ -506,16 +506,16 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     /// In OER, an alias for decoding an open type and obtaining the underlying type's encoded bytes.
     fn decode_any(&mut self, tag: Tag) -> Result<Any, Self::Error> {
         Ok(Any::new(
-            self.decode_octet_string(tag, Constraints::default())?,
+            self.decode_octet_string(tag, &Constraints::default())?,
         ))
     }
 
     fn decode_bit_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<BitString, Self::Error> {
-        self.parse_bit_string(&constraints)
+        self.parse_bit_string(constraints)
     }
 
     /// One octet is used to present bool, false is 0x0 and true is value up to 0xff
@@ -574,15 +574,15 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_integer<I: crate::types::IntegerType>(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<I, Self::Error> {
-        self.decode_integer_with_constraints::<I>(&constraints)
+        self.decode_integer_with_constraints::<I>(constraints)
     }
 
     fn decode_real<R: crate::types::RealType>(
         &mut self,
         _: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<R, Self::Error> {
         let octets = self.extract_data_by_length(R::BYTE_WIDTH)?;
         R::try_from_ieee754_bytes(octets)
@@ -661,7 +661,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_sequence_of<D: Decode>(
         &mut self,
         _: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Vec<D>, Self::Error> {
         self.check_recursion_depth()?;
 
@@ -691,7 +691,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_set_of<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<SetOf<D>, Self::Error> {
         self.decode_sequence_of(tag, constraints)
             .map(|seq| SetOf::from_vec(seq))
@@ -700,7 +700,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
         &'b mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<T, Self::Error> {
         if let Some(size) = constraints.size() {
             // Fixed size, only data is included
@@ -725,7 +725,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_utf8_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<String, Self::Error> {
         self.decode_octet_string(tag, constraints)
             .and_then(|bytes| {
@@ -742,65 +742,65 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_visible_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<VisibleString, Self::Error> {
-        self.parse_known_multiplier_string(&constraints)
+        self.parse_known_multiplier_string(constraints)
     }
 
     fn decode_general_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<GeneralString, Self::Error> {
-        self.parse_known_multiplier_string(&constraints)
+        self.parse_known_multiplier_string(constraints)
     }
 
     fn decode_graphic_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<GraphicString, Self::Error> {
-        self.parse_known_multiplier_string(&constraints)
+        self.parse_known_multiplier_string(constraints)
     }
 
     fn decode_ia5_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Ia5String, Self::Error> {
-        self.parse_known_multiplier_string(&constraints)
+        self.parse_known_multiplier_string(constraints)
     }
 
     fn decode_printable_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<PrintableString, Self::Error> {
-        self.parse_known_multiplier_string(&constraints)
+        self.parse_known_multiplier_string(constraints)
     }
 
     fn decode_numeric_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<NumericString, Self::Error> {
-        self.parse_known_multiplier_string(&constraints)
+        self.parse_known_multiplier_string(constraints)
     }
 
     fn decode_teletex_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<TeletexString, Self::Error> {
-        self.parse_known_multiplier_string(&constraints)
+        self.parse_known_multiplier_string(constraints)
     }
 
     fn decode_bmp_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<BmpString, Self::Error> {
-        self.parse_known_multiplier_string(&constraints)
+        self.parse_known_multiplier_string(constraints)
     }
     fn decode_optional_with_explicit_prefix<D: Decode>(
         &mut self,
@@ -819,7 +819,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<UtcTime, Self::Error> {
-        let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
+        let string = String::from_utf8(self.decode_octet_string(tag, &Constraints::default())?)
             .map_err(|_| {
                 DecodeError::string_conversion_failed(
                     Tag::UTF8_STRING,
@@ -831,7 +831,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<GeneralizedTime, Self::Error> {
-        let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
+        let string = String::from_utf8(self.decode_octet_string(tag, &Constraints::default())?)
             .map_err(|_| {
                 DecodeError::string_conversion_failed(
                     Tag::UTF8_STRING,
@@ -843,7 +843,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     }
 
     fn decode_date(&mut self, tag: Tag) -> Result<types::Date, Self::Error> {
-        let string = String::from_utf8(self.decode_octet_string(tag, Constraints::default())?)
+        let string = String::from_utf8(self.decode_octet_string(tag, &Constraints::default())?)
             .map_err(|_| {
                 DecodeError::string_conversion_failed(
                     Tag::UTF8_STRING,
@@ -925,7 +925,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         field_fn(fields)
     }
 
-    fn decode_choice<D>(&mut self, constraints: Constraints) -> Result<D, Self::Error>
+    fn decode_choice<D>(&mut self, constraints: &Constraints) -> Result<D, Self::Error>
     where
         D: DecodeChoice,
     {
@@ -970,7 +970,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
     fn decode_optional_with_constraints<D: Decode>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error> {
         let is_present = self.require_field(D::TAG)?;
         if is_present {
@@ -983,7 +983,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_optional_with_tag_and_constraints<D: Decode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error> {
         let is_present = self.require_field(tag)?;
         if is_present {
@@ -995,7 +995,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -1006,7 +1006,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_extension_addition_with_tag_and_constraints<D>(
         &mut self,
         _tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -1024,7 +1024,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         // Values of the extensions are only left, encoded as Open type
         let options = self.options;
         let bytes: Cow<[u8]> =
-            self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
+            self.decode_octet_string(Tag::OCTET_STRING, &Constraints::default())?;
         let mut decoder = Decoder::<0, 0>::new(&bytes, options);
         D::decode_with_constraints(&mut decoder, constraints).map(Some)
     }
@@ -1049,7 +1049,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         // Values of the extensions are only left, inner type encoded as Open type
         let options = self.options;
         let bytes: Cow<[u8]> =
-            self.decode_octet_string(Tag::OCTET_STRING, Constraints::default())?;
+            self.decode_octet_string(Tag::OCTET_STRING, &Constraints::default())?;
         let mut decoder = Decoder::<0, 0>::new(&bytes, options);
         D::decode(&mut decoder).map(Some)
     }
@@ -1147,9 +1147,9 @@ mod tests {
         ];
         let mut decoder = Decoder::<0, 0>::new(vc, DecoderOptions::oer());
         let number = BigInt::from(256).pow(127) - 1;
-        let constraints = Constraints::default();
+        let constraints = &Constraints::default();
         let new_number: BigInt = decoder
-            .decode_integer_with_constraints(&constraints)
+            .decode_integer_with_constraints(constraints)
             .unwrap();
         assert_eq!(new_number, number);
 

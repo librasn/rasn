@@ -224,7 +224,7 @@ mod tests {
             fn decode_with_tag_and_constraints<D: crate::Decoder>(
                 decoder: &mut D,
                 tag: Tag,
-                _: Constraints,
+                _: &Constraints,
             ) -> Result<Self, D::Error> {
                 use crate::de::Error;
 
@@ -268,7 +268,7 @@ mod tests {
                 &self,
                 encoder: &mut EN,
                 tag: crate::types::Tag,
-                _: Constraints,
+                _: &Constraints,
                 _: crate::types::Identifier,
             ) -> Result<(), EN::Error> {
                 encoder.encode_set::<2, 0, Self, _>(

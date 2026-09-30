@@ -246,10 +246,10 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
 
     fn decode_extensible_container(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
         mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<()> {
-        let extensible_is_present = self.parse_extensible_bit(&constraints)?;
+        let extensible_is_present = self.parse_extensible_bit(constraints)?;
         let size = constraints.size().filter(|_| !extensible_is_present);
         let mut total_length = 0usize;
         let input = self.decode_length(self.input, size, &mut |input, length| {
@@ -429,15 +429,15 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     fn parse_normally_small_integer<I: IntegerType>(&mut self) -> Result<I> {
         let is_large = self.parse_one_bit()?;
         if is_large {
-            self.parse_integer::<I>(LARGE_UNSIGNED_CONSTRAINT)
+            self.parse_integer::<I>(&LARGE_UNSIGNED_CONSTRAINT)
         } else {
-            self.parse_integer::<I>(SMALL_UNSIGNED_CONSTRAINT)
+            self.parse_integer::<I>(&SMALL_UNSIGNED_CONSTRAINT)
         }
     }
     fn parse_normally_small_length(&mut self) -> Result<usize> {
         let is_large = self.parse_one_bit()?;
         if !is_large {
-            self.parse_integer::<usize>(SMALL_UNSIGNED_CONSTRAINT)
+            self.parse_integer::<usize>(&SMALL_UNSIGNED_CONSTRAINT)
         } else {
             let mut length_out = 0usize;
             let input = self.decode_unknown_length(self.input, &mut |input, length| {
@@ -473,16 +473,16 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         }
     }
 
-    fn parse_integer<I: types::IntegerType>(&mut self, constraints: Constraints) -> Result<I> {
+    fn parse_integer<I: types::IntegerType>(&mut self, constraints: &Constraints) -> Result<I> {
         self.parse_integer_with_extension_bit(constraints)
             .map(|(value, _)| value)
     }
 
     fn parse_integer_with_extension_bit<I: types::IntegerType>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<(I, bool)> {
-        let extension_is_present = self.parse_extensible_bit(&constraints)?;
+        let extension_is_present = self.parse_extensible_bit(constraints)?;
         let value_constraint = constraints.value();
 
         let Some(value_constraint) = value_constraint.filter(|_| !extension_is_present) else {
@@ -639,7 +639,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     #[allow(clippy::too_many_lines)]
     fn parse_fixed_width_string<ALPHABET: StaticPermittedAlphabet>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<ALPHABET> {
         use crate::types::constraints::Bounded;
 
@@ -709,7 +709,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let width = alphabet.width();
         let mut total_length = 0;
         let codec = self.codec();
-        self.decode_extensible_string(&constraints, is_large_string, |mut input, length| {
+        self.decode_extensible_string(constraints, is_large_string, |mut input, length| {
             total_length += length;
             let part = take(&mut input, length * width, codec)?;
             crate::bits::extend_bitstring(&mut bit_string, part.bits());
@@ -747,7 +747,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut octet_string = Vec::new();
         let codec = self.codec();
 
-        self.decode_extensible_container(Constraints::default(), |mut input, length| {
+        self.decode_extensible_container(&Constraints::default(), |mut input, length| {
             let part = take(&mut input, length * 8, codec)?;
             crate::bits::extend_vec_from_bitslice(&mut octet_string, part.bits());
             Ok(input)
@@ -781,7 +781,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_integer<I: types::IntegerType>(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<I> {
         let (result, extension_is_present) =
             self.parse_integer_with_extension_bit::<I>(constraints)?;
@@ -803,7 +803,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_real<R: types::RealType>(
         &mut self,
         _: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<R, Self::Error> {
         Err(DecodeError::real_not_supported(self.codec()))
     }
@@ -811,7 +811,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_octet_string<'b, T: From<&'b [u8]> + From<Vec<u8>>>(
         &'b mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<T> {
         // The octets are borrowed from the input whenever a single fragment
         // is octet-aligned; only misaligned or fragmented values are copied,
@@ -880,7 +880,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         decoder.decode_object_identifier_from_bytes(&octets)
     }
 
-    fn decode_bit_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::BitString> {
+    fn decode_bit_string(&mut self, _: Tag, constraints: &Constraints) -> Result<types::BitString> {
         let mut bit_string = types::BitString::default();
         let codec = self.codec();
 
@@ -895,19 +895,19 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_visible_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::VisibleString> {
         self.parse_fixed_width_string(constraints)
     }
 
-    fn decode_ia5_string(&mut self, _: Tag, constraints: Constraints) -> Result<types::Ia5String> {
+    fn decode_ia5_string(&mut self, _: Tag, constraints: &Constraints) -> Result<types::Ia5String> {
         self.parse_fixed_width_string(constraints)
     }
 
     fn decode_printable_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::PrintableString> {
         self.parse_fixed_width_string(constraints)
     }
@@ -915,7 +915,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_numeric_string(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::NumericString> {
         self.parse_fixed_width_string(constraints)
     }
@@ -923,19 +923,23 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_teletex_string(
         &mut self,
         _: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<types::TeletexString> {
         todo!()
     }
 
-    fn decode_bmp_string(&mut self, _: Tag, _constraints: Constraints) -> Result<types::BmpString> {
+    fn decode_bmp_string(
+        &mut self,
+        _: Tag,
+        _constraints: &Constraints,
+    ) -> Result<types::BmpString> {
         todo!()
     }
 
     fn decode_utf8_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::Utf8String> {
         self.decode_octet_string(tag, constraints)
             .and_then(|bytes| {
@@ -952,7 +956,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_general_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::GeneralString> {
         <types::GeneralString>::try_from(self.decode_octet_string::<Vec<u8>>(tag, constraints)?)
             .map_err(|e| {
@@ -967,7 +971,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_graphic_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::GraphicString> {
         <types::GraphicString>::try_from(self.decode_octet_string::<Vec<u8>>(tag, constraints)?)
             .map_err(|e| {
@@ -983,7 +987,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     // holding the canonical time string, so PER decodes them as one.
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let string = self.decode_visible_string(tag, Constraints::default())?;
+        let string = self.decode_visible_string(tag, &Constraints::default())?;
         let string = alloc::string::String::from_utf8(string.into_vec()).map_err(|e| {
             DecodeError::string_conversion_failed(
                 Tag::GENERALIZED_TIME,
@@ -995,7 +999,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
-        let string = self.decode_visible_string(tag, Constraints::default())?;
+        let string = self.decode_visible_string(tag, &Constraints::default())?;
         let string = core::str::from_utf8(string.as_iso646_bytes()).map_err(|e| {
             DecodeError::string_conversion_failed(Tag::UTC_TIME, e.to_string(), self.codec())
         })?;
@@ -1013,7 +1017,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_sequence_of<D: Decode>(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Vec<D>, Self::Error> {
         self.check_recursion_depth()?;
         let mut sequence_of = Vec::new();
@@ -1038,7 +1042,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_set_of<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::SetOf<D>, Self::Error> {
         self.decode_sequence_of(tag, constraints)
             .map(|seq| SetOf::from_vec(seq))
@@ -1199,7 +1203,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
     fn decode_optional_with_constraints<D: Decode>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error> {
         let is_present = self.require_field(D::TAG)?;
 
@@ -1213,7 +1217,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_optional_with_tag_and_constraints<D: Decode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error> {
         let is_present = self.require_field(tag)?;
 
@@ -1224,13 +1228,13 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         }
     }
 
-    fn decode_choice<D>(&mut self, constraints: Constraints) -> Result<D, Self::Error>
+    fn decode_choice<D>(&mut self, constraints: &Constraints) -> Result<D, Self::Error>
     where
         D: crate::types::DecodeChoice,
     {
         self.check_recursion_depth()?;
         use crate::types::TagTree;
-        let is_extensible = self.parse_extensible_bit(&constraints)?;
+        let is_extensible = self.parse_extensible_bit(constraints)?;
         // The decoded index selects a leaf of the static tag tree, with
         // nested choices flattened.
         let variants = if is_extensible {
@@ -1252,7 +1256,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
                     })?
             } else {
                 debug_assert!(variance > 0);
-                self.parse_integer(D::VARIANCE_CONSTRAINT)
+                self.parse_integer(&D::VARIANCE_CONSTRAINT)
                     .map_err(|error| {
                         DecodeError::choice_index_exceeds_platform_width(
                             usize::BITS,
@@ -1315,7 +1319,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> core::result::Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -1326,7 +1330,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
     fn decode_extension_addition_with_tag_and_constraints<D>(
         &mut self,
         _: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> core::result::Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -1465,7 +1469,7 @@ mod tests {
 
         let mut decoder = aligned(&[0x03, 0xAA, 0xBB, 0xCC]);
         let octets = decoder
-            .decode_octet_string::<Cow<[u8]>>(Tag::OCTET_STRING, Constraints::default())
+            .decode_octet_string::<Cow<[u8]>>(Tag::OCTET_STRING, &Constraints::default())
             .unwrap();
         assert!(matches!(octets, Cow::Borrowed([0xAA, 0xBB, 0xCC])));
 
@@ -1473,7 +1477,7 @@ mod tests {
         let mut decoder = unaligned(&[0x81, 0xD5, 0x5D, 0xE6, 0x00]);
         decoder.decode_bool(Tag::BOOL).unwrap();
         let octets = decoder
-            .decode_octet_string::<Cow<[u8]>>(Tag::OCTET_STRING, Constraints::default())
+            .decode_octet_string::<Cow<[u8]>>(Tag::OCTET_STRING, &Constraints::default())
             .unwrap();
         assert!(matches!(octets, Cow::Owned(_)));
         assert_eq!(&*octets, &[0xAA, 0xBB, 0xCC]);
@@ -1769,7 +1773,7 @@ mod tests {
         let mut decoder = aligned(&[0x01, 0x2c]);
         assert!(matches!(
             *decoder
-                .decode_integer::<u16>(Tag::INTEGER, CONSTRAINTS)
+                .decode_integer::<u16>(Tag::INTEGER, &CONSTRAINTS)
                 .unwrap_err()
                 .kind,
             DecodeErrorKind::ValueConstraintNotSatisfied { .. }
@@ -1779,7 +1783,7 @@ mod tests {
         let mut decoder = aligned(&[0x01, 0x2b]);
         assert_eq!(
             decoder
-                .decode_integer::<u16>(Tag::INTEGER, CONSTRAINTS)
+                .decode_integer::<u16>(Tag::INTEGER, &CONSTRAINTS)
                 .unwrap(),
             300
         );
@@ -1794,7 +1798,7 @@ mod tests {
         let mut decoder = aligned(&[0x01, 0x2c]);
         assert!(matches!(
             *decoder
-                .decode_sequence_of::<()>(Tag::SEQUENCE, CONSTRAINTS)
+                .decode_sequence_of::<()>(Tag::SEQUENCE, &CONSTRAINTS)
                 .unwrap_err()
                 .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied {
@@ -1806,7 +1810,7 @@ mod tests {
         let mut decoder = aligned(&[0x01, 0x2b]);
         assert_eq!(
             decoder
-                .decode_sequence_of::<()>(Tag::SEQUENCE, CONSTRAINTS)
+                .decode_sequence_of::<()>(Tag::SEQUENCE, &CONSTRAINTS)
                 .unwrap(),
             vec![(); 300]
         );
@@ -1822,7 +1826,7 @@ mod tests {
         let mut decoder = unaligned(&[0xff; 20]);
         assert!(matches!(
             *decoder
-                .decode_visible_string(Tag::VISIBLE_STRING, CONSTRAINTS)
+                .decode_visible_string(Tag::VISIBLE_STRING, &CONSTRAINTS)
                 .unwrap_err()
                 .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(16), .. }
@@ -1840,7 +1844,7 @@ mod tests {
         let mut decoder = unaligned(&[0x06, 1, 2, 3, 4, 5, 6]);
         assert!(matches!(
             *decoder
-                .decode_octet_string::<Vec<u8>>(Tag::OCTET_STRING, CONSTRAINTS)
+                .decode_octet_string::<Vec<u8>>(Tag::OCTET_STRING, &CONSTRAINTS)
                 .unwrap_err()
                 .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(6), .. }
@@ -1850,7 +1854,7 @@ mod tests {
         let mut decoder = unaligned(&[0x03, 0xAA, 0xBB, 0xCC]);
         assert_eq!(
             decoder
-                .decode_octet_string::<Vec<u8>>(Tag::OCTET_STRING, CONSTRAINTS)
+                .decode_octet_string::<Vec<u8>>(Tag::OCTET_STRING, &CONSTRAINTS)
                 .unwrap(),
             [0xAA, 0xBB, 0xCC]
         );
@@ -1865,7 +1869,7 @@ mod tests {
         let mut decoder = unaligned(&[0b0111_1110]);
         assert!(matches!(
             *decoder
-                .decode_sequence_of::<bool>(Tag::SEQUENCE, CONSTRAINTS)
+                .decode_sequence_of::<bool>(Tag::SEQUENCE, &CONSTRAINTS)
                 .unwrap_err()
                 .kind,
             DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(4), .. }
@@ -1874,10 +1878,10 @@ mod tests {
         // Extension bit 1 selects unconstrained length encoding, so a value
         // outside the root remains valid.
         let value = crate::types::OctetString::from_static(&[1, 2, 3, 4, 5]);
-        let encoded = crate::uper::encode_with_constraints(CONSTRAINTS, &value).unwrap();
+        let encoded = crate::uper::encode_with_constraints(&CONSTRAINTS, &value).unwrap();
         assert_eq!(
             crate::uper::decode_with_constraints::<crate::types::OctetString>(
-                CONSTRAINTS,
+                &CONSTRAINTS,
                 &encoded
             )
             .unwrap(),
@@ -1893,7 +1897,7 @@ mod tests {
         let mut decoder = unaligned(&[0b0111_1000]);
         assert!(matches!(
             *decoder
-                .decode_integer::<u8>(Tag::INTEGER, CONSTRAINTS)
+                .decode_integer::<u8>(Tag::INTEGER, &CONSTRAINTS)
                 .unwrap_err()
                 .kind,
             DecodeErrorKind::ValueConstraintNotSatisfied { .. }
@@ -1901,9 +1905,9 @@ mod tests {
 
         // Extension bit 1 selects unconstrained integer encoding, so an
         // outside-root value remains valid.
-        let encoded = crate::uper::encode_with_constraints(CONSTRAINTS, &16u8).unwrap();
+        let encoded = crate::uper::encode_with_constraints(&CONSTRAINTS, &16u8).unwrap();
         assert_eq!(
-            crate::uper::decode_with_constraints::<u8>(CONSTRAINTS, &encoded).unwrap(),
+            crate::uper::decode_with_constraints::<u8>(&CONSTRAINTS, &encoded).unwrap(),
             16
         );
     }

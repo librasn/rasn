@@ -21,7 +21,7 @@ impl rasn::Encode for PersonnelRecord {
         &self,
         encoder: &mut EN,
         tag: rasn::types::Tag,
-        _: rasn::types::Constraints,
+        _: &rasn::types::Constraints,
         _: Identifier,
     ) -> core::result::Result<(), EN::Error> {
         #[allow(unused)]

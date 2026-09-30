@@ -485,9 +485,9 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         buffer.push(is_large);
 
         if is_large {
-            self.encode_integer_into_buffer::<usize>(LARGE_UNSIGNED_CONSTRAINT, &value, buffer)
+            self.encode_integer_into_buffer::<usize>(&LARGE_UNSIGNED_CONSTRAINT, &value, buffer)
         } else {
-            self.encode_integer_into_buffer::<usize>(SMALL_UNSIGNED_CONSTRAINT, &value, buffer)
+            self.encode_integer_into_buffer::<usize>(&SMALL_UNSIGNED_CONSTRAINT, &value, buffer)
         }
     }
 
@@ -654,12 +654,12 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
     fn encode_octet_string_into_buffer(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &[u8],
         buffer: &mut BitBuffer,
     ) -> Result<()> {
         let octet_string_length = value.len();
-        let extensible_is_present = self.encode_extensible_bit(&constraints, buffer, || {
+        let extensible_is_present = self.encode_extensible_bit(constraints, buffer, || {
             constraints.size().is_some_and(|size_constraint| {
                 size_constraint.extensible.is_some()
                     && size_constraint.constraint.contains(&octet_string_length)
@@ -702,11 +702,11 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
     #[allow(clippy::too_many_lines)]
     fn encode_integer_into_buffer<I: IntegerType>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &I,
         buffer: &mut BitBuffer,
     ) -> Result<()> {
-        let is_extended_value = self.encode_extensible_bit(&constraints, buffer, || {
+        let is_extended_value = self.encode_extensible_bit(constraints, buffer, || {
             constraints.value().is_some_and(|value_range| {
                 value_range.extensible.is_some() && value_range.constraint.in_bound(value)
             })
@@ -832,7 +832,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(
             tag,
-            Constraints::default(),
+            &Constraints::default(),
             value.as_bytes(),
             Identifier::EMPTY,
         )
@@ -841,7 +841,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     fn encode_bit_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &BitStr,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -849,7 +849,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         let size = constraints.size();
 
         self.encode_field(tag, |this, buffer, _| {
-            let extensible_is_present = this.encode_extensible_bit(&constraints, buffer, || {
+            let extensible_is_present = this.encode_extensible_bit(constraints, buffer, || {
                 constraints.size().is_some_and(|size_constraint| {
                     size_constraint.extensible.is_some()
                         && size_constraint.constraint.contains(&bit_string_length)
@@ -927,7 +927,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     fn encode_integer<I: IntegerType>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &I,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -939,7 +939,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     fn encode_real<R: types::RealType>(
         &mut self,
         _: Tag,
-        _: Constraints,
+        _: &Constraints,
         _: &R,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -958,13 +958,13 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     ) -> Result<Self::Ok, Self::Error> {
         let mut buf = Vec::new();
         crate::ber::enc::object_identifier_as_bytes(oid, &mut buf)?;
-        self.encode_octet_string(tag, Constraints::default(), &buf, Identifier::EMPTY)
+        self.encode_octet_string(tag, &Constraints::default(), &buf, Identifier::EMPTY)
     }
 
     fn encode_octet_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &[u8],
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -976,93 +976,93 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     fn encode_visible_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::VisibleString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_known_multiplier_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, constraints, value)
     }
 
     fn encode_ia5_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::Ia5String,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_known_multiplier_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, constraints, value)
     }
 
     fn encode_general_string(
         &mut self,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         value: &types::GeneralString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, Constraints::default(), value, Identifier::EMPTY)
+        self.encode_octet_string(tag, &Constraints::default(), value, Identifier::EMPTY)
     }
 
     fn encode_graphic_string(
         &mut self,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         value: &types::GraphicString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_octet_string(tag, Constraints::default(), value, Identifier::EMPTY)
+        self.encode_octet_string(tag, &Constraints::default(), value, Identifier::EMPTY)
     }
 
     fn encode_printable_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::PrintableString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_known_multiplier_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, constraints, value)
     }
 
     fn encode_numeric_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::NumericString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_known_multiplier_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, constraints, value)
     }
 
     fn encode_teletex_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::TeletexString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_known_multiplier_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, constraints, value)
     }
 
     fn encode_bmp_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &types::BmpString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_known_multiplier_string(tag, &constraints, value)
+        self.encode_known_multiplier_string(tag, constraints, value)
     }
 
     fn encode_utf8_string(
         &mut self,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         value: &str,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(
             tag,
-            Constraints::default(),
+            &Constraints::default(),
             value.as_bytes(),
             Identifier::EMPTY,
         )
@@ -1112,7 +1112,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         &mut self,
         tag: Tag,
         values: &[E],
-        constraints: Constraints,
+        constraints: &Constraints,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let options = self.options.without_set_encoding();
@@ -1121,7 +1121,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             // The elements usually encode to about their size in memory, so
             // reserving for them avoids repeated regrowth of the buffer.
             buffer.reserve_bytes(core::mem::size_of_val(values));
-            this.encode_extensible_bit(&constraints, buffer, || {
+            this.encode_extensible_bit(constraints, buffer, || {
                 constraints.size().is_some_and(|size_constraint| {
                     size_constraint.extensible.is_some()
                         && size_constraint.constraint.contains(&values.len())
@@ -1169,7 +1169,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         &mut self,
         tag: Tag,
         values: &types::SetOf<E>,
-        constraints: Constraints,
+        constraints: &Constraints,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_sequence_of(tag, &values.to_vec(), constraints, Identifier::EMPTY)
@@ -1210,7 +1210,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     fn encode_some_with_tag_and_constraints<E: Encode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &E,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -1328,7 +1328,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
 
     fn encode_choice<E: Encode + crate::types::Choice>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
         tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         _: Identifier,
@@ -1348,7 +1348,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         let options = self.options.without_set_encoding();
 
         self.encode_field(tag, |this, buffer, origin| {
-            this.encode_extensible_bit(&constraints, buffer, || is_root_alternative);
+            this.encode_extensible_bit(constraints, buffer, || is_root_alternative);
 
             if !is_root_alternative {
                 // ITU-T X.691 (02/2021) §23.8: an extension alternative is a
@@ -1362,14 +1362,14 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                     octets.push(0);
                 }
                 return this.encode_octet_string_into_buffer(
-                    Constraints::default(),
+                    &Constraints::default(),
                     &octets,
                     buffer,
                 );
             }
 
             if variance > 1 {
-                this.encode_integer_into_buffer::<usize>(E::VARIANCE_CONSTRAINT, &index, buffer)?;
+                this.encode_integer_into_buffer::<usize>(&E::VARIANCE_CONSTRAINT, &index, buffer)?;
             }
             // The chosen alternative is written straight into the buffer by a
             // child encoder that takes it over; it starts at absolute bit `origin`.
@@ -1400,7 +1400,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
     fn encode_extension_addition<E: Encode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: E,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -1643,7 +1643,7 @@ mod tests {
                 &self,
                 encoder: &mut E,
                 tag: Tag,
-                constraints: Constraints,
+                constraints: &Constraints,
                 _: Identifier,
             ) -> Result<(), E::Error> {
                 encoder
@@ -1671,20 +1671,20 @@ mod tests {
         let mut encoder = Encoder::<0, 0>::new(EncoderOptions::unaligned());
         const CONSTRAINT_1: Constraints = constraints!(value_constraint!(start: -1));
         encoder
-            .encode_integer::<i128>(Tag::INTEGER, CONSTRAINT_1, &4096.into(), Identifier::EMPTY)
+            .encode_integer::<i128>(Tag::INTEGER, &CONSTRAINT_1, &4096.into(), Identifier::EMPTY)
             .unwrap();
 
         assert_eq!(&[2, 0b00010000, 1], &*encoder.output.clone().into_vec());
         encoder.output.clear();
         const CONSTRAINT_2: Constraints = constraints!(value_constraint!(start: 1));
         encoder
-            .encode_integer::<i128>(Tag::INTEGER, CONSTRAINT_2, &127.into(), Identifier::EMPTY)
+            .encode_integer::<i128>(Tag::INTEGER, &CONSTRAINT_2, &127.into(), Identifier::EMPTY)
             .unwrap();
         assert_eq!(&[1, 0b01111110], &*encoder.output.clone().into_vec());
         encoder.output.clear();
         const CONSTRAINT_3: Constraints = constraints!(value_constraint!(start: 0));
         encoder
-            .encode_integer::<i128>(Tag::INTEGER, CONSTRAINT_3, &128.into(), Identifier::EMPTY)
+            .encode_integer::<i128>(Tag::INTEGER, &CONSTRAINT_3, &128.into(), Identifier::EMPTY)
             .unwrap();
         assert_eq!(&[1, 0b10000000], &*encoder.output.into_vec());
     }

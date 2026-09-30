@@ -412,7 +412,7 @@ impl crate::Decoder for Decoder {
     fn decode_bit_string(
         &mut self,
         __tag: Tag,
-        __constraints: Constraints,
+        __constraints: &Constraints,
     ) -> Result<crate::types::BitString, Self::Error> {
         tag!(StartElement, self)?;
         let value = value_or_empty!(self, parse_bitstring_value, "`1` or `0`");
@@ -507,7 +507,7 @@ impl crate::Decoder for Decoder {
     fn decode_integer<I: crate::types::IntegerType>(
         &mut self,
         _t: Tag,
-        _c: Constraints,
+        _c: &Constraints,
     ) -> Result<I, Self::Error> {
         tag!(StartElement, self)?;
         let value = match self.next_element() {
@@ -586,7 +586,7 @@ impl crate::Decoder for Decoder {
     fn decode_sequence_of<D: Decode>(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<alloc::vec::Vec<D>, Self::Error> {
         decode_sequence_or_set_items(self)
     }
@@ -594,7 +594,7 @@ impl crate::Decoder for Decoder {
     fn decode_set_of<D: crate::Decode + Eq + core::hash::Hash>(
         &mut self,
         _t: Tag,
-        _c: Constraints,
+        _c: &Constraints,
     ) -> Result<SetOf<D>, Self::Error> {
         let items = decode_sequence_or_set_items::<D>(self)?;
         Ok(SetOf::from_vec(items))
@@ -603,7 +603,7 @@ impl crate::Decoder for Decoder {
     fn decode_octet_string<'b, T: From<alloc::vec::Vec<u8>> + From<&'b [u8]>>(
         &'b mut self,
         _: Tag,
-        _c: Constraints,
+        _c: &Constraints,
     ) -> Result<T, Self::Error> {
         tag!(StartElement, self)?;
         let value = match self.peek() {
@@ -625,7 +625,7 @@ impl crate::Decoder for Decoder {
     fn decode_utf8_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::Utf8String, Self::Error> {
         tag!(StartElement, self)?;
         let value = match self.next_element() {
@@ -643,7 +643,7 @@ impl crate::Decoder for Decoder {
     fn decode_visible_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::VisibleString, Self::Error> {
         decode_string!(
             self,
@@ -656,7 +656,7 @@ impl crate::Decoder for Decoder {
     fn decode_general_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::GeneralString, Self::Error> {
         decode_string!(
             self,
@@ -669,7 +669,7 @@ impl crate::Decoder for Decoder {
     fn decode_ia5_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::Ia5String, Self::Error> {
         decode_string!(
             self,
@@ -682,7 +682,7 @@ impl crate::Decoder for Decoder {
     fn decode_graphic_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::GraphicString, Self::Error> {
         decode_string!(
             self,
@@ -695,7 +695,7 @@ impl crate::Decoder for Decoder {
     fn decode_printable_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::PrintableString, Self::Error> {
         decode_string!(
             self,
@@ -708,7 +708,7 @@ impl crate::Decoder for Decoder {
     fn decode_numeric_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::NumericString, Self::Error> {
         decode_string!(
             self,
@@ -721,7 +721,7 @@ impl crate::Decoder for Decoder {
     fn decode_teletex_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::TeletexString, Self::Error> {
         todo!()
     }
@@ -729,7 +729,7 @@ impl crate::Decoder for Decoder {
     fn decode_bmp_string(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<crate::types::BmpString, Self::Error> {
         decode_string!(
             self,
@@ -802,7 +802,7 @@ impl crate::Decoder for Decoder {
         (field_fn)(fields)
     }
 
-    fn decode_choice<D>(&mut self, _constraints: Constraints) -> Result<D, Self::Error>
+    fn decode_choice<D>(&mut self, _constraints: &Constraints) -> Result<D, Self::Error>
     where
         D: crate::types::DecodeChoice,
     {
@@ -855,7 +855,7 @@ impl crate::Decoder for Decoder {
 
     fn decode_optional_with_constraints<D: Decode>(
         &mut self,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error> {
         self.decode_optional()
     }
@@ -863,14 +863,14 @@ impl crate::Decoder for Decoder {
     fn decode_optional_with_tag_and_constraints<D: Decode>(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error> {
         self.decode_optional()
     }
 
     fn decode_extension_addition_with_constraints<D>(
         &mut self,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -891,7 +891,7 @@ impl crate::Decoder for Decoder {
     fn decode_real<R: crate::types::RealType>(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<R, Self::Error> {
         tag!(StartElement, self)?;
         let value = match self.next_element() {
@@ -949,7 +949,7 @@ impl crate::Decoder for Decoder {
     fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -960,7 +960,7 @@ impl crate::Decoder for Decoder {
     fn decode_extension_addition_with_tag_and_constraints<D>(
         &mut self,
         _tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -1113,7 +1113,7 @@ mod tests {
             fn $suite() {
                 let mut decoder = Decoder::new($xml.as_bytes()).unwrap();
                 assert_eq!(
-                    $method(&mut decoder, Tag::CHOICE, Constraints::NONE).unwrap(),
+                    $method(&mut decoder, Tag::CHOICE, &Constraints::NONE).unwrap(),
                     $expected
                 )
             }

@@ -632,7 +632,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(
             tag,
-            <Constraints>::default(),
+            &<Constraints>::default(),
             value.as_bytes(),
             Identifier::EMPTY,
         )
@@ -656,7 +656,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_bit_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &BitStr,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -765,17 +765,17 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_integer<I: IntegerType>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &I,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.encode_integer_with_constraints(tag, &constraints, value)
+        self.encode_integer_with_constraints(tag, constraints, value)
     }
 
     fn encode_real<R: RealType>(
         &mut self,
         tag: Tag,
-        _constraints: Constraints,
+        _constraints: &Constraints,
         value: &R,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -793,11 +793,11 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_octet_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &[u8],
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        if self.check_fixed_size_constraint(value.len(), &constraints)? {
+        if self.check_fixed_size_constraint(value.len(), constraints)? {
             self.output.extend_from_slice(value);
         } else {
             // Use length determinant on other cases
@@ -811,7 +811,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_general_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &GeneralString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -822,7 +822,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_graphic_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &GraphicString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -833,7 +833,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_utf8_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &str,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -843,7 +843,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_visible_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &VisibleString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -853,7 +853,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_ia5_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &Ia5String,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -863,7 +863,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_printable_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &PrintableString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -873,7 +873,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_numeric_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &NumericString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -883,7 +883,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_teletex_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &TeletexString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -896,7 +896,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_bmp_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &BmpString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -911,7 +911,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(
             tag,
-            Constraints::default(),
+            &Constraints::default(),
             &crate::der::enc::Encoder::datetime_to_canonical_generalized_time_bytes(value),
             Identifier::EMPTY,
         )
@@ -925,7 +925,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(
             tag,
-            Constraints::default(),
+            &Constraints::default(),
             &crate::der::enc::Encoder::datetime_to_canonical_utc_time_bytes(value),
             Identifier::EMPTY,
         )
@@ -939,7 +939,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_octet_string(
             tag,
-            Constraints::default(),
+            &Constraints::default(),
             &crate::der::enc::Encoder::naivedate_to_date_bytes(value),
             Identifier::EMPTY,
         )
@@ -997,7 +997,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         &mut self,
         tag: Tag,
         value: &[E],
-        _: Constraints,
+        _: &Constraints,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         // It seems that constraints here are not C/OER visible? No mention in standard...
@@ -1046,7 +1046,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         &mut self,
         tag: Tag,
         value: &SetOf<E>,
-        constraints: Constraints,
+        constraints: &Constraints,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         self.encode_sequence_of(tag, &value.to_vec(), constraints, Identifier::EMPTY)
@@ -1064,7 +1064,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_some_with_tag_and_constraints<E: Encode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: &E,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -1084,7 +1084,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
 
     fn encode_choice<E: Encode + Choice>(
         &mut self,
-        _: Constraints,
+        _: &Constraints,
         tag: Tag,
         encode_fn: impl FnOnce(&mut Self) -> Result<Tag, Self::Error>,
         _: Identifier,
@@ -1118,7 +1118,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
     fn encode_extension_addition<E: Encode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         value: E,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
@@ -1220,20 +1220,20 @@ mod tests {
     #[test]
     fn test_integer_with_length_determinant() {
         // Using defaults, no limits
-        let constraints = Constraints::default();
+        let constraints = &Constraints::default();
         let mut buffer = vec![];
         let mut wb = vec![];
         let mut encoder =
             Encoder::<0, 0>::from_buffer(EncoderOptions::coer(), &mut buffer, &mut wb);
         let result =
-            encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &BigInt::from(244));
+            encoder.encode_integer_with_constraints(Tag::INTEGER, constraints, &BigInt::from(244));
         assert!(result.is_ok());
         let v = vec![2u8, 0, 244];
         assert_eq!(encoder.output.to_vec(), v);
         encoder.output.clear();
         let result = encoder.encode_integer_with_constraints(
             Tag::INTEGER,
-            &constraints,
+            constraints,
             &BigInt::from(-1_234_567),
         );
         assert!(result.is_ok());
@@ -1242,7 +1242,7 @@ mod tests {
     }
     #[test]
     fn test_large_lengths() {
-        let constraints = Constraints::default();
+        let constraints = &Constraints::default();
         let mut buffer = vec![];
         let mut wb = vec![];
         let mut encoder =
@@ -1251,7 +1251,7 @@ mod tests {
         // Signed integer with byte length of 128
         // Needs long form to represent
         let number: BigInt = BigInt::from(256).pow(127) - 1;
-        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, &constraints, &number);
+        let result = encoder.encode_integer_with_constraints(Tag::INTEGER, constraints, &number);
         assert!(result.is_ok());
         let vc = [
             0x81, 0x80, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,

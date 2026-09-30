@@ -249,7 +249,7 @@ pub mod interfaces {
         fn decode_with_tag_and_constraints<D: rasn::Decoder>(
             decoder: &mut D,
             tag: Tag,
-            constraints: Constraints,
+            constraints: &Constraints,
         ) -> Result<Self, D::Error> {
             Opaque::decode_with_tag_and_constraints(decoder, tag, constraints).and_then(|opaque| {
                 let decoder = &mut rasn::ber::de::Decoder::new(
@@ -290,7 +290,7 @@ pub mod interfaces {
             &self,
             encoder: &mut EN,
             tag: Tag,
-            constraints: Constraints,
+            constraints: &Constraints,
             identifier: Identifier,
         ) -> Result<(), EN::Error> {
             self.to_opaque()

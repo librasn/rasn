@@ -210,7 +210,7 @@ impl<const N: usize> Decode for FixedOctetString<N> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         let codec = decoder.codec();
         let bytes = decoder.decode_octet_string::<alloc::borrow::Cow<[u8]>>(tag, constraints)?;
@@ -238,7 +238,7 @@ impl<const N: usize> Encode for FixedOctetString<N> {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder

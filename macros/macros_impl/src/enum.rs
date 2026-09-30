@@ -225,7 +225,7 @@ impl Enum<'_> {
             self.encode_choice()?
         } else {
             quote! {
-                fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), EN::Error> {
+                fn encode_with_tag_and_constraints<'encoder, EN: #crate_root::Encoder<'encoder>>(&self, encoder: &mut EN, tag: #crate_root::types::Tag, constraints: &#crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), EN::Error> {
                     encoder.encode_enumerated(tag, self, identifier).map(drop)
                 }
             }
@@ -248,7 +248,7 @@ impl Enum<'_> {
             if self.config.has_explicit_tag() {
                 None
             } else {
-                Some(quote!(decoder.decode_choice(Self::CONSTRAINTS)))
+                Some(quote!(decoder.decode_choice(&Self::CONSTRAINTS)))
             }
         } else {
             let name = &self.name;
@@ -352,7 +352,7 @@ impl Enum<'_> {
 
             #[automatically_derived]
             impl #impl_generics #crate_root::Decode for #name #ty_generics #where_clause {
-                fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints) -> core::result::Result<Self, D::Error> {
+                fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(decoder: &mut D, tag: #crate_root::types::Tag, constraints: &#crate_root::types::Constraints) -> core::result::Result<Self, D::Error> {
                     #decode_with_tag
                 }
 
@@ -442,7 +442,7 @@ impl Enum<'_> {
                             variant_constraints.push(quote! {
                                 const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
                             });
-                            quote!(#crate_root::Encode::encode_with_tag_and_constraints(value, encoder, #variant_tag, #constraint_name, #crate_root::types::Identifier(Some(#variant_identifier))))
+                            quote!(#crate_root::Encode::encode_with_tag_and_constraints(value, encoder, #variant_tag, &#constraint_name, #crate_root::types::Identifier(Some(#variant_identifier))))
                         } else {
                             quote!(#crate_root::Encode::encode_with_tag_and_identifier(value, encoder, #variant_tag, #crate_root::types::Identifier(Some(#variant_identifier))))
                         }
@@ -450,7 +450,7 @@ impl Enum<'_> {
                             variant_constraints.push(quote! {
                                 const #constraint_name: #crate_root::types::constraints::Constraints = #constraints;
                             });
-                            quote!(#crate_root::Encode::encode_with_constraints_and_identifier(value, encoder, #constraint_name, #crate_root::types::Identifier(Some(#variant_identifier))))
+                            quote!(#crate_root::Encode::encode_with_constraints_and_identifier(value, encoder, &#constraint_name, #crate_root::types::Identifier(Some(#variant_identifier))))
                         } else {
                             quote!(#crate_root::Encode::encode_with_identifier(value, encoder, #crate_root::types::Identifier(Some(#variant_identifier))))
                     };
@@ -486,7 +486,7 @@ impl Enum<'_> {
         };
         let encode_variants = quote! {
             encoder.encode_choice::<Self>(
-                Self::CONSTRAINTS,
+                &Self::CONSTRAINTS,
                 #tag_match,
                 #encoder_closure_match,
                 Self::IDENTIFIER,
@@ -494,7 +494,7 @@ impl Enum<'_> {
         };
         let encode_variants_with_identifier = quote! {
             encoder.encode_choice::<Self>(
-                Self::CONSTRAINTS,
+                &Self::CONSTRAINTS,
                 #tag_match,
                 #encoder_closure_match,
                 identifier,
@@ -591,7 +591,7 @@ impl Enum<'_> {
             (
                 None,
                 quote! {
-                    fn encode_with_tag_and_constraints<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), E::Error> {
+                    fn encode_with_tag_and_constraints<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E, tag: #crate_root::types::Tag, constraints: &#crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), E::Error> {
                         #(#variant_constraints)*
                         #encode_impl.map(drop)
                     }
@@ -606,7 +606,7 @@ impl Enum<'_> {
                     }
                 }),
                 quote! {
-                    fn encode_with_tag_and_constraints<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E, tag: #crate_root::types::Tag, constraints: #crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), E::Error> {
+                    fn encode_with_tag_and_constraints<'encoder, E: #crate_root::Encoder<'encoder>>(&self, encoder: &mut E, tag: #crate_root::types::Tag, constraints: &#crate_root::types::Constraints, identifier: #crate_root::types::Identifier) -> core::result::Result<(), E::Error> {
                         encoder.encode_explicit_prefix(tag, self, identifier).map(drop)
                     }
                 },

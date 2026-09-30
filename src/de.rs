@@ -133,7 +133,7 @@ pub trait Decode: Sized + AsnType {
     /// this will **explicitly tag** the value, for all other types, it will
     /// **implicitly** tag the value.
     fn decode_with_tag<D: Decoder>(decoder: &mut D, tag: Tag) -> Result<Self, D::Error> {
-        Self::decode_with_tag_and_constraints(decoder, tag, Self::CONSTRAINTS)
+        Self::decode_with_tag_and_constraints(decoder, tag, &Self::CONSTRAINTS)
     }
 
     /// Decode this value from a given ASN.1 decoder with a set of constraints
@@ -144,7 +144,7 @@ pub trait Decode: Sized + AsnType {
     /// your types associated [`AsnType::TAG`] and [`AsnType::CONSTRAINTS`].
     fn decode_with_constraints<D: Decoder>(
         decoder: &mut D,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         Self::decode_with_tag_and_constraints(decoder, Self::TAG, constraints)
     }
@@ -158,7 +158,7 @@ pub trait Decode: Sized + AsnType {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error>;
 }
 
@@ -185,7 +185,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn decode_bit_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::BitString, Self::Error>;
     /// Decode a `BOOL` identified by `tag` from the available input.
     fn decode_bool(&mut self, tag: Tag) -> Result<bool, Self::Error>;
@@ -195,14 +195,14 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn decode_integer<I: types::IntegerType>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<I, Self::Error>;
 
     /// Decode a `REAL` identified by `tag` from the available input.
     fn decode_real<R: types::RealType>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<R, Self::Error>;
 
     /// Decode `NULL` identified by `tag` from the available input.
@@ -235,19 +235,19 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn decode_sequence_of<D: Decode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Vec<D>, Self::Error>;
     /// Decode a `SET OF D` where `D: Decode` identified by `tag` from the available input.
     fn decode_set_of<D: Decode + Eq + core::hash::Hash>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::SetOf<D>, Self::Error>;
     /// Decode a `OCTET STRING` identified by `tag` from the available input.
     fn decode_octet_string<'buf, T>(
         &'buf mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<T, Self::Error>
     where
         T: From<&'buf [u8]> + From<Vec<u8>>;
@@ -256,63 +256,63 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn decode_utf8_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::Utf8String, Self::Error>;
 
     /// Decode a `VisibleString` identified by `tag` from the available input.
     fn decode_visible_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::VisibleString, Self::Error>;
 
     /// Decode a `GeneralString` identified by `tag` from the available input.
     fn decode_general_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::GeneralString, Self::Error>;
 
     /// Decode a `GraphicString` identified by `tag` from the available input.
     fn decode_graphic_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::GraphicString, Self::Error>;
 
     /// Decode a `Ia5String` identified by `tag` from the available input.
     fn decode_ia5_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::Ia5String, Self::Error>;
 
     /// Decode a `PrintableString` identified by `tag` from the available input.
     fn decode_printable_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::PrintableString, Self::Error>;
 
     /// Decode a `NumericString` identified by `tag` from the available input.
     fn decode_numeric_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::NumericString, Self::Error>;
 
     /// Decode a `TeletexString` identified by `tag` from the available input.
     fn decode_teletex_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::TeletexString, Self::Error>;
 
     /// Decode a `BmpString` identified by `tag` from the available input.
     fn decode_bmp_string(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<types::BmpString, Self::Error>;
 
     /// Decode an ASN.1 value that has been explicitly prefixed with `tag` from the available input.
@@ -355,7 +355,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         F: FnOnce(Vec<FIELDS>) -> Result<SET, Self::Error>;
 
     /// Decode an the optional value in a `SEQUENCE` or `SET`.
-    fn decode_choice<D>(&mut self, constraints: Constraints) -> Result<D, Self::Error>
+    fn decode_choice<D>(&mut self, constraints: &Constraints) -> Result<D, Self::Error>
     where
         D: crate::types::DecodeChoice;
 
@@ -370,7 +370,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     /// Decode an the optional value in a `SEQUENCE` or `SET` with `constraints`.
     fn decode_optional_with_constraints<D: Decode>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>;
 
     /// Decode an the optional value in a `SEQUENCE` or `SET` with `tag`
@@ -378,7 +378,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn decode_optional_with_tag_and_constraints<D: Decode>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>;
 
     /// Decode a `DEFAULT` value in a `SEQUENCE` or `SET`.
@@ -404,7 +404,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn decode_default_with_constraints<D: Decode, F: FnOnce() -> D>(
         &mut self,
         default_fn: F,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<D, Self::Error> {
         Ok(self
             .decode_optional_with_constraints::<D>(constraints)?
@@ -416,7 +416,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         &mut self,
         tag: Tag,
         default_fn: F,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<D, Self::Error> {
         Ok(self
             .decode_optional_with_tag_and_constraints::<D>(tag, constraints)?
@@ -428,13 +428,13 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     where
         D: Decode,
     {
-        self.decode_extension_addition_with_constraints(Constraints::default())
+        self.decode_extension_addition_with_constraints(&Constraints::default())
     }
     /// Decode an extension addition with explicit tag in a `SEQUENCE` or `SET`.
     fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>
     where
         D: Decode;
@@ -444,12 +444,12 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     where
         D: Decode,
     {
-        self.decode_extension_addition_with_tag_and_constraints(tag, Constraints::default())
+        self.decode_extension_addition_with_tag_and_constraints(tag, &Constraints::default())
     }
     /// Decode an extension addition with constraints in a `SEQUENCE` or `SET`
     fn decode_extension_addition_with_constraints<D>(
         &mut self,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>
     where
         D: Decode,
@@ -460,7 +460,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn decode_extension_addition_with_tag_and_constraints<D>(
         &mut self,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Option<D>, Self::Error>
     where
         D: Decode;
@@ -472,7 +472,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     ) -> Result<D, Self::Error> {
         self.decode_extension_addition_with_default_and_constraints(
             default_fn,
-            Constraints::default(),
+            &Constraints::default(),
         )
     }
     /// Decode a `DEFAULT` value with tag in a `SEQUENCE`'s or `SET`'s extension
@@ -484,7 +484,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         self.decode_extension_addition_with_default_and_tag_and_constraints::<D, F>(
             tag,
             default_fn,
-            Constraints::default(),
+            &Constraints::default(),
         )
     }
 
@@ -492,7 +492,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
     fn decode_extension_addition_with_default_and_constraints<D: Decode, F: FnOnce() -> D>(
         &mut self,
         default_fn: F,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<D, Self::Error> {
         Ok(self
             .decode_extension_addition_with_constraints::<D>(constraints)?
@@ -506,7 +506,7 @@ pub trait Decoder<const RCL: usize = 0, const ECL: usize = 0>: Sized {
         &mut self,
         tag: Tag,
         default_fn: F,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<D, Self::Error> {
         Ok(self
             .decode_extension_addition_with_tag_and_constraints::<D>(tag, constraints)?
@@ -561,7 +561,7 @@ impl Decode for () {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_null(tag)
     }
@@ -578,7 +578,7 @@ impl<D: Decode> Decode for Option<D> {
 
     fn decode_with_constraints<DE: Decoder>(
         decoder: &mut DE,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, DE::Error> {
         decoder.decode_optional_with_constraints(constraints)
     }
@@ -586,7 +586,7 @@ impl<D: Decode> Decode for Option<D> {
     fn decode_with_tag_and_constraints<DE: Decoder>(
         decoder: &mut DE,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, DE::Error> {
         decoder.decode_optional_with_tag_and_constraints(tag, constraints)
     }
@@ -596,7 +596,7 @@ impl Decode for bool {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_bool(tag)
     }
@@ -606,7 +606,7 @@ macro_rules! impl_integers {
     ($($int:ty),+ $(,)?) => {
         $(
         impl Decode for $int {
-            fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, constraints: Constraints) -> Result<Self, D::Error> {
+            fn decode_with_tag_and_constraints<D: Decoder>(decoder: &mut D, tag: Tag, constraints: &Constraints) -> Result<Self, D::Error> {
                 decoder.decode_integer::<$int>(tag, constraints)
             }
         }
@@ -635,7 +635,7 @@ impl<const START: i128, const END: i128> Decode for types::ConstrainedInteger<ST
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder
             .decode_integer::<types::Integer>(tag, constraints)
@@ -647,7 +647,7 @@ impl Decode for types::Integer {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_integer::<types::Integer>(tag, constraints)
     }
@@ -658,9 +658,9 @@ impl Decode for f32 {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
-        decoder.decode_real::<f32>(tag, Constraints::default())
+        decoder.decode_real::<f32>(tag, &Constraints::default())
     }
 }
 
@@ -669,9 +669,9 @@ impl Decode for f64 {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
-        decoder.decode_real::<f64>(tag, Constraints::default())
+        decoder.decode_real::<f64>(tag, &Constraints::default())
     }
 }
 
@@ -686,7 +686,7 @@ impl<T: Decode> Decode for Box<T> {
 
     fn decode_with_constraints<DE: Decoder>(
         decoder: &mut DE,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, DE::Error> {
         T::decode_with_constraints(decoder, constraints).map(Box::new)
     }
@@ -694,7 +694,7 @@ impl<T: Decode> Decode for Box<T> {
     fn decode_with_tag_and_constraints<DE: Decoder>(
         decoder: &mut DE,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, DE::Error> {
         T::decode_with_tag_and_constraints(decoder, tag, constraints).map(Box::new)
     }
@@ -711,7 +711,7 @@ impl<'a, T: 'a + ToOwned + Decode> Decode for Cow<'a, T> {
 
     fn decode_with_constraints<DE: Decoder>(
         decoder: &mut DE,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, DE::Error> {
         T::decode_with_constraints(decoder, constraints).map(|x| Cow::Owned(x.to_owned()))
     }
@@ -719,7 +719,7 @@ impl<'a, T: 'a + ToOwned + Decode> Decode for Cow<'a, T> {
     fn decode_with_tag_and_constraints<DE: Decoder>(
         decoder: &mut DE,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, DE::Error> {
         T::decode_with_tag_and_constraints(decoder, tag, constraints)
             .map(|x| Cow::Owned(x.to_owned()))
@@ -730,7 +730,7 @@ impl Decode for types::OctetString {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         cfg_if::cfg_if! {
             if #[cfg(feature = "arc-slice")] {
@@ -746,7 +746,7 @@ impl Decode for types::ObjectIdentifier {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_object_identifier(tag)
     }
@@ -756,7 +756,7 @@ impl Decode for types::Utf8String {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_utf8_string(tag, constraints)
     }
@@ -766,7 +766,7 @@ impl Decode for types::UtcTime {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_utc_time(tag)
     }
@@ -776,7 +776,7 @@ impl Decode for types::GeneralizedTime {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_generalized_time(tag)
     }
@@ -786,7 +786,7 @@ impl Decode for types::Any {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_any(tag)
     }
@@ -796,7 +796,7 @@ impl<T: Decode> Decode for alloc::vec::Vec<T> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_sequence_of(tag, constraints)
     }
@@ -806,7 +806,7 @@ impl<T: Decode + Eq + core::hash::Hash> Decode for SetOf<T> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_set_of(tag, constraints)
     }
@@ -816,7 +816,7 @@ impl<T: Decode, const N: usize> Decode for [T; N] {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         let sequence = decoder.decode_sequence_of(tag, constraints)?;
         sequence.try_into().map_err(|seq: Vec<_>| {
@@ -833,7 +833,7 @@ impl<T: AsnType, V: Decode> Decode for types::Implicit<T, V> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         Ok(Self::new(V::decode_with_tag_and_constraints(
             decoder,
@@ -847,7 +847,7 @@ impl<T: AsnType, V: Decode> Decode for types::Explicit<T, V> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         Ok(Self::new(decoder.decode_explicit_prefix(tag)?))
     }
@@ -856,7 +856,7 @@ impl<T: AsnType> Decode for core::marker::PhantomData<T> {
     fn decode_with_tag_and_constraints<D: Decoder>(
         _: &mut D,
         _: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         Ok(core::marker::PhantomData)
     }

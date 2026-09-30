@@ -41,7 +41,7 @@ pub fn encode_buf<T: crate::Encode>(
 
 /// Attempts to decode `T` from `input` using APER-BASIC.
 pub fn decode_with_constraints<T: crate::Decode>(
-    constraints: Constraints,
+    constraints: &Constraints,
     input: &[u8],
 ) -> Result<T, crate::error::DecodeError> {
     crate::per::decode_with_constraints(de::DecoderOptions::aligned(), constraints, input)
@@ -49,7 +49,7 @@ pub fn decode_with_constraints<T: crate::Decode>(
 
 /// Attempts to encode `value` to APER-CANONICAL.
 pub fn encode_with_constraints<T: crate::Encode>(
-    constraints: Constraints,
+    constraints: &Constraints,
     value: &T,
 ) -> Result<alloc::vec::Vec<u8>, crate::error::EncodeError> {
     crate::per::encode_with_constraints(enc::EncoderOptions::aligned(), constraints, value)

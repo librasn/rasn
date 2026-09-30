@@ -63,7 +63,7 @@ impl rasn::Encode for LdapString {
         &self,
         encoder: &mut EN,
         tag: rasn::types::Tag,
-        constraints: rasn::types::Constraints,
+        constraints: &rasn::types::Constraints,
         identifier: Identifier,
     ) -> core::result::Result<(), EN::Error> {
         encoder.encode_octet_string(tag, constraints, self.0.as_bytes(), identifier)?;
@@ -74,7 +74,7 @@ impl rasn::Decode for LdapString {
     fn decode_with_tag_and_constraints<D: rasn::Decoder>(
         decoder: &mut D,
         tag: rasn::types::Tag,
-        constraints: rasn::types::Constraints,
+        constraints: &rasn::types::Constraints,
     ) -> core::result::Result<Self, D::Error> {
         String::from_utf8(decoder.decode_octet_string(tag, constraints)?)
             .map_err(|error| {

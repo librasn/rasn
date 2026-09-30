@@ -23,7 +23,7 @@ impl<T: crate::Decode> crate::Decode for InstanceOf<T> {
     fn decode_with_tag_and_constraints<D: crate::Decoder>(
         decoder: &mut D,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_sequence(tag, None::<fn() -> Self>, |sequence| {
             let type_id = ObjectIdentifier::decode(sequence)?;
@@ -39,7 +39,7 @@ impl<T: crate::Encode> crate::Encode for InstanceOf<T> {
         &self,
         encoder: &mut EN,
         tag: Tag,
-        _: Constraints,
+        _: &Constraints,
         identifier: Identifier,
     ) -> core::result::Result<(), EN::Error> {
         encoder.encode_sequence::<2, 0, Self, _>(

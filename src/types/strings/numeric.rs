@@ -67,7 +67,7 @@ impl Encode for NumericString {
         &self,
         encoder: &mut E,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), E::Error> {
         encoder
@@ -80,7 +80,7 @@ impl Decode for NumericString {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         decoder.decode_numeric_string(tag, constraints)
     }

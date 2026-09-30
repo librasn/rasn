@@ -32,7 +32,7 @@ pub fn decode_derive_inner(input: DeriveInput) -> syn::Result<proc_macro2::Token
                 fn decode_with_tag_and_constraints<D: #crate_root::Decoder>(
                     decoder: &mut D,
                     tag: #crate_root::types::Tag,
-                    _: #crate_root::prelude::Constraints,
+                    _: &#crate_root::prelude::Constraints,
                 ) -> Result<Self, D::Error> {
                     decoder.decode_null(tag).map(|_| #name)
                 }
@@ -71,7 +71,7 @@ pub fn encode_derive_inner(input: DeriveInput) -> syn::Result<proc_macro2::Token
                     &self,
                     encoder: &mut E,
                     tag: #crate_root::types::Tag,
-                    constraints: #crate_root::prelude::Constraints,
+                    constraints: &#crate_root::prelude::Constraints,
                     identifier: #crate_root::types::Identifier,
                 ) -> Result<(), E::Error> {
                     encoder.encode_null(tag, identifier).map(drop)

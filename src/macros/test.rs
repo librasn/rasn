@@ -75,12 +75,13 @@ macro_rules! round_trip_with_constraints {
     ($codec:ident, $typ:ty, $constraints:expr, $value:expr, $expected:expr) => {{
         let value: $typ = $value;
         let expected: &[u8] = $expected;
-        let actual_encoding = crate::$codec::encode_with_constraints($constraints, &value).unwrap();
+        let actual_encoding =
+            crate::$codec::encode_with_constraints(&$constraints, &value).unwrap();
 
         pretty_assertions::assert_eq!(expected, &*actual_encoding);
 
         let decoded_value: $typ =
-            crate::$codec::decode_with_constraints($constraints, &actual_encoding).unwrap();
+            crate::$codec::decode_with_constraints(&$constraints, &actual_encoding).unwrap();
 
         pretty_assertions::assert_eq!(value, decoded_value);
     }};
@@ -91,7 +92,7 @@ macro_rules! round_trip_with_constraints {
 macro_rules! encode_error_with_constraints {
     ($codec:ident, $typ:ty, $constraints:expr, $value:expr) => {{
         let value: $typ = $value;
-        let result = crate::$codec::encode_with_constraints($constraints, &value);
+        let result = crate::$codec::encode_with_constraints(&$constraints, &value);
         match result {
             Ok(actual_encoding) => {
                 panic!(

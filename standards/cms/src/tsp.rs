@@ -142,7 +142,7 @@ impl Decode for PkiStatus {
     fn decode_with_tag_and_constraints<D: Decoder>(
         decoder: &mut D,
         _tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
     ) -> Result<Self, D::Error> {
         let discriminant = decoder.decode_integer::<isize>(Tag::INTEGER, constraints)?;
         let pki_status = PkiStatus::from_discriminant(discriminant).ok_or_else(|| {
@@ -157,7 +157,7 @@ impl Encode for PkiStatus {
         &self,
         encoder: &mut E,
         _tag: Tag,
-        constraints: Constraints,
+        constraints: &Constraints,
         identifier: Identifier,
     ) -> Result<(), <E as Encoder<'b>>::Error> {
         encoder.encode_integer(Tag::INTEGER, constraints, &self.discriminant(), identifier)?;

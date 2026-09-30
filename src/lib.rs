@@ -158,7 +158,7 @@ mod tests {
                 &self,
                 encoder: &mut E,
                 tag: Tag,
-                constraints: Constraints,
+                constraints: &Constraints,
                 _: Identifier,
             ) -> Result<(), E::Error> {
                 encoder
@@ -171,7 +171,7 @@ mod tests {
             fn decode_with_tag_and_constraints<D: crate::Decoder>(
                 decoder: &mut D,
                 tag: Tag,
-                constraints: Constraints,
+                constraints: &Constraints,
             ) -> Result<Self, D::Error> {
                 Ok(Self(decoder.decode_integer::<i32>(tag, constraints)?))
             }
