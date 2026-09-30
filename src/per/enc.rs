@@ -453,10 +453,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             self.extend(tag, &buffer);
             return Ok(());
         }
-        self.encode_normally_small_length(EL, &mut buffer)?;
-        for bit in encoder.extension_fields.iter() {
-            buffer.push(bit.is_some());
-        }
+        self.encode_extension_bitmap(&encoder.extension_fields, &mut buffer)?;
 
         for range in encoder.extension_fields.iter().flatten() {
             let field = &encoder.extension_scratch[range.clone()];
@@ -470,10 +467,33 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         Ok(())
     }
 
-    fn encode_normally_small_length(&mut self, value: usize, buffer: &mut BitBuffer) -> Result<()> {
-        debug_assert!(value >= 1);
-        let value = if value >= 64 { value } else { value - 1 };
-        self.encode_normally_small_integer(value, buffer)
+    /// X.691 §11.9.3.4: lengths up to 64 use six bits for n-1;
+    /// larger bitmaps interleave unconstrained lengths and bitmap fragments.
+    fn encode_extension_bitmap(
+        &mut self,
+        fields: &[Option<core::ops::Range<usize>>],
+        buffer: &mut BitBuffer,
+    ) -> Result<()> {
+        debug_assert!(!fields.is_empty());
+        buffer.push(fields.len() > 64);
+        if fields.len() <= 64 {
+            self.encode_integer_into_buffer::<usize>(
+                SMALL_UNSIGNED_CONSTRAINT,
+                &(fields.len() - 1),
+                buffer,
+            )?;
+            for field in fields {
+                buffer.push(field.is_some());
+            }
+            Ok(())
+        } else {
+            self.encode_length(buffer, fields.len(), None, |buffer, range| {
+                for field in &fields[range] {
+                    buffer.push(field.is_some());
+                }
+                Ok(())
+            })
+        }
     }
 
     fn encode_normally_small_integer(
@@ -1291,10 +1311,7 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             // present addition as an open type.
             let mut work = core::mem::take(&mut self.work);
             work.clear();
-            self.encode_normally_small_length(EL, &mut work)?;
-            for field in &child.extension_fields {
-                work.push(field.is_some());
-            }
+            self.encode_extension_bitmap(&child.extension_fields, &mut work)?;
             for range in child.extension_fields.iter().flatten() {
                 let field = &self.extension_scratch[range.clone()];
                 self.encode_length(&mut work, field.len(), <_>::default(), |buf, range| {
