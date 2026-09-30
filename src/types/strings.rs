@@ -113,6 +113,6 @@ impl_restricted_core_traits!(
     (Ia5String, u8),
     (NumericString, u8),
     (PrintableString, u8),
-    (TeletexString, u32),
+    (TeletexString, u8),
     (VisibleString, u8)
 );
