@@ -543,4 +543,423 @@ mod tests {
         );
         let _: ConnectData = rasn::aper::decode(&encoded).expect("failed to decode");
     }
+
+    #[test]
+    fn fixed_size_bit_strings_longer_than_16_bits_are_octet_aligned() {
+        // ITU-T X.691 (02/2021) §16.10: a fixed size above 16 bits is
+        // octet-aligned, also within an extensible root; §16.9: up to 16 bits
+        // it is not.
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Fixed24 {
+            a: bool,
+            #[rasn(size(24))]
+            b: BitString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct FixedArray24 {
+            a: bool,
+            b: FixedBitString<24>,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Extensible32 {
+            a: bool,
+            #[rasn(size(32, extensible))]
+            b: BitString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Fixed16 {
+            a: bool,
+            #[rasn(size(16))]
+            b: BitString,
+        }
+
+        round_trip!(
+            aper,
+            Fixed24,
+            Fixed24 {
+                a: true,
+                b: BitString::from_slice(&[0xab, 0xcd, 0xef]),
+            },
+            &[0x80, 0xab, 0xcd, 0xef]
+        );
+        round_trip!(
+            aper,
+            FixedArray24,
+            FixedArray24 {
+                a: true,
+                b: {
+                    let mut bits = FixedBitString::<24>::default();
+                    bits[..24].copy_from_bitslice(
+                        BitString::from_slice(&[0xab, 0xcd, 0xef]).as_bitslice(),
+                    );
+                    bits
+                },
+            },
+            &[0x80, 0xab, 0xcd, 0xef]
+        );
+        round_trip!(
+            aper,
+            Extensible32,
+            Extensible32 {
+                a: true,
+                b: BitString::from_slice(&[1, 2, 3, 4]),
+            },
+            &[0x80, 0x01, 0x02, 0x03, 0x04]
+        );
+        round_trip!(
+            aper,
+            Fixed16,
+            Fixed16 {
+                a: true,
+                b: BitString::from_slice(&[0xab, 0xcd]),
+            },
+            &[0xd5, 0xe6, 0x80]
+        );
+    }
+
+    #[test]
+    fn length_determinants_follow_the_constrained_whole_number_cases() {
+        // ITU-T X.691 (02/2021) §11.5.7: a length with a range of 256 is one
+        // octet-aligned octet, a larger range below 64K two octet-aligned
+        // octets; an upper bound of 64K or more makes the length unconstrained
+        // (§11.9.3.3, §11.9.3.5).
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Octets256 {
+            a: bool,
+            #[rasn(size("1..=256"))]
+            b: OctetString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Octets1000 {
+            a: bool,
+            #[rasn(size("1..=1000"))]
+            b: OctetString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Octets65536 {
+            a: bool,
+            #[rasn(size("1..=65536"))]
+            b: OctetString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Ia5256 {
+            a: bool,
+            #[rasn(size("1..=256"))]
+            b: Ia5String,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Printable1000 {
+            a: bool,
+            #[rasn(size("1..=1000"))]
+            b: PrintableString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Bits256 {
+            a: bool,
+            #[rasn(size("1..=256"))]
+            b: BitString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Bits1000 {
+            a: bool,
+            #[rasn(size("1..=1000"))]
+            b: BitString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Booleans256 {
+            a: bool,
+            #[rasn(size("1..=256"))]
+            b: SequenceOf<bool>,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Booleans1000 {
+            a: bool,
+            #[rasn(size("1..=1000"))]
+            b: SequenceOf<bool>,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Booleans65536 {
+            a: bool,
+            #[rasn(size("1..=65536"))]
+            b: SequenceOf<bool>,
+        }
+
+        let octets = || OctetString::from_static(&[0x11, 0x22, 0x33]);
+        let bits = || {
+            let mut bits = BitString::from_slice(&[0xa0]);
+            bits.truncate(3);
+            bits
+        };
+        let booleans = || vec![true, false, true];
+        round_trip!(
+            aper,
+            Octets256,
+            Octets256 {
+                a: true,
+                b: octets()
+            },
+            &[0x80, 0x02, 0x11, 0x22, 0x33]
+        );
+        round_trip!(
+            aper,
+            Octets1000,
+            Octets1000 {
+                a: true,
+                b: octets()
+            },
+            &[0x80, 0x00, 0x02, 0x11, 0x22, 0x33]
+        );
+        round_trip!(
+            aper,
+            Octets65536,
+            Octets65536 {
+                a: true,
+                b: octets()
+            },
+            &[0x80, 0x03, 0x11, 0x22, 0x33]
+        );
+        round_trip!(
+            aper,
+            Ia5256,
+            Ia5256 {
+                a: true,
+                b: Ia5String::try_from("abc").unwrap()
+            },
+            &[0x80, 0x02, 0x61, 0x62, 0x63]
+        );
+        round_trip!(
+            aper,
+            Printable1000,
+            Printable1000 {
+                a: true,
+                b: PrintableString::try_from("abc").unwrap()
+            },
+            &[0x80, 0x00, 0x02, 0x61, 0x62, 0x63]
+        );
+        round_trip!(
+            aper,
+            Bits256,
+            Bits256 { a: true, b: bits() },
+            &[0x80, 0x02, 0xa0]
+        );
+        round_trip!(
+            aper,
+            Bits1000,
+            Bits1000 { a: true, b: bits() },
+            &[0x80, 0x00, 0x02, 0xa0]
+        );
+        round_trip!(
+            aper,
+            Booleans256,
+            Booleans256 {
+                a: true,
+                b: booleans()
+            },
+            &[0x80, 0x02, 0xa0]
+        );
+        round_trip!(
+            aper,
+            Booleans1000,
+            Booleans1000 {
+                a: true,
+                b: booleans()
+            },
+            &[0x80, 0x00, 0x02, 0xa0]
+        );
+        round_trip!(
+            aper,
+            Booleans65536,
+            Booleans65536 {
+                a: true,
+                b: booleans()
+            },
+            &[0x80, 0x03, 0xa0]
+        );
+    }
+
+    #[test]
+    fn sequence_of_components_are_not_aligned_by_the_length() {
+        // ITU-T X.691 (02/2021) §20.6: the components follow the length
+        // determinant, with no padding; a count outside an extensible root
+        // takes an unconstrained length (§20.4).
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", delegate, size("1..=8"))]
+        struct Booleans8(SequenceOf<bool>);
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Wrapped8 {
+            a: bool,
+            b: Booleans8,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", delegate, size("1..=16", extensible))]
+        struct Booleans16(SequenceOf<bool>);
+
+        round_trip!(
+            aper,
+            Wrapped8,
+            Wrapped8 {
+                a: true,
+                b: Booleans8(vec![true, false, true])
+            },
+            &[0xaa]
+        );
+        let mut seventeen = vec![true; 17];
+        seventeen[1] = false;
+        seventeen[3] = false;
+        seventeen[5] = false;
+        round_trip!(
+            aper,
+            Booleans16,
+            Booleans16(seventeen),
+            &[0x80, 0x11, 0xab, 0xff, 0x80]
+        );
+    }
+
+    #[test]
+    fn known_multiplier_strings_align_by_upper_bound_times_character_width() {
+        // ITU-T X.691 (02/2021) §30.5.6: a fixed size is octet-aligned when
+        // the upper bound times the character width is more than 16 bits;
+        // §30.5.7: other sizes when it is 16 bits or more.
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate", delegate, size("1..=2"))]
+        struct Ia5UpTo2(Ia5String);
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Ia5One {
+            a: bool,
+            #[rasn(size(1))]
+            b: Ia5String,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct NumericUpTo2 {
+            a: bool,
+            #[rasn(size("1..=2"))]
+            b: NumericString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Numeric3 {
+            a: bool,
+            #[rasn(size(3))]
+            b: NumericString,
+        }
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Numeric5 {
+            a: bool,
+            #[rasn(size(5))]
+            b: NumericString,
+        }
+
+        // 2 characters of 8 bits: 16 bits, aligned.
+        round_trip!(
+            aper,
+            Ia5UpTo2,
+            Ia5UpTo2(Ia5String::try_from("w").unwrap()),
+            &[0x00, 0x77]
+        );
+        // 1 character of 8 bits, fixed: not aligned.
+        round_trip!(
+            aper,
+            Ia5One,
+            Ia5One {
+                a: true,
+                b: Ia5String::try_from("J").unwrap()
+            },
+            &[0xa5, 0x00]
+        );
+        // 2 characters of 4 bits: 8 bits, not aligned.
+        round_trip!(
+            aper,
+            NumericUpTo2,
+            NumericUpTo2 {
+                a: true,
+                b: NumericString::try_from("1").unwrap()
+            },
+            &[0x88]
+        );
+        // 3 characters of 4 bits, fixed: 12 bits, not aligned.
+        round_trip!(
+            aper,
+            Numeric3,
+            Numeric3 {
+                a: true,
+                b: NumericString::try_from("123").unwrap()
+            },
+            &[0x91, 0xa0]
+        );
+        // 5 characters of 4 bits, fixed: 20 bits, aligned.
+        round_trip!(
+            aper,
+            Numeric5,
+            Numeric5 {
+                a: true,
+                b: NumericString::try_from("12345").unwrap()
+            },
+            &[0x80, 0x23, 0x45, 0x60]
+        );
+    }
+
+    #[test]
+    fn fixed_size_octet_strings_align_after_the_extension_bit() {
+        // ITU-T X.691 (02/2021) §17.3, §17.7: the extension bit comes first,
+        // then the octet-aligned octets of the fixed size.
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Extensible3 {
+            a: bool,
+            #[rasn(size(3, extensible))]
+            b: OctetString,
+        }
+
+        round_trip!(
+            aper,
+            Extensible3,
+            Extensible3 {
+                a: true,
+                b: OctetString::from_static(&[1, 2, 3])
+            },
+            &[0x80, 0x01, 0x02, 0x03]
+        );
+    }
+
+    #[test]
+    fn an_extensible_permitted_alphabet_is_not_per_visible() {
+        // ITU-T X.691 (02/2021) §10.3.11: the characters use the whole IA5
+        // alphabet, 8 bits each, and nothing makes the type extensible
+        // (§10.3.18); 2 characters of 8 bits, fixed, are not aligned.
+        #[derive(Debug, AsnType, Decode, Encode, PartialEq)]
+        #[rasn(crate_root = "crate")]
+        struct Letters {
+            a: bool,
+            #[rasn(from("a..=d", extensible), size(2))]
+            b: Ia5String,
+        }
+
+        round_trip!(
+            aper,
+            Letters,
+            Letters {
+                a: true,
+                b: Ia5String::try_from("ab").unwrap()
+            },
+            &[0xb0, 0xb1, 0x00]
+        );
+    }
 }

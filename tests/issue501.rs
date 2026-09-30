@@ -39,14 +39,15 @@ fn aper_rejects_surplus_constraint_values() {
     ));
     assert_eq!(aper::decode::<S1>(&[0x90]).unwrap(), S1(10));
 
-    // APER aligns the sequence contents after the four-bit length determinant.
-    let error = aper::decode::<S2>(&[0xf0, 0xff, 0xff]).unwrap_err();
+    // The components follow the four-bit length determinant directly: APER
+    // does not align them (ITU-T X.691 (02/2021) §20.6).
+    let error = aper::decode::<S2>(&[0xff; 3]).unwrap_err();
     assert!(matches!(
         *error.kind,
         DecodeErrorKind::SizeConstraintNotSatisfied { size: Some(16), .. }
     ));
     assert_eq!(
-        aper::decode::<S2>(&[0x90, 0xff, 0xc0]).unwrap(),
+        aper::decode::<S2>(&[0b1001_1111, 0b1111_1100]).unwrap(),
         S2(SequenceOf::from(vec![true; 10]))
     );
 }
