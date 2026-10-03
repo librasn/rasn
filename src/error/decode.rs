@@ -10,7 +10,6 @@ use snafu::Snafu;
 use snafu::{Backtrace, GenerateImplicitData};
 
 use crate::Codec;
-use crate::de::Error;
 use crate::types::{Tag, constraints::Bounded, variants::Variants};
 use num_bigint::BigInt;
 
@@ -174,11 +173,6 @@ impl core::fmt::Display for DecodeError {
 }
 
 impl DecodeError {
-    /// Creates a wrapper around  EOF error from a given codec.
-    fn eof(codec: Codec) -> Self {
-        Self::from_kind(DecodeErrorKind::Eof, codec)
-    }
-
     /// Creates a wrapper around a permitted alphabet error from a given codec.
     #[must_use]
     pub fn permitted_alphabet_error(reason: PermittedAlphabetError, codec: Codec) -> Self {
@@ -397,22 +391,6 @@ impl DecodeError {
         }
     }
 
-    pub(crate) fn map_nom_err<T: core::fmt::Debug>(
-        error: nom::Err<nom::error::Error<T>>,
-        codec: Codec,
-    ) -> DecodeError {
-        match error {
-            nom::Err::Incomplete(needed) => DecodeError::incomplete(needed, codec),
-            nom::Err::Failure(e) | nom::Err::Error(e) => {
-                if e.code == nom::error::ErrorKind::Eof {
-                    DecodeError::eof(codec)
-                } else {
-                    DecodeError::parser_fail(alloc::format!("Parsing Failure: {e:?}"), codec)
-                }
-            }
-        }
-    }
-
     /// Creates a new error from a given decode error kind and codec.
     #[must_use]
     pub fn from_kind(kind: DecodeErrorKind, codec: Codec) -> Self {
@@ -572,7 +550,7 @@ pub enum DecodeErrorKind {
     },
 
     ///  More than `usize::MAX` number of data requested.
-    #[snafu(display("Length of the data exceeds platform address width"))]
+    #[snafu(display("Length of the data exceeds platform address width: {msg}"))]
     LengthExceedsPlatformWidth {
         /// The specific message of the length error.
         msg: alloc::string::String,
@@ -596,7 +574,6 @@ pub enum DecodeErrorKind {
         needed: nom::Needed,
     },
     /// Encountered EOF when decoding.
-    /// BER/CER/DER uses EOF as part of the decoding logic.
     #[snafu(display("Unexpected EOF when decoding"))]
     Eof,
 
@@ -793,6 +770,22 @@ pub enum BerDecodeErrorKind {
         /// The actual tag.
         actual: Tag,
     },
+    /// A value in the indefinite length form is not closed by end-of-contents
+    /// octets.
+    #[snafu(display("Missing end-of-contents octets after indefinite length contents"))]
+    MissingEndOfContents,
+    /// The length octets start with the octet `0xFF`, which X.690 reserves.
+    #[snafu(display("Reserved length octet 0xFF encountered"))]
+    ReservedLengthOctet,
+    /// End-of-contents octets stand where a value was expected.
+    #[snafu(display("End-of-contents octets encountered where a value was expected"))]
+    UnexpectedEndOfContents,
+    /// An object identifier arc does not fit the 32 bits an arc is stored in.
+    #[snafu(display("Object identifier arc exceeds the supported 32 bits"))]
+    UnsupportedObjectIdentifierArc,
+    /// A tag number does not fit the 32 bits a tag number is stored in.
+    #[snafu(display("Tag number exceeds the supported 32 bits"))]
+    UnsupportedTagNumber,
 }
 
 impl BerDecodeErrorKind {

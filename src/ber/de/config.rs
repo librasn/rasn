@@ -39,10 +39,6 @@ impl DecoderOptions {
     /// Returns the currently selected codec.
     #[must_use]
     pub fn current_codec(&self) -> crate::Codec {
-        match self.encoding_rules {
-            EncodingRules::Ber => crate::Codec::Ber,
-            EncodingRules::Cer => crate::Codec::Cer,
-            EncodingRules::Der => crate::Codec::Der,
-        }
+        self.encoding_rules.codec()
     }
 }

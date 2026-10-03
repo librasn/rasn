@@ -3,7 +3,6 @@
 mod config;
 pub(super) mod parser;
 
-use super::identifier::Identifier;
 use crate::{
     Decode,
     types::{
@@ -11,17 +10,15 @@ use crate::{
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
     },
 };
-use alloc::{borrow::Cow, borrow::ToOwned, string::ToString, vec::Vec};
+use alloc::{borrow::Cow, string::ToString, vec::Vec};
 use chrono::{DateTime, NaiveDate, NaiveDateTime};
-use parser::ParseNumberError;
+use parser::{Contents, END_OF_CONTENTS, Parser, Value};
 
 pub use self::config::DecoderOptions;
 
 pub use crate::error::DecodeError;
 pub use crate::error::{BerDecodeErrorKind, CodecDecodeError, DecodeErrorKind, DerDecodeErrorKind};
 type Result<T, E = DecodeError> = core::result::Result<T, E>;
-
-const EOC: &[u8] = &[0, 0];
 
 /// A BER and variants decoder. Capable of decoding BER, CER, and DER.
 pub struct Decoder<'input> {
@@ -57,17 +54,9 @@ impl<'input> Decoder<'input> {
         self.initial_len - self.input.len()
     }
     /// Peek the value of the next tag
+    #[inline]
     pub fn peek_tag(&self) -> Result<Tag> {
-        let (_, tag_ident) =
-            self::parser::parse_identifier_octet(self.input).map_err(|e| match e {
-                ParseNumberError::Nom(e) => {
-                    DecodeError::map_nom_err(e, self.config.current_codec())
-                }
-                ParseNumberError::Overflow => {
-                    DecodeError::integer_overflow(32u32, self.config.current_codec())
-                }
-            })?;
-        Ok(tag_ident.tag)
+        Ok(self.parser().identifier()?.tag)
     }
     /// Generic helper used by the optional decoders.
     /// The function will peek the upcoming tag and only invoke `f` when the tags match.
@@ -80,8 +69,7 @@ impl<'input> Decoder<'input> {
             return Ok(None);
         }
         // Special case if optional is absent and idefinite length EOC follows
-        if self.input.len() >= 2 && &self.input[..2] == EOC && !self.config.encoding_rules.is_der()
-        {
+        if !self.config.encoding_rules.is_der() && self.input.starts_with(END_OF_CONTENTS) {
             return Ok(None);
         }
         if tag != Tag::EOC {
@@ -93,27 +81,37 @@ impl<'input> Decoder<'input> {
         Ok(Some(f(self)?))
     }
 
-    fn parse_eoc(&mut self) -> Result<()> {
-        let (i, _) = nom::bytes::streaming::tag(EOC)(self.input)
-            .map_err(|e| DecodeError::map_nom_err(e, self.codec()))?;
-        self.input = i;
-        Ok(())
+    /// A parser over the remaining input.
+    #[inline]
+    fn parser(&self) -> Parser<'input> {
+        Parser::new(self.config, self.input)
     }
 
-    pub(crate) fn parse_value(&mut self, tag: Tag) -> Result<(Identifier, Option<&'input [u8]>)> {
-        let (input, (identifier, contents)) =
-            self::parser::parse_value(self.config, self.input, Some(tag))?;
-        self.input = input;
-        Ok((identifier, contents))
+    /// Parses from the remaining input, advancing past what `parse` parsed
+    /// only when it succeeds.
+    #[inline]
+    fn parse<T>(&mut self, parse: impl FnOnce(&mut Parser<'input>) -> Result<T>) -> Result<T> {
+        let mut parser = self.parser();
+        let parsed = parse(&mut parser)?;
+        self.input = parser.remaining();
+        Ok(parsed)
     }
 
-    pub(crate) fn parse_primitive_value(&mut self, tag: Tag) -> Result<(Identifier, &'input [u8])> {
-        let (input, (identifier, contents)) =
-            self::parser::parse_value(self.config, self.input, Some(tag))?;
-        self.input = input;
-        match contents {
-            Some(contents) => Ok((identifier, contents)),
-            None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
+    fn parse_end_of_contents(&mut self) -> Result<()> {
+        self.parse(Parser::end_of_contents)
+    }
+
+    #[inline]
+    fn parse_value(&mut self, tag: Tag) -> Result<Value<'input>> {
+        self.parse(|parser| parser.value(Some(tag)))
+    }
+
+    /// Parses a value that has no indefinite form, returning its contents.
+    #[inline]
+    fn parse_primitive_value(&mut self, tag: Tag) -> Result<&'input [u8]> {
+        match self.parse_value(tag)?.contents {
+            Contents::Definite(contents) => Ok(contents),
+            Contents::Indefinite => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
         }
     }
 
@@ -140,17 +138,18 @@ impl<'input> Decoder<'input> {
         F: FnOnce(&mut Self) -> Result<D>,
     {
         self.check_recursion_depth()?;
-        let (identifier, contents) = self.parse_value(tag)?;
-
-        BerDecodeErrorKind::assert_tag(tag, identifier.tag)?;
+        let Value {
+            identifier,
+            contents,
+        } = self.parse_value(tag)?;
 
         if check_identifier && identifier.is_primitive() {
             return Err(BerDecodeErrorKind::InvalidConstructedIdentifier.into());
         }
 
         let (streaming, contents) = match contents {
-            Some(contents) => (false, contents),
-            None => (true, self.input),
+            Contents::Definite(contents) => (false, contents),
+            Contents::Indefinite => (true, self.input),
         };
 
         let mut inner = Self::new(contents, self.config);
@@ -160,7 +159,7 @@ impl<'input> Decoder<'input> {
 
         if streaming {
             self.input = inner.input;
-            self.parse_eoc()?;
+            self.parse_end_of_contents()?;
         } else if !inner.input.is_empty() {
             return Err(DecodeError::unexpected_extra_data(
                 inner.input.len(),
@@ -176,11 +175,8 @@ impl<'input> Decoder<'input> {
         &self,
         data: &[u8],
     ) -> Result<crate::types::ObjectIdentifier, DecodeError> {
-        let (mut contents, root_octets) =
-            parser::parse_base128_number(data).map_err(|e| match e {
-                ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, self.codec()),
-                ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, self.codec()),
-            })?;
+        let mut arcs = Parser::new(self.config, data);
+        let root_octets = arcs.object_identifier_arc()?;
         let first: u32;
         let second: u32;
         const MAX_OID_THRESHOLD: u32 = MAX_OID_SECOND_OCTET + 1;
@@ -195,17 +191,12 @@ impl<'input> Decoder<'input> {
         // preallocate some capacity for the OID arcs, maxing out at 16 elements
         // to prevent excessive preallocation from malformed or malicious
         // packets
-        let mut buffer = alloc::vec::Vec::with_capacity(core::cmp::min(contents.len() + 2, 16));
+        let mut buffer = Vec::with_capacity(core::cmp::min(arcs.remaining().len() + 2, 16));
         buffer.push(first);
         buffer.push(second);
 
-        while !contents.is_empty() {
-            let (c, number) = parser::parse_base128_number(contents).map_err(|e| match e {
-                ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, self.codec()),
-                ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, self.codec()),
-            })?;
-            contents = c;
-            buffer.push(number);
+        while !arcs.remaining().is_empty() {
+            buffer.push(arcs.object_identifier_arc()?);
         }
         crate::types::ObjectIdentifier::new(buffer)
             .ok_or_else(|| BerDecodeErrorKind::InvalidObjectIdentifier.into())
@@ -387,40 +378,25 @@ impl<'input> crate::Decoder for Decoder<'input> {
         Self::codec(self)
     }
     fn decode_any(&mut self, tag: Tag) -> Result<types::Any> {
-        // If tag is not EOC, we are likely in sequence/set
-        let tag = if tag == Tag::EOC { None } else { Some(tag) };
-        // `parse_value` consumes the Tag and Length.
-        // `input` is the remaining slice, starting at the beginning of the Value.
-        // `contents` is `Some(value)` for definite-length, and `None` for indefinite-length.
-        let (mut input, (identifier, contents)) =
-            self::parser::parse_value(self.config, self.input, tag)?;
-
-        let contents = if let Some(definitive_contents) = contents {
-            definitive_contents.to_vec()
+        // Inside a SEQUENCE or SET the open type is wrapped in an explicit
+        // tag, which is stripped; elsewhere the whole encoding is the value.
+        let expected = (tag != Tag::EOC).then_some(tag);
+        let input = self.input;
+        let contents = self.parse(|parser| match parser.value(expected)?.contents {
+            Contents::Definite(contents) => Ok(contents),
+            Contents::Indefinite => parser.indefinite_contents(),
+        })?;
+        let encoding = &input[..input.len() - self.input.len()];
+        let octets = if expected.is_some() {
+            contents
         } else {
-            let (i, indefinitive_contents) = self::parser::parse_encoded_value(
-                self.config,
-                self.input,
-                identifier.tag,
-                |input, _| Ok(alloc::vec::Vec::from(input)),
-            )?;
-            input = i;
-            indefinitive_contents
+            encoding
         };
-        // Only the data format is validated, when not in Sequence/Set - afterwards just pass the original data.
-        let any = if tag.is_none() {
-            let diff = self.input.len() - input.len();
-            types::Any::new(self.input[..diff].to_vec())
-        } else {
-            // Outermost TLV stripped in sequence/set
-            types::Any::new(contents)
-        };
-        self.input = input;
-        Ok(any)
+        Ok(types::Any::new(octets.to_vec()))
     }
 
     fn decode_bool(&mut self, tag: Tag) -> Result<bool> {
-        let (_, contents) = self.parse_primitive_value(tag)?;
+        let contents = self.parse_primitive_value(tag)?;
         DecodeError::assert_length(1, contents.len(), self.codec())?;
         Ok(match contents[0] {
             0 => false,
@@ -447,7 +423,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: &Constraints,
     ) -> Result<I> {
-        let primitive_bytes = self.parse_primitive_value(tag)?.1;
+        let primitive_bytes = self.parse_primitive_value(tag)?;
         let integer_width = I::WIDTH as usize / 8;
         let result = if primitive_bytes.len() > integer_width {
             // in the case of superfluous leading bytes (especially zeroes),
@@ -498,61 +474,31 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: &Constraints,
     ) -> Result<T> {
-        let (identifier, contents) = self.parse_value(tag)?;
-
-        if identifier.is_primitive() {
-            match contents {
-                Some(c) => {
-                    Self::check_size_constraint(c.len(), constraints, self.codec())?;
-                    Ok(T::from(c))
-                }
-                None => Err(BerDecodeErrorKind::IndefiniteLengthNotAllowed.into()),
-            }
-        } else if identifier.is_constructed() && self.config.encoding_rules.is_der() {
-            Err(DerDecodeErrorKind::ConstructedEncodingNotAllowed.into())
-        } else {
-            let mut buffer = Vec::new();
-
-            if let Some(mut contents) = contents {
-                while !contents.is_empty() {
-                    let (c, mut vec) = self::parser::parse_encoded_value(
-                        self.config,
-                        contents,
-                        Tag::OCTET_STRING,
-                        |input, _| Ok(alloc::vec::Vec::from(input)),
-                    )?;
-                    contents = c;
-
-                    buffer.append(&mut vec);
-                }
-            } else {
-                while !self.input.starts_with(EOC) {
-                    let (c, mut vec) = self::parser::parse_encoded_value(
-                        self.config,
-                        self.input,
-                        Tag::OCTET_STRING,
-                        |input, _| Ok(alloc::vec::Vec::from(input)),
-                    )?;
-                    self.input = c;
-
-                    buffer.append(&mut vec);
-                }
-
-                self.parse_eoc()?;
-            }
-            Self::check_size_constraint(buffer.len(), constraints, self.codec())?;
-            Ok(T::from(buffer))
+        let mut parser = self.parser();
+        let value = parser.value(Some(tag))?;
+        // A primitive encoding is borrowed; a constructed one is gathered
+        // from its segments.
+        if let Contents::Definite(octets) = value.contents
+            && value.identifier.is_primitive()
+        {
+            self.input = parser.remaining();
+            Self::check_size_constraint(octets.len(), constraints, self.codec())?;
+            return Ok(T::from(octets));
         }
+        let octets: Vec<u8> = parser.string_contents(value, Tag::OCTET_STRING)?;
+        self.input = parser.remaining();
+        Self::check_size_constraint(octets.len(), constraints, self.codec())?;
+        Ok(T::from(octets))
     }
 
     fn decode_null(&mut self, tag: Tag) -> Result<()> {
-        let (_, contents) = self.parse_primitive_value(tag)?;
+        let contents = self.parse_primitive_value(tag)?;
         DecodeError::assert_length(0, contents.len(), self.codec())?;
         Ok(())
     }
 
     fn decode_object_identifier(&mut self, tag: Tag) -> Result<crate::types::ObjectIdentifier> {
-        let contents = self.parse_primitive_value(tag)?.1;
+        let contents = self.parse_primitive_value(tag)?;
         self.decode_object_identifier_from_bytes(contents)
     }
 
@@ -561,37 +507,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: &Constraints,
     ) -> Result<types::BitString> {
-        let (input, bs) =
-            self::parser::parse_encoded_value(self.config, self.input, tag, |input, codec| {
-                let unused_bits = input
-                    .first()
-                    .copied()
-                    .ok_or(DecodeError::unexpected_empty_input(codec))?;
-
-                match unused_bits {
-                    // TODO: https://github.com/myrrlyn/bitvec/issues/72
-                    bits @ 0..=7 => {
-                        let mut buffer = input[1..].to_owned();
-                        if let Some(last) = buffer.last_mut() {
-                            *last &= !((1 << bits) - 1);
-                        }
-
-                        let mut string = types::BitString::from_vec(buffer);
-                        let bit_length = string
-                            .len()
-                            .checked_sub(bits as usize)
-                            .ok_or_else(|| DecodeError::invalid_bit_string(unused_bits, codec))?;
-                        string.truncate(bit_length);
-
-                        Ok(string)
-                    }
-                    _ => Err(DecodeError::invalid_bit_string(unused_bits, codec)),
-                }
-            })?;
-
-        self.input = input;
-        Self::check_size_constraint(bs.len(), constraints, self.codec())?;
-        Ok(bs)
+        let string: types::BitString = self.parse(|parser| parser.string(tag, Tag::BIT_STRING))?;
+        Self::check_size_constraint(string.len(), constraints, self.codec())?;
+        Ok(string)
     }
 
     fn decode_visible_string(
@@ -909,11 +827,8 @@ impl<'input> crate::Decoder for Decoder<'input> {
     where
         D: crate::types::DecodeChoice,
     {
-        let (_, identifier) = parser::parse_identifier_octet(self.input).map_err(|e| match e {
-            ParseNumberError::Nom(e) => DecodeError::map_nom_err(e, self.codec()),
-            ParseNumberError::Overflow => DecodeError::integer_overflow(32u32, self.codec()),
-        })?;
-        D::from_tag(self, identifier.tag)
+        let tag = self.peek_tag()?;
+        D::from_tag(self, tag)
     }
 
     fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
@@ -1069,8 +984,18 @@ mod tests {
         )
         .unwrap();
 
+        let constructed_definite_encoded: types::BitString = decode(
+            &[
+                0x23, 0x0C, // TAG + LENGTH
+                0x03, 0x03, 0x00, 0x0A, 0x3B, // Part 1
+                0x03, 0x05, 0x04, 0x5F, 0x29, 0x1C, 0xD0, // Part 2
+            ][..],
+        )
+        .unwrap();
+
         assert_eq!(bitstring, primitive_encoded);
         assert_eq!(bitstring, constructed_encoded);
+        assert_eq!(bitstring, constructed_definite_encoded);
 
         let empty_bitstring_primitive_encoded: types::BitString =
             decode(&[0x03, 0x01, 0x00][..]).unwrap();
@@ -1282,6 +1207,25 @@ mod tests {
             },
             decode(any).unwrap(),
         );
+    }
+
+    #[test]
+    fn tagged_any_keeps_the_wrapped_encoding() {
+        use crate::Decoder;
+
+        // [1] EXPLICIT wrapping of OCTET STRING 'ABCD'H, in both length forms.
+        let expected = Any::new(vec![0x04, 0x02, 0xAB, 0xCD]);
+        for input in [
+            &[0xA1, 0x04, 0x04, 0x02, 0xAB, 0xCD][..],
+            &[0xA1, 0x80, 0x04, 0x02, 0xAB, 0xCD, 0x00, 0x00][..],
+        ] {
+            let mut decoder = super::Decoder::new(input, DecoderOptions::ber());
+            assert_eq!(
+                decoder.decode_any(Tag::new(Class::Context, 1)).unwrap(),
+                expected
+            );
+            assert!(decoder.remaining().is_empty());
+        }
     }
 
     #[test]

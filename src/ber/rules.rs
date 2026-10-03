@@ -6,6 +6,15 @@ pub enum EncodingRules {
 }
 
 impl EncodingRules {
+    /// The codec these rules belong to.
+    pub fn codec(self) -> crate::Codec {
+        match self {
+            Self::Ber => crate::Codec::Ber,
+            Self::Cer => crate::Codec::Cer,
+            Self::Der => crate::Codec::Der,
+        }
+    }
+
     pub fn is_ber(self) -> bool {
         matches!(self, Self::Ber)
     }
