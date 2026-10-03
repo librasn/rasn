@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0](https://github.com/librasn/rasn/compare/rasn-pkix-v0.28.15...rasn-pkix-v0.29.0) - 2026-10-03
+
+### Other
+
+- [**breaking**] change API signatures to take constraints by reference
+
 ## [0.28.13](https://github.com/librasn/rasn/compare/rasn-pkix-v0.28.12...rasn-pkix-v0.28.13) - 2026-04-24
 
 ### Fixed
