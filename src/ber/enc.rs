@@ -328,15 +328,27 @@ impl Encoder {
         constraints: &Constraints,
         codec: Codec,
     ) -> Result<(), EncodeError> {
+        Self::check_encode_size_constraint_with(|| len, constraints, codec)
+    }
+
+    /// Checks the size constraint against `len`, which is only computed when
+    /// there is a constraint to check.
+    fn check_encode_size_constraint_with(
+        len: impl FnOnce() -> usize,
+        constraints: &Constraints,
+        codec: Codec,
+    ) -> Result<(), EncodeError> {
         if let Some(size) = constraints.size()
             && size.extensible.is_none()
-            && !size.constraint.contains(&len)
         {
-            return Err(EncodeError::size_constraint_not_satisfied(
-                len,
-                &size.constraint,
-                codec,
-            ));
+            let len = len();
+            if !size.constraint.contains(&len) {
+                return Err(EncodeError::size_constraint_not_satisfied(
+                    len,
+                    &size.constraint,
+                    codec,
+                ));
+            }
         }
         Ok(())
     }
@@ -635,7 +647,11 @@ impl crate::Encoder<'_> for Encoder {
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         // UTF8String SIZE constraint is in Unicode characters, not bytes.
-        Self::check_encode_size_constraint(value.chars().count(), constraints, self.codec())?;
+        Self::check_encode_size_constraint_with(
+            || value.chars().count(),
+            constraints,
+            self.codec(),
+        )?;
         self.encode_octet_string_(tag, value.as_bytes())
     }
 
