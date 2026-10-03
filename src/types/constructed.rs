@@ -110,6 +110,11 @@ where
         false
     }
 
+    /// Iterates over the elements of the set.
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &T> {
+        self.elements.iter()
+    }
+
     /// Convert the set to a `Vec<&T>`. `&T` refers to the original element in the set.
     #[must_use]
     pub fn to_vec(&self) -> alloc::vec::Vec<&T> {
