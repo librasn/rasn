@@ -4,6 +4,7 @@ pub mod de;
 pub mod enc;
 mod identifier;
 mod rules;
+mod time;
 
 pub use identifier::Identifier;
 pub(crate) use rules::EncodingRules;

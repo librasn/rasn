@@ -4,12 +4,10 @@ mod config;
 
 use alloc::{
     borrow::{Cow, ToOwned},
-    string::ToString,
     vec::Vec,
 };
-use chrono::Timelike;
 
-use super::Identifier;
+use super::{Identifier, time};
 use crate::{
     Codec, Encode,
     types::{
@@ -26,6 +24,13 @@ const INDEFINITE_LENGTH: u8 = 0x80;
 /// The output capacity reserved before encoding, so that a message up to
 /// this size is written without the buffer growing.
 const INITIAL_CAPACITY: usize = 1024;
+/// The length of a canonical UTCTime, `YYMMDDHHMMSSZ`.
+const UTC_TIME_LENGTH: usize = 13;
+/// The length of a DATE, `YYYYMMDD`.
+const DATE_LENGTH: usize = 8;
+/// Room for a canonical GeneralizedTime with a fraction of a second,
+/// `YYYYMMDDHHMMSS.FFFFFFFFFZ`.
+const GENERALIZED_TIME_CAPACITY: usize = 25;
 /// The end-of-contents octets that close the indefinite form (§8.1.5).
 const END_OF_CONTENTS: &[u8] = &[0, 0];
 
@@ -416,38 +421,27 @@ impl Encoder {
     pub fn datetime_to_canonical_generalized_time_bytes(
         value: &chrono::DateTime<chrono::FixedOffset>,
     ) -> Vec<u8> {
-        let mut string;
-        // Convert to UTC so we can always append Z.
-        let value = value.naive_utc();
-        if value.nanosecond() > 0 {
-            string = value.format("%Y%m%d%H%M%S.%f").to_string();
-            // No trailing zeros with fractions
-            while string.ends_with('0') {
-                string.pop();
-            }
-        } else {
-            string = value.format("%Y%m%d%H%M%S").to_string();
-        }
-        string.push('Z');
-        string.into_bytes()
+        let mut bytes = Vec::with_capacity(GENERALIZED_TIME_CAPACITY);
+        time::write_generalized_time(&mut bytes, value);
+        bytes
     }
 
     #[must_use]
     /// Canonical byte presentation for CER/DER UTCTime as defined in X.690 section 11.8.
     /// Also used for BER on this crate.
     pub fn datetime_to_canonical_utc_time_bytes(value: &chrono::DateTime<chrono::Utc>) -> Vec<u8> {
-        value
-            .naive_utc()
-            .format("%y%m%d%H%M%SZ")
-            .to_string()
-            .into_bytes()
+        let mut bytes = Vec::with_capacity(UTC_TIME_LENGTH);
+        time::write_utc_time(&mut bytes, value);
+        bytes
     }
 
     #[must_use]
     /// Canonical byte presentation for CER/DER DATE as defined in X.690 section 8.26.2
     /// Also used for BER on this crate.
     pub fn naivedate_to_date_bytes(value: &chrono::NaiveDate) -> Vec<u8> {
-        value.format("%Y%m%d").to_string().into_bytes()
+        let mut bytes = Vec::with_capacity(DATE_LENGTH);
+        time::write_date(&mut bytes, value);
+        bytes
     }
 
     fn check_encode_size_constraint(
@@ -773,7 +767,9 @@ impl crate::Encoder<'_> for Encoder {
         value: &types::UtcTime,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.write_primitive(tag, &Self::datetime_to_canonical_utc_time_bytes(value));
+        self.write_primitive_with(tag, UTC_TIME_LENGTH, |output| {
+            time::write_utc_time(output, value);
+        });
         Ok(())
     }
 
@@ -783,10 +779,9 @@ impl crate::Encoder<'_> for Encoder {
         value: &types::GeneralizedTime,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.write_primitive(
-            tag,
-            &Self::datetime_to_canonical_generalized_time_bytes(value),
-        );
+        let generalized_time = self.begin_value(Identifier::from_tag(tag, false));
+        time::write_generalized_time(&mut self.output, value);
+        self.end_value(generalized_time);
         Ok(())
     }
 
@@ -796,7 +791,9 @@ impl crate::Encoder<'_> for Encoder {
         value: &types::Date,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        self.write_primitive(tag, &Self::naivedate_to_date_bytes(value));
+        self.write_primitive_with(tag, DATE_LENGTH, |output| {
+            time::write_date(output, value);
+        });
         Ok(())
     }
 

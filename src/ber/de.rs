@@ -10,9 +10,14 @@ use crate::{
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
     },
 };
-use alloc::{borrow::Cow, string::ToString, vec::Vec};
-use chrono::{DateTime, NaiveDate, NaiveDateTime};
+use alloc::{
+    borrow::Cow,
+    string::{String, ToString},
+    vec::Vec,
+};
 use parser::{Contents, END_OF_CONTENTS, Parser, Value};
+
+use super::time;
 
 pub use self::config::DecoderOptions;
 
@@ -201,152 +206,54 @@ impl<'input> Decoder<'input> {
         crate::types::ObjectIdentifier::new(buffer)
             .ok_or_else(|| BerDecodeErrorKind::InvalidObjectIdentifier.into())
     }
-    /// Parse any GeneralizedTime string, allowing for any from ASN.1 definition
-    /// TODO, move to type itself?
+    /// Parses a GeneralizedTime in any of the forms X.680 allows, reading a
+    /// value without a time zone as UTC.
     pub fn parse_any_generalized_time_string(
         string: alloc::string::String,
     ) -> Result<types::GeneralizedTime, DecodeError> {
-        // Reference https://obj-sys.com/asn1tutorial/node14.html
-        // If data contains ., 3 decimal places of seconds are expected
-        // If data contains explict Z, result is UTC
-        // If data contains + or -, explicit timezone is given
-        // If neither Z nor + nor -, purely local time is implied
-        // Replace comma with dot for fractional seconds.
-        let mut s = if string.contains(',') {
-            string.replace(',', ".")
-        } else {
-            string
-        };
-        if s.ends_with("Z") {
-            s.pop(); // We default to UTC
-        }
-        // Timezone offset markers are in static location if present
-        let has_offset = s.len() >= 5 && {
-            let bytes = s.as_bytes();
-            bytes[s.len() - 5] == b'+' || bytes[s.len() - 5] == b'-'
-        };
-        let format_candidates: &[&str] = if s.contains('.') {
-            if has_offset {
-                &["%Y%m%d%H%M%S%.f%z", "%Y%m%d%H%M%.f%z", "%Y%m%d%H%.f%z"] // We don't know the count of fractions
-            } else {
-                &["%Y%m%d%H%M%S%.f", "%Y%m%d%H%M%.f", "%Y%m%d%H%.f"] // We don't know the count of fractions
-            }
-        } else if has_offset {
-            match s.len() {
-                // Length including timezone offset (YYYYMMDDHHMMSS+HHMM)
-                19 => &["%Y%m%d%H%M%S%z"],
-                17 => &["%Y%m%d%H%M%z"],
-                15 => &["%Y%m%d%H%z"],
-                _ => &["%Y%m%d%H%M%S%z", "%Y%m%d%H%M%z", "%Y%m%d%H%z"],
-            }
-        } else {
-            // For local times without timezone, default to UTC later
-            match s.len() {
-                8 => &["%Y%m%d"],
-                10 => &["%Y%m%d%H"],
-                12 => &["%Y%m%d%H%M"],
-                14 => &["%Y%m%d%H%M%S"],
-                _ => &[],
-            }
-        };
-        for fmt in format_candidates {
-            if has_offset {
-                if let Ok(dt) = DateTime::parse_from_str(&s, fmt) {
-                    return Ok(dt);
-                }
-            } else if let Ok(dt) = NaiveDateTime::parse_from_str(&s, fmt) {
-                return Ok(dt.and_utc().into());
-            }
-        }
-        Err(BerDecodeErrorKind::invalid_date(s).into())
+        time::parse_generalized_time(string.as_bytes())
+            .ok_or_else(|| BerDecodeErrorKind::invalid_date(string).into())
     }
-    /// Enforce CER/DER restrictions defined in Section 11.7, strictly raise error on non-compliant
+
+    /// Parses a GeneralizedTime in the canonical form that X.690 §11.7
+    /// requires of CER and DER.
     pub fn parse_canonical_generalized_time_string(
         string: alloc::string::String,
     ) -> Result<types::GeneralizedTime, DecodeError> {
-        let len = string.len();
-        // Helper function to deal with fractions of seconds and without timezone
-        let parse_without_timezone =
-            |string: &str| -> core::result::Result<NaiveDateTime, DecodeError> {
-                let len = string.len();
-                if string.contains('.') {
-                    // https://github.com/chronotope/chrono/issues/238#issuecomment-378737786
-                    NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S%.f")
-                        .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()).into())
-                } else if len == 14 {
-                    NaiveDateTime::parse_from_str(string, "%Y%m%d%H%M%S")
-                        .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()).into())
-                } else {
-                    // CER/DER encoding rules don't allow for timezone offset +/
-                    // Or missing seconds/minutes/hours
-                    // Or comma , instead of dot .
-                    // Or local time without timezone
-                    Err(BerDecodeErrorKind::invalid_date(string.to_string()).into())
-                }
-            };
-        if string.ends_with('Z') {
-            let naive = parse_without_timezone(&string[..len - 1])?;
-            Ok(naive.and_utc().into())
-        } else {
-            Err(BerDecodeErrorKind::invalid_date(string.to_string()).into())
-        }
+        time::parse_canonical_generalized_time(string.as_bytes())
+            .ok_or_else(|| BerDecodeErrorKind::invalid_date(string).into())
     }
-    /// Parse any UTCTime string, can be any from ASN.1 definition
-    /// TODO, move to type itself?
+
+    /// Parses a UTCTime in any of the forms X.680 allows.
     pub fn parse_any_utc_time_string(
         string: alloc::string::String,
     ) -> Result<types::UtcTime, DecodeError> {
-        // When compared to GeneralizedTime, UTC time has no fractions.
-        let len = string.len();
-        // Largest string, e.g. "820102070000-0500".len() == 17
-        if len > 17 {
-            return Err(BerDecodeErrorKind::invalid_date(string.to_string()).into());
-        }
-        let format = if string.contains('Z') {
-            if len == 11 {
-                "%y%m%d%H%MZ"
-            } else {
-                "%y%m%d%H%M%SZ"
-            }
-        } else if len == 15 {
-            "%y%m%d%H%M%z"
-        } else {
-            "%y%m%d%H%M%S%z"
-        };
-        match len {
-            11 | 13 => {
-                let naive = NaiveDateTime::parse_from_str(&string, format)
-                    .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
-                Ok(naive.and_utc())
-            }
-            15 | 17 => Ok(DateTime::parse_from_str(&string, format)
-                .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?
-                .into()),
-            _ => Err(BerDecodeErrorKind::invalid_date(string.to_string()).into()),
-        }
+        time::parse_utc_time(string.as_bytes())
+            .ok_or_else(|| BerDecodeErrorKind::invalid_date(string).into())
     }
 
-    /// Enforce CER/DER restrictions defined in Section 11.8, strictly raise error on non-compliant
+    /// Parses a UTCTime in the canonical form that X.690 §11.8 requires of
+    /// CER and DER.
     pub fn parse_canonical_utc_time_string(string: &str) -> Result<types::UtcTime, DecodeError> {
-        let len = string.len();
-        if string.ends_with('Z') {
-            let naive = match len {
-                13 => NaiveDateTime::parse_from_str(string, "%y%m%d%H%M%SZ")
-                    .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?,
-                _ => Err(BerDecodeErrorKind::invalid_date(string.to_string()))?,
-            };
-            Ok(naive.and_utc())
-        } else {
-            Err(BerDecodeErrorKind::invalid_date(string.to_string()).into())
-        }
+        time::parse_canonical_utc_time(string.as_bytes())
+            .ok_or_else(|| BerDecodeErrorKind::invalid_date(string.to_string()).into())
     }
 
-    /// X.690 8.26.2 and 11.9 -> YYYYMMDD
+    /// Parses a DATE, `YYYYMMDD` (X.690 §8.26.2).
     pub fn parse_date_string(string: &str) -> Result<types::Date, DecodeError> {
-        let date = NaiveDate::parse_from_str(string, "%Y%m%d")
-            .map_err(|_| BerDecodeErrorKind::invalid_date(string.to_string()))?;
+        time::parse_date(string.as_bytes())
+            .ok_or_else(|| BerDecodeErrorKind::invalid_date(string.to_string()).into())
+    }
 
-        Ok(date)
+    /// Decodes a time type, whose characters `parse` reads from the string
+    /// value tagged `tag`.
+    fn decode_time<T>(&mut self, tag: Tag, parse: fn(&[u8]) -> Option<T>) -> Result<T> {
+        let characters =
+            crate::Decoder::decode_octet_string::<Cow<[u8]>>(self, tag, &Constraints::default())?;
+        parse(&characters).ok_or_else(|| {
+            BerDecodeErrorKind::invalid_date(String::from_utf8_lossy(&characters).into_owned())
+                .into()
+        })
     }
 
     fn check_size_constraint(
@@ -624,27 +531,25 @@ impl<'input> crate::Decoder for Decoder<'input> {
     }
 
     fn decode_generalized_time(&mut self, tag: Tag) -> Result<types::GeneralizedTime> {
-        let string = self.decode_utf8_string(tag, &Constraints::default())?;
-        if self.config.encoding_rules.is_ber() {
-            Self::parse_any_generalized_time_string(string)
+        let parse = if self.config.encoding_rules.is_ber() {
+            time::parse_generalized_time
         } else {
-            Self::parse_canonical_generalized_time_string(string)
-        }
+            time::parse_canonical_generalized_time
+        };
+        self.decode_time(tag, parse)
     }
 
     fn decode_utc_time(&mut self, tag: Tag) -> Result<types::UtcTime> {
-        // Reference https://obj-sys.com/asn1tutorial/node15.html
-        let string = self.decode_utf8_string(tag, &Constraints::default())?;
-        if self.config.encoding_rules.is_ber() {
-            Self::parse_any_utc_time_string(string)
+        let parse = if self.config.encoding_rules.is_ber() {
+            time::parse_utc_time
         } else {
-            Self::parse_canonical_utc_time_string(&string)
-        }
+            time::parse_canonical_utc_time
+        };
+        self.decode_time(tag, parse)
     }
 
     fn decode_date(&mut self, tag: Tag) -> core::result::Result<types::Date, Self::Error> {
-        let string = self.decode_utf8_string(tag, &Constraints::default())?;
-        Self::parse_date_string(&string)
+        self.decode_time(tag, time::parse_date)
     }
 
     fn decode_sequence_of<D: Decode>(
