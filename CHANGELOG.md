@@ -32,6 +32,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0](https://github.com/librasn/rasn/compare/rasn-v0.28.15...rasn-v0.29.0) - 2026-10-03
+
+### Other
+
+- *(ber)* reserve 1KiB in output buffer
+- *(ber)* encode into single buffer
+- *(ber)* only count Utf8String character count when size is constrained
+- *(ber)* move from nom to custom parser
+- *(constraints)* convert integer to i128 once per call
+- [**breaking**] change API signatures to take constraints by reference
+
 ## [0.28.15](https://github.com/librasn/rasn/compare/rasn-v0.28.14...rasn-v0.28.15) - 2026-09-25
 
 ### Added

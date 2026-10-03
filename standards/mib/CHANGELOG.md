@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0](https://github.com/librasn/rasn/compare/rasn-mib-v0.28.15...rasn-mib-v0.29.0) - 2026-10-03
+
+### Other
+
+- [**breaking**] change API signatures to take constraints by reference
+
 ## [0.27.0](https://github.com/librasn/rasn/compare/rasn-mib-v0.26.6...rasn-mib-v0.27.0) - 2025-06-19
 
 ### Other
