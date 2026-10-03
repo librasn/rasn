@@ -23,6 +23,9 @@ pub use config::EncoderOptions;
 
 /// The initial length octet of the indefinite form (X.690 §8.1.3.6).
 const INDEFINITE_LENGTH: u8 = 0x80;
+/// The output capacity reserved before encoding, so that a message up to
+/// this size is written without the buffer growing.
+const INITIAL_CAPACITY: usize = 1024;
 /// The end-of-contents octets that close the indefinite form (§8.1.5).
 const END_OF_CONTENTS: &[u8] = &[0, 0];
 
@@ -160,6 +163,7 @@ impl Encoder {
     #[must_use]
     pub fn new_with_buffer(config: EncoderOptions, mut buffer: Vec<u8>) -> Self {
         buffer.clear();
+        buffer.reserve(INITIAL_CAPACITY);
         Self {
             config,
             output: buffer,
