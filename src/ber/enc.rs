@@ -54,26 +54,19 @@ pub fn object_identifier_as_bytes(oid: &[u32], buffer: &mut Vec<u8>) -> Result<(
     Ok(())
 }
 
+/// Appends `number` in base 128, seven bits per octet, most significant
+/// group first, with bit 8 set on every octet but the last (X.690
+/// §8.1.2.4.2, §8.19.2).
+///
+/// Kept out of line so that the identifier writer, which only needs it for
+/// tag numbers of 31 and over, stays small enough to inline.
+#[inline(never)]
 pub(super) fn encode_as_base128(number: u32, buffer: &mut Vec<u8>) {
-    const WIDTH: u8 = 7;
-    const SEVEN_BITS: u8 = 0x7F;
-    const EIGHTH_BIT: u8 = 0x80;
-
-    if number < EIGHTH_BIT as u32 {
-        buffer.push(number as u8);
-    } else {
-        let mut n: u8;
-        let mut bits_left = 35;
-        let mut cont = false;
-        while bits_left > 0 {
-            bits_left -= WIDTH;
-            n = ((number >> bits_left) as u8) & SEVEN_BITS;
-            if n > 0 || cont {
-                buffer.push(if bits_left > 0 { EIGHTH_BIT } else { 0 } | (n & SEVEN_BITS));
-                cont = true;
-            }
-        }
+    let groups = (u32::BITS - number.leading_zeros()).div_ceil(7).max(1);
+    for group in (1..groups).rev() {
+        buffer.push(0x80 | ((number >> (7 * group)) & 0x7F) as u8);
     }
+    buffer.push((number & 0x7F) as u8);
 }
 
 /// Encodes Rust structures into Basic Encoding Rules data.
