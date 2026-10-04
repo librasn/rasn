@@ -111,6 +111,13 @@ mod tests {
 
         const SIGNED_DATA: &[u8] = &[0x02, 0x06, 0xFF, 0xFF, 0x83, 0x44, 0x55, 0x66];
         assert_eq!(decode::<i32>(SIGNED_DATA).unwrap(), -2_092_673_690);
+
+        // A sign octet followed by an octet with the opposite leading bit is
+        // significant: dropping it would flip the sign.
+        const SIGN_CARRYING_DATA: &[u8] = &[0x02, 0x06, 0xFF, 0xFF, 0xFF, 0xFF, 0x7F, 0x00];
+        assert_eq!(decode::<i32>(SIGN_CARRYING_DATA).unwrap(), -0x8100);
+        const POSITIVE_WITH_HIGH_BIT: &[u8] = &[0x02, 0x05, 0x00, 0x00, 0x80, 0x00, 0x00];
+        assert_eq!(decode::<i32>(POSITIVE_WITH_HIGH_BIT).unwrap(), 0x0080_0000);
     }
 
     #[test]

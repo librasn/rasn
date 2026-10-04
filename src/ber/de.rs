@@ -276,6 +276,18 @@ impl<'input> Decoder<'input> {
     }
 }
 
+/// Drops the leading octets of a two's complement integer that only repeat
+/// its sign: an octet of all ones or all zeros whose successor starts with
+/// the same bit (X.690 §8.3.2).
+fn without_redundant_sign_octets(contents: &[u8]) -> &[u8] {
+    let sign = contents.first().map_or(0, |first| first & 0x80);
+    let redundant = contents
+        .windows(2)
+        .take_while(|pair| pair[0] == if sign == 0 { 0x00 } else { 0xFF } && pair[1] & 0x80 == sign)
+        .count();
+    &contents[redundant..]
+}
+
 impl<'input> crate::Decoder for Decoder<'input> {
     type Ok = ();
     type Error = DecodeError;
@@ -330,28 +342,22 @@ impl<'input> crate::Decoder for Decoder<'input> {
         tag: Tag,
         constraints: &Constraints,
     ) -> Result<I> {
-        let primitive_bytes = self.parse_primitive_value(tag)?;
-        let integer_width = I::WIDTH as usize / 8;
-        let result = if primitive_bytes.len() > integer_width {
-            // in the case of superfluous leading bytes (especially zeroes),
-            // we may still want to try to decode the integer even though
-            // the length is > integer width ...
-            let leading_byte = if primitive_bytes[0] & 0x80 == 0x80 {
-                0xFF
-            } else {
-                0x00
-            };
-            let input_iter = primitive_bytes
-                .iter()
-                .copied()
-                .skip_while(|n| *n == leading_byte);
-            let data_length = input_iter.clone().count();
-            I::try_from_bytes(
-                &primitive_bytes[primitive_bytes.len() - data_length..primitive_bytes.len()],
-                self.codec(),
-            )?
-        } else {
-            I::try_from_bytes(primitive_bytes, self.codec())?
+        let mut contents = self.parse_primitive_value(tag)?;
+        // An encoding longer than the type may still fit it once the leading
+        // octets that only repeat the sign are dropped (X.690 §8.3.2 forbids
+        // them, but BER data in the wild carries them).
+        if contents.len() > I::BYTE_WIDTH {
+            contents = without_redundant_sign_octets(contents);
+        }
+        let result = match contents.first() {
+            // Only a signed type can hold a negative value.
+            Some(sign) if sign & 0x80 != 0 => I::try_from_signed_bytes(contents, self.codec())?,
+            // A non-negative value may carry one octet more than the type
+            // when that octet only keeps the sign bit clear.
+            Some(0) if contents.len() == I::BYTE_WIDTH + 1 => {
+                I::try_from_unsigned_bytes(&contents[1..], self.codec())?
+            }
+            _ => I::try_from_bytes(contents, self.codec())?,
         };
 
         if let Some(value) = constraints.value()

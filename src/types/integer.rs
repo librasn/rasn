@@ -457,25 +457,24 @@ pub trait IntegerType:
     fn to_integer(self) -> Integer;
 }
 
-trait MinFixedSizeIntegerBytes: IntegerType + ToBytes {
-    /// Encode the given `N` sized integer as big-endian bytes and determine the number of bytes needed.
-    /// We know the maximum size of the integer bytes in compile time, but we don't know the actual size.
-    /// "Needed"" value defines unnecessary leading zeros or ones on runtime to provide useful integer byte presentation.
-    /// We can use the same returned value to use only required bytes for encoding.
+trait MinFixedSizeIntegerBytes:
+    IntegerType + ToBytes + Copy + core::ops::Shl<u32, Output = Self>
+{
+    /// Encodes the `N` byte integer as big-endian bytes without the leading
+    /// bytes that only repeat its sign (zeros for an unsigned value), and
+    /// returns them at the front of the array with their number.
     #[inline(always)]
     fn needed_as_be_bytes<const N: usize>(&self, signed: bool) -> ([u8; N], usize) {
-        let bytes: [u8; N] = self.to_le_bytes().as_ref().try_into().unwrap_or([0; N]);
         let needed = if signed {
             self.signed_bytes_needed()
         } else {
             self.unsigned_bytes_needed()
         };
-        let mut slice_reversed: [u8; N] = [0; N];
-        // About 2.5x speed when compared to `copy_from_slice` and `.reverse()`, since we don't need all bytes in most cases
-        for i in 0..needed {
-            slice_reversed[i] = bytes[needed - 1 - i];
-        }
-        (slice_reversed, needed)
+        // Shifting the value up moves its needed bytes to the front of the
+        // big-endian representation.
+        let shifted = *self << ((N - needed) * 8) as u32;
+        let bytes: [u8; N] = shifted.to_be_bytes().as_ref().try_into().unwrap_or([0; N]);
+        (bytes, needed)
     }
     /// Finds the minimum number of bytes needed to present the unsigned integer. (in order to drop unecessary leading zeros or ones)
     fn unsigned_bytes_needed(&self) -> usize;
@@ -505,26 +504,21 @@ macro_rules! integer_type_impl {
                 input: &[u8],
                 codec: crate::Codec,
             ) -> Result<Self, crate::error::DecodeError> {
-                const BYTE_SIZE: usize = (<$t1>::BITS / 8) as usize;
+                const BYTE_SIZE: usize = core::mem::size_of::<$t1>();
                 if input.is_empty() {
                     return Err(crate::error::DecodeError::unexpected_empty_input(codec));
                 }
                 if input.len() > BYTE_SIZE {
                     return Err(crate::error::DecodeError::integer_overflow(<$t1>::BITS, codec));
                 }
-
-                // Use shifting to directly construct the primitive integer types
-                // Convert first byte with sign extension
-                 let mut result = (input[0] as $t1) << (BYTE_SIZE - 1) * 8;
-                 result >>= (BYTE_SIZE - input.len()) * 8;
-                 // // Handle remaining bytes
-                 // Add remaining bytes
-                 for (i, &byte) in input.iter().skip(1).enumerate() {
-                     result |= (byte as $t1) << (8 * (input.len() - 2 - i));
-                 }
-
+                // The first octet carries the sign: place it at the top and
+                // extend it with an arithmetic shift, then add the rest.
+                let mut result = (input[0] as $t1) << ((BYTE_SIZE - 1) * 8);
+                result >>= (BYTE_SIZE - input.len()) * 8;
+                for (i, &byte) in input.iter().skip(1).enumerate() {
+                    result |= (byte as $t1) << (8 * (input.len() - 2 - i));
+                }
                 Ok(result)
-
             }
 
             #[inline(always)]
@@ -605,10 +599,18 @@ macro_rules! integer_type_impl {
                 input: &[u8],
                 codec: crate::Codec,
             ) -> Result<Self, crate::error::DecodeError> {
-                <$t1>::try_from(<$t2>::try_from_bytes(input, codec)?)
-                    .map_err(|_| {
-                    crate::error::DecodeError::integer_type_conversion_failed(alloc::format!("Failed to create unsigned integer from signed bytes, target bit-size {}, with bytes: {:?}", <$t1>::BITS, input).into(), codec)
-                })
+                // A two's complement value fits once its sign is known to be
+                // positive: the octet that only keeps the sign bit clear is
+                // then not part of the magnitude.
+                match input {
+                    [] => Err(crate::error::DecodeError::unexpected_empty_input(codec)),
+                    [first, ..] if first & 0x80 != 0 => Err(
+                        crate::error::DecodeError::integer_type_conversion_failed(alloc::format!("Failed to create unsigned integer from signed bytes, target bit-size {}, with bytes: {:?}", <$t1>::BITS, input).into(), codec)
+                    ),
+                    [0] => Ok(0),
+                    [0, magnitude @ ..] => Self::try_from_unsigned_bytes(magnitude, codec),
+                    magnitude => Self::try_from_unsigned_bytes(magnitude, codec),
+                }
             }
 
             #[inline(always)]
@@ -616,21 +618,17 @@ macro_rules! integer_type_impl {
                 input: &[u8],
                 codec: crate::Codec,
             ) -> Result<Self, crate::error::DecodeError> {
-                const BYTE_SIZE: usize = (<$t1>::BITS / 8) as usize;
+                const BYTE_SIZE: usize = core::mem::size_of::<$t1>();
                 if input.is_empty() {
                     return Err(crate::error::DecodeError::unexpected_empty_input(codec));
                 }
                 if input.len() > BYTE_SIZE {
                     return Err(crate::error::DecodeError::integer_overflow(<$t1>::BITS, codec));
                 }
-
-                // Use shifting to directly construct the primitive integer types
-                let mut result: $t1 = 0;
-                // Calculate how many positions to shift each byte
                 let start_shift = (input.len() - 1) * 8;
+                let mut result: $t1 = 0;
                 for (i, &byte) in input.iter().enumerate() {
-                    let shift = start_shift - (i * 8);
-                    result |= (byte as $t1) << shift;
+                    result |= (byte as $t1) << (start_shift - i * 8);
                 }
                 Ok(result)
             }
@@ -774,7 +772,7 @@ enum IntegerBytesRef<T: AsRef<[u8]>> {
 impl<T: AsRef<[u8]>> AsRef<[u8]> for IntegerBytesRef<T> {
     fn as_ref(&self) -> &[u8] {
         match self {
-            IntegerBytesRef::Stack(arr) => arr,
+            IntegerBytesRef::Stack(bytes) => bytes,
             IntegerBytesRef::Heap(slice) => slice.as_ref(),
         }
     }
@@ -834,11 +832,8 @@ impl IntegerType for Integer {
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         match &self.0 {
             IntegerKind::Primitive(value) => {
-                let (bytes, len) = <isize as IntegerType>::to_signed_bytes_be(value);
-                (
-                    IntegerBytesRef::Stack(bytes.as_ref().try_into().unwrap_or_default()),
-                    len,
-                )
+                let (bytes, len) = value.needed_as_be_bytes(true);
+                (IntegerBytesRef::Stack(bytes), len)
             }
             IntegerKind::Variable(value) => {
                 let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
@@ -850,11 +845,8 @@ impl IntegerType for Integer {
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
         match &self.0 {
             IntegerKind::Primitive(value) => {
-                let (bytes, len) = <isize as IntegerType>::to_unsigned_bytes_be(value);
-                (
-                    IntegerBytesRef::Stack(bytes.as_ref().try_into().unwrap_or_default()),
-                    len,
-                )
+                let (bytes, len) = (*value as usize).needed_as_be_bytes(false);
+                (IntegerBytesRef::Stack(bytes), len)
             }
             IntegerKind::Variable(value) => {
                 let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
