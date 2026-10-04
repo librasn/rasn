@@ -8,6 +8,8 @@ exclude = ["fuzzing"]
 keywords = ["asn1", "der", "ber", "cer", "per"]
 repository.workspace = true
 edition.workspace = true
+# Every bench is a `[[bench]]` entry; `benches/common.rs` is a module they share.
+autobenches = false
 
 [lib]
 bench = false
@@ -81,6 +83,12 @@ path = "benches/ieee1609dot2_bsm_cert.rs"
 harness = false
 test = true
 
+[[bench]]
+name = "real_world"
+path = "benches/real_world.rs"
+harness = false
+test = true
+
 [dependencies]
 arc-slice = { version = "0.1.0", optional = true }
 bytes = { version = "1.7.2", default-features = false, optional = true }
@@ -118,6 +126,10 @@ once_cell = "1.20.2"
 pretty_assertions.workspace = true
 rasn-pkix = { path = "standards/pkix", default-features = false }
 rasn-its = { path = "standards/its", default-features = false }
+rasn-cms = { path = "standards/cms", default-features = false }
+rasn-kerberos = { path = "standards/kerberos", default-features = false }
+rasn-ocsp = { path = "standards/ocsp", default-features = false }
+rasn-snmp = { path = "standards/snmp", default-features = false }
 serde = {version="1.0.228", features=["derive"]}
 
 # Assume that we need these dependencies only when benching manually on specific targets

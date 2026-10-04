@@ -1,6 +1,8 @@
 use chrono::{FixedOffset, TimeZone, Utc};
 use rasn::prelude::*;
 
+pub mod x509;
+
 #[derive(AsnType, Decode, Encode)]
 pub struct Bench {
     a: bool,
