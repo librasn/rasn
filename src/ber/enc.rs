@@ -47,11 +47,22 @@ pub fn object_identifier_as_bytes(oid: &[u32], buffer: &mut Vec<u8>) -> Result<(
     if first > MAX_OID_FIRST_OCTET {
         return Err(BerEncodeErrorKind::invalid_object_identifier(oid.to_owned()).into());
     }
-    encode_as_base128((first * (MAX_OID_SECOND_OCTET + 1)) + second, buffer);
+    write_arc((first * (MAX_OID_SECOND_OCTET + 1)) + second, buffer);
     for component in oid.iter().skip(2) {
-        encode_as_base128(*component, buffer);
+        write_arc(*component, buffer);
     }
     Ok(())
+}
+
+/// Appends an arc (§8.19.2): one octet when it is below 128, the base 128
+/// form otherwise.
+#[inline]
+fn write_arc(arc: u32, buffer: &mut Vec<u8>) {
+    if arc < 0x80 {
+        buffer.push(arc as u8);
+    } else {
+        encode_as_base128(arc, buffer);
+    }
 }
 
 /// Appends `number` in base 128, seven bits per octet, most significant
