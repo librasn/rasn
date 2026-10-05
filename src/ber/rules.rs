@@ -23,10 +23,6 @@ impl EncodingRules {
         matches!(self, Self::Cer)
     }
 
-    pub fn is_der(self) -> bool {
-        matches!(self, Self::Der)
-    }
-
     pub fn allows_constructed_strings(self) -> bool {
         matches!(self, Self::Ber | Self::Cer)
     }

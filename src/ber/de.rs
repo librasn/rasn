@@ -30,6 +30,9 @@ pub struct Decoder<'input> {
     input: &'input [u8],
     config: DecoderOptions,
     initial_len: usize,
+    /// Whether end-of-contents octets (§8.1.5) may close the input, as they
+    /// close the contents of an indefinite-length value.
+    closed_by_end_of_contents: bool,
 }
 
 impl<'input> Decoder<'input> {
@@ -50,6 +53,7 @@ impl<'input> Decoder<'input> {
             input,
             config,
             initial_len: input.len(),
+            closed_by_end_of_contents: config.encoding_rules.allows_indefinite(),
         }
     }
 
@@ -70,11 +74,7 @@ impl<'input> Decoder<'input> {
     where
         F: FnOnce(&mut Self) -> Result<D, DecodeError>,
     {
-        if self.input.is_empty() {
-            return Ok(None);
-        }
-        // Special case if optional is absent and idefinite length EOC follows
-        if !self.config.encoding_rules.is_der() && self.input.starts_with(END_OF_CONTENTS) {
+        if self.at_end_of_contents() {
             return Ok(None);
         }
         if tag != Tag::EOC {
@@ -84,6 +84,13 @@ impl<'input> Decoder<'input> {
             }
         }
         Ok(Some(f(self)?))
+    }
+
+    /// Whether the contents being decoded have ended.
+    #[inline]
+    fn at_end_of_contents(&self) -> bool {
+        self.input.is_empty()
+            || (self.closed_by_end_of_contents && self.input.starts_with(END_OF_CONTENTS))
     }
 
     /// A parser over the remaining input.
@@ -120,14 +127,18 @@ impl<'input> Decoder<'input> {
         }
     }
 
+    #[inline]
     fn check_recursion_depth(&self) -> Result<()> {
         if self.config.remaining_depth == 0 {
-            return Err(DecodeError::from_kind(
-                DecodeErrorKind::ExceedsMaxParseDepth,
-                self.codec(),
-            ));
+            return Err(self.exceeds_max_parse_depth());
         }
         Ok(())
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn exceeds_max_parse_depth(&self) -> DecodeError {
+        DecodeError::from_kind(DecodeErrorKind::ExceedsMaxParseDepth, self.codec())
     }
 
     /// Parses a constructed ASN.1 value, checking the `tag`, and optionally
@@ -158,6 +169,7 @@ impl<'input> Decoder<'input> {
         };
 
         let mut inner = Self::new(contents, self.config);
+        inner.closed_by_end_of_contents = streaming;
         inner.config.remaining_depth = inner.config.remaining_depth.saturating_sub(1);
 
         let result = (decode_fn)(&mut inner)?;
@@ -566,30 +578,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let items = self.parse_constructed_contents(tag, true, |decoder| {
             decoder.config.remaining_depth = decoder.config.remaining_depth.saturating_sub(1);
             let mut items = Vec::new();
-
-            if decoder.input.is_empty() {
-                return Ok(items);
+            while !decoder.at_end_of_contents() {
+                items.push(D::decode(decoder)?);
             }
-
-            loop {
-                match D::decode(decoder) {
-                    Ok(item) => {
-                        items.push(item);
-                        if decoder.input.is_empty() {
-                            return Ok(items);
-                        }
-                    }
-                    Err(e) => {
-                        if e.matches_root_cause(|kind| {
-                            matches!(kind, DecodeErrorKind::ExceedsMaxParseDepth)
-                        }) {
-                            return Err(e);
-                        }
-                        break;
-                    }
-                }
-            }
-
             Ok(items)
         })?;
         Self::check_size_constraint(items.len(), constraints, self.codec())?;
@@ -604,23 +595,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
         let items = self.parse_constructed_contents(tag, true, |decoder| {
             decoder.config.remaining_depth = decoder.config.remaining_depth.saturating_sub(1);
             let mut items = types::SetOf::new();
-
-            loop {
-                match D::decode(decoder) {
-                    Ok(item) => {
-                        items.insert(item);
-                    }
-                    Err(e) => {
-                        if e.matches_root_cause(|kind| {
-                            matches!(kind, DecodeErrorKind::ExceedsMaxParseDepth)
-                        }) {
-                            return Err(e);
-                        }
-                        break;
-                    }
-                }
+            while !decoder.at_end_of_contents() {
+                items.insert(D::decode(decoder)?);
             }
-
             Ok(items)
         })?;
         Self::check_size_constraint(items.len(), constraints, self.codec())?;
@@ -666,9 +643,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
         &mut self,
         tag: Tag,
     ) -> Result<Option<D>, Self::Error> {
-        self.decode_explicit_prefix(tag)
-            .map(Some)
-            .or_else(|_| Ok(None))
+        self.decode_optional_with_check(tag, |decoder| decoder.decode_explicit_prefix(tag))
     }
 
     fn decode_set<const RL: usize, const EL: usize, FIELDS, SET, D, F>(
@@ -685,21 +660,9 @@ impl<'input> crate::Decoder for Decoder<'input> {
     {
         self.parse_constructed_contents(tag, true, |decoder| {
             let mut fields = Vec::new();
-
-            loop {
-                match FIELDS::decode(decoder) {
-                    Ok(value) => fields.push(value),
-                    Err(e) => {
-                        if e.matches_root_cause(|kind| {
-                            matches!(kind, DecodeErrorKind::ExceedsMaxParseDepth)
-                        }) {
-                            return Err(e);
-                        }
-                        break;
-                    }
-                }
+            while !decoder.at_end_of_contents() {
+                fields.push(FIELDS::decode(decoder)?);
             }
-
             (field_fn)(fields)
         })
     }
@@ -1146,6 +1109,38 @@ mod tests {
             0x00,
         ];
         assert!(decode::<Any>(any).is_err());
+    }
+
+    #[test]
+    fn indefinite_sequence_of_ends_at_the_end_of_contents_octets() {
+        let input = &[0x30, 0x80, 0x02, 0x01, 0x01, 0x02, 0x01, 0x02, 0x00, 0x00];
+        assert_eq!(decode::<Vec<i32>>(input).unwrap(), [1, 2]);
+    }
+
+    #[test]
+    fn malformed_set_of_element_reports_its_own_error() {
+        // The second element of a SET OF INTEGER is a BOOLEAN.
+        let input = &[0x31, 0x06, 0x02, 0x01, 0x01, 0x01, 0x01, 0xFF];
+        assert!(matches!(
+            *decode::<SetOf<i32>>(input).unwrap_err().kind,
+            DecodeErrorKind::CodecSpecific {
+                inner: CodecDecodeError::Ber(BerDecodeErrorKind::MismatchedTag { .. })
+            }
+        ));
+    }
+
+    #[test]
+    fn malformed_optional_explicit_prefix_is_an_error() {
+        use crate::Decoder as _;
+
+        // A present [0] holds a BOOLEAN where an INTEGER is expected.
+        let input = &[0xA0, 0x03, 0x01, 0x01, 0xFF];
+        let mut decoder = Decoder::new(input, DecoderOptions::ber());
+        assert!(
+            decoder
+                .decode_optional_with_explicit_prefix::<i32>(Tag::new(Class::Context, 0))
+                .is_err()
+        );
     }
 
     #[test]

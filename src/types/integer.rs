@@ -792,14 +792,13 @@ impl IntegerType for Integer {
         if input.is_empty() {
             return Err(crate::error::DecodeError::unexpected_empty_input(codec));
         }
-        isize::try_from_bytes(input, codec)
-            .map(IntegerKind::Primitive)
-            .or_else(|_| {
-                BigInt::try_from_bytes(input, codec)
-                    .map(Box::new)
-                    .map(IntegerKind::Variable)
-            })
-            .map(Self)
+        // Two's complement fits `isize` in as many octets as `isize` has.
+        if input.len() <= size_of::<isize>() {
+            isize::try_from_bytes(input, codec).map(|value| Self(IntegerKind::Primitive(value)))
+        } else {
+            BigInt::try_from_bytes(input, codec)
+                .map(|value| Self(IntegerKind::Variable(Box::new(value))))
+        }
     }
 
     #[inline(always)]
@@ -815,18 +814,17 @@ impl IntegerType for Integer {
         input: &[u8],
         codec: crate::Codec,
     ) -> Result<Self, crate::error::DecodeError> {
-        if input.is_empty() {
+        let Some(&first) = input.first() else {
             return Err(crate::error::DecodeError::unexpected_empty_input(codec));
+        };
+        // A magnitude fits `isize` in as many octets only with the top bit clear.
+        if input.len() < size_of::<isize>() || input.len() == size_of::<isize>() && first < 0x80 {
+            isize::try_from_unsigned_bytes(input, codec)
+                .map(|value| Self(IntegerKind::Primitive(value)))
+        } else {
+            BigInt::try_from_unsigned_bytes(input, codec)
+                .map(|value| Self(IntegerKind::Variable(Box::new(value))))
         }
-
-        isize::try_from_unsigned_bytes(input, codec)
-            .map(IntegerKind::Primitive)
-            .or_else(|_| {
-                BigInt::try_from_unsigned_bytes(input, codec)
-                    .map(Box::new)
-                    .map(IntegerKind::Variable)
-            })
-            .map(Self)
     }
     #[inline(always)]
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
@@ -1101,6 +1099,34 @@ macro_rules! test_integer_conversions_and_operations {
                 assert_eq!(negative.to_i128(), Some(-1000i128));
                 assert_eq!(very_large_positive.to_i128(), None);
                 assert_eq!(very_large_negative.to_i128(), None);
+            }
+
+            #[test]
+            fn representation_follows_the_octet_count() {
+                let width = size_of::<isize>();
+                let codec = crate::Codec::Ber;
+
+                // Two's complement: `isize` octets fit, one more does not.
+                let minimum = [&[0x80][..], &alloc::vec![0x00; width - 1]].concat();
+                assert!(matches!(
+                    Integer::try_from_bytes(&minimum, codec).unwrap(),
+                    Integer(IntegerKind::Primitive(isize::MIN))
+                ));
+                let beyond = [&[0x00, 0x80][..], &alloc::vec![0x00; width - 1]].concat();
+                let beyond = Integer::try_from_bytes(&beyond, codec).unwrap();
+                assert!(matches!(beyond, Integer(IntegerKind::Variable(_))));
+                assert_eq!(beyond.to_i128(), Some(isize::MAX as i128 + 1));
+
+                // A magnitude: `isize` octets fit only with the top bit clear.
+                let maximum = [&[0x7F][..], &alloc::vec![0xFF; width - 1]].concat();
+                assert!(matches!(
+                    Integer::try_from_unsigned_bytes(&maximum, codec).unwrap(),
+                    Integer(IntegerKind::Primitive(isize::MAX))
+                ));
+                let top_bit = [&[0x80][..], &alloc::vec![0x00; width - 1]].concat();
+                let top_bit = Integer::try_from_unsigned_bytes(&top_bit, codec).unwrap();
+                assert!(matches!(top_bit, Integer(IntegerKind::Variable(_))));
+                assert_eq!(top_bit.to_i128(), Some(isize::MAX as i128 + 1));
             }
         }
     };
