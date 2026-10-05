@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 +
 +## [Unreleased]
 
+## [0.29.0](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.28.15...rasn-derive-impl-v0.29.0) - 2026-10-05
+
+### Other
+
+- [**breaking**] change API signatures to take constraints by reference
+
 ## [0.28.10](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.28.9...rasn-derive-impl-v0.28.10) - 2026-03-12
 
 ### Fixed
