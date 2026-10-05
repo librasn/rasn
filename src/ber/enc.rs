@@ -717,9 +717,9 @@ impl crate::Encoder<'_> for Encoder {
         value: &types::TeletexString,
         _: crate::types::Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        let bytes = value.to_bytes();
-        Self::check_encode_size_constraint(bytes.len(), constraints, self.codec())?;
-        self.write_string(tag, Tag::OCTET_STRING, &bytes);
+        let octets: &[u8] = value;
+        Self::check_encode_size_constraint(octets.len(), constraints, self.codec())?;
+        self.write_string(tag, Tag::OCTET_STRING, octets);
         Ok(())
     }
 

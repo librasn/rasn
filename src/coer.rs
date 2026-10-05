@@ -783,7 +783,6 @@ mod tests {
     }
     #[test]
     fn test_teletext_string() {
-        // For now, Teletex string needs to be aligned for 4 bytes
         round_trip!(
             coer,
             TeletexString,

@@ -887,10 +887,8 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         value: &TeletexString,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        // X.690 8.23.5
-        // TODO the octets specified in ISO/IEC 2022 for encodings in an 8-bit environment, using
-        // the escape sequence and character codings registered in accordance with ISO/IEC 2375.
-        self.encode_octet_string(tag, constraints, &value.to_bytes(), Identifier::EMPTY)
+        // The octets of the string, as in BER (X.690 §8.23.5).
+        self.encode_octet_string(tag, constraints, value, Identifier::EMPTY)
     }
 
     fn encode_bmp_string(

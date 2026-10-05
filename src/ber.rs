@@ -121,6 +121,15 @@ mod tests {
     }
 
     #[test]
+    fn teletex_string_is_one_octet_per_character() {
+        // "Zoë", with the diaeresis as the T.61 prefix 0xC8.
+        const DATA: &[u8] = &[0x14, 0x04, 0x5A, 0x6F, 0xC8, 0x65];
+        let string = decode::<TeletexString>(DATA).unwrap();
+        assert_eq!(*string, [0x5A, 0x6F, 0xC8, 0x65]);
+        assert_eq!(encode(&string).unwrap(), DATA);
+    }
+
+    #[test]
     fn bit_string() {
         const DATA: &[u8] = &[0, 0xD0];
         let small = BitString::from_vec(DATA.to_owned());

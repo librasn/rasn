@@ -1,7 +1,7 @@
 use core::fmt;
 
 use alloc::collections::BTreeMap;
-use num_traits::{AsPrimitive, FromPrimitive, PrimInt, ToPrimitive, Unsigned};
+use num_traits::{AsPrimitive, FromPrimitive, PrimInt, ToPrimitive, Unsigned, Zero};
 
 use crate::error::strings::{InvalidRestrictedString, PermittedAlphabetError};
 use alloc::{boxed::Box, vec::Vec};
@@ -112,34 +112,34 @@ pub(crate) trait StaticPermittedAlphabet: Sized + Default {
                 width,
             });
         }
-        let num_elements = input.len() / width;
-        let mut vec = Vec::with_capacity(num_elements);
-        // Character width can be more than 1 byte, and combined bytes define the character encoding width
-        let process_chunk: fn(&[u8]) -> Option<Self::T> = match width {
-            1 => |chunk: &[u8]| Self::T::from_u8(chunk[0]),
-            2 => |chunk: &[u8]| {
-                Self::T::from_u16(u16::from_be_bytes(chunk.try_into().unwrap_or_default()))
-            },
-            3 | 4 => |chunk: &[u8]| {
-                Self::T::from_u32(u32::from_be_bytes(chunk.try_into().unwrap_or_default()))
-            },
-            _ => unreachable!(),
-        };
-
-        for chunk in input.chunks_exact(width) {
-            if let Some(character) = process_chunk(chunk) {
-                if Self::contains_char(character.as_()) {
-                    vec.push(character);
-                } else {
-                    return Err(PermittedAlphabetError::InvalidRestrictedString {
-                        source: Self::invalid_restricted_string(
-                            character.to_u32().unwrap_or_default(),
-                        ),
-                    });
-                }
+        // A character is one octet, or two or four in big-endian order.
+        match width {
+            1 => Self::try_from_characters(input.iter().map(|&octet| u32::from(octet))),
+            2 => {
+                let (pairs, _) = input.as_chunks::<2>();
+                Self::try_from_characters(
+                    pairs
+                        .iter()
+                        .map(|&pair| u32::from(u16::from_be_bytes(pair))),
+                )
             }
+            4 => {
+                let (quads, _) = input.as_chunks::<4>();
+                Self::try_from_characters(quads.iter().map(|&quad| u32::from_be_bytes(quad)))
+            }
+            _ => unreachable!(),
         }
-        Ok(vec)
+    }
+    /// Collects `characters` once every one of them is in the alphabet.
+    fn try_from_characters(
+        characters: impl Iterator<Item = u32> + Clone,
+    ) -> Result<Vec<Self::T>, PermittedAlphabetError> {
+        if let Some(invalid) = characters.clone().find(|&ch| !Self::contains_char(ch)) {
+            return Err(invalid_base_character::<Self>(invalid));
+        }
+        Ok(characters
+            .map(|ch| Self::T::from_u32(ch).unwrap_or(Self::T::zero()))
+            .collect())
     }
     fn character_map() -> &'static alloc::collections::BTreeMap<u32, u32>;
     fn character_width() -> u32 {
@@ -399,5 +399,40 @@ impl<'a> CharacterAlphabet<'a> {
         } else {
             Err((self.invalid)(code))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::{BmpString, PrintableString};
+
+    #[test]
+    fn the_first_character_outside_the_alphabet_is_reported() {
+        assert!(matches!(
+            PrintableString::try_from(&b"ab@c#"[..]),
+            Err(PermittedAlphabetError::InvalidRestrictedString {
+                source: InvalidRestrictedString::InvalidPrintableString(
+                    crate::error::strings::InvalidPrintableString { character: 0x40 }
+                )
+            })
+        ));
+    }
+
+    #[test]
+    fn two_octet_characters_are_read_big_endian() {
+        let string = BmpString::try_from(&[0x00, 0x41, 0x20, 0xAC][..]).unwrap();
+        assert_eq!(*string, [0x0041, 0x20AC]);
+    }
+
+    #[test]
+    fn octets_must_fill_whole_characters() {
+        assert!(matches!(
+            BmpString::try_from(&[0x00, 0x41, 0x20][..]),
+            Err(PermittedAlphabetError::InvalidData {
+                length: 3,
+                width: 2
+            })
+        ));
     }
 }
