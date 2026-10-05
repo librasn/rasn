@@ -1,7 +1,7 @@
 use crate::types::{AsnType, Constraints, Extensible, Tag, constraints};
 use alloc::boxed::Box;
 use core::hash::Hash;
-use num_bigint::{BigInt, BigUint, ToBigInt};
+use num_bigint::{BigInt, BigUint, Sign, ToBigInt};
 use num_traits::{CheckedAdd, CheckedSub};
 use num_traits::{Signed, ToBytes, ToPrimitive, identities::Zero};
 
@@ -698,6 +698,120 @@ integer_type_impl!(
     (signed isize, usize),
 );
 
+/// Drops the leading octets of a two's complement integer that only repeat
+/// its sign: an octet of all ones or all zeros whose successor starts with
+/// the same bit (X.690 §8.3.2).
+pub(crate) fn without_redundant_sign_octets(contents: &[u8]) -> &[u8] {
+    let sign = contents.first().map_or(0, |first| first & 0x80);
+    let redundant = contents
+        .windows(2)
+        .take_while(|pair| pair[0] == if sign == 0 { 0x00 } else { 0xFF } && pair[1] & 0x80 == sign)
+        .count();
+    &contents[redundant..]
+}
+
+/// The widest integer converted through a stack buffer, in octets; a wider
+/// one goes through the heap.
+const STACK_INTEGER_OCTETS: usize = 64;
+
+/// Reads a big-endian integer, in two's complement when `signed`. One that
+/// fits the stack buffer is reversed there for `BigUint::from_bytes_le`,
+/// which saves the copies `from_bytes_be` and `from_signed_bytes_be` make.
+fn big_int_from_bytes_be(bytes: &[u8], signed: bool) -> BigInt {
+    let negative = signed && bytes.first().is_some_and(|first| first & 0x80 != 0);
+    let mut buffer = [0; STACK_INTEGER_OCTETS];
+    let Some(reversed) = buffer.get_mut(..bytes.len()) else {
+        return if signed {
+            BigInt::from_signed_bytes_be(bytes)
+        } else {
+            BigUint::from_bytes_be(bytes).into()
+        };
+    };
+    let octets = reversed.iter_mut().zip(bytes.iter().rev());
+    if negative {
+        // The magnitude of a negative value is its two's complement: every
+        // octet inverted, and one added from the least significant end.
+        let mut carry = true;
+        for (octet, &source) in octets {
+            (*octet, carry) = (!source).overflowing_add(u8::from(carry));
+        }
+    } else {
+        for (octet, &source) in octets {
+            *octet = source;
+        }
+    }
+    let sign = if negative { Sign::Minus } else { Sign::Plus };
+    BigInt::from_biguint(sign, BigUint::from_bytes_le(reversed))
+}
+
+/// The octets of a `BigInt`: on the stack when the value fits the buffer.
+enum BigIntegerBytes {
+    Stack {
+        octets: [u8; STACK_INTEGER_OCTETS + 1],
+        start: usize,
+    },
+    Heap(alloc::vec::Vec<u8>),
+}
+
+impl AsRef<[u8]> for BigIntegerBytes {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            Self::Stack { octets, start } => &octets[*start..],
+            Self::Heap(octets) => octets,
+        }
+    }
+}
+
+/// The magnitude, most significant octet first, at the end of a buffer, and
+/// the index of the clear octet before its digits, where a sign would go;
+/// `None` when it does not fit.
+fn magnitude_octets(magnitude: &BigUint) -> Option<([u8; STACK_INTEGER_OCTETS + 1], usize)> {
+    let digits = magnitude.iter_u64_digits();
+    if digits.len() > STACK_INTEGER_OCTETS / size_of::<u64>() {
+        return None;
+    }
+    let mut octets = [0; STACK_INTEGER_OCTETS + 1];
+    let sign = octets.len() - 1 - digits.len() * size_of::<u64>();
+    // The digits come least significant first and fill the buffer from its end.
+    let (chunks, _) = octets[sign + 1..].as_chunks_mut::<{ size_of::<u64>() }>();
+    for (chunk, digit) in chunks.iter_mut().rev().zip(digits) {
+        *chunk = digit.to_be_bytes();
+    }
+    Some((octets, sign))
+}
+
+/// The two's complement of `value` in the fewest octets (X.690 §8.3.2).
+fn big_int_to_signed_bytes_be(value: &BigInt) -> BigIntegerBytes {
+    let Some((mut octets, sign)) = magnitude_octets(value.magnitude()) else {
+        return BigIntegerBytes::Heap(value.to_signed_bytes_be());
+    };
+    if value.sign() == Sign::Minus {
+        let mut carry = true;
+        for octet in octets[sign..].iter_mut().rev() {
+            (*octet, carry) = (!*octet).overflowing_add(u8::from(carry));
+        }
+    }
+    let start = octets.len() - without_redundant_sign_octets(&octets[sign..]).len();
+    BigIntegerBytes::Stack { octets, start }
+}
+
+/// The magnitude of `value` in the fewest octets, and zero for a negative
+/// value.
+fn big_int_to_unsigned_bytes_be(value: &BigInt) -> BigIntegerBytes {
+    let octets = match value.sign() {
+        Sign::Minus => Some(([0; STACK_INTEGER_OCTETS + 1], STACK_INTEGER_OCTETS)),
+        Sign::NoSign | Sign::Plus => magnitude_octets(value.magnitude()),
+    };
+    let Some((octets, sign)) = octets else {
+        return BigIntegerBytes::Heap(value.magnitude().to_bytes_be());
+    };
+    let start = octets[sign..]
+        .iter()
+        .position(|&octet| octet != 0)
+        .map_or(octets.len() - 1, |leading| sign + leading);
+    BigIntegerBytes::Stack { octets, start }
+}
+
 impl IntegerType for BigInt {
     const WIDTH: u32 = u32::MAX;
     const ZERO: BigInt = BigInt::ZERO;
@@ -712,8 +826,7 @@ impl IntegerType for BigInt {
         if input.is_empty() {
             return Err(crate::error::DecodeError::unexpected_empty_input(codec));
         }
-
-        Ok(BigInt::from_signed_bytes_be(input))
+        Ok(big_int_from_bytes_be(input, true))
     }
 
     #[inline(always)]
@@ -732,19 +845,18 @@ impl IntegerType for BigInt {
         if input.is_empty() {
             return Err(crate::error::DecodeError::unexpected_empty_input(codec));
         }
-
-        Ok(BigUint::from_bytes_be(input).into())
+        Ok(big_int_from_bytes_be(input, false))
     }
     #[inline(always)]
     fn to_signed_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-        let bytes = self.to_signed_bytes_be();
-        let len = bytes.len();
+        let bytes = big_int_to_signed_bytes_be(self);
+        let len = bytes.as_ref().len();
         (bytes, len)
     }
     #[inline(always)]
     fn to_unsigned_bytes_be(&self) -> (impl AsRef<[u8]>, usize) {
-        let bytes = self.to_biguint().unwrap_or_default().to_bytes_be();
-        let len = bytes.len();
+        let bytes = big_int_to_unsigned_bytes_be(self);
+        let len = bytes.as_ref().len();
         (bytes, len)
     }
 
@@ -761,19 +873,17 @@ impl IntegerType for BigInt {
         Integer(IntegerKind::Variable(Box::new(self)))
     }
 }
-/// We cannot use `impl AsRef<[u8]>` as return type for function to return variants' byte presentation
-/// when enum variants are different opaque types, unless we use a wrapper.
-/// Only needed for our custom `Integer` type.
-enum IntegerBytesRef<T: AsRef<[u8]>> {
-    Stack([u8; core::mem::size_of::<isize>()]),
-    Heap(T),
+/// The octets of an [`Integer`], from whichever kind it holds.
+enum IntegerBytes<T: AsRef<[u8]>> {
+    Primitive([u8; core::mem::size_of::<isize>()]),
+    Variable(T),
 }
 
-impl<T: AsRef<[u8]>> AsRef<[u8]> for IntegerBytesRef<T> {
+impl<T: AsRef<[u8]>> AsRef<[u8]> for IntegerBytes<T> {
     fn as_ref(&self) -> &[u8] {
         match self {
-            IntegerBytesRef::Stack(bytes) => bytes,
-            IntegerBytesRef::Heap(slice) => slice.as_ref(),
+            IntegerBytes::Primitive(bytes) => bytes,
+            IntegerBytes::Variable(bytes) => bytes.as_ref(),
         }
     }
 }
@@ -831,11 +941,11 @@ impl IntegerType for Integer {
         match &self.0 {
             IntegerKind::Primitive(value) => {
                 let (bytes, len) = value.needed_as_be_bytes(true);
-                (IntegerBytesRef::Stack(bytes), len)
+                (IntegerBytes::Primitive(bytes), len)
             }
             IntegerKind::Variable(value) => {
                 let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
-                (IntegerBytesRef::Heap(bytes), len)
+                (IntegerBytes::Variable(bytes), len)
             }
         }
     }
@@ -844,11 +954,11 @@ impl IntegerType for Integer {
         match &self.0 {
             IntegerKind::Primitive(value) => {
                 let (bytes, len) = (*value as usize).needed_as_be_bytes(false);
-                (IntegerBytesRef::Stack(bytes), len)
+                (IntegerBytes::Primitive(bytes), len)
             }
             IntegerKind::Variable(value) => {
-                let (bytes, len) = <BigInt as IntegerType>::to_signed_bytes_be(value);
-                (IntegerBytesRef::Heap(bytes), len)
+                let (bytes, len) = <BigInt as IntegerType>::to_unsigned_bytes_be(value);
+                (IntegerBytes::Variable(bytes), len)
             }
         }
     }
@@ -1102,6 +1212,13 @@ macro_rules! test_integer_conversions_and_operations {
             }
 
             #[test]
+            fn unsigned_octets_of_a_variable_integer_are_its_magnitude() {
+                let value = Integer::from(u128::MAX);
+                let (bytes, len) = value.to_unsigned_bytes_be();
+                assert_eq!(&bytes.as_ref()[..len], [0xFF; 16]);
+            }
+
+            #[test]
             fn representation_follows_the_octet_count() {
                 let width = size_of::<isize>();
                 let codec = crate::Codec::Ber;
@@ -1135,3 +1252,88 @@ macro_rules! test_integer_conversions_and_operations {
 test_integer_conversions_and_operations!(
     i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
 );
+
+#[cfg(test)]
+mod big_int_tests {
+    use super::*;
+    use alloc::vec::Vec;
+
+    fn signed(value: &BigInt) -> Vec<u8> {
+        <BigInt as IntegerType>::to_signed_bytes_be(value)
+            .0
+            .as_ref()
+            .to_vec()
+    }
+
+    fn unsigned(value: &BigInt) -> Vec<u8> {
+        <BigInt as IntegerType>::to_unsigned_bytes_be(value)
+            .0
+            .as_ref()
+            .to_vec()
+    }
+
+    #[test]
+    fn signed_octets_carry_the_sign_in_the_fewest_octets() {
+        let positive = BigInt::from(1u128 << 71);
+        let negative = -&positive;
+        assert_eq!(signed(&positive), [0x00, 0x80, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(signed(&negative), [0x80, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(
+            signed(&(&negative - 1)),
+            [0xFF, 0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]
+        );
+        assert_eq!(signed(&BigInt::ZERO), [0x00]);
+    }
+
+    #[test]
+    fn unsigned_octets_are_the_magnitude_and_zero_for_a_negative_value() {
+        assert_eq!(
+            unsigned(&BigInt::from(1u128 << 71)),
+            [0x80, 0, 0, 0, 0, 0, 0, 0, 0]
+        );
+        assert_eq!(unsigned(&BigInt::from(-5)), [0x00]);
+        assert_eq!(unsigned(&BigInt::ZERO), [0x00]);
+    }
+
+    #[test]
+    fn the_top_bit_is_a_sign_only_in_signed_octets() {
+        let octets = [0x80, 0, 0, 0, 0, 0, 0, 0, 0];
+        let codec = crate::Codec::Ber;
+        assert_eq!(
+            BigInt::try_from_bytes(&octets, codec).unwrap(),
+            -BigInt::from(1u128 << 71)
+        );
+        assert_eq!(
+            BigInt::try_from_unsigned_bytes(&octets, codec).unwrap(),
+            BigInt::from(1u128 << 71)
+        );
+    }
+
+    #[test]
+    fn a_negative_magnitude_carries_across_octets() {
+        let octets = [0xFF, 0, 0, 0, 0, 0, 0, 0, 0];
+        assert_eq!(
+            BigInt::try_from_bytes(&octets, crate::Codec::Ber).unwrap(),
+            -BigInt::from(1u128 << 64)
+        );
+    }
+
+    #[test]
+    fn integers_wider_than_the_stack_buffer_take_the_heap() {
+        let wide = BigInt::from(1) << (STACK_INTEGER_OCTETS * 8 + 8);
+        for value in [&wide, &-&wide] {
+            let octets = value.to_signed_bytes_be();
+            assert_eq!(signed(value), octets);
+            assert_eq!(
+                BigInt::try_from_bytes(&octets, crate::Codec::Ber).unwrap(),
+                *value
+            );
+        }
+        assert_eq!(unsigned(&wide), wide.magnitude().to_bytes_be());
+        assert_eq!(
+            BigInt::try_from_unsigned_bytes(&wide.magnitude().to_bytes_be(), crate::Codec::Ber)
+                .unwrap(),
+            wide
+        );
+    }
+}

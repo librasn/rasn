@@ -7,6 +7,7 @@ use crate::{
     Decode,
     types::{
         self, Constraints, Enumerated, Tag,
+        integer::without_redundant_sign_octets,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
     },
 };
@@ -286,18 +287,6 @@ impl<'input> Decoder<'input> {
         }
         Ok(())
     }
-}
-
-/// Drops the leading octets of a two's complement integer that only repeat
-/// its sign: an octet of all ones or all zeros whose successor starts with
-/// the same bit (X.690 §8.3.2).
-fn without_redundant_sign_octets(contents: &[u8]) -> &[u8] {
-    let sign = contents.first().map_or(0, |first| first & 0x80);
-    let redundant = contents
-        .windows(2)
-        .take_while(|pair| pair[0] == if sign == 0 { 0x00 } else { 0xFF } && pair[1] & 0x80 == sign)
-        .count();
-    &contents[redundant..]
 }
 
 impl<'input> crate::Decoder for Decoder<'input> {
