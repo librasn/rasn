@@ -237,9 +237,9 @@ pub(crate) fn write_generalized_time(out: &mut Vec<u8>, value: &DateTime<FixedOf
 /// digits, the time to the second and `Z`.
 pub(crate) fn write_utc_time(out: &mut Vec<u8>, value: &DateTime<Utc>) {
     let value = value.naive_utc();
-    write_decimal(out, value.year().rem_euclid(100) as u32, 2);
-    write_decimal(out, value.month(), 2);
-    write_decimal(out, value.day(), 2);
+    write_pair(out, value.year().rem_euclid(100) as u32);
+    write_pair(out, value.month());
+    write_pair(out, value.day());
     let (second, _) = second_and_nanoseconds(value.time());
     write_time(out, value.time(), second);
     out.push(b'Z');
@@ -249,21 +249,33 @@ pub(crate) fn write_utc_time(out: &mut Vec<u8>, value: &DateTime<Utc>) {
 /// the day in two digits each.
 pub(crate) fn write_date(out: &mut Vec<u8>, value: &NaiveDate) {
     let year = value.year();
-    // A year outside the four-digit range is not representable; it is
-    // written with a sign and as many digits as it needs.
-    if !(0..=9999).contains(&year) {
+    if let Ok(year) = u32::try_from(year)
+        && year <= 9999
+    {
+        write_pair(out, year / 100);
+        write_pair(out, year % 100);
+    } else {
+        // A year outside the four-digit range is not representable; it is
+        // written with a sign and as many digits as it needs.
         out.push(if year < 0 { b'-' } else { b'+' });
+        write_decimal(out, year.unsigned_abs(), 4);
     }
-    write_decimal(out, year.unsigned_abs(), 4);
-    write_decimal(out, value.month(), 2);
-    write_decimal(out, value.day(), 2);
+    write_pair(out, value.month());
+    write_pair(out, value.day());
 }
 
 /// Appends the hour, minute and `second` of `value` in two digits each.
 fn write_time(out: &mut Vec<u8>, value: NaiveTime, second: u32) {
-    write_decimal(out, value.hour(), 2);
-    write_decimal(out, value.minute(), 2);
-    write_decimal(out, second, 2);
+    write_pair(out, value.hour());
+    write_pair(out, value.minute());
+    write_pair(out, second);
+}
+
+/// Appends `value`, which is below 100, in two digits.
+#[inline]
+fn write_pair(out: &mut Vec<u8>, value: u32) {
+    debug_assert!(value < 100);
+    out.extend_from_slice(&[b'0' + (value / 10) as u8, b'0' + (value % 10) as u8]);
 }
 
 /// The second and the nanoseconds within it. `chrono` represents a leap
