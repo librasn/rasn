@@ -1,5 +1,5 @@
 use pretty_assertions::assert_eq;
-use rasn::der::{decode, encode};
+use rasn::der::{decode, decode_with_remainder, encode};
 
 use rasn_cms::authenticode::{
     SPC_CLASS_UUID, SPC_INDIRECT_DATA_OBJID, SpcIndirectDataContent, SpcLink, SpcPeImageData,
@@ -39,7 +39,12 @@ fn test_cms_encrypted() {
 
 #[test]
 fn test_authenticode() {
-    let info = decode::<ContentInfo>(PE_SIG_DATA).unwrap();
+    // Authenticode stores the PKCS#7 blob in a WIN_CERTIFICATE structure padded
+    // to an 8-byte boundary, so `PE_SIG_DATA` carries two trailing padding bytes
+    // after the DER value. `der::decode` is now strict and rejects trailing bytes
+    // (see #552), so use `decode_with_remainder` to parse the complete ContentInfo
+    // and ignore that container padding.
+    let (info, _padding) = decode_with_remainder::<ContentInfo>(PE_SIG_DATA).unwrap();
     assert_eq!(CONTENT_SIGNED_DATA, info.content_type);
 
     let signed_data = decode::<pkcs7_compat::SignedData>(info.content.as_bytes()).unwrap();
