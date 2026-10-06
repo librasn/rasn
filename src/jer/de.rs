@@ -508,7 +508,7 @@ impl crate::Decoder for Decoder {
 
 impl Decoder {
     fn any_from_value(value: Value) -> Result<Any, <Self as crate::de::Decoder>::Error> {
-        Ok(Any::new(alloc::format!("{value}").as_bytes().to_vec()))
+        Self::octet_string_from_value(value).map(Any::new)
     }
 
     fn boolean_from_value(value: Value) -> Result<bool, DecodeError> {
