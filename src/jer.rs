@@ -268,6 +268,15 @@ mod tests {
     }
 
     #[test]
+    fn any() {
+        round_trip_jer!(
+            crate::types::Any,
+            crate::types::Any::new(alloc::vec![0x0a, 0xff]),
+            "\"0AFF\""
+        );
+    }
+
+    #[test]
     fn enumerated() {
         round_trip_jer!(SimpleEnum, SimpleEnum::Test1, "\"Test1\"");
         round_trip_jer!(SimpleEnum, SimpleEnum::Test2, "\"Test2\"");
