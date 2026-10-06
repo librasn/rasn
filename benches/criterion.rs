@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 mod common;
 
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
