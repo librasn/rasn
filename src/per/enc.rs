@@ -3,14 +3,14 @@
 use alloc::{string::ToString, vec::Vec};
 
 use super::{
-    FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
-    THIRTY_TWO_K,
+    FOURTY_EIGHT_K, Items, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K,
+    SMALL_UNSIGNED_CONSTRAINT, THIRTY_TWO_K,
 };
 use crate::{
     Encode,
     types::{
         self, BitString, Constraints, Enumerated, Identifier, IntegerType, Tag,
-        constraints::{self, Extensible, Size},
+        constraints::{self, Extensible},
         strings::{BitStr, CharacterAlphabet, StaticPermittedAlphabet},
     },
 };
@@ -305,65 +305,36 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         constraints: &Constraints,
         value: &S,
     ) -> Result<()> {
-        use crate::types::constraints::Bounded;
         let string_length = value.len();
-        // ITU-T X.691 (02/2021) §30.5: each character is written as a fixed-width
-        // value or alphabet index, straight into the buffer.
-        let alphabet = CharacterAlphabet::new::<S>(
-            constraints
-                .permitted_alphabet()
-                .map(|alphabet| alphabet.constraint.as_inner()),
-            self.options.aligned,
-        );
+        // ITU-T X.691 (02/2021) §30.4: a value outside the extension root is
+        // encoded as if there were no size constraint, retaining the effective
+        // permitted alphabet (§10.3.12). An extensible alphabet constraint
+        // is not PER-visible (§10.3.11) and makes nothing extensible.
+        let is_extensible = constraints.per_visibly_extensible();
+        let is_extended_value = is_extensible
+            && constraints.size().is_some_and(|size| {
+                size.extensible.is_some() && !size.constraint.contains(&string_length)
+            });
+        let size = constraints.size().filter(|_| !is_extended_value);
+        let permitted = constraints
+            .permitted_alphabet()
+            .filter(|alphabet| alphabet.extensible.is_none())
+            .map(|alphabet| alphabet.constraint.as_inner());
+        // §30.5: each character is written as a fixed-width value or alphabet
+        // index, straight into the buffer.
+        let alphabet = CharacterAlphabet::new::<S>(permitted, self.options.aligned);
         let width = alphabet.width();
         let codec = self.codec();
 
         self.encode_field(tag, |this, buffer, _| {
-            let is_extended_value = this.encode_extensible_bit(constraints, buffer, || {
-                constraints.size().is_some_and(|size_constraint| {
-                    size_constraint.extensible.is_some()
-                        && size_constraint.constraint.contains(&string_length)
-                })
-            });
-
-            let is_large_string = if let Some(size) = constraints.size() {
-                let char_width = match constraints.permitted_alphabet() {
-                    Some(alphabet) => this.character_width(crate::num::log2(
-                        alphabet.constraint.len() as i128,
-                    ) as usize),
-                    None => this.character_width(S::CHARACTER_SET_WIDTH),
-                };
-
-                match *size.constraint {
-                    Bounded::Range {
-                        start: Some(_),
-                        end: Some(_),
-                    } if size.constraint.range().unwrap() * char_width > 16 => true,
-                    Bounded::Single(max) if max * char_width > 16 => {
-                        this.pad_to_alignment(buffer);
-                        true
-                    }
-                    Bounded::Range {
-                        start: None,
-                        end: Some(max),
-                    } if max * char_width > 16 => {
-                        this.pad_to_alignment(buffer);
-                        true
-                    }
-                    _ => false,
-                }
-            } else {
-                false
-            };
-
-            this.encode_string_length(
+            if is_extensible {
+                buffer.push(is_extended_value);
+            }
+            this.encode_length(
                 buffer,
-                is_large_string,
                 string_length,
-                is_extended_value
-                    .then(|| -> Extensible<Size> { <_>::default() })
-                    .as_ref()
-                    .or(constraints.size()),
+                size,
+                Items::Characters(width),
                 |buf, range| {
                     let mut appender = buf.appender(range.len() * width);
                     for ch in value.chars().skip(range.start).take(range.len()) {
@@ -376,20 +347,6 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                 },
             )
         })
-    }
-
-    fn character_width(&self, width: usize) -> usize {
-        if self.options.aligned {
-            {
-                if width.is_power_of_two() {
-                    width
-                } else {
-                    width.next_power_of_two()
-                }
-            }
-        } else {
-            width
-        }
     }
 
     fn encode_constructed<
@@ -460,10 +417,16 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
         for range in encoder.extension_fields.iter().flatten() {
             let field = &encoder.extension_scratch[range.clone()];
-            self.encode_length(&mut buffer, field.len(), <_>::default(), |buf, range| {
-                buf.extend_from_bytes(&field[range]);
-                Ok(())
-            })?;
+            self.encode_length(
+                &mut buffer,
+                field.len(),
+                <_>::default(),
+                Items::Octets,
+                |buf, range| {
+                    buf.extend_from_bytes(&field[range]);
+                    Ok(())
+                },
+            )?;
         }
         self.extend(tag, &buffer);
 
@@ -491,16 +454,17 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         }
     }
 
-    /// Encodes the length determinant for `length` items and then the items
-    /// themselves. `encode_fn` writes the items in `range` straight into the
-    /// buffer it is handed; it is called once per fragment for lengths of 16K
-    /// and above.
-    fn encode_string_length(
+    /// Encodes the length determinant for `length` items (ITU-T X.691
+    /// (02/2021) §11.9) and then the items themselves. `items` says whether
+    /// the items start on an octet boundary in the ALIGNED variant.
+    /// `encode_fn` writes the items in `range` straight into the buffer it is
+    /// handed; it is called once per fragment for lengths of 16K and above.
+    fn encode_length(
         &self,
         buffer: &mut BitBuffer,
-        is_large_string: bool,
         length: usize,
         constraints: Option<&Extensible<constraints::Size>>,
+        items: Items,
         mut encode_fn: impl FnMut(&mut BitBuffer, core::ops::Range<usize>) -> Result<()>,
     ) -> Result<()> {
         let Some(constraints) = constraints else {
@@ -511,56 +475,40 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             Error::check_length(length, &constraints.constraint, self.codec())?;
         }
 
-        let constraints = constraints.constraint;
+        let items_aligned = items.aligned(Some(constraints));
+        let size = constraints.constraint;
 
-        match constraints.start_and_end() {
-            (Some(_), Some(_)) => {
-                let range = constraints.range().unwrap();
-
-                if range == 0 {
-                    Ok(())
-                } else if range == 1 {
-                    (encode_fn)(buffer, 0..length)
-                } else if range <= SIXTY_FOUR_K as usize {
-                    let effective_length = constraints.effective_value(length).into_inner();
-                    let range = if self.options.aligned && range > 256 {
-                        {
-                            let range = crate::num::log2(range as i128);
-                            crate::bits::range_from_len(if range.is_power_of_two() {
-                                range
-                            } else {
-                                range.next_power_of_two()
-                            })
-                        }
-                    } else {
-                        range as i128
-                    };
-                    self.encode_non_negative_binary_integer(
-                        buffer,
-                        range,
-                        effective_length as u128,
-                    );
-                    if is_large_string {
-                        self.pad_to_alignment(buffer);
-                    }
-
-                    (encode_fn)(buffer, 0..length)
-                } else {
-                    self.encode_unconstrained_length(buffer, length, None, encode_fn)
-                }
-            }
-            _ => self.encode_unconstrained_length(buffer, length, None, encode_fn),
+        // §11.9.3.3: only an upper bound below 64K makes the length a
+        // constrained whole number; otherwise it is unconstrained (§11.9.3.5).
+        let (Some(_), Some(&upper)) = size.start_and_end() else {
+            return self.encode_unconstrained_length(buffer, length, None, encode_fn);
+        };
+        if upper >= SIXTY_FOUR_K as usize {
+            return self.encode_unconstrained_length(buffer, length, None, encode_fn);
         }
-    }
+        let range = size.range().unwrap_or_default();
+        if range == 0 {
+            return Ok(());
+        }
 
-    fn encode_length(
-        &self,
-        buffer: &mut BitBuffer,
-        length: usize,
-        constraints: Option<&Extensible<constraints::Size>>,
-        encode_fn: impl FnMut(&mut BitBuffer, core::ops::Range<usize>) -> Result<()>,
-    ) -> Result<()> {
-        self.encode_string_length(buffer, false, length, constraints, encode_fn)
+        if range > 1 {
+            let offset = size.effective_value(length).into_inner() as u128;
+            // §11.5.7.2, §11.5.7.3: a range of 256 is one octet and a larger
+            // one two octets, both octet-aligned; a smaller range is a
+            // bit-field (§11.5.7.1).
+            if self.options.aligned && range >= 256 {
+                self.pad_to_alignment(buffer);
+                buffer.push_bits(offset, if range == 256 { 8 } else { 16 });
+            } else {
+                self.encode_non_negative_binary_integer(buffer, range as i128, offset);
+            }
+        }
+
+        // §11.9.3.3 NOTE 2: nothing, not even padding, follows a zero length.
+        if items_aligned && length > 0 {
+            self.pad_to_alignment(buffer);
+        }
+        (encode_fn)(buffer, 0..length)
     }
 
     fn encode_unconstrained_length(
@@ -665,38 +613,17 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     && size_constraint.constraint.contains(&octet_string_length)
             })
         });
-        let Some(size) = constraints.size() else {
-            return self.encode_length(buffer, value.len(), <_>::default(), |buf, range| {
-                buf.extend_from_bytes(&value[range]);
-                Ok(())
-            });
-        };
-
-        if extensible_is_present {
-            self.encode_length(buffer, value.len(), <_>::default(), |buf, range| {
-                buf.extend_from_bytes(&value[range]);
-                Ok(())
-            })?;
-        } else if Some(0) == size.constraint.range() {
+        // A value outside the root is encoded as if there were no size
+        // constraint (ITU-T X.691 (02/2021) §17.3).
+        let size = constraints.size().filter(|_| !extensible_is_present);
+        if size.is_some_and(|size| size.constraint.range() == Some(0)) {
             // ITU-T X.691 (02/2021) §11.9.3.3: If "n" is zero there shall be no further addition to the field-list.
-        } else if size.constraint.range() == Some(1) && size.constraint.as_start() <= Some(&2) {
-            // ITU-T X.691 (02/2021) §17 NOTE: Octet strings of fixed length less than or equal to two octets are not octet-aligned.
-            // All other octet strings are octet-aligned in the ALIGNED variant.
-            self.encode_length(buffer, value.len(), Some(size), |buf, range| {
-                buf.extend_from_bytes(&value[range]);
-                Ok(())
-            })?;
-        } else {
-            if size.constraint.range() == Some(1) {
-                self.pad_to_alignment(buffer);
-            }
-            self.encode_string_length(buffer, true, value.len(), Some(size), |buf, range| {
-                buf.extend_from_bytes(&value[range]);
-                Ok(())
-            })?;
+            return Ok(());
         }
-
-        Ok(())
+        self.encode_length(buffer, value.len(), size, Items::Octets, |buf, range| {
+            buf.extend_from_bytes(&value[range]);
+            Ok(())
+        })
     }
 
     #[allow(clippy::too_many_lines)]
@@ -714,10 +641,16 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
 
         let value_range = if is_extended_value || constraints.value().is_none() {
             let (bytes, needed) = value.to_signed_bytes_be();
-            self.encode_length(buffer, needed, constraints.size(), |buf, range| {
-                buf.extend_from_bytes(&bytes.as_ref()[..needed][range]);
-                Ok(())
-            })?;
+            self.encode_length(
+                buffer,
+                needed,
+                constraints.size(),
+                Items::Octets,
+                |buf, range| {
+                    buf.extend_from_bytes(&bytes.as_ref()[..needed][range]);
+                    Ok(())
+                },
+            )?;
             return Ok(());
         } else {
             // Safe to unwrap because we checked for None above
@@ -759,10 +692,16 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
                     signed_ref.as_ref()
                 }
             };
-            return self.encode_length(buffer, needed, <_>::default(), |buf, range| {
-                buf.extend_from_bytes(&bytes[..needed][range]);
-                Ok(())
-            });
+            return self.encode_length(
+                buffer,
+                needed,
+                <_>::default(),
+                Items::Octets,
+                |buf, range| {
+                    buf.extend_from_bytes(&bytes[..needed][range]);
+                    Ok(())
+                },
+            );
         };
 
         // Both bounds are known, so the encoding is the non-negative offset
@@ -846,7 +785,6 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
         let bit_string_length = value.len();
-        let size = constraints.size();
 
         self.encode_field(tag, |this, buffer, _| {
             let extensible_is_present = this.encode_extensible_bit(constraints, buffer, || {
@@ -856,37 +794,16 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                 })
             });
 
-            if extensible_is_present || size.is_none() {
-                this.encode_length(buffer, value.len(), <_>::default(), |buf, range| {
-                    buf.extend_from_bitslice(&value[range]);
-                    Ok(())
-                })
-            } else if size.and_then(|size| size.constraint.range()) == Some(0) {
-                Ok(())
-            } else if size.is_some_and(|size| {
-                size.constraint.range() == Some(1) && size.constraint.as_start() <= Some(&16)
-            }) {
-                // ITU-T X.691 (02/2021) §16: Bitstrings constrained to a fixed length less than or equal to 16 bits
-                // do not cause octet alignment. Larger bitstrings are octet-aligned in the ALIGNED variant.
-                this.encode_length(buffer, value.len(), constraints.size(), |buf, range| {
-                    buf.extend_from_bitslice(&value[range]);
-                    Ok(())
-                })
-            } else {
-                if size.and_then(|size| size.constraint.range()) == Some(1) {
-                    this.pad_to_alignment(buffer);
-                }
-                this.encode_string_length(
-                    buffer,
-                    true,
-                    value.len(),
-                    constraints.size(),
-                    |buf, range| {
-                        buf.extend_from_bitslice(&value[range]);
-                        Ok(())
-                    },
-                )
+            // A value outside the root is encoded as if there were no size
+            // constraint (ITU-T X.691 (02/2021) §16.6).
+            let size = constraints.size().filter(|_| !extensible_is_present);
+            if size.and_then(|size| size.constraint.range()) == Some(0) {
+                return Ok(());
             }
+            this.encode_length(buffer, value.len(), size, Items::Bits, |buf, range| {
+                buf.extend_from_bitslice(&value[range]);
+                Ok(())
+            })
         })
     }
 
@@ -1121,18 +1038,25 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             // The elements usually encode to about their size in memory, so
             // reserving for them avoids repeated regrowth of the buffer.
             buffer.reserve_bytes(core::mem::size_of_val(values));
-            this.encode_extensible_bit(constraints, buffer, || {
+            let is_extended_value = this.encode_extensible_bit(constraints, buffer, || {
                 constraints.size().is_some_and(|size_constraint| {
                     size_constraint.extensible.is_some()
                         && size_constraint.constraint.contains(&values.len())
                 })
             });
+            // A count outside the root is encoded as if there were no size
+            // constraint (ITU-T X.691 (02/2021) §20.4).
+            let size = constraints.size().filter(|_| !is_extended_value);
 
             let mut element_work = BitBuffer::new();
             let mut element_spare = core::mem::take(&mut this.spare);
             let mut element_scratch = core::mem::take(&mut this.extension_scratch);
-            let result =
-                this.encode_length(buffer, values.len(), constraints.size(), |buf, range| {
+            let result = this.encode_length(
+                buffer,
+                values.len(),
+                size,
+                Items::Components,
+                |buf, range| {
                     // Lend `buf` to a child encoder so the elements are written
                     // straight into it; it starts at absolute bit `origin`.
                     let mut encoder = Encoder::<0, 0> {
@@ -1158,7 +1082,8 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
                     element_scratch = encoder.extension_scratch;
                     *buf = encoder.output;
                     Ok(())
-                });
+                },
+            );
             this.spare = element_spare;
             this.extension_scratch = element_scratch;
             result
@@ -1297,10 +1222,16 @@ impl<const RFC: usize, const EFC: usize> crate::Encoder<'_> for Encoder<RFC, EFC
             }
             for range in child.extension_fields.iter().flatten() {
                 let field = &self.extension_scratch[range.clone()];
-                self.encode_length(&mut work, field.len(), <_>::default(), |buf, range| {
-                    buf.extend_from_bytes(&field[range]);
-                    Ok(())
-                })?;
+                self.encode_length(
+                    &mut work,
+                    field.len(),
+                    <_>::default(),
+                    Items::Octets,
+                    |buf, range| {
+                        buf.extend_from_bytes(&field[range]);
+                        Ok(())
+                    },
+                )?;
             }
             self.output.extend_from_buffer(&work);
             self.work = work;
@@ -1598,6 +1529,7 @@ mod tests {
                 Some(&Extensible::new(constraints::Size::new(
                     constraints::Bounded::new(1, 64),
                 ))),
+                Items::Components,
                 |_, _| Ok(()),
             )
             .unwrap();

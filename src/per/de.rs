@@ -3,8 +3,8 @@
 use alloc::{string::ToString, vec::Vec};
 
 use super::{
-    FOURTY_EIGHT_K, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K, SMALL_UNSIGNED_CONSTRAINT,
-    THIRTY_TWO_K,
+    FOURTY_EIGHT_K, Items, LARGE_UNSIGNED_CONSTRAINT, SIXTEEN_K, SIXTY_FOUR_K,
+    SMALL_UNSIGNED_CONSTRAINT, THIRTY_TWO_K,
 };
 use crate::{
     Decode,
@@ -226,33 +226,20 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         Ok(bitset.bits())
     }
 
-    fn decode_extensible_string(
-        &mut self,
-        constraints: &Constraints,
-        is_large_string: bool,
-        mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
-    ) -> Result<()> {
-        let extensible_is_present = self.parse_extensible_bit(constraints)?;
-        let size = constraints.size().filter(|_| !extensible_is_present);
-        let mut total_length = 0usize;
-        let input =
-            self.decode_string_length(self.input, size, is_large_string, &mut |input, length| {
-                total_length += length;
-                decode_fn(input, length)
-            })?;
-        self.input = input;
-        self.check_size(size, total_length)
-    }
-
+    /// Parses the extension bit, when the constraints are extensible, and
+    /// then the length determinant of `items` and the items themselves
+    /// (ITU-T X.691 (02/2021) §11.9), and checks the length against the size
+    /// constraint.
     fn decode_extensible_container(
         &mut self,
         constraints: &Constraints,
+        items: Items,
         mut decode_fn: impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<()> {
         let extensible_is_present = self.parse_extensible_bit(constraints)?;
         let size = constraints.size().filter(|_| !extensible_is_present);
         let mut total_length = 0usize;
-        let input = self.decode_length(self.input, size, &mut |input, length| {
+        let input = self.decode_length(self.input, size, items, &mut |input, length| {
             total_length += length;
             decode_fn(input, length)
         })?;
@@ -267,19 +254,24 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         let mut open = OpenType::Empty;
         let codec = self.codec();
 
-        let input = self.decode_length(self.input, <_>::default(), &mut |mut input, length| {
-            let data = take(&mut input, length * 8, codec)?;
-            open = match core::mem::replace(&mut open, OpenType::Empty) {
-                OpenType::Empty => OpenType::Borrowed(data),
-                previous => {
-                    let mut gathered = types::BitString::new();
-                    crate::bits::extend_bitstring(&mut gathered, previous.bits());
-                    crate::bits::extend_bitstring(&mut gathered, data.bits());
-                    OpenType::Gathered(gathered)
-                }
-            };
-            Ok(input)
-        })?;
+        let input = self.decode_length(
+            self.input,
+            <_>::default(),
+            Items::Octets,
+            &mut |mut input, length| {
+                let data = take(&mut input, length * 8, codec)?;
+                open = match core::mem::replace(&mut open, OpenType::Empty) {
+                    OpenType::Empty => OpenType::Borrowed(data),
+                    previous => {
+                        let mut gathered = types::BitString::new();
+                        crate::bits::extend_bitstring(&mut gathered, previous.bits());
+                        crate::bits::extend_bitstring(&mut gathered, data.bits());
+                        OpenType::Gathered(gathered)
+                    }
+                };
+                Ok(input)
+            },
+        )?;
 
         self.input = input;
         Ok(open)
@@ -325,100 +317,58 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         }
     }
 
-    fn decode_string_length(
-        &mut self,
-        mut input: InputSlice<'input>,
-        constraints: Option<&Extensible<constraints::Size>>,
-        is_large_string: bool,
-        decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
-    ) -> Result<InputSlice<'input>> {
-        let Some(constraints) = constraints else {
-            return self.decode_unknown_length(input, decode_fn);
-        };
-
-        let size_constraint = constraints.constraint;
-        if let Some(range) = size_constraint
-            .range()
-            .filter(|range| *range <= SIXTY_FOUR_K as usize)
-        {
-            if range == 0 {
-                Ok(input)
-            } else if range == 1 {
-                if self.options.aligned {
-                    input = self.parse_padding(input)?;
-                }
-                (decode_fn)(input, size_constraint.minimum())
-            } else {
-                let range = if self.options.aligned && range > 256 {
-                    input = self.parse_padding(input)?;
-                    let range = crate::num::log2(range as i128);
-                    crate::bits::range_from_len(if range.is_power_of_two() {
-                        range
-                    } else {
-                        range.next_power_of_two()
-                    })
-                } else {
-                    range as i128
-                };
-
-                let bits = crate::num::log2(range) as usize;
-                let length = take(&mut input, bits, self.codec())?;
-                if is_large_string {
-                    input = self.parse_padding(input)?;
-                }
-                (length.first_bits(bits) as usize)
-                    .checked_add(size_constraint.minimum())
-                    .ok_or_else(|| DecodeError::exceeds_max_length(usize::MAX.into(), self.codec()))
-                    .and_then(|sum| (decode_fn)(input, sum))
-            }
-        } else {
-            self.decode_unknown_length(input, decode_fn)
-        }
-    }
-
+    /// Parses the length determinant of `items` (ITU-T X.691 (02/2021)
+    /// §11.9) and hands the input positioned at the items to `decode_fn`,
+    /// once per fragment for lengths of 16K and above.
     fn decode_length(
         &mut self,
         mut input: InputSlice<'input>,
         constraints: Option<&Extensible<constraints::Size>>,
+        items: Items,
         decode_fn: &mut impl FnMut(InputSlice<'input>, usize) -> Result<InputSlice<'input>>,
     ) -> Result<InputSlice<'input>> {
         let Some(constraints) = constraints else {
             return self.decode_unknown_length(input, decode_fn);
         };
+        let items_aligned = items.aligned(Some(constraints));
+        let size = constraints.constraint;
 
-        let size_constraint = constraints.constraint;
-        if let Some(range) = size_constraint
-            .range()
-            .filter(|range| *range <= SIXTY_FOUR_K as usize)
-        {
-            if range == 0 {
-                Ok(input)
-            } else if range == 1 {
-                (decode_fn)(input, size_constraint.minimum())
-            } else {
-                let range = if self.options.aligned && range > 256 {
-                    input = self.parse_padding(input)?;
-                    let range = crate::num::log2(range as i128);
-                    crate::bits::range_from_len(if range.is_power_of_two() {
-                        range
-                    } else {
-                        range.next_power_of_two()
-                    })
-                } else {
-                    range as i128
-                };
-
-                let bits = crate::num::log2(range) as usize;
-                let length = take(&mut input, bits, self.codec())?;
-                input = self.parse_padding(input)?;
-                (length.first_bits(bits) as usize)
-                    .checked_add(size_constraint.minimum())
-                    .ok_or_else(|| DecodeError::exceeds_max_length(usize::MAX.into(), self.codec()))
-                    .and_then(|sum| (decode_fn)(input, sum))
-            }
-        } else {
-            self.decode_unknown_length(input, decode_fn)
+        // §11.9.3.3: only an upper bound below 64K makes the length a
+        // constrained whole number; otherwise it is unconstrained (§11.9.3.5).
+        let (Some(&lower), Some(&upper)) = size.start_and_end() else {
+            return self.decode_unknown_length(input, decode_fn);
+        };
+        if upper >= SIXTY_FOUR_K as usize {
+            return self.decode_unknown_length(input, decode_fn);
         }
+        let range = size.range().unwrap_or_default();
+        if range == 0 {
+            return Ok(input);
+        }
+
+        let length = if range == 1 {
+            lower
+        } else {
+            // §11.5.7.2, §11.5.7.3: a range of 256 is one octet and a larger
+            // one two octets, both octet-aligned; a smaller range is a
+            // bit-field (§11.5.7.1).
+            let bits = if self.options.aligned && range >= 256 {
+                input = self.parse_padding(input)?;
+                if range == 256 { 8 } else { 16 }
+            } else {
+                crate::num::log2(range as i128) as usize
+            };
+            let offset = take(&mut input, bits, self.codec())?.first_bits(bits) as usize;
+            offset
+                .checked_add(lower)
+                .ok_or_else(|| DecodeError::exceeds_max_length(usize::MAX.into(), self.codec()))?
+        };
+
+        // §11.9.3.3 NOTE 2: nothing, not even padding, follows a zero length.
+        if items_aligned && length > 0 {
+            input = self.parse_padding(input)?;
+        }
+        (decode_fn)(input, length)
     }
 
     fn parse_one_bit(&mut self) -> Result<bool> {
@@ -636,85 +586,41 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         })
     }
 
-    #[allow(clippy::too_many_lines)]
     fn parse_fixed_width_string<ALPHABET: StaticPermittedAlphabet>(
         &mut self,
         constraints: &Constraints,
     ) -> Result<ALPHABET> {
-        use crate::types::constraints::Bounded;
-
-        let mut bit_string = types::BitString::default();
-        let char_width = constraints
+        // ITU-T X.691 (02/2021) §30.4: a value outside the extension root is
+        // encoded as if there were no size constraint, retaining the effective
+        // permitted alphabet (§10.3.12). An extensible alphabet constraint
+        // is not PER-visible (§10.3.11) and makes nothing extensible.
+        let is_extended_value = constraints.per_visibly_extensible() && self.parse_one_bit()?;
+        let size = constraints.size().filter(|_| !is_extended_value);
+        let permitted = constraints
             .permitted_alphabet()
-            .map_or(ALPHABET::character_width() as usize, |alphabet| {
-                crate::num::log2(alphabet.constraint.len() as i128) as usize
-            });
+            .filter(|alphabet| alphabet.extensible.is_none())
+            .map(|alphabet| alphabet.constraint.as_inner());
 
-        let char_width = if self.options.aligned && !char_width.is_power_of_two() {
-            char_width.next_power_of_two()
-        } else {
-            char_width
-        };
-
-        let is_large_string = if let Some(size) = constraints.size() {
-            match *size.constraint {
-                Bounded::Range {
-                    start: Some(_),
-                    end: Some(_),
-                } if size
-                    .constraint
-                    .range()
-                    .unwrap()
-                    .checked_mul(char_width)
-                    .ok_or_else(|| {
-                        DecodeError::exceeds_max_length(usize::MAX.into(), self.codec())
-                    })?
-                    > 16 =>
-                {
-                    true
-                }
-                Bounded::Single(max)
-                    if max.checked_mul(char_width).ok_or_else(|| {
-                        DecodeError::exceeds_max_length(usize::MAX.into(), self.codec())
-                    })? > 16 =>
-                {
-                    self.input = self.parse_padding(self.input)?;
-                    true
-                }
-                Bounded::Range {
-                    start: None,
-                    end: Some(max),
-                } if max.checked_mul(char_width).ok_or_else(|| {
-                    DecodeError::exceeds_max_length(usize::MAX.into(), self.codec())
-                })? > 16 =>
-                {
-                    self.input = self.parse_padding(self.input)?;
-                    true
-                }
-                _ => false,
-            }
-        } else {
-            false
-        };
-
-        // ITU-T X.691 (02/2021) §30.5: each character is a fixed-width value or
-        // alphabet index. Gather the character bits, then read them back one
-        // code at a time.
-        let alphabet = CharacterAlphabet::new::<ALPHABET>(
-            constraints
-                .permitted_alphabet()
-                .map(|alphabet| alphabet.constraint.as_inner()),
-            self.options.aligned,
-        );
+        // §30.5: each character is a fixed-width value or alphabet index.
+        // Gather the character bits, then read them back one code at a time.
+        let alphabet = CharacterAlphabet::new::<ALPHABET>(permitted, self.options.aligned);
         let width = alphabet.width();
+        let mut bit_string = types::BitString::default();
         let mut total_length = 0;
         let codec = self.codec();
-        self.decode_extensible_string(constraints, is_large_string, |mut input, length| {
-            total_length += length;
-            let part = take(&mut input, length * width, codec)?;
-            crate::bits::extend_bitstring(&mut bit_string, part.bits());
-            Ok(input)
-        })?;
+        let input = self.decode_length(
+            self.input,
+            size,
+            Items::Characters(width),
+            &mut |mut input, length| {
+                total_length += length;
+                let part = take(&mut input, length * width, codec)?;
+                crate::bits::extend_bitstring(&mut bit_string, part.bits());
+                Ok(input)
+            },
+        )?;
+        self.input = input;
+        self.check_size(size, total_length)?;
 
         let bytes = bit_string.as_raw_slice();
         let mut string = ALPHABET::default();
@@ -747,11 +653,15 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut octet_string = Vec::new();
         let codec = self.codec();
 
-        self.decode_extensible_container(&Constraints::default(), |mut input, length| {
-            let part = take(&mut input, length * 8, codec)?;
-            crate::bits::extend_vec_from_bitslice(&mut octet_string, part.bits());
-            Ok(input)
-        })?;
+        self.decode_extensible_container(
+            &Constraints::default(),
+            Items::Octets,
+            |mut input, length| {
+                let part = take(&mut input, length * 8, codec)?;
+                crate::bits::extend_vec_from_bitslice(&mut octet_string, part.bits());
+                Ok(input)
+            },
+        )?;
 
         Ok(types::Any::new(octet_string))
     }
@@ -824,18 +734,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut octets = Octets::None;
         let codec = self.codec();
 
-        // Aligned PER (X.691 §17): fixed-size OCTET STRING with SIZE > 2 is
-        // octet-aligned. The encoder calls pad_to_alignment before the length
-        // determinant, so we must consume that padding here too.
-        if let Some(size) = constraints.size()
-            && size.constraint.range() == Some(1)
-            && size.constraint.as_start() > Some(&2)
-            && self.options.aligned
-        {
-            self.input = self.parse_padding(self.input)?;
-        }
-
-        self.decode_extensible_container(constraints, |mut input, length| {
+        self.decode_extensible_container(constraints, Items::Octets, |mut input, length| {
             let part = take(&mut input, length * 8, codec)?;
 
             octets = match core::mem::replace(&mut octets, Octets::None) {
@@ -884,7 +783,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut bit_string = types::BitString::default();
         let codec = self.codec();
 
-        self.decode_extensible_container(constraints, |mut input, length| {
+        self.decode_extensible_container(constraints, Items::Bits, |mut input, length| {
             let part = take(&mut input, length, codec)?;
             crate::bits::extend_bitstring(&mut bit_string, part.bits());
             Ok(input)
@@ -1023,7 +922,7 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
         let mut sequence_of = Vec::new();
         let mut options = self.options;
         options.remaining_depth = options.remaining_depth.saturating_sub(1);
-        self.decode_extensible_container(constraints, |mut input, length| {
+        self.decode_extensible_container(constraints, Items::Components, |mut input, length| {
             // Reserve for the claimed count only as far as the remaining input
             // could hold, so a length determinant alone cannot force a large
             // allocation.
