@@ -1,4 +1,9 @@
-#[allow(dead_code)]
+// `common::x509` is only used by the X.509 groups below, which are compiled
+// only on the targets that have the compared crates.
+#[cfg_attr(
+    not(any(target_arch = "x86_64", target_arch = "aarch64")),
+    allow(dead_code)
+)]
 mod common;
 
 use criterion::{Criterion, Throughput, black_box, criterion_group, criterion_main};
