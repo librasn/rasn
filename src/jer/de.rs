@@ -537,8 +537,10 @@ impl Decoder {
     fn integer_from_value<I: crate::types::IntegerType>(value: Value) -> Result<I, DecodeError> {
         value
             .as_i64()
+            .map(i128::from)
+            .or_else(|| value.as_u64().map(i128::from))
             .ok_or_else(|| JerDecodeErrorKind::TypeMismatch {
-                needed: "number (supported range -2^63..2^63)",
+                needed: "number (supported range -2^63..2^64)",
                 found: alloc::format!("{value}"),
             })?
             .try_into()
