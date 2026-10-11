@@ -68,8 +68,11 @@ impl crate::Decoder for Decoder {
         _t: Tag,
         constraints: &Constraints,
     ) -> Result<BitString, Self::Error> {
+        // ITU-T X.697 (02/2021) §7.2.1 a): an extensible size constraint is not
+        // JER-visible, so that only a size without an extension marker is fixed.
         let (mut padded, bitstring_length) = if let Some(size) = constraints
             .size()
+            .filter(|_| !constraints.extensible())
             .and_then(|s| s.constraint.is_fixed().then_some(s.constraint.as_start()))
             .flatten()
         {

@@ -107,7 +107,11 @@ impl crate::Encoder<'_> for Encoder {
                 acc.push_str(&alloc::format!("{bit:02X?}"));
                 acc
             });
-        let json_value = if constraints.size().is_some_and(|s| s.constraint.is_fixed()) {
+        // ITU-T X.697 (02/2021) §7.2.1 a): an extensible size constraint is not
+        // JER-visible, so that only a size without an extension marker is fixed.
+        let fixed = !constraints.extensible()
+            && constraints.size().is_some_and(|s| s.constraint.is_fixed());
+        let json_value = if fixed {
             Value::String(bytes)
         } else {
             let mut value_map = ValueMap::new();

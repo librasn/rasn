@@ -157,6 +157,18 @@ mod tests {
     struct ConstrainedBitString(pub BitString);
 
     #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    #[rasn(crate_root = "crate", delegate, size("3", extensible))]
+    struct ExtensibleBitString(pub BitString);
+
+    #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
+    #[rasn(automatic_tags)]
+    #[rasn(crate_root = "crate")]
+    struct ExtensibleBitStringField {
+        #[rasn(size("3"), extensible)]
+        bits: BitString,
+    }
+
+    #[derive(AsnType, Decode, Encode, Debug, PartialEq)]
     #[rasn(automatic_tags)]
     #[rasn(crate_root = "crate")]
     struct Renamed {
@@ -271,6 +283,31 @@ mod tests {
             ConstrainedBitString([true, false, true].into_iter().collect::<BitString>()),
             "\"A0\""
         );
+        // An extensible size is not fixed: a value has its length, in the
+        // root of the constraint and outside it, however the extension
+        // marker is written.
+        let five_bits = || {
+            [true, false, true, false, true]
+                .into_iter()
+                .collect::<BitString>()
+        };
+        round_trip_jer!(
+            ExtensibleBitString,
+            ExtensibleBitString([true, false, true].into_iter().collect::<BitString>()),
+            r#"{"length":3,"value":"A0"}"#
+        );
+        round_trip_jer!(
+            ExtensibleBitString,
+            ExtensibleBitString(five_bits()),
+            r#"{"length":5,"value":"A8"}"#
+        );
+        round_trip_jer!(
+            ExtensibleBitStringField,
+            ExtensibleBitStringField { bits: five_bits() },
+            r#"{"bits":{"length":5,"value":"A8"}}"#
+        );
+        // The string of a fixed size is not an encoding of such a type.
+        assert!(crate::jer::decode::<ExtensibleBitString>("\"A0\"").is_err());
     }
 
     #[test]
