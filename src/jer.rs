@@ -194,6 +194,42 @@ mod tests {
     }
 
     #[test]
+    fn integer_above_i64() {
+        use crate::error::{
+            CodecEncodeError, DecodeErrorKind, EncodeErrorKind, JerEncodeErrorKind,
+        };
+
+        round_trip_jer!(u64, u64::MAX, "18446744073709551615");
+        round_trip_jer!(u64, 1 << 63, "9223372036854775808");
+        round_trip_jer!(Integer, u64::MAX.into(), "18446744073709551615");
+        round_trip_jer!(i64, i64::MIN, "-9223372036854775808");
+
+        // A number that the type does not hold is an overflow.
+        for error in [
+            crate::jer::decode::<i64>("9223372036854775808").unwrap_err(),
+            crate::jer::decode::<u8>("18446744073709551615").unwrap_err(),
+        ] {
+            assert!(matches!(
+                &*error.kind,
+                DecodeErrorKind::IntegerOverflow { .. }
+            ));
+        }
+        // A number outside -2^63..2^64 is still refused, in both directions.
+        for value in [i128::from(u64::MAX) + 1, i128::from(i64::MIN) - 1] {
+            let error = crate::jer::encode(&Integer::from(value)).unwrap_err();
+            assert!(matches!(
+                &*error.kind,
+                EncodeErrorKind::CodecSpecific {
+                    inner: CodecEncodeError::Jer(
+                        JerEncodeErrorKind::ExceedsSupportedIntSize { .. }
+                    )
+                }
+            ));
+            assert!(crate::jer::decode::<Integer>(&value.to_string()).is_err());
+        }
+    }
+
+    #[test]
     #[cfg(feature = "f32")]
     fn real_f32() {
         round_trip_jer!(f32, 0.0, "0.0");

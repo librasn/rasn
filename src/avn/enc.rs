@@ -136,7 +136,7 @@ impl crate::Encoder<'_> for Encoder {
         value: &I,
         _: Identifier,
     ) -> Result<Self::Ok, Self::Error> {
-        // BigInt always works — no i64 limitation unlike JER.
+        // BigInt always works — no 64-bit limitation unlike JER.
         let s = value.to_bigint().unwrap_or_default().to_string();
         self.update_root_or_constructed(AvnValue::Integer(s))
     }

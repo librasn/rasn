@@ -420,7 +420,7 @@ pub enum JerEncodeErrorKind {
         msg: alloc::string::String,
     },
     /// Error to be thrown when encoding large integers than the supported range
-    #[snafu(display("Exceeds supported integer range -2^63..2^63 ({:?})", value))]
+    #[snafu(display("Exceeds supported integer range -2^63..2^64 ({:?})", value))]
     ExceedsSupportedIntSize {
         /// value failed to encode
         value: BigInt,

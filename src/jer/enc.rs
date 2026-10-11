@@ -153,6 +153,8 @@ impl crate::Encoder<'_> for Encoder {
     ) -> Result<Self::Ok, Self::Error> {
         if let Some(as_i64) = value.to_i64() {
             self.update_root_or_constructed(Value::Number(as_i64.into()))
+        } else if let Some(as_u64) = value.to_u64() {
+            self.update_root_or_constructed(Value::Number(as_u64.into()))
         } else {
             Err(JerEncodeErrorKind::ExceedsSupportedIntSize {
                 value: value.to_bigint().unwrap_or_default(),
