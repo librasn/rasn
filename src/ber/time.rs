@@ -39,7 +39,7 @@ fn parse_generalized_time_form(text: &[u8], canonical: bool) -> Option<DateTime<
         (None, None) => 3600,
     };
     let fraction = match text.separator(canonical) {
-        Some(()) => text.fraction()? * unit_seconds,
+        Some(()) => text.fraction(canonical)? * unit_seconds,
         None => 0,
     };
     let zone = match text.zone(canonical)? {
@@ -171,14 +171,16 @@ impl Characters<'_> {
     }
 
     /// Parses the digits of a fraction, at least one, as billionths of the
-    /// unit they qualify; digits beyond the ninth do not contribute.
-    fn fraction(&mut self) -> Option<u64> {
+    /// unit they qualify; digits beyond the ninth do not contribute. A
+    /// `canonical` fraction must not end in a zero (X.690 §11.7.3), which also
+    /// rules out a fraction that is wholly zero.
+    fn fraction(&mut self, canonical: bool) -> Option<u64> {
         let digits = self
             .0
             .iter()
             .position(|character| !character.is_ascii_digit())
             .unwrap_or(self.0.len());
-        if digits == 0 {
+        if digits == 0 || (canonical && self.0[digits - 1] == b'0') {
             return None;
         }
         let mut billionths = 0u64;
@@ -523,6 +525,8 @@ mod tests {
             b"20180613110000,5Z",
             b"20180613110000",
             b"20180613110000+0000",
+            b"20180613110000.50Z",
+            b"20180613110000.0Z",
         ] {
             assert!(
                 parse_generalized_time(lenient_only).is_some(),
