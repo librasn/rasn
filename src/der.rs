@@ -3,11 +3,25 @@
 pub use crate::ber::*;
 
 /// Attempts to decode `T` from `input` using DER.
+///
+/// `input` must contain exactly one complete DER value; any trailing bytes left
+/// after the top-level value are rejected, as required by X.690 §8.1.1.1. Use
+/// [`decode_with_remainder`] to decode a value from the front of a larger buffer.
+///
+/// # Errors
+/// Returns `DecodeError` if `input` is not valid DER encoding specific to the
+/// expected type, or if there is unexpected trailing data after the decoded value.
 pub fn decode<T: crate::Decode>(input: &[u8]) -> Result<T, crate::error::DecodeError> {
-    T::decode(&mut crate::ber::de::Decoder::new(
-        input,
-        crate::ber::de::DecoderOptions::der(),
-    ))
+    let decoder = &mut de::Decoder::new(input, de::DecoderOptions::der());
+    let decoded = T::decode(decoder)?;
+    let remaining = decoder.remaining();
+    if !remaining.is_empty() {
+        return Err(crate::error::DecodeError::unexpected_extra_data(
+            remaining.len(),
+            decoder.codec(),
+        ));
+    }
+    Ok(decoded)
 }
 /// Attempts to decode `T` from `input` using DER. Returns both `T` and reference to the remainder of the input.
 ///
