@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.1](https://github.com/librasn/rasn/compare/rasn-v0.29.0...rasn-v0.29.1) - 2026-10-12
+
+### Other
+
+- Consume unknown PER SEQUENCE and SET extension additions
+- Decode PER BMPString and preserve TeletexString base-encoding octets
+- *(ci)* fix warnings on non-bench platforms
+
 ## [0.29.0](https://github.com/librasn/rasn/compare/rasn-v0.28.15...rasn-v0.29.0) - 2026-10-05
 
 ### Other
