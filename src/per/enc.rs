@@ -240,9 +240,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
             let mut output_length = self.output_length();
             output_length += buffer.len();
             if !output_length.is_multiple_of(8) {
-                for _ in 0..(8 - output_length % 8) {
-                    buffer.push(false);
-                }
+                buffer.resize(buffer.len() + (8 - output_length % 8), false);
             }
         }
     }
