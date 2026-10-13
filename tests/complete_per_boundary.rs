@@ -59,6 +59,35 @@ fn complete_decoding_checks_empty_octets_and_trailing_data() {
 }
 
 #[test]
+fn trailing_octets_are_reported_as_extra_data() {
+    use rasn::error::DecodeErrorKind;
+
+    // The value, then two octets that are no part of it: the same error as
+    // BER gives for octets after the contents of a constructed value.
+    for decode in [rasn::aper::decode::<bool>, rasn::uper::decode::<bool>] {
+        let error = decode(&[0x80, 0x00, 0x00]).unwrap_err();
+        assert!(
+            matches!(
+                *error.kind,
+                DecodeErrorKind::UnexpectedExtraData { length: 2 }
+            ),
+            "{error}"
+        );
+    }
+    // `decode_with_remainder` is how a value is read from the front of a
+    // longer buffer.
+    for decode in [
+        rasn::aper::decode_with_remainder::<bool>,
+        rasn::uper::decode_with_remainder::<bool>,
+    ] {
+        assert_eq!(
+            decode(&[0x80, 0x00, 0x00]).unwrap(),
+            (true, &[0x00, 0x00][..])
+        );
+    }
+}
+
+#[test]
 fn constrained_decoding_checks_complete_encoding_boundaries() {
     for decode in [
         rasn::aper::decode_with_constraints::<()>,

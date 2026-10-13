@@ -183,8 +183,9 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
     pub(crate) fn finish_complete_encoding(&mut self, input_length: usize) -> Result<()> {
         self.parse_complete_padding(input_length)?;
         if self.input.len() != 0 {
-            return Err(DecodeError::parser_fail(
-                "Trailing data after complete PER value".into(),
+            // Whole octets: the padding of the last one was consumed above.
+            return Err(DecodeError::unexpected_extra_data(
+                self.input.len() / 8,
                 self.codec(),
             ));
         }
