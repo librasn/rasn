@@ -5,6 +5,9 @@ use alloc::vec::Vec;
 #[cfg(all(feature = "arc-slice", feature = "bytes"))]
 compile_error!("features `arc-slice` and `bytes` conflict, choose one");
 
+#[cfg(not(any(feature = "arc-slice", feature = "bytes")))]
+compile_error!("`OctetString` needs one of the features `bytes` (default) and `arc-slice`");
+
 #[cfg(all(not(feature = "arc-slice"), feature = "bytes"))]
 type BytesImpl = bytes::Bytes;
 
