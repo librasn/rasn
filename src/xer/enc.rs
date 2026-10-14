@@ -677,7 +677,13 @@ impl crate::Encoder<'_> for Encoder {
         };
         if self.entering_list_item_type {
             self.set_entering_list_item_type(false);
-            encode_fn(self)?;
+            // The variant's own type writes the item's tag, taken from the identifier the variant
+            // encoder is given. The enclosing fields must not be visible while it does, or the
+            // first encoder that falls back to the stack picks up a sibling field's name.
+            let field_tag_stack = core::mem::take(&mut self.field_tag_stack);
+            let encoded = encode_fn(self);
+            self.field_tag_stack = field_tag_stack;
+            encoded?;
             Ok(())
         } else {
             self.write_start_element(&xml_tag)?;
