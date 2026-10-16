@@ -195,10 +195,16 @@ impl BitBuffer {
     }
 
     pub(crate) fn push(&mut self, bit: bool) {
-        let position = self.grow(1);
-        if bit {
-            self.set(position, true);
+        debug_assert_eq!(self.bytes.len(), self.len.div_ceil(8));
+        let offset = self.len % 8;
+        if offset == 0 {
+            self.bytes.push(u8::from(bit) << 7);
+        } else if bit {
+            // The octets cover exactly `len` bits, so the last one holds it.
+            let last = self.bytes.len() - 1;
+            self.bytes[last] |= 0x80 >> offset;
         }
+        self.len += 1;
     }
 
     pub(crate) fn set(&mut self, index: usize, bit: bool) {
@@ -219,11 +225,30 @@ impl BitBuffer {
             return;
         }
         let position = self.grow(width);
+        let shift = position % 8;
+        if shift + width <= 64 {
+            // The usual case: the bits fit in a word, with those before them
+            // in the first octet.
+            let window = ((value as u64) << (64 - width)) >> shift;
+            let index = position / 8;
+            let touched = (shift + width).div_ceil(8);
+            let window = window.to_be_bytes();
+            for (target, byte) in self.bytes[index..index + touched].iter_mut().zip(window) {
+                *target |= byte;
+            }
+            return;
+        }
         let bytes = (value << (128 - width)).to_be_bytes();
         or_bits(&mut self.bytes, position, &bytes, width);
     }
 
     pub(crate) fn extend_from_bytes(&mut self, src: &[u8]) {
+        if self.len.is_multiple_of(8) {
+            // Octets after octets: no shift, and nothing to merge with.
+            self.bytes.extend_from_slice(src);
+            self.len += src.len() * 8;
+            return;
+        }
         let position = self.grow(src.len() * 8);
         or_bits(&mut self.bytes, position, src, src.len() * 8);
     }
@@ -506,6 +531,21 @@ mod tests {
     }
 
     #[test]
+    fn single_bits_match_bitvec() {
+        for dst_len in 0..17 {
+            let mut actual = filled(dst_len);
+            let mut expected = BitString::repeat(true, dst_len);
+            for index in 0..40 {
+                let bit = index % 3 == 0 || index % 7 == 0;
+                actual.push(bit);
+                expected.push(bit);
+                assert_eq!(as_bitstring(&actual), expected, "dst {dst_len} bit {index}");
+                assert_eq!(actual.as_bytes().len(), actual.len().div_ceil(8));
+            }
+        }
+    }
+
+    #[test]
     fn push_and_read_wide_values() {
         for width in 0..=128usize {
             let mask = if width == 128 {
@@ -514,7 +554,7 @@ mod tests {
                 (1u128 << width) - 1
             };
             let value = 0x0123_4567_89AB_CDEF_FEDC_BA98_7654_3210u128 & mask;
-            for dst_len in [0usize, 1, 5, 7, 8, 13] {
+            for dst_len in 0..17usize {
                 let mut actual = filled(dst_len);
                 actual.push_bits(value, width);
                 let actual = as_bitstring(&actual);
