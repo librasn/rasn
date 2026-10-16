@@ -852,7 +852,12 @@ impl<'input, const RFC: usize, const EFC: usize> crate::Decoder for Decoder<'inp
 
         self.decode_extensible_container(constraints, Items::Bits, |mut input, length| {
             let part = take(&mut input, length, codec)?;
-            crate::bits::extend_bitstring(&mut bit_string, part.bits());
+            if bit_string.is_empty() {
+                // All but a string of 16K bits or more: one fragment, copied once.
+                bit_string = crate::bits::to_bitstring(part.bits());
+            } else {
+                crate::bits::extend_bitstring(&mut bit_string, part.bits());
+            }
             Ok(input)
         })?;
         Ok(bit_string)

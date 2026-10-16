@@ -24,6 +24,15 @@ pub(crate) fn extend_bitstring(dst: &mut BitString, src: &BitStr) {
     write_bitslice(dst.as_raw_mut_slice(), position, src);
 }
 
+/// An owned copy of `src`, which starts at the first bit of its storage.
+pub(crate) fn to_bitstring(src: &BitStr) -> BitString {
+    let mut octets = alloc::vec![0; src.len().div_ceil(8)];
+    write_bitslice(&mut octets, 0, src);
+    let mut bits = BitString::from_vec(octets);
+    bits.truncate(src.len());
+    bits
+}
+
 /// The octets of `bits` when it starts and ends on an octet boundary, so
 /// they can be borrowed rather than copied.
 #[inline]
@@ -581,6 +590,24 @@ mod tests {
                     extend_bitstring(&mut actual, src);
                     assert_eq!(actual, expected, "dst {dst_len} src {src_start}+{src_len}");
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn owned_copy_matches_bitvec() {
+        let source = pattern(40);
+        let source = source.view_bits::<Msb0>();
+        for src_start in 0..9 {
+            for src_len in [0usize, 1, 2, 7, 8, 9, 13, 16, 17, 63, 64, 65, 72, 100, 250] {
+                let src = &source[src_start..src_start + src_len];
+                let copy = to_bitstring(src);
+                assert_eq!(copy, src.to_bitvec(), "src {src_start}+{src_len}");
+                // The copy starts at the first bit of its storage, and the
+                // bits past its end are zero.
+                let mut whole = BitString::from_vec(copy.as_raw_slice().to_vec());
+                assert_eq!(&whole[..src_len], src);
+                assert!(whole.split_off(src_len).not_any());
             }
         }
     }

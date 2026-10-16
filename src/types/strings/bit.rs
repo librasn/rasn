@@ -111,7 +111,7 @@ impl<const N: usize> Decode for FixedBitString<N> {
             )));
         }
         let mut array = Self::ZERO;
-        array[..out.len()].copy_from_bitslice(&out);
+        crate::bits::write_bitslice(&mut array.data, 0, &out);
         Ok(array)
     }
 }
