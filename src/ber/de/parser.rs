@@ -241,6 +241,32 @@ impl<'input> Parser<'input> {
         }
     }
 
+    /// Skips one unknown value without allocating its encoding. Definite
+    /// contents stay opaque; indefinite encodings are scanned to their own
+    /// end-of-contents, with the traversed nesting bounded by `depth`.
+    pub(crate) fn skip_value(&mut self) -> Result<()> {
+        if let Contents::Definite(_) = self.value(None)?.contents {
+            return Ok(());
+        }
+
+        let mut open = 1usize;
+        if open > self.depth {
+            return Err(self.exceeds_max_parse_depth());
+        }
+        while open != 0 {
+            if self.input.starts_with(END_OF_CONTENTS) {
+                self.end_of_contents()?;
+                open -= 1;
+            } else if let Contents::Indefinite = self.value(None)?.contents {
+                if open == self.depth {
+                    return Err(self.exceeds_max_parse_depth());
+                }
+                open += 1;
+            }
+        }
+        Ok(())
+    }
+
     /// Parses past the contents of a value in the indefinite form and its
     /// end-of-contents octets, returning the contents. Nested values are
     /// parsed only far enough to find where they end, without recursion, so
@@ -603,6 +629,41 @@ mod tests {
         parser.value(None).unwrap();
         assert_eq!(parser.indefinite_contents().unwrap().len(), 4 * depth - 4);
         assert!(parser.remaining().is_empty());
+    }
+
+    #[test]
+    fn skipping_indefinite_values_respects_the_remaining_depth() {
+        let options = DecoderOptions {
+            remaining_depth: 2,
+            ..BER_OPTIONS
+        };
+        for depth in 1..=3 {
+            let mut input = Vec::new();
+            input.extend((0..depth).flat_map(|_| [0xA0, 0x80]));
+            input.extend((0..depth).flat_map(|_| [0, 0]));
+            input.extend_from_slice(&[2, 1, 7]);
+            let mut parser = Parser::new(options, &input);
+            if depth <= options.remaining_depth {
+                parser.skip_value().unwrap();
+                assert_eq!(parser.remaining(), &[2, 1, 7]);
+            } else {
+                assert!(matches!(
+                    *parser.skip_value().unwrap_err().kind,
+                    DecodeErrorKind::ExceedsMaxParseDepth
+                ));
+            }
+        }
+        let mut parser = Parser::new(
+            DecoderOptions {
+                remaining_depth: 0,
+                ..BER_OPTIONS
+            },
+            &[0xA0, 0x80, 0, 0],
+        );
+        assert!(matches!(
+            *parser.skip_value().unwrap_err().kind,
+            DecodeErrorKind::ExceedsMaxParseDepth
+        ));
     }
 
     #[test]

@@ -68,10 +68,13 @@ fn newer() -> Outer<ThreeAdditions> {
     }
 }
 
-macro_rules! both_codecs {
+macro_rules! all_codecs {
     ($test:ident) => {
         $test(rasn::aper::encode, rasn::aper::decode);
         $test(rasn::uper::encode, rasn::uper::decode);
+        $test(rasn::ber::encode, rasn::ber::decode);
+        $test(rasn::cer::encode, rasn::cer::decode);
+        $test(rasn::der::encode, rasn::der::decode);
     };
 }
 
@@ -91,7 +94,7 @@ fn unknown_additions_of_a_sequence_are_skipped() {
             }
         );
     }
-    both_codecs!(check);
+    all_codecs!(check);
 }
 
 #[test]
@@ -110,7 +113,7 @@ fn additions_after_the_known_ones_are_skipped() {
             }
         );
     }
-    both_codecs!(check);
+    all_codecs!(check);
 }
 
 #[test]
@@ -122,7 +125,7 @@ fn absent_unknown_additions_are_not_read() {
         let wire = encode(&value).unwrap();
         assert_eq!(decode(&wire).unwrap().after, 0x5a);
     }
-    both_codecs!(check);
+    all_codecs!(check);
 }
 
 #[test]
@@ -131,7 +134,7 @@ fn a_truncated_unknown_addition_is_an_error() {
         let wire = encode(&newer()).unwrap();
         assert!(decode(&wire[..wire.len() - 2]).is_err());
     }
-    both_codecs!(check);
+    all_codecs!(check);
 }
 
 #[test]
@@ -155,5 +158,5 @@ fn unknown_additions_of_a_set_are_skipped() {
             }
         );
     }
-    both_codecs!(check);
+    all_codecs!(check);
 }

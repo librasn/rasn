@@ -1,4 +1,11 @@
 //! # Decoding BER
+//!
+//! Unknown extension additions are discarded for extensible `SEQUENCE`s with
+//! trailing extension regions. Layouts with roots after known additions stay
+//! strict; with no known additions, the extension marker is assumed trailing.
+//! Extensible `SET`s skip unknown members when their field metadata describes
+//! finite tag sets. Open fields retain their existing field-decoder dispatch.
+//! Skipped definite-length contents remain opaque and are not retained.
 
 mod config;
 pub(super) mod parser;
@@ -92,6 +99,16 @@ impl<'input> Decoder<'input> {
     fn at_end_of_contents(&self) -> bool {
         self.input.is_empty()
             || (self.closed_by_end_of_contents && self.input.starts_with(END_OF_CONTENTS))
+    }
+
+    /// Whether the schema can accept tags outside a finite set of leaves.
+    fn tag_tree_is_open(tree: types::TagTree) -> bool {
+        match tree {
+            types::TagTree::Leaf(tag) => tag == Tag::EOC,
+            types::TagTree::Choice(children) => {
+                children.is_empty() || children.iter().copied().any(Self::tag_tree_is_open)
+            }
+        }
     }
 
     /// A parser over the remaining input.
@@ -609,19 +626,41 @@ impl<'input> crate::Decoder for Decoder<'input> {
             // If there are no fields, or the input is empty and we know that
             // all fields are optional or default fields, we call the default
             // initializer and skip calling the decode function at all.
-            if D::FIELDS.is_empty() && D::EXTENDED_FIELDS.is_none()
+            let value = if D::FIELDS.is_empty() && D::EXTENDED_FIELDS.is_none()
                 || (D::FIELDS.len() == D::FIELDS.number_of_optional_and_default_fields()
                     && decoder.input.is_empty())
             {
-                if let Some(default_initializer_fn) = default_initializer_fn {
-                    return Ok((default_initializer_fn)());
+                match default_initializer_fn {
+                    Some(initialize) => initialize(),
+                    None => {
+                        return Err(DecodeError::from_kind(
+                            DecodeErrorKind::UnexpectedEmptyInput,
+                            decoder.codec(),
+                        ));
+                    }
                 }
-                return Err(DecodeError::from_kind(
-                    DecodeErrorKind::UnexpectedEmptyInput,
-                    decoder.codec(),
-                ));
+            } else {
+                (decode_fn)(decoder)?
+            };
+
+            // Only a trailing extension region can be completed here. A root
+            // after known additions may still be unread, so keep that layout
+            // strict. With no known additions the marker is assumed trailing;
+            // the metadata cannot express an empty middle extension region.
+            if D::IS_EXTENSIBLE
+                && D::EXTENDED_FIELDS.as_ref().is_none_or(|extensions| {
+                    extensions
+                        .iter()
+                        .map(|field| field.index)
+                        .min()
+                        .is_none_or(|first| D::FIELDS.iter().all(|field| field.index < first))
+                })
+            {
+                while !decoder.at_end_of_contents() {
+                    decoder.parse(Parser::skip_value)?;
+                }
             }
-            (decode_fn)(decoder)
+            Ok(value)
         })
     }
 
@@ -650,7 +689,44 @@ impl<'input> crate::Decoder for Decoder<'input> {
         self.parse_constructed_contents(tag, true, |decoder| {
             let mut fields = Vec::new();
             while !decoder.at_end_of_contents() {
-                fields.push(FIELDS::decode(decoder)?);
+                let input = decoder.input;
+                match FIELDS::decode(decoder) {
+                    Ok(field) => fields.push(field),
+                    Err(error) => {
+                        // Successful members need only the field decoder's
+                        // dispatch. Classify failures from their original tag
+                        // so malformed known fields keep their decoding error.
+                        // Open fields retain full control of dispatch.
+                        if !SET::IS_EXTENSIBLE
+                            || SET::FIELDS
+                                .iter()
+                                .chain(SET::EXTENDED_FIELDS.iter().flat_map(|fields| fields.iter()))
+                                .any(|field| Self::tag_tree_is_open(field.tag_tree))
+                        {
+                            return Err(error);
+                        }
+                        let Ok(identifier) = Parser::new(decoder.config, input).identifier() else {
+                            return Err(error);
+                        };
+                        let next_tag = identifier.tag;
+                        let known = SET::FIELDS
+                            .iter()
+                            .chain(SET::EXTENDED_FIELDS.iter().flat_map(|fields| fields.iter()))
+                            .any(|field| {
+                                types::TagTree::tag_contains(
+                                    &next_tag,
+                                    core::slice::from_ref(&field.tag_tree),
+                                )
+                            });
+                        if known {
+                            return Err(error);
+                        }
+                        // A custom field decoder may consume input before
+                        // rejecting an unknown tag. Delimit it from its start.
+                        decoder.input = input;
+                        decoder.parse(Parser::skip_value)?;
+                    }
+                }
             }
             (field_fn)(fields)
         })

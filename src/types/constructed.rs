@@ -3,6 +3,11 @@
 /// A `SET` or `SEQUENCE` value.
 /// `RL` is the number of fields in the "root component list".
 /// `EL` is the number of fields in the list of extensions.
+///
+/// Implementations must describe every known field, including its tags and
+/// original position. Decoders use this metadata to distinguish known fields
+/// from unknown extension additions. An open field's tag tree must reflect
+/// that it accepts values outside a finite set of tags.
 pub trait Constructed<const RL: usize = 0, const EL: usize = 0> {
     /// Fields contained in the "root component list".
     const FIELDS: super::fields::Fields<RL>;
