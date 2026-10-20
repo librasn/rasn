@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- [**breaking**] Correct the generated types for explicitly tagged optional and default extension additions, including constrained fields, and propagate errors from malformed present additions.
+
 ## [0.27.1](https://github.com/librasn/rasn/compare/rasn-derive-impl-v0.27.0...rasn-derive-impl-v0.27.1) - 2025-08-07
 
 ### Other

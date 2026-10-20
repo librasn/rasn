@@ -702,7 +702,7 @@ impl<'input> crate::Decoder for Decoder<'input> {
     where
         D: Decode,
     {
-        self.decode_explicit_prefix(tag).map(Some)
+        self.decode_optional_with_explicit_prefix(tag)
     }
 
     fn decode_extension_addition_with_tag_and_constraints<D>(

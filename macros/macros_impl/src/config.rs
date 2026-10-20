@@ -1153,24 +1153,14 @@ impl<'a> FieldConfig<'a> {
                 self.constraints.has_constraints(),
             ) {
                 (Some(true), _, constraints) => {
-                    let or_else = if self.is_option_type() {
-                        quote!(.ok())
-                    } else if self.is_default_type() {
-                        quote!(.ok().unwrap_or_else(#default_fn))
-                    } else {
-                        // False positive
-                        #[allow(clippy::redundant_clone)]
-                        or_else.clone()
-                    };
                     if constraints {
-                        {
-                            quote!(
-                                #constraint_def
-                                decoder.decode_extension_addition_with_explicit_tag_and_constraints(
-                                    #tag,
-                                    &#constraint_name
-                                    ) #or_else #handle_extension)
-                        }
+                        quote!({
+                            #constraint_def
+                            decoder.decode_extension_addition_with_explicit_tag_and_constraints(
+                                #tag,
+                                &#constraint_name
+                            ) #or_else #handle_extension
+                        })
                     } else {
                         quote!(decoder.decode_extension_addition_with_explicit_tag_and_constraints(
                             #tag,

@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- [**breaking**] Correct decoding of explicitly tagged optional and default extension additions. Optional fields use `Option<T>` without an extra `Option` workaround, and malformed present additions now return their field errors instead of being treated as absent.
+
 ## [0.29.0](https://github.com/librasn/rasn/compare/rasn-v0.28.15...rasn-v0.29.0) - 2026-10-05
 
 ### Other
