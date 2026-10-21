@@ -134,7 +134,7 @@ serde = {version="1.0.228", features=["derive"]}
 
 # Assume that we need these dependencies only when benching manually on specific targets
 [target.'cfg(any(target_arch = "x86_64", target_arch = "aarch64"))'.dev-dependencies]
-rustls-webpki = "0.102.8"
+rustls-webpki = "0.103.16"
 x509-cert = "0.2.5"
 x509-certificate = "0.23.1"
 x509-parser = "0.16"
