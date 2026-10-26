@@ -6,6 +6,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0](https://github.com/librasn/rasn/compare/rasn-v0.29.0...rasn-v0.30.0) - 2026-10-26
+
+### Fixed
+
+- say which feature is missing when neither bytes nor arc-slice is enabled
+- *(der)* reject trailing data in der::decode
+- *(jer)* [**breaking**] give a bit string of an extensible size its length
+- *(jer)* encode and decode integers above i64::MAX
+- *(per)* report trailing octets as unexpected extra data
+- *(xer)* use the CHOICE variant name for SEQUENCE OF items
+
+### Other
+
+- decode a BIT STRING with one copy
+- Update rustls-webpki to 0.103.16 to exclude leaked CA certificates
+- Decode JER open types from the hex string that encoding writes
+- Complete empty PER encodings with a single zero octet
+- Ignore non-PER-visible string SIZE constraints during decoding
+- Correct PER length determinants and component alignment
+- Consume unknown PER SEQUENCE and SET extension additions
+- Decode PER BMPString and preserve TeletexString base-encoding octets
+- *(ci)* fix warnings on non-bench platforms
+
 ## [0.29.0](https://github.com/librasn/rasn/compare/rasn-v0.28.15...rasn-v0.29.0) - 2026-10-05
 
 ### Other
