@@ -1,6 +1,7 @@
 /target
 **/*.rs.bk
-/.vscode
 .DS_Store
 .idea
 *.profraw
+config.bat
+node_modules
