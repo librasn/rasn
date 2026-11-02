@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.1](https://github.com/librasn/rasn/compare/rasn-v0.30.0...rasn-v0.30.1) - 2026-11-02
+
+### Other
+
+- *(per)* append single bits, short fields and aligned octets without the general copy
+
 ## [0.30.0](https://github.com/librasn/rasn/compare/rasn-v0.29.0...rasn-v0.30.0) - 2026-10-26
 
 ### Fixed
