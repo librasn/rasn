@@ -737,7 +737,7 @@ impl<'buffer, const RFC: usize, const EFC: usize> crate::Encoder<'buffer>
         // max size for enumerated value is currently only isize MIN/MAX
         // Spec allows between –2^1015 and 2^1015 – 1
         let number = value.discriminant();
-        if 0isize <= number && number <= i8::MAX.into() {
+        if 0isize <= number && number <= isize::from(i8::MAX) {
             self.encode_constrained_integer_with_padding(1, &number, false)?;
         } else {
             // Value is signed here as defined in section 11.4

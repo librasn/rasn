@@ -706,7 +706,7 @@ impl Decoder {
             .ok_or(JerDecodeErrorKind::InvalidJerOctetString {}.into())
     }
 
-    fn utc_time_from_value(value: Value) -> Result<chrono::DateTime<chrono::Utc>, DecodeError> {
+    fn utc_time_from_value(value: Value) -> Result<UtcTime, DecodeError> {
         crate::ber::de::Decoder::parse_any_utc_time_string(
             value
                 .as_str()
@@ -718,9 +718,7 @@ impl Decoder {
         )
     }
 
-    fn general_time_from_value(
-        value: Value,
-    ) -> Result<chrono::DateTime<chrono::FixedOffset>, DecodeError> {
+    fn general_time_from_value(value: Value) -> Result<GeneralizedTime, DecodeError> {
         crate::ber::de::Decoder::parse_any_generalized_time_string(
             value
                 .as_str()
@@ -732,7 +730,7 @@ impl Decoder {
         )
     }
 
-    fn date_from_value(value: Value) -> Result<chrono::NaiveDate, DecodeError> {
+    fn date_from_value(value: Value) -> Result<Date, DecodeError> {
         crate::ber::de::Decoder::parse_date_string(value.as_str().ok_or_else(|| {
             JerDecodeErrorKind::TypeMismatch {
                 needed: "date string",

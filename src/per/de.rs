@@ -1454,7 +1454,7 @@ mod tests {
     /// This pins those bytes.
     #[test]
     fn time_types() {
-        use chrono::TimeZone;
+        use crate::types::Date;
 
         #[derive(crate::AsnType, crate::Encode, crate::Decode, Debug, PartialEq)]
         #[rasn(crate_root = "crate", automatic_tags)]
@@ -1468,14 +1468,17 @@ mod tests {
 
         let value = Times {
             flag: true,
-            utc: chrono::Utc
-                .with_ymd_and_hms(2018, 6, 13, 11, 1, 59)
-                .unwrap(),
-            general: chrono::FixedOffset::east_opt(5 * 3600)
-                .unwrap()
-                .with_ymd_and_hms(2018, 6, 13, 11, 1, 58)
-                .unwrap(),
-            date: chrono::NaiveDate::from_ymd_opt(2024, 2, 29).unwrap(),
+            utc: crate::types::UtcTime::new(Date::new(2018, 6, 13).unwrap(), 11, 1, 59).unwrap(),
+            general: crate::types::GeneralizedTime::new(
+                Date::new(2018, 6, 13).unwrap(),
+                11,
+                1,
+                58,
+                0,
+                5 * 60,
+            )
+            .unwrap(),
+            date: Date::new(2024, 2, 29).unwrap(),
             trailer: 0xAB,
         };
 
@@ -1501,7 +1504,7 @@ mod tests {
             [0x40, 0xC7, 0x80]
         );
         // An immediate year (2005..2020) takes four bits: 00 0101 0000 00000.
-        let immediate = chrono::NaiveDate::from_ymd_opt(2010, 1, 1).unwrap();
+        let immediate = Date::new(2010, 1, 1).unwrap();
         assert_eq!(crate::uper::encode(&immediate).unwrap(), [0x14, 0x00]);
         // Every year range, including the unconstrained remainder, round-trips.
         for (year, month, day) in [
@@ -1516,7 +1519,7 @@ mod tests {
             (2277, 1, 1),
             (9999, 12, 31),
         ] {
-            let date = chrono::NaiveDate::from_ymd_opt(year, month, day).unwrap();
+            let date = Date::new(year, month, day).unwrap();
             let encoded = crate::uper::encode(&date).unwrap();
             assert_eq!(
                 crate::uper::decode::<crate::types::Date>(&encoded).unwrap(),

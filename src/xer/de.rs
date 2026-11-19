@@ -943,7 +943,7 @@ impl crate::Decoder for Decoder {
             self,
             crate::ber::de::Decoder::parse_any_generalized_time_string
         )
-        .map(|dt| dt.date_naive())
+        .map(|time| time.date())
     }
 
     fn decode_extension_addition_with_explicit_tag_and_constraints<D>(
@@ -1398,13 +1398,15 @@ mod tests {
 
         assert_eq!(
             crate::types::GeneralizedTime::decode(&mut decoder).unwrap(),
-            GeneralizedTime::from(
-                chrono::NaiveDate::from_ymd_opt(2000, 12, 31)
-                    .unwrap()
-                    .and_hms_milli_opt(23, 59, 59, 999)
-                    .unwrap()
-                    .and_utc()
+            GeneralizedTime::new(
+                crate::types::Date::new(2000, 12, 31).unwrap(),
+                23,
+                59,
+                59,
+                999_000_000,
+                0
             )
+            .unwrap()
         )
     }
 
@@ -1414,13 +1416,7 @@ mod tests {
 
         assert_eq!(
             crate::types::UtcTime::decode(&mut decoder).unwrap(),
-            UtcTime::from(
-                chrono::NaiveDate::from_ymd_opt(1999, 12, 31)
-                    .unwrap()
-                    .and_hms_opt(23, 59, 0)
-                    .unwrap()
-                    .and_utc()
-            )
+            UtcTime::new(crate::types::Date::new(1999, 12, 31).unwrap(), 23, 59, 0).unwrap()
         )
     }
 

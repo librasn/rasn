@@ -894,9 +894,8 @@ mod tests {
 
     #[test]
     fn utc_time() {
-        let time =
-            crate::types::GeneralizedTime::parse_from_str("991231235959+0000", "%y%m%d%H%M%S%z")
-                .unwrap();
+        let date = crate::types::Date::new(1999, 12, 31).unwrap();
+        let time = crate::types::UtcTime::new(date, 23, 59, 59).unwrap();
         // 991231235959Z
         let has_z = &[
             0x17, 0x0D, 0x39, 0x39, 0x31, 0x32, 0x33, 0x31, 0x32, 0x33, 0x35, 0x39, 0x35, 0x39,
@@ -907,37 +906,28 @@ mod tests {
             0x17, 0x11, 0x39, 0x39, 0x31, 0x32, 0x33, 0x31, 0x32, 0x33, 0x35, 0x39, 0x35, 0x39,
             0x2B, 0x30, 0x30, 0x30, 0x30,
         ];
-        assert_eq!(
-            time,
-            decode::<chrono::DateTime::<chrono::Utc>>(has_z).unwrap()
-        );
+        assert_eq!(time, decode::<crate::types::UtcTime>(has_z).unwrap());
 
         assert_eq!(
             time,
             crate::der::decode::<crate::types::UtcTime>(has_z).unwrap()
         );
 
-        assert_eq!(
-            time,
-            decode::<chrono::DateTime::<chrono::Utc>>(has_noz).unwrap()
-        );
+        assert_eq!(time, decode::<crate::types::UtcTime>(has_noz).unwrap());
         assert!(crate::der::decode::<crate::types::UtcTime>(has_noz).is_err());
     }
 
     #[test]
     fn generalized_time() {
-        let time = crate::types::GeneralizedTime::parse_from_str(
-            "20001231205959.999+0000",
-            "%Y%m%d%H%M%S%.3f%z",
-        )
-        .unwrap();
+        let date = crate::types::Date::new(2000, 12, 31).unwrap();
+        let time = crate::types::GeneralizedTime::new(date, 20, 59, 59, 999_000_000, 0).unwrap();
         let has_z = &[
             0x18, 0x13, 0x32, 0x30, 0x30, 0x30, 0x31, 0x32, 0x33, 0x31, 0x32, 0x30, 0x35, 0x39,
             0x35, 0x39, 0x2E, 0x39, 0x39, 0x39, 0x5A,
         ];
         assert_eq!(
             time,
-            decode::<chrono::DateTime::<chrono::FixedOffset>>(has_z).unwrap()
+            decode::<crate::types::GeneralizedTime>(has_z).unwrap()
         );
     }
 

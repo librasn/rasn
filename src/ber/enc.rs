@@ -11,7 +11,7 @@ use super::{Identifier, time};
 use crate::{
     Codec, Encode,
     types::{
-        self, Constraints, Enumerated, IntegerType, Tag,
+        self, Constraints, Date, Enumerated, GeneralizedTime, IntegerType, Tag, UtcTime,
         oid::{MAX_OID_FIRST_OCTET, MAX_OID_SECOND_OCTET},
     },
 };
@@ -422,9 +422,7 @@ impl Encoder {
     #[must_use]
     /// Canonical byte presentation for CER/DER as defined in X.690 section 11.7.
     /// Also used for BER on this crate.
-    pub fn datetime_to_canonical_generalized_time_bytes(
-        value: &chrono::DateTime<chrono::FixedOffset>,
-    ) -> Vec<u8> {
+    pub fn datetime_to_canonical_generalized_time_bytes(value: &GeneralizedTime) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(GENERALIZED_TIME_CAPACITY);
         time::write_generalized_time(&mut bytes, value);
         bytes
@@ -433,7 +431,7 @@ impl Encoder {
     #[must_use]
     /// Canonical byte presentation for CER/DER UTCTime as defined in X.690 section 11.8.
     /// Also used for BER on this crate.
-    pub fn datetime_to_canonical_utc_time_bytes(value: &chrono::DateTime<chrono::Utc>) -> Vec<u8> {
+    pub fn datetime_to_canonical_utc_time_bytes(value: &UtcTime) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(UTC_TIME_LENGTH);
         time::write_utc_time(&mut bytes, value);
         bytes
@@ -442,7 +440,7 @@ impl Encoder {
     #[must_use]
     /// Canonical byte presentation for CER/DER DATE as defined in X.690 section 8.26.2
     /// Also used for BER on this crate.
-    pub fn naivedate_to_date_bytes(value: &chrono::NaiveDate) -> Vec<u8> {
+    pub fn naivedate_to_date_bytes(value: &Date) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(DATE_LENGTH);
         time::write_date(&mut bytes, value);
         bytes

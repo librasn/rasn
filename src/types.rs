@@ -17,6 +17,7 @@ pub mod variants;
 
 pub(crate) mod constructed;
 pub(crate) mod date;
+pub(crate) mod datetime;
 pub(crate) mod integer;
 pub(crate) mod oid;
 
@@ -33,6 +34,8 @@ pub use {
         any::Any,
         constraints::{Constraint, Constraints, Extensible, InnerSubtypeConstraint},
         constructed::{Constructed, SequenceOf, SetOf},
+        date::Date,
+        datetime::{GeneralizedTime, UtcTime},
         identifier::Identifier,
         instance::InstanceOf,
         integer::{ConstrainedInteger, Integer, IntegerType},
@@ -51,14 +54,11 @@ pub use {
 
 pub use self::real::RealType;
 
+#[cfg(any(feature = "time", feature = "jiff"))]
+pub use self::datetime::TimeConversionError;
+
 ///  The `UniversalString` type.
 pub type UniversalString = Implicit<tag::UNIVERSAL_STRING, Utf8String>;
-///  The `UTCTime` type.
-pub type UtcTime = chrono::DateTime<chrono::Utc>;
-///  The `GeneralizedTime` type.
-pub type GeneralizedTime = chrono::DateTime<chrono::FixedOffset>;
-/// The `Date` type.
-pub type Date = chrono::NaiveDate;
 
 /// A trait representing any type that can represented in ASN.1.
 pub trait AsnType {

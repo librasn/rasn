@@ -13,4 +13,3 @@ default = ["rasn/f32", "rasn/f64", "rasn/bytes"]
 
 [dependencies]
 rasn = { path = "../..", version = "0.30", default-features = false }
-chrono.workspace = true

@@ -101,7 +101,6 @@ struct NearPastYear(u16);
 
 impl From<crate::types::Date> for DateEncoding {
     fn from(date: crate::types::Date) -> Self {
-        use chrono::Datelike;
         let year = date.year();
         Self {
             year: match year {
@@ -110,8 +109,8 @@ impl From<crate::types::Date> for DateEncoding {
                 1749..=2004 => YearEncoding::NearPast(NearPastYear(year as u16)),
                 _ => YearEncoding::Remainder(year),
             },
-            month: date.month() as u8,
-            day: date.day() as u8,
+            month: date.month(),
+            day: date.day(),
         }
     }
 }
@@ -125,7 +124,7 @@ impl DateEncoding {
             | YearEncoding::NearPast(NearPastYear(year)) => i32::from(year),
             YearEncoding::Remainder(year) => year,
         };
-        crate::types::Date::from_ymd_opt(year, self.month.into(), self.day.into())
+        crate::types::Date::new(year, self.month, self.day)
     }
 }
 

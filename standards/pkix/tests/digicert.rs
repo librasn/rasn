@@ -1,4 +1,3 @@
-use chrono::TimeZone;
 use pretty_assertions::assert_eq;
 use rasn::prelude::*;
 use rasn_pkix::*;
@@ -116,16 +115,8 @@ fn lets_encrypt_x3() {
                 },
             ]),
             validity: Validity {
-                not_before: Time::Utc(
-                    chrono::Utc
-                        .with_ymd_and_hms(2016, 3, 17, 16, 40, 46)
-                        .unwrap(),
-                ),
-                not_after: Time::Utc(
-                    chrono::Utc
-                        .with_ymd_and_hms(2021, 3, 17, 16, 40, 46)
-                        .unwrap(),
-                ),
+                not_before: Time::Utc(utc(2016, 3, 17, 16, 40, 46)),
+                not_after: Time::Utc(utc(2021, 3, 17, 16, 40, 46)),
             },
             subject: Name::RdnSequence(vec![
                 {
@@ -426,4 +417,9 @@ fn lets_encrypt_x3() {
     assert_eq!(original.signature_value, cert.signature_value);
 
     assert_eq!(original_data, rasn::der::encode(&cert).unwrap(),);
+}
+
+fn utc(year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> rasn::types::UtcTime {
+    let date = rasn::types::Date::new(year, month, day).unwrap();
+    rasn::types::UtcTime::new(date, hour, minute, second).unwrap()
 }

@@ -792,17 +792,11 @@ mod tests {
     }
     #[test]
     fn test_generalized_time() {
-        use chrono::NaiveDate;
-        let offset = chrono::FixedOffset::east_opt(0).unwrap();
-        let dt = NaiveDate::from_ymd_opt(2080, 10, 9)
-            .unwrap()
-            .and_hms_micro_opt(13, 0, 5, 342_000)
-            .unwrap()
-            .and_local_timezone(offset);
+        let date = Date::new(2080, 10, 9).unwrap();
         round_trip!(
             coer,
             GeneralizedTime,
-            GeneralizedTime::from(dt.unwrap(),),
+            GeneralizedTime::new(date, 13, 0, 5, 342_000_000, 0).unwrap(),
             &[
                 0x13, 0x32, 0x30, 0x38, 0x30, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30, 0x30,
                 0x35, 0x2e, 0x33, 0x34, 0x32, 0x5a
@@ -822,13 +816,7 @@ mod tests {
         round_trip!(
             coer,
             UtcTime,
-            UtcTime::from(
-                chrono::NaiveDate::from_ymd_opt(2019, 10, 9)
-                    .unwrap()
-                    .and_hms_opt(13, 0, 5)
-                    .unwrap()
-                    .and_utc()
-            ),
+            UtcTime::new(Date::new(2019, 10, 9).unwrap(), 13, 0, 5).unwrap(),
             &[
                 0x0d, 0x31, 0x39, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30, 0x30, 0x35, 0x5a
             ]

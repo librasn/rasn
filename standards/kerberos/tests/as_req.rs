@@ -29,12 +29,8 @@ fn as_req() {
                 ],
             }),
             from: None,
-            till: KerberosTime(
-                GeneralizedTime::parse_from_rfc3339("1970-01-01T00:00:00Z").unwrap(),
-            ),
-            rtime: Some(KerberosTime(
-                GeneralizedTime::parse_from_rfc3339("2052-03-04T11:11:11Z").unwrap(),
-            )),
+            till: KerberosTime(utc((1970, 1, 1), (0, 0, 0))),
+            rtime: Some(KerberosTime(utc((2052, 3, 4), (11, 11, 11)))),
             nonce: 12345678,
             etype: vec![18, 23, -133, -128, 24, -135],
             addresses: Some(vec![HostAddress {
@@ -67,4 +63,9 @@ fn as_req() {
     let enc = rasn::der::encode(&as_req).unwrap();
     assert_eq!(data, enc);
     assert_eq!(as_req, rasn::der::decode(&enc).unwrap());
+}
+
+fn utc((year, month, day): (i32, u8, u8), (hour, minute, second): (u8, u8, u8)) -> GeneralizedTime {
+    let date = rasn::types::Date::new(year, month, day).unwrap();
+    GeneralizedTime::new(date, hour, minute, second, 0, 0).unwrap()
 }

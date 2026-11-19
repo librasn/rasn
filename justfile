@@ -7,7 +7,7 @@
 CROSS := `which cross 2>/dev/null || which cargo 2>/dev/null`
 RUST_CHANNEL := "stable"
 TARGET_TRIPLE := `rustc -Vv | grep host | cut -d' ' -f2`
-FEATURE_FLAGS := "--features=f32,f64,bytes,std,backtraces,compiler"
+FEATURE_FLAGS := "--features=f32,f64,bytes,std,backtraces,compiler,time,jiff"
 TARGET_FLAGS := "--workspace --all-targets " + FEATURE_FLAGS
 RELEASE_FLAG := if env_var_or_default("RELEASE_BUILD", "") != "" { "--release" } else { "" }
 DOC_TARGET_FLAGS := "--no-deps --target " + TARGET_TRIPLE + " --release --workspace " + FEATURE_FLAGS

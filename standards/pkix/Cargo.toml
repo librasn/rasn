@@ -17,6 +17,5 @@ rasn = { path = "../..", version = "0.30", default-features = false }
 [dev-dependencies]
 base64 = "0.22"
 bitvec.workspace = true
-chrono.workspace = true
 pem = "3.0.4"
 pretty_assertions.workspace = true

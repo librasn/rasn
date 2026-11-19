@@ -759,7 +759,13 @@ impl Encoder {
     }
 
     fn write_date(&mut self, value: &Date) -> Result<(), EncodeError> {
-        self.write(XmlEvent::Characters(&value.format("%Y%m%d").to_string()))
+        self.write(XmlEvent::Characters(
+            &String::from_utf8(crate::ber::enc::Encoder::naivedate_to_date_bytes(value)).map_err(
+                |e| XerEncodeErrorKind::XmlEncodingError {
+                    upstream: e.to_string(),
+                },
+            )?,
+        ))
     }
 
     fn write_bitstring(&mut self, value: &BitStr) -> Result<(), EncodeError> {
