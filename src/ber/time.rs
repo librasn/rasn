@@ -5,25 +5,26 @@
 
 use alloc::vec::Vec;
 
-use chrono::{DateTime, Datelike, FixedOffset, NaiveDate, NaiveTime, Timelike, Utc};
+use crate::types::{Date, GeneralizedTime, UtcTime, date::civil_from_days};
 
 const NANOSECONDS_PER_SECOND: u64 = 1_000_000_000;
+const MINUTES_PER_DAY: i64 = 24 * 60;
 
 /// Parses a GeneralizedTime in any form X.680 §46.3 allows: the date and
 /// hour, optional minutes and seconds, an optional fraction of the smallest
 /// unit given after `.` or `,`, and either `Z`, a `±HHMM` offset or nothing,
 /// which is read as UTC.
-pub(crate) fn parse_generalized_time(text: &[u8]) -> Option<DateTime<FixedOffset>> {
+pub(crate) fn parse_generalized_time(text: &[u8]) -> Option<GeneralizedTime> {
     parse_generalized_time_form(text, false)
 }
 
 /// Parses a GeneralizedTime in the canonical form of X.690 §11.7: the time
 /// to the second, a fraction of a second only after `.`, and `Z`.
-pub(crate) fn parse_canonical_generalized_time(text: &[u8]) -> Option<DateTime<FixedOffset>> {
+pub(crate) fn parse_canonical_generalized_time(text: &[u8]) -> Option<GeneralizedTime> {
     parse_generalized_time_form(text, true)
 }
 
-fn parse_generalized_time_form(text: &[u8], canonical: bool) -> Option<DateTime<FixedOffset>> {
+fn parse_generalized_time_form(text: &[u8], canonical: bool) -> Option<GeneralizedTime> {
     let mut text = Characters(text);
     let date = text.date()?;
     let hour = text.number(2)?;
@@ -42,31 +43,32 @@ fn parse_generalized_time_form(text: &[u8], canonical: bool) -> Option<DateTime<
         Some(()) => text.fraction()? * unit_seconds,
         None => 0,
     };
-    let zone = match text.zone(canonical)? {
+    let offset = match text.zone(canonical)? {
         Some(offset) => offset,
         None if canonical => return None,
-        None => FixedOffset::east_opt(0)?,
+        None => 0,
     };
     if !text.is_empty() {
         return None;
     }
-    let time = time_of_day(hour, minute.unwrap_or(0), second.unwrap_or(0), fraction)?;
-    date.and_time(time).and_local_timezone(zone).single()
+    let (hour, minute, second, nanosecond) =
+        time_of_day(hour, minute.unwrap_or(0), second.unwrap_or(0), fraction)?;
+    GeneralizedTime::new(date, hour, minute, second, nanosecond, offset)
 }
 
 /// Parses a UTCTime in any form X.680 §47.3 allows: a two-digit year, the
 /// time to the minute or the second, and either `Z` or a `±HHMM` offset.
-pub(crate) fn parse_utc_time(text: &[u8]) -> Option<DateTime<Utc>> {
+pub(crate) fn parse_utc_time(text: &[u8]) -> Option<UtcTime> {
     parse_utc_time_form(text, false)
 }
 
 /// Parses a UTCTime in the canonical form of X.690 §11.8: the time to the
 /// second and `Z`.
-pub(crate) fn parse_canonical_utc_time(text: &[u8]) -> Option<DateTime<Utc>> {
+pub(crate) fn parse_canonical_utc_time(text: &[u8]) -> Option<UtcTime> {
     parse_utc_time_form(text, true)
 }
 
-fn parse_utc_time_form(text: &[u8], canonical: bool) -> Option<DateTime<Utc>> {
+fn parse_utc_time_form(text: &[u8], canonical: bool) -> Option<UtcTime> {
     let mut text = Characters(text);
     // The century is not given; years from 70 are in the twentieth.
     let year = match text.number(2)? {
@@ -81,47 +83,68 @@ fn parse_utc_time_form(text: &[u8], canonical: bool) -> Option<DateTime<Utc>> {
     if canonical && second.is_none() {
         return None;
     }
-    let zone = text.zone(canonical)??;
+    let offset = text.zone(canonical)??;
     if !text.is_empty() {
         return None;
     }
-    let date = NaiveDate::from_ymd_opt(year as i32, month, day)?;
-    let time = time_of_day(hour, minute, second.unwrap_or(0), 0)?;
-    Some(
-        date.and_time(time)
-            .and_local_timezone(zone)
-            .single()?
-            .to_utc(),
+    let date = Date::new(
+        year as i32,
+        u8::try_from(month).ok()?,
+        u8::try_from(day).ok()?,
+    )?;
+    let (hour, minute, second, _) = time_of_day(hour, minute, second.unwrap_or(0), 0)?;
+    let local = GeneralizedTime::new(date, hour, minute, second, 0, offset)?;
+    let (year, month, day, hour, minute) = utc_minute(local);
+    UtcTime::new(
+        Date::new(i32::try_from(year).ok()?, month, day)?,
+        hour,
+        minute,
+        second,
     )
 }
 
 /// Parses a DATE, `YYYYMMDD`.
-pub(crate) fn parse_date(text: &[u8]) -> Option<NaiveDate> {
+pub(crate) fn parse_date(text: &[u8]) -> Option<Date> {
     let mut text = Characters(text);
     let date = text.date()?;
     text.is_empty().then_some(date)
 }
 
-/// The time of day at `hour`, `minute` and `second`, plus `nanoseconds`.
-/// A `second` of 60 is a leap second, which `chrono` represents as second
-/// 59 with a billion or more nanoseconds.
-fn time_of_day(hour: u32, minute: u32, second: u32, nanoseconds: u64) -> Option<NaiveTime> {
-    if minute >= 60 {
+/// The hour, minute, second and nanosecond of the time of day at `hour`,
+/// `minute` and `second`, plus `nanoseconds`. A `second` of 60 is a leap
+/// second, which no fraction of a minute or an hour can reach.
+fn time_of_day(hour: u32, minute: u32, second: u32, nanoseconds: u64) -> Option<(u8, u8, u8, u32)> {
+    if minute >= 60 || second > 60 {
         return None;
     }
-    let (second, leap) = match second {
-        60 => (59, NANOSECONDS_PER_SECOND),
-        second @ 0..60 => (second, 0),
-        _ => return None,
-    };
+    let leap = second == 60;
     let seconds = u64::from(hour) * 3600
         + u64::from(minute) * 60
-        + u64::from(second)
+        + u64::from(second.min(59))
         + nanoseconds / NANOSECONDS_PER_SECOND;
-    let nanoseconds = nanoseconds % NANOSECONDS_PER_SECOND + leap;
-    NaiveTime::from_num_seconds_from_midnight_opt(
-        u32::try_from(seconds).ok()?,
-        u32::try_from(nanoseconds).ok()?,
+    if seconds >= 24 * 3600 {
+        return None;
+    }
+    let second = (seconds % 60) as u8 + u8::from(leap);
+    Some((
+        (seconds / 3600) as u8,
+        (seconds / 60 % 60) as u8,
+        second,
+        (nanoseconds % NANOSECONDS_PER_SECOND) as u32,
+    ))
+}
+
+/// The year, month, day, hour and minute of `value` in UTC.
+fn utc_minute(value: GeneralizedTime) -> (i64, u8, u8, u8, u8) {
+    let minutes = value.utc_minutes();
+    let (year, month, day) = civil_from_days(minutes.div_euclid(MINUTES_PER_DAY));
+    let minute_of_day = minutes.rem_euclid(MINUTES_PER_DAY);
+    (
+        year,
+        month,
+        day,
+        (minute_of_day / 60) as u8,
+        (minute_of_day % 60) as u8,
     )
 }
 
@@ -155,11 +178,15 @@ impl Characters<'_> {
     }
 
     /// Parses a date, `YYYYMMDD`.
-    fn date(&mut self) -> Option<NaiveDate> {
+    fn date(&mut self) -> Option<Date> {
         let year = self.number(4)?;
         let month = self.number(2)?;
         let day = self.number(2)?;
-        NaiveDate::from_ymd_opt(year as i32, month, day)
+        Date::new(
+            year as i32,
+            u8::try_from(month).ok()?,
+            u8::try_from(day).ok()?,
+        )
     }
 
     /// Consumes the separator that starts a fraction: `.`, or `,` as well
@@ -190,109 +217,101 @@ impl Characters<'_> {
         Some(billionths)
     }
 
-    /// Parses the time zone: `Z` for UTC, or a `±HHMM` offset unless
-    /// `canonical`. Yields `None` when no zone is given, and fails on a
-    /// malformed or disallowed one.
-    fn zone(&mut self, canonical: bool) -> Option<Option<FixedOffset>> {
+    /// Parses the time zone as minutes east of UTC: `Z` for UTC, or a
+    /// `±HHMM` offset of less than a day unless `canonical`. Yields `None`
+    /// when no zone is given, and fails on a malformed or disallowed one.
+    fn zone(&mut self, canonical: bool) -> Option<Option<i16>> {
         let (&designator, rest) = match self.0.split_first() {
             Some(zone) => zone,
             None => return Some(None),
         };
         self.0 = rest;
         let sign = match designator {
-            b'Z' => return Some(Some(FixedOffset::east_opt(0)?)),
+            b'Z' => return Some(Some(0)),
             b'+' if !canonical => 1,
             b'-' if !canonical => -1,
             _ => return None,
         };
         let hours = self.number(2)?;
         let minutes = self.number(2)?;
-        let seconds = i32::try_from(hours * 3600 + minutes * 60).ok()?;
-        Some(Some(FixedOffset::east_opt(sign * seconds)?))
+        let offset = i16::try_from(hours * 60 + minutes).ok()?;
+        (i64::from(offset) < MINUTES_PER_DAY).then_some(Some(sign * offset))
     }
 }
 
 /// Appends `value` as a GeneralizedTime in the canonical form: UTC, the time
 /// to the second, a fraction of a second only when it is not zero and
 /// without trailing zeros, and `Z`.
-pub(crate) fn write_generalized_time(out: &mut Vec<u8>, value: &DateTime<FixedOffset>) {
-    let value = value.naive_utc();
-    write_date(out, &value.date());
-    let (second, nanoseconds) = second_and_nanoseconds(value.time());
-    write_time(out, value.time(), second);
+pub(crate) fn write_generalized_time(out: &mut Vec<u8>, value: &GeneralizedTime) {
+    if value.offset() == 0 {
+        write_date(out, &value.date());
+        write_time(out, value.hour(), value.minute(), value.second());
+    } else {
+        let (year, month, day, hour, minute) = utc_minute(*value);
+        write_year_month_day(out, year, month, day);
+        write_time(out, hour, minute, value.second());
+    }
+    let nanoseconds = value.nanosecond();
     if nanoseconds > 0 {
         out.push(b'.');
         let mut fraction = nanoseconds;
         let mut digits = 9;
-        while fraction % 10 == 0 {
+        while fraction.is_multiple_of(10) {
             fraction /= 10;
             digits -= 1;
         }
-        write_decimal(out, fraction, digits);
+        write_decimal(out, u64::from(fraction), digits);
     }
     out.push(b'Z');
 }
 
-/// Appends `value` as a UTCTime in the canonical form: UTC, the year in two
+/// Appends `value` as a UTCTime in the canonical form: the year in two
 /// digits, the time to the second and `Z`.
-pub(crate) fn write_utc_time(out: &mut Vec<u8>, value: &DateTime<Utc>) {
-    let value = value.naive_utc();
-    write_pair(out, value.year().rem_euclid(100) as u32);
-    write_pair(out, value.month());
-    write_pair(out, value.day());
-    let (second, _) = second_and_nanoseconds(value.time());
-    write_time(out, value.time(), second);
+pub(crate) fn write_utc_time(out: &mut Vec<u8>, value: &UtcTime) {
+    let date = value.date();
+    write_pair(out, date.year().rem_euclid(100) as u8);
+    write_pair(out, date.month());
+    write_pair(out, date.day());
+    write_time(out, value.hour(), value.minute(), value.second());
     out.push(b'Z');
 }
 
 /// Appends `value` as a DATE: the year in four digits, then the month and
 /// the day in two digits each.
-pub(crate) fn write_date(out: &mut Vec<u8>, value: &NaiveDate) {
-    let year = value.year();
-    if let Ok(year) = u32::try_from(year)
-        && year <= 9999
-    {
-        write_pair(out, year / 100);
-        write_pair(out, year % 100);
+pub(crate) fn write_date(out: &mut Vec<u8>, value: &Date) {
+    write_year_month_day(out, value.year().into(), value.month(), value.day());
+}
+
+fn write_year_month_day(out: &mut Vec<u8>, year: i64, month: u8, day: u8) {
+    if (0..=9999).contains(&year) {
+        write_pair(out, (year / 100) as u8);
+        write_pair(out, (year % 100) as u8);
     } else {
         // A year outside the four-digit range is not representable; it is
         // written with a sign and as many digits as it needs.
         out.push(if year < 0 { b'-' } else { b'+' });
         write_decimal(out, year.unsigned_abs(), 4);
     }
-    write_pair(out, value.month());
-    write_pair(out, value.day());
+    write_pair(out, month);
+    write_pair(out, day);
 }
 
-/// Appends the hour, minute and `second` of `value` in two digits each.
-fn write_time(out: &mut Vec<u8>, value: NaiveTime, second: u32) {
-    write_pair(out, value.hour());
-    write_pair(out, value.minute());
+/// Appends `hour`, `minute` and `second` in two digits each.
+fn write_time(out: &mut Vec<u8>, hour: u8, minute: u8, second: u8) {
+    write_pair(out, hour);
+    write_pair(out, minute);
     write_pair(out, second);
 }
 
 /// Appends `value`, which is below 100, in two digits.
 #[inline]
-fn write_pair(out: &mut Vec<u8>, value: u32) {
+fn write_pair(out: &mut Vec<u8>, value: u8) {
     debug_assert!(value < 100);
-    out.extend_from_slice(&[b'0' + (value / 10) as u8, b'0' + (value % 10) as u8]);
-}
-
-/// The second and the nanoseconds within it. `chrono` represents a leap
-/// second as second 59 with a billion or more nanoseconds; it is written
-/// as second 60.
-fn second_and_nanoseconds(value: NaiveTime) -> (u32, u32) {
-    const NANOSECONDS_PER_SECOND: u32 = 1_000_000_000;
-    let nanoseconds = value.nanosecond();
-    if nanoseconds >= NANOSECONDS_PER_SECOND {
-        (value.second() + 1, nanoseconds - NANOSECONDS_PER_SECOND)
-    } else {
-        (value.second(), nanoseconds)
-    }
+    out.extend_from_slice(&[b'0' + value / 10, b'0' + value % 10]);
 }
 
 /// Appends `value` in decimal, zero-padded to at least `width` digits.
-fn write_decimal(out: &mut Vec<u8>, mut value: u32, width: usize) {
+fn write_decimal(out: &mut Vec<u8>, mut value: u64, width: usize) {
     let digits = value.checked_ilog10().map_or(1, |log| log as usize + 1);
     let start = out.len();
     out.resize(start + width.max(digits), b'0');
@@ -309,7 +328,6 @@ fn write_decimal(out: &mut Vec<u8>, mut value: u32, width: usize) {
 mod tests {
     use super::*;
     use alloc::string::String;
-    use chrono::TimeZone;
 
     fn written(write: impl FnOnce(&mut Vec<u8>)) -> String {
         let mut out = Vec::new();
@@ -317,35 +335,62 @@ mod tests {
         String::from_utf8(out).unwrap()
     }
 
-    fn generalized_time(value: DateTime<FixedOffset>) -> String {
+    fn day(year: i32, month: u8, day: u8) -> Date {
+        Date::new(year, month, day).unwrap()
+    }
+
+    fn at(
+        date: Date,
+        (hour, minute, second): (u8, u8, u8),
+        nanosecond: u32,
+        offset: i16,
+    ) -> GeneralizedTime {
+        GeneralizedTime::new(date, hour, minute, second, nanosecond, offset).unwrap()
+    }
+
+    fn utc(year: i32, month: u8, d: u8, hour: u8, minute: u8, second: u8) -> UtcTime {
+        UtcTime::new(day(year, month, d), hour, minute, second).unwrap()
+    }
+
+    fn utc_generalized(
+        year: i32,
+        month: u8,
+        d: u8,
+        time: (u8, u8, u8),
+        nanosecond: u32,
+    ) -> GeneralizedTime {
+        at(day(year, month, d), time, nanosecond, 0)
+    }
+
+    fn generalized_time(value: GeneralizedTime) -> String {
         written(|out| write_generalized_time(out, &value))
     }
 
-    fn utc_time(value: DateTime<Utc>) -> String {
+    fn utc_time(value: UtcTime) -> String {
         written(|out| write_utc_time(out, &value))
     }
 
-    fn date(year: i32, month: u32, day: u32) -> String {
-        written(|out| write_date(out, &NaiveDate::from_ymd_opt(year, month, day).unwrap()))
+    fn date(year: i32, month: u8, d: u8) -> String {
+        written(|out| write_date(out, &day(year, month, d)))
     }
 
-    /// Midnight on 2020-01-01 with the given nanoseconds, which may denote a
-    /// leap second.
-    fn with_nanoseconds(nanoseconds: u32) -> DateTime<FixedOffset> {
-        Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 59)
-            .unwrap()
-            .with_nanosecond(nanoseconds)
-            .unwrap()
-            .fixed_offset()
+    /// 00:00:59 on 2020-01-01 with the given nanoseconds.
+    fn with_nanoseconds(nanoseconds: u32) -> GeneralizedTime {
+        utc_generalized(2020, 1, 1, (0, 0, 59), nanoseconds)
     }
 
     #[test]
     fn generalized_time_is_written_in_utc() {
-        let value = FixedOffset::east_opt(5 * 3600)
-            .unwrap()
-            .with_ymd_and_hms(2018, 6, 13, 3, 1, 58)
-            .unwrap();
+        let value = at(day(2018, 6, 13), (3, 1, 58), 0, 5 * 60);
         assert_eq!(generalized_time(value), "20180612220158Z");
+    }
+
+    #[test]
+    fn generalized_time_in_utc_can_cross_the_four_digit_range() {
+        let value = at(day(0, 1, 1), (0, 0, 0), 0, 60);
+        assert_eq!(generalized_time(value), "-00011231230000Z");
+        let value = at(day(i32::MAX, 12, 31), (23, 0, 0), 0, -60);
+        assert_eq!(generalized_time(value), "+21474836480101000000Z");
     }
 
     #[test]
@@ -379,42 +424,28 @@ mod tests {
 
     #[test]
     fn generalized_time_leap_second() {
+        let leap_second = |nanosecond| utc_generalized(2020, 1, 1, (0, 0, 60), nanosecond);
+        assert_eq!(generalized_time(leap_second(0)), "20200101000060Z");
         assert_eq!(
-            generalized_time(with_nanoseconds(1_000_000_000)),
-            "20200101000060Z"
-        );
-        assert_eq!(
-            generalized_time(with_nanoseconds(1_500_000_000)),
+            generalized_time(leap_second(500_000_000)),
             "20200101000060.5Z"
         );
     }
 
     #[test]
     fn utc_time_takes_the_last_two_digits_of_the_year() {
-        assert_eq!(
-            utc_time(Utc.with_ymd_and_hms(2018, 1, 22, 13, 29, 0).unwrap()),
-            "180122132900Z"
-        );
-        assert_eq!(
-            utc_time(Utc.with_ymd_and_hms(2000, 2, 29, 0, 0, 0).unwrap()),
-            "000229000000Z"
-        );
+        assert_eq!(utc_time(utc(2018, 1, 22, 13, 29, 0)), "180122132900Z");
+        assert_eq!(utc_time(utc(2000, 2, 29, 0, 0, 0)), "000229000000Z");
     }
 
     #[test]
     fn utc_time_year_before_the_common_era() {
-        assert_eq!(
-            utc_time(Utc.with_ymd_and_hms(-5, 3, 4, 5, 6, 7).unwrap()),
-            "950304050607Z"
-        );
+        assert_eq!(utc_time(utc(-5, 3, 4, 5, 6, 7)), "950304050607Z");
     }
 
     #[test]
-    fn utc_time_leap_second_has_no_fraction() {
-        assert_eq!(
-            utc_time(with_nanoseconds(1_500_000_000).to_utc()),
-            "200101000060Z"
-        );
+    fn utc_time_leap_second() {
+        assert_eq!(utc_time(utc(2020, 1, 1, 0, 0, 60)), "200101000060Z");
     }
 
     #[test]
@@ -434,14 +465,9 @@ mod tests {
         assert_eq!(date(-1, 1, 1), "-00010101");
     }
 
-    fn utc(year: i32, month: u32, day: u32, hour: u32, minute: u32, second: u32) -> DateTime<Utc> {
-        Utc.with_ymd_and_hms(year, month, day, hour, minute, second)
-            .unwrap()
-    }
-
     #[test]
     fn parses_generalized_time_to_the_hour_minute_or_second() {
-        let expected = utc(2018, 6, 13, 11, 0, 0).fixed_offset();
+        let expected = utc_generalized(2018, 6, 13, (11, 0, 0), 0);
         assert_eq!(parse_generalized_time(b"2018061311"), Some(expected));
         assert_eq!(parse_generalized_time(b"201806131100"), Some(expected));
         assert_eq!(parse_generalized_time(b"20180613110000Z"), Some(expected));
@@ -449,59 +475,48 @@ mod tests {
 
     #[test]
     fn parses_generalized_time_fraction_of_the_smallest_unit() {
-        let half_past_twelve = utc(2018, 6, 13, 12, 30, 0).fixed_offset();
         assert_eq!(
             parse_generalized_time(b"2018061312.5"),
-            Some(half_past_twelve)
+            Some(utc_generalized(2018, 6, 13, (12, 30, 0), 0))
         );
         assert_eq!(
             parse_generalized_time(b"201806131229,5"),
-            Some(half_past_twelve - chrono::Duration::seconds(30))
+            Some(utc_generalized(2018, 6, 13, (12, 29, 30), 0))
         );
         assert_eq!(
             parse_generalized_time(b"20180613122959.1234567891Z"),
-            Some(
-                utc(2018, 6, 13, 12, 29, 59)
-                    .with_nanosecond(123_456_789)
-                    .unwrap()
-                    .fixed_offset()
-            )
+            Some(utc_generalized(2018, 6, 13, (12, 29, 59), 123_456_789))
         );
     }
 
     #[test]
     fn parses_generalized_time_offset() {
-        let offset = FixedOffset::west_opt(5 * 3600).unwrap();
         let parsed = parse_generalized_time(b"20230122130000-0500").unwrap();
-        assert_eq!(parsed.offset(), &offset);
-        assert_eq!(parsed, utc(2023, 1, 22, 18, 0, 0));
+        assert_eq!(parsed.offset(), -5 * 60);
+        assert_eq!(parsed.hour(), 13);
+        assert_eq!(parsed, utc_generalized(2023, 1, 22, (18, 0, 0), 0));
     }
 
     #[test]
     fn parses_generalized_time_leap_second() {
-        let leap_second = NaiveDate::from_ymd_opt(2016, 12, 31)
-            .unwrap()
-            .and_hms_nano_opt(23, 59, 59, 1_500_000_000)
-            .unwrap()
-            .and_utc()
-            .fixed_offset();
         assert_eq!(
             parse_generalized_time(b"20161231235960.5Z"),
-            Some(leap_second)
+            Some(utc_generalized(2016, 12, 31, (23, 59, 60), 500_000_000))
         );
     }
 
     #[test]
     fn rejects_malformed_generalized_time() {
         for malformed in [
-            &b"20180613"[..],     // no hour
-            b"2018061324",        // hour out of range
-            b"201806131160",      // minute out of range
-            b"20180613115961",    // second out of range
-            b"20180613115959.",   // fraction without digits
-            b"20180613115959+05", // incomplete offset
-            b"20180613115959Z1",  // trailing characters
-            b"2018O613115959Z",   // not a digit
+            &b"20180613"[..],       // no hour
+            b"2018061324",          // hour out of range
+            b"201806131160",        // minute out of range
+            b"20180613115961",      // second out of range
+            b"20180613115959.",     // fraction without digits
+            b"20180613115959+05",   // incomplete offset
+            b"20180613115959+2400", // offset of a day
+            b"20180613115959Z1",    // trailing characters
+            b"2018O613115959Z",     // not a digit
         ] {
             assert_eq!(parse_generalized_time(malformed), None, "{malformed:?}");
         }
@@ -511,12 +526,7 @@ mod tests {
     fn canonical_generalized_time_requires_seconds_a_dot_and_utc() {
         assert_eq!(
             parse_canonical_generalized_time(b"20180613110000.5Z"),
-            Some(
-                utc(2018, 6, 13, 11, 0, 0)
-                    .with_nanosecond(500_000_000)
-                    .unwrap()
-                    .fixed_offset()
-            )
+            Some(utc_generalized(2018, 6, 13, (11, 0, 0), 500_000_000))
         );
         for lenient_only in [
             &b"201806131100Z"[..],
@@ -542,6 +552,10 @@ mod tests {
         assert_eq!(parse_utc_time(b"1801221329Z"), Some(expected));
         assert_eq!(parse_utc_time(b"180122132900Z"), Some(expected));
         assert_eq!(parse_utc_time(b"180122082900-0500"), Some(expected));
+        assert_eq!(
+            parse_utc_time(b"000101003000+0100"),
+            Some(utc(1999, 12, 31, 23, 30, 0))
+        );
     }
 
     #[test]
@@ -573,10 +587,7 @@ mod tests {
 
     #[test]
     fn parses_date() {
-        assert_eq!(
-            parse_date(b"20121221"),
-            NaiveDate::from_ymd_opt(2012, 12, 21)
-        );
+        assert_eq!(parse_date(b"20121221"), Date::new(2012, 12, 21));
         assert_eq!(parse_date(b"20120230"), None);
         assert_eq!(parse_date(b"2012122"), None);
         assert_eq!(parse_date(b"20121221Z"), None);

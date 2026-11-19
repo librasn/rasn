@@ -13,10 +13,7 @@ fn issue_141() {
     let s = &[23, 13, 55, 48, 48, 49, 48, 49, 48, 48, 48, 48, 49, 48, 90];
     let t: Option<TestTime> = rasn::der::decode(s.as_slice()).unwrap();
 
-    assert_eq!(
-        t,
-        Some(TestTime::Utc("1970-01-01T00:00:10Z".parse().unwrap()))
-    );
+    assert_eq!(t, Some(TestTime::Utc(utc(1970, 1, 1, 0, 0, 10))));
 }
 
 #[test]
@@ -46,7 +43,12 @@ fn complementary_issue_141() {
     assert_eq!(
         t,
         TestSeq {
-            next_update: Some(TestTime::Utc("1970-01-01T00:00:10Z".parse().unwrap()))
+            next_update: Some(TestTime::Utc(utc(1970, 1, 1, 0, 0, 10)))
         }
     );
+}
+
+fn utc(year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> rasn::types::UtcTime {
+    let date = rasn::types::Date::new(year, month, day).unwrap();
+    rasn::types::UtcTime::new(date, hour, minute, second).unwrap()
 }

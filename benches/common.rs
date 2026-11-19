@@ -1,4 +1,3 @@
-use chrono::{FixedOffset, TimeZone, Utc};
 use rasn::prelude::*;
 
 pub mod x509;
@@ -65,11 +64,8 @@ pub fn bench_default() -> Bench {
         l: SetOf::new(),
         m: BenchChoice::A,
         n: "a".repeat(40),
-        o: Utc.with_ymd_and_hms(2018, 6, 13, 11, 1, 59).unwrap(),
-        p: FixedOffset::east_opt(5 * 3600)
-            .unwrap()
-            .with_ymd_and_hms(2018, 6, 13, 11, 1, 58)
-            .unwrap(),
+        o: UtcTime::new(Date::new(2018, 6, 13).unwrap(), 11, 1, 59).unwrap(),
+        p: GeneralizedTime::new(Date::new(2018, 6, 13).unwrap(), 11, 1, 58, 0, 5 * 60).unwrap(),
         q: u8::MAX / 2,
         r: u16::MAX / 2,
         s: u32::MAX / 2,

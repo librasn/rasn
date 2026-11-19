@@ -1,6 +1,6 @@
 //! Version 2 (RFC 2578)
 
-use alloc::string::ToString;
+use alloc::format;
 
 use rasn::macros::*;
 use rasn::prelude::*;
@@ -38,9 +38,6 @@ pub const SNMP_DOMAINS: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNM
 pub const SNMP_PROXIES: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_PROXIES;
 pub const SNMP_MODULES: &Oid = Oid::ISO_IDENTIFIED_ORGANISATION_DOD_INTERNET_SNMP_V2_MODULES;
 
-const FULL_DATE_FORMAT: &str = "%Y%m%d%H%MZ";
-const SHORT_DATE_FORMAT: &str = "%y%m%d%H%MZ";
-
 #[derive(AsnType, Debug, Clone, Decode, Encode, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[rasn(choice)]
 pub enum ObjectSyntax {
@@ -66,9 +63,10 @@ pub enum ApplicationSyntax {
     Unsigned(Unsigned32),
 }
 
+/// `ExtUTCTime` (RFC 2578 §2), a time to the minute in UTC.
 #[derive(AsnType, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[rasn(tag(universal, 4))]
-pub struct ExtUtcTime(pub chrono::DateTime<chrono::Utc>);
+pub struct ExtUtcTime(pub UtcTime);
 
 impl Encode for ExtUtcTime {
     fn encode_with_tag_and_constraints<'encoder, EN: Encoder<'encoder>>(
@@ -79,13 +77,22 @@ impl Encode for ExtUtcTime {
         identifier: Identifier,
     ) -> Result<(), EN::Error> {
         const CONSTRAINT_1: constraints::Constraints = constraints!(value_constraint!(13));
+        let date = self.0.date();
+        let year = date.year();
+        let year = if (0..=9999).contains(&year) {
+            format!("{year:04}")
+        } else {
+            format!("{year:+05}")
+        };
+        let text = format!(
+            "{year}{:02}{:02}{:02}{:02}Z",
+            date.month(),
+            date.day(),
+            self.0.hour(),
+            self.0.minute()
+        );
         encoder
-            .encode_octet_string(
-                tag,
-                &CONSTRAINT_1,
-                self.0.format(FULL_DATE_FORMAT).to_string().as_bytes(),
-                identifier,
-            )
+            .encode_octet_string(tag, &CONSTRAINT_1, text.as_bytes(), identifier)
             .map(drop)
     }
 }
@@ -97,29 +104,33 @@ impl Decode for ExtUtcTime {
         _: &Constraints,
     ) -> Result<Self, D::Error> {
         let bytes = OctetString::decode_with_tag(decoder, tag)?;
-        let len = bytes.len();
-        let error = || {
-            Err(rasn::de::Error::custom(
-                "Invalid `ExtUtcTime` encoding",
-                decoder.codec(),
-            ))
-        };
-
-        // YYMMDDHHMMZ || YYYYMMDDHHMMZ
-        if len != 11 || len != 13 {
-            return (error)();
-        }
-
-        let string = Utf8String::from_utf8_lossy(&bytes);
-
-        if let Ok(time) = chrono::DateTime::parse_from_str(&string, FULL_DATE_FORMAT) {
-            Ok(Self(time.into()))
-        } else if let Ok(time) = chrono::DateTime::parse_from_str(&string, SHORT_DATE_FORMAT) {
-            Ok(Self(time.into()))
-        } else {
-            (error)()
-        }
+        parse_ext_utc_time(&bytes).map(Self).ok_or_else(|| {
+            rasn::de::Error::custom("Invalid `ExtUtcTime` encoding", decoder.codec())
+        })
     }
+}
+
+/// Parses `YYMMDDHHMMZ`, where `YY` is a year from 1900 to 1999, or
+/// `YYYYMMDDHHMMZ`.
+fn parse_ext_utc_time(bytes: &[u8]) -> Option<UtcTime> {
+    fn number(digits: &[u8]) -> Option<u16> {
+        digits.iter().try_fold(0, |value, &digit| {
+            digit
+                .is_ascii_digit()
+                .then(|| value * 10 + u16::from(digit - b'0'))
+        })
+    }
+    let (year, rest) = match bytes.len() {
+        11 => (1900 + number(&bytes[..2])?, &bytes[2..]),
+        13 => (number(&bytes[..4])?, &bytes[4..]),
+        _ => return None,
+    };
+    let [month, day, hour, minute] = [0, 2, 4, 6].map(|at| number(&rest[at..at + 2]));
+    if rest[8] != b'Z' {
+        return None;
+    }
+    let date = Date::new(year.into(), month? as u8, day? as u8)?;
+    UtcTime::new(date, hour? as u8, minute? as u8, 0)
 }
 
 macro_rules! try_from_impls_v2 {
@@ -207,4 +218,26 @@ try_from_impls_v2! {
     impl Opaque => ObjectSyntax::ApplicationWide(ApplicationSyntax::Arbitrary(value)) => value;
     impl IpAddress => ObjectSyntax::ApplicationWide(ApplicationSyntax::Address(value)) => value;
     impl crate::v1::NetworkAddress => ObjectSyntax::ApplicationWide(ApplicationSyntax::Address(value)) => crate::v1::NetworkAddress::Internet(value);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ext_utc_time() {
+        let time = ExtUtcTime(UtcTime::new(Date::new(2024, 4, 4).unwrap(), 13, 5, 0).unwrap());
+        let encoded = rasn::ber::encode(&time).unwrap();
+        assert_eq!(&encoded[2..], b"202404041305Z");
+        assert_eq!(rasn::ber::decode::<ExtUtcTime>(&encoded).unwrap(), time);
+
+        let short = rasn::ber::encode(&OctetString::from_static(b"9912312359Z")).unwrap();
+        let expected = UtcTime::new(Date::new(1999, 12, 31).unwrap(), 23, 59, 0).unwrap();
+        assert_eq!(rasn::ber::decode::<ExtUtcTime>(&short).unwrap().0, expected);
+
+        for invalid in [&b"202404041305"[..], b"20240404130Z", b"202402301305Z"] {
+            let encoded = rasn::ber::encode(&OctetString::from_slice(invalid)).unwrap();
+            assert!(rasn::ber::decode::<ExtUtcTime>(&encoded).is_err());
+        }
+    }
 }

@@ -3,7 +3,6 @@
 //! > When there are no revoked certificates, the revoked certificates list
 //! > MUST be absent.
 
-use chrono::{TimeZone as _, Utc};
 use rasn::prelude::*;
 use rasn_pkix::{
     AlgorithmIdentifier, CertificateSerialNumber, Extensions, Name, RevokedCertificate,
@@ -46,10 +45,8 @@ fn tbs_cert_list(revoked: Vec<RevokedCertificate>) -> TbsCertList {
             parameters: None,
         },
         issuer: Name::RdnSequence(vec![]),
-        this_update: Time::Utc(Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap()),
-        next_update: Some(Time::Utc(
-            Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap(),
-        )),
+        this_update: Time::Utc(utc(2026, 1, 1, 0, 0, 0)),
+        next_update: Some(Time::Utc(utc(2026, 4, 1, 0, 0, 0))),
         revoked_certificates: revoked,
         crl_extensions: None,
     }
@@ -63,10 +60,8 @@ fn tbs_cert_list_no_revoked() -> TbsCertListNoRevoked {
             parameters: None,
         },
         issuer: Name::RdnSequence(vec![]),
-        this_update: Time::Utc(Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap()),
-        next_update: Some(Time::Utc(
-            Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap(),
-        )),
+        this_update: Time::Utc(utc(2026, 1, 1, 0, 0, 0)),
+        next_update: Some(Time::Utc(utc(2026, 4, 1, 0, 0, 0))),
         crl_extensions: None,
     }
 }
@@ -79,10 +74,8 @@ fn tbs_cert_list_emits_empty() -> TbsCertListEmitsEmpty {
             parameters: None,
         },
         issuer: Name::RdnSequence(vec![]),
-        this_update: Time::Utc(Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0).unwrap()),
-        next_update: Some(Time::Utc(
-            Utc.with_ymd_and_hms(2026, 4, 1, 0, 0, 0).unwrap(),
-        )),
+        this_update: Time::Utc(utc(2026, 1, 1, 0, 0, 0)),
+        next_update: Some(Time::Utc(utc(2026, 4, 1, 0, 0, 0))),
         revoked_certificates: vec![],
         crl_extensions: None,
     }
@@ -101,12 +94,12 @@ fn populated_revoked_certificates_roundtrips() {
     let revoked = vec![
         RevokedCertificate {
             user_certificate: CertificateSerialNumber::from(0x1234u32),
-            revocation_date: Time::Utc(Utc.with_ymd_and_hms(2026, 1, 2, 3, 4, 5).unwrap()),
+            revocation_date: Time::Utc(utc(2026, 1, 2, 3, 4, 5)),
             crl_entry_extensions: None,
         },
         RevokedCertificate {
             user_certificate: CertificateSerialNumber::from(0x5678u32),
-            revocation_date: Time::Utc(Utc.with_ymd_and_hms(2026, 2, 3, 4, 5, 6).unwrap()),
+            revocation_date: Time::Utc(utc(2026, 2, 3, 4, 5, 6)),
             crl_entry_extensions: None,
         },
     ];
@@ -143,4 +136,9 @@ fn nonconformant_still_accepted() {
     // On re-encode, sequence is omitted.
     let encoded = rasn::der::encode(&decoded).unwrap();
     assert_eq!(encoded, conformant_wire);
+}
+
+fn utc(year: i32, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> rasn::types::UtcTime {
+    let date = rasn::types::Date::new(year, month, day).unwrap();
+    rasn::types::UtcTime::new(date, hour, minute, second).unwrap()
 }

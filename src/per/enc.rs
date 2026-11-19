@@ -556,7 +556,7 @@ impl<const RCL: usize, const ECL: usize> Encoder<RCL, ECL> {
         if length <= 127 {
             buffer.extend_from_bytes(&[length as u8]);
             (encode_fn)(buffer, min..min + length)?;
-        } else if length < SIXTEEN_K.into() {
+        } else if length < usize::from(SIXTEEN_K) {
             const SIXTEENTH_BIT: u16 = 0x8000;
             buffer.extend_from_bytes(&(SIXTEENTH_BIT | length as u16).to_be_bytes());
             (encode_fn)(buffer, min..min + length)?;

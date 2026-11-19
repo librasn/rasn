@@ -22,7 +22,7 @@ There are quite a few existing ASN.1 related Rust crates already, however they a
 Rasn is entirely `#[no_std]`, so you can share the same ASN.1 implementation on any Rust target platform that can support `alloc`.
 
 ### Rich Data Types
-Rasn currently has support for nearly all of ASN.1's data types. `rasn` uses popular community libraries such as `bitvec`, `bytes`, and `chrono` for some of its data types as well as providing a couple of its own. Check out the [`types`][mod:types] module for what's currently available.
+Rasn currently has support for nearly all of ASN.1's data types. `rasn` uses popular community libraries such as `bitvec` and `bytes` for some of its data types as well as providing a couple of its own. Check out the [`types`][mod:types] module for what's currently available.
 
 [mod:types]: https://docs.rs/rasn/latest/rasn/types/index.html
 

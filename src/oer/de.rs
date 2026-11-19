@@ -402,7 +402,7 @@ impl<'input, const RFC: usize, const EFC: usize> Decoder<'input, RFC, EFC> {
         }
         let extensions_length = self.decode_length()?;
         // If length is 0, then there is only initial octet
-        if extensions_length < 1u8.into() {
+        if extensions_length < 1 {
             return Err(OerDecodeErrorKind::invalid_extension_header(
                 "Extension length should be at least 1 byte".to_string(),
             ));

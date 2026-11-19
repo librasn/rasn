@@ -76,7 +76,6 @@ mod tests {
     use alloc::vec;
     use alloc::vec::Vec;
     use bitvec::order::Msb0;
-    use chrono::{DateTime, FixedOffset, NaiveDate, Utc};
 
     use crate::{
         ber::{decode, encode},
@@ -302,19 +301,30 @@ mod tests {
             }
         }
     }
+    fn generalized_time(
+        (year, month, day): (i32, u8, u8),
+        (hour, minute, second): (u8, u8, u8),
+        nanosecond: u32,
+        offset: i16,
+    ) -> GeneralizedTime {
+        let date = Date::new(year, month, day).unwrap();
+        GeneralizedTime::new(date, hour, minute, second, nanosecond, offset).unwrap()
+    }
+
+    fn utc_time(
+        (year, month, day): (i32, u8, u8),
+        (hour, minute, second): (u8, u8, u8),
+    ) -> UtcTime {
+        UtcTime::new(Date::new(year, month, day).unwrap(), hour, minute, second).unwrap()
+    }
+
     #[test]
     fn test_generalized_time() {
         // "20801009130005.342Z"
-        let offset = chrono::FixedOffset::east_opt(0).unwrap();
-        let dt = NaiveDate::from_ymd_opt(2080, 10, 9)
-            .unwrap()
-            .and_hms_micro_opt(13, 0, 5, 342_000)
-            .unwrap()
-            .and_local_timezone(offset);
         round_trip!(
             ber,
             GeneralizedTime,
-            GeneralizedTime::from(dt.unwrap(),),
+            generalized_time((2080, 10, 9), (13, 0, 5), 342_000_000, 0),
             &[
                 0x18, 0x13, 0x32, 0x30, 0x38, 0x30, 0x31, 0x30, 0x30, 0x39, 0x31, 0x33, 0x30, 0x30,
                 0x30, 0x35, 0x2e, 0x33, 0x34, 0x32, 0x5a
@@ -332,13 +342,7 @@ mod tests {
         round_trip!(
             ber,
             GeneralizedTime,
-            GeneralizedTime::from(
-                NaiveDate::from_ymd_opt(2018, 1, 22)
-                    .unwrap()
-                    .and_hms_opt(13, 29, 0)
-                    .unwrap()
-                    .and_utc()
-            ),
+            generalized_time((2018, 1, 22), (13, 29, 0), 0, 0),
             &[
                 0x18, 0x0f, 0x32, 0x30, 0x31, 0x38, 0x30, 0x31, 0x32, 0x32, 0x31, 0x33, 0x32, 0x39,
                 0x30, 0x30, 0x5a
@@ -348,13 +352,7 @@ mod tests {
         round_trip!(
             ber,
             GeneralizedTime,
-            GeneralizedTime::from(
-                NaiveDate::from_ymd_opt(2018, 1, 22)
-                    .unwrap()
-                    .and_hms_opt(13, 0, 0)
-                    .unwrap()
-                    .and_utc()
-            ),
+            generalized_time((2018, 1, 22), (13, 0, 0), 0, 0),
             &[
                 0x18, 0x0f, 0x32, 0x30, 0x31, 0x38, 0x30, 0x31, 0x32, 0x32, 0x31, 0x33, 0x30, 0x30,
                 0x30, 0x30, 0x5a
@@ -362,15 +360,7 @@ mod tests {
         );
 
         // "20230122130000-0500" - converts to canonical form "20230122180000Z"
-        let offset = FixedOffset::east_opt(-3600 * 5).unwrap();
-        let dt1: DateTime<FixedOffset> = GeneralizedTime::from(DateTime::<Utc>::from(
-            NaiveDate::from_ymd_opt(2023, 1, 22)
-                .unwrap()
-                .and_hms_opt(13, 0, 0)
-                .unwrap()
-                .and_local_timezone(offset)
-                .unwrap(),
-        ));
+        let dt1 = generalized_time((2023, 1, 22), (13, 0, 0), 0, -5 * 60);
         round_trip!(
             ber,
             GeneralizedTime,
@@ -410,31 +400,18 @@ mod tests {
         round_trip!(
             ber,
             UtcTime,
-            UtcTime::from(
-                NaiveDate::from_ymd_opt(2018, 1, 22)
-                    .unwrap()
-                    .and_hms_opt(13, 29, 0)
-                    .unwrap()
-                    .and_utc()
-            ),
+            utc_time((2018, 1, 22), (13, 29, 0)),
             &[
                 0x17, 0x0d, 0x31, 0x38, 0x30, 0x31, 0x32, 0x32, 0x31, 0x33, 0x32, 0x39, 0x30, 0x30,
                 0x5a
             ]
         );
         // "230122130000-0500" - converts to canonical form "230122180000Z"
-        let offset = FixedOffset::east_opt(-3600 * 5).unwrap();
-        let dt1 = DateTime::<FixedOffset>::from_naive_utc_and_offset(
-            NaiveDate::from_ymd_opt(2023, 1, 22)
-                .unwrap()
-                .and_hms_opt(18, 0, 0)
-                .unwrap(),
-            offset,
-        );
+        let dt1 = utc_time((2023, 1, 22), (18, 0, 0));
         round_trip!(
             ber,
             UtcTime,
-            dt1.into(),
+            dt1,
             &[
                 0x17, 0x0d, 0x32, 0x33, 0x30, 0x31, 0x32, 0x32, 0x31, 0x38, 0x30, 0x30, 0x30, 0x30,
                 0x5a
@@ -454,7 +431,7 @@ mod tests {
         round_trip!(
             ber,
             Date,
-            NaiveDate::from_ymd_opt(2012, 12, 21).unwrap(),
+            Date::new(2012, 12, 21).unwrap(),
             &[
                 0x1f, 0x1f, 0x08, 0x32, 0x30, 0x31, 0x32, 0x31, 0x32, 0x32, 0x31
             ]
