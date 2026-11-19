@@ -88,9 +88,7 @@ impl<const N: usize> Fields<N> {
                 let tag_i = self.fields[i].tag_tree.smallest_tag();
                 let tag_j = self.fields[j].tag_tree.smallest_tag();
                 if tag_i.const_cmp(&tag_j) as usize == core::cmp::Ordering::Greater as usize {
-                    let temp = self.fields[i];
-                    self.fields[i] = self.fields[j];
-                    self.fields[j] = temp;
+                    self.fields.swap(i, j);
                 }
                 j += 1;
             }
