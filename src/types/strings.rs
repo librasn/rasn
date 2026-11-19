@@ -59,6 +59,13 @@ macro_rules! impl_restricted_core_traits {
         }
     }
 
+    impl core::str::FromStr for $target {
+        type Err = PermittedAlphabetError;
+        fn from_str(value: &str) -> Result<Self, Self::Err> {
+            Self::try_from(value)
+        }
+    }
+
     impl TryFrom<alloc::vec::Vec<u8>> for $target {
         type Error = PermittedAlphabetError;
         fn try_from(value: alloc::vec::Vec<u8>) -> Result<Self, Self::Error> {

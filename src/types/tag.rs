@@ -322,13 +322,7 @@ impl TagTree {
                 false
             }
 
-            TagTree::Leaf(tag) => {
-                if Self::tag_contains(tag, nodes) {
-                    return true;
-                }
-
-                false
-            }
+            TagTree::Leaf(tag) => Self::tag_contains(tag, nodes),
         }
     }
 
